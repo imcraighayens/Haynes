@@ -10,7 +10,7 @@ import { loadSettings, saveSettings } from '../lib/settings'
 
 export function Settings() {
   const { user, updateProfile } = useAuth()
-  const { data, clearSampleData, reset } = useData()
+  const { data, clearSampleData, reset, remote } = useData()
   const toast = useToast()
 
   const [name, setName] = useState(user?.name ?? '')
@@ -173,7 +173,17 @@ export function Settings() {
 
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <Database size={14} />
-            Data is stored locally in your browser. Connect Supabase for shared, persistent storage.
+            {remote ? (
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Connected to Supabase — changes persist to the database.
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Local mode — data is stored in your browser. Set Supabase env vars for shared storage.
+              </span>
+            )}
           </div>
         </div>
       </Card>

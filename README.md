@@ -62,18 +62,34 @@ npm run build
 npm run preview
 ```
 
-## 🔌 Connecting a real backend (optional)
+## 🔌 Connecting the database (Supabase)
 
-The app works fully offline out of the box. To use live data:
+The app works fully offline out of the box (seeded data in `localStorage`).
+To switch to a shared, persistent database:
 
-1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql)
-   in the SQL editor.
-2. Copy `.env.example` to `.env` and fill in:
+1. Create a free [Supabase](https://supabase.com) project.
+2. Open the **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
+   This is idempotent and:
+   - creates the `clients`, `loans`, `ledger`, `logs`, `team` tables + indexes,
+   - enables Row Level Security with demo read/write policies,
+   - **seeds the 5 real clients and 6 active loans** so the dashboard loads
+     populated immediately.
+3. In **Project Settings → API**, copy the Project URL and the `anon` public key.
+4. Copy `.env.example` to `.env` and fill in:
    ```
    VITE_SUPABASE_URL=https://xxxx.supabase.co
    VITE_SUPABASE_ANON_KEY=your-anon-key
    ```
-3. Restart the dev server. The dashboard will hydrate from Supabase.
+5. Restart the dev server. The dashboard hydrates from Supabase, and **every
+   capture flows to the database**: adding a client, issuing a loan, recording a
+   repayment, logging petty cash, deleting a loan, and clearing sample data all
+   write through (`src/data/repo.ts`). Settings → Data management shows a green
+   "Connected to Supabase" indicator when live.
+
+> **Security note:** the bundled policies grant the anon key full read/write so
+> the prototype works instantly. For production, swap them for the auth-gated
+> policies in the commented `PRODUCTION` block at the bottom of the SQL file and
+> use Supabase Auth.
 
 ## 🗂 Project structure
 
@@ -84,10 +100,10 @@ src/
     ui/          Button, Card, Modal, Badge, StatCard
     loans/       LoanTable (search, tabs, row actions)
     modals/      New Loan, Add Client, Log Petty Cash
-  context/       Theme + Data (state, CRUD, persistence)
-  data/          types, seed sample data, store (local + remote)
-  lib/           formatting, metrics/derived analytics, supabase client
-  pages/         Dashboard, Loans, Clients, Roles, Logbook, Ledger, PettyCash
+  context/       Theme, Auth, Toast + Data (state, CRUD, persistence)
+  data/          types, seed sample data, store (local + remote), repo (DB writes)
+  lib/           formatting, metrics, settings, csv, supabase client
+  pages/         Dashboard, Loans, Clients, Roles, Logbook, Ledger, PettyCash, Settings, Login
 ```
 
 All amounts are in South African Rand (ZAR). The default interest rate is 35%.

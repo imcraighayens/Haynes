@@ -20,7 +20,9 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
   const amt = parseFloat(amount) || 0
   const ratePct = parseFloat(rate) || 0
   const returnAmount = useMemo(() => amt * (1 + ratePct / 100), [amt, ratePct])
-  const valid = clientId && amt > 0 && ratePct >= 0 && issuedDate && dueDate
+  const datesOk = Boolean(issuedDate && dueDate && dueDate >= issuedDate)
+  const valid = Boolean(clientId && amt > 0 && ratePct >= 0 && datesOk)
+  const noClients = data.clients.length === 0
 
   function submit() {
     if (!valid) return
@@ -52,8 +54,18 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
       }
     >
       <div className="space-y-4">
+        {noClients && (
+          <div className="rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm px-3 py-2 border border-amber-500/20">
+            No clients yet — add a client first before issuing a loan.
+          </div>
+        )}
         <Field label="Client">
-          <select className={inputClass} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+          <select
+            className={inputClass}
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            disabled={noClients}
+          >
             <option value="">Select a client…</option>
             {data.clients.map((c) => (
               <option key={c.id} value={c.id}>
@@ -92,7 +104,7 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
               onChange={(e) => setIssuedDate(e.target.value)}
             />
           </Field>
-          <Field label="Due date">
+          <Field label="Due date" hint={!datesOk && issuedDate && dueDate ? 'Due date must be on or after the issued date' : undefined}>
             <input className={inputClass} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
         </div>

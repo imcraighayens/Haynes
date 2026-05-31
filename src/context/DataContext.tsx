@@ -1,6 +1,16 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Client, DashboardData, LedgerEntry, Loan, LogEntry } from '../data/types'
 import { loadLocal, saveLocal, resetLocal, loadRemote, usingRemote } from '../data/store'
+import {
+  insertClient,
+  insertLoan,
+  updateLoan,
+  deleteLoanRow,
+  insertLedger,
+  insertLog,
+  deleteClientRows,
+  deleteLoanRows,
+} from '../data/repo'
 import { useToast } from './ToastContext'
 
 interface NewLoanInput {
@@ -88,6 +98,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /** Run remote writes; on failure surface a toast (local state is already updated). */
+  function syncRemote(work: () => Promise<void>, label: string) {
+    if (!usingRemote) return
+    work().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast(`${label} did not sync to the database: ${msg}`, 'error')
+    })
+  }
+
   const addClient: DataCtx['addClient'] = (input) => {
     const client: Client = {
       id: uid('c'),
@@ -98,12 +117,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       address: input.address,
       createdAt: new Date().toISOString().slice(0, 10),
     }
+    const log = pushLog('Client added', `Added new client ${client.name}`)
     setData((d) => ({
       ...d,
       clients: [client, ...d.clients],
-      logs: [pushLog('Client added', `Added new client ${client.name}`), ...d.logs],
+      logs: [log, ...d.logs],
     }))
     toast(`${client.name} added as a client`)
+    syncRemote(async () => {
+      await insertClient(client)
+      await insertLog(log)
+    }, 'New client')
     return client
   }
 
@@ -129,52 +153,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
       amount: -loan.amount,
       reference: loan.id.toUpperCase(),
     }
+    const log = pushLog('Loan issued', `Issued R${loan.amount.toLocaleString()} to ${loan.clientName}`)
     setData((d) => ({
       ...d,
       loans: recomputeLoanStatuses([loan, ...d.loans]),
       ledger: [ledgerEntry, ...d.ledger],
-      logs: [pushLog('Loan issued', `Issued R${loan.amount.toLocaleString()} to ${loan.clientName}`), ...d.logs],
+      logs: [log, ...d.logs],
     }))
     toast(`Loan of R${loan.amount.toLocaleString()} issued to ${loan.clientName}`)
+    syncRemote(async () => {
+      await insertLoan(loan)
+      await insertLedger(ledgerEntry)
+      await insertLog(log)
+    }, 'New loan')
     return loan
   }
 
   const markLoanPaid: DataCtx['markLoanPaid'] = (loanId) => {
     const target = data.loans.find((l) => l.id === loanId)
-    if (target && target.status !== 'paid') {
-      toast(`${target.clientName}'s loan marked as paid · R${target.returnAmount.toLocaleString()} collected`)
+    if (!target || target.status === 'paid') return
+    const paidDate = new Date().toISOString().slice(0, 10)
+    const ledgerEntry: LedgerEntry = {
+      id: uid('led'),
+      date: paidDate,
+      type: 'repayment',
+      description: `Repayment received — ${target.clientName}`,
+      amount: target.returnAmount,
+      reference: target.id.toUpperCase(),
     }
-    setData((d) => {
-      const loan = d.loans.find((l) => l.id === loanId)
-      if (!loan || loan.status === 'paid') return d
-      const paidDate = new Date().toISOString().slice(0, 10)
-      const ledgerEntry: LedgerEntry = {
-        id: uid('led'),
-        date: paidDate,
-        type: 'repayment',
-        description: `Repayment received — ${loan.clientName}`,
-        amount: loan.returnAmount,
-        reference: loan.id.toUpperCase(),
-      }
-      return {
-        ...d,
-        loans: d.loans.map((l) => (l.id === loanId ? { ...l, status: 'paid', paidDate } : l)),
-        ledger: [ledgerEntry, ...d.ledger],
-        logs: [pushLog('Repayment', `${loan.clientName} repaid R${loan.returnAmount.toLocaleString()}`), ...d.logs],
-      }
-    })
+    const log = pushLog('Repayment', `${target.clientName} repaid R${target.returnAmount.toLocaleString()}`)
+    toast(`${target.clientName}'s loan marked as paid · R${target.returnAmount.toLocaleString()} collected`)
+    setData((d) => ({
+      ...d,
+      loans: d.loans.map((l) => (l.id === loanId ? { ...l, status: 'paid', paidDate } : l)),
+      ledger: [ledgerEntry, ...d.ledger],
+      logs: [log, ...d.logs],
+    }))
+    syncRemote(async () => {
+      await updateLoan(loanId, { status: 'paid', paidDate })
+      await insertLedger(ledgerEntry)
+      await insertLog(log)
+    }, 'Repayment')
   }
 
   const deleteLoan: DataCtx['deleteLoan'] = (loanId) => {
-    setData((d) => {
-      const loan = d.loans.find((l) => l.id === loanId)
-      return {
-        ...d,
-        loans: d.loans.filter((l) => l.id !== loanId),
-        logs: loan ? [pushLog('Loan deleted', `Removed loan for ${loan.clientName}`), ...d.logs] : d.logs,
-      }
-    })
+    const loan = data.loans.find((l) => l.id === loanId)
+    const log = loan ? pushLog('Loan deleted', `Removed loan for ${loan.clientName}`) : null
+    setData((d) => ({
+      ...d,
+      loans: d.loans.filter((l) => l.id !== loanId),
+      logs: log ? [log, ...d.logs] : d.logs,
+    }))
     toast('Loan deleted', 'info')
+    syncRemote(async () => {
+      await deleteLoanRow(loanId)
+      if (log) await insertLog(log)
+    }, 'Loan deletion')
   }
 
   const logPettyCash: DataCtx['logPettyCash'] = (input) => {
@@ -186,12 +220,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
       amount: -Math.abs(input.amount),
       reference: uid('PC').toUpperCase(),
     }
+    const log = pushLog('Petty cash', `Logged R${Math.abs(input.amount).toLocaleString()} — ${input.description}`)
     setData((d) => ({
       ...d,
       ledger: [entry, ...d.ledger],
-      logs: [pushLog('Petty cash', `Logged R${Math.abs(input.amount).toLocaleString()} — ${input.description}`), ...d.logs],
+      logs: [log, ...d.logs],
     }))
     toast(`Petty cash logged · R${Math.abs(input.amount).toLocaleString()}`)
+    syncRemote(async () => {
+      await insertLedger(entry)
+      await insertLog(log)
+    }, 'Petty cash')
   }
 
   const reset: DataCtx['reset'] = () => {
@@ -201,31 +240,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const clearSampleData: DataCtx['clearSampleData'] = () => {
-    setData((d) => {
-      // Keep only loans that are currently outstanding (issued / due today / overdue) —
-      // these represent real, active money on the street. Drop the paid sample history.
-      const realLoans = recomputeLoanStatuses(d.loans).filter((l) => l.status !== 'paid')
-      const realClientIds = new Set(realLoans.map((l) => l.clientId))
-      const realClients = d.clients.filter((c) => realClientIds.has(c.id))
-      // Keep ledger entries only for surviving loans, plus capital/expense entries.
-      const realRefs = new Set(realLoans.map((l) => l.id.toUpperCase()))
-      const realLedger = d.ledger.filter(
-        (e) =>
-          (e.reference && realRefs.has(e.reference)) ||
-          e.type === 'capital' ||
-          e.type === 'expense' ||
-          e.type === 'petty_cash',
-      )
-      const removed = d.loans.length - realLoans.length
-      return {
-        ...d,
-        loans: realLoans,
-        clients: realClients,
-        ledger: realLedger,
-        logs: [pushLog('Data cleanup', `Removed ${removed} sample loan(s); kept ${realLoans.length} active`), ...d.logs],
-      }
-    })
+    // Keep only loans that are currently outstanding (issued / due today / overdue) —
+    // these represent real, active money on the street. Drop the paid sample history.
+    const realLoans = recomputeLoanStatuses(data.loans).filter((l) => l.status !== 'paid')
+    const realLoanIds = new Set(realLoans.map((l) => l.id))
+    const realClientIds = new Set(realLoans.map((l) => l.clientId))
+    const removedLoanIds = data.loans.filter((l) => !realLoanIds.has(l.id)).map((l) => l.id)
+    const removedClientIds = data.clients.filter((c) => !realClientIds.has(c.id)).map((c) => c.id)
+    // Keep ledger entries only for surviving loans, plus capital/expense/petty-cash entries.
+    const realRefs = new Set(realLoans.map((l) => l.id.toUpperCase()))
+    const realLedger = data.ledger.filter(
+      (e) =>
+        (e.reference && realRefs.has(e.reference)) ||
+        e.type === 'capital' ||
+        e.type === 'expense' ||
+        e.type === 'petty_cash',
+    )
+    const log = pushLog('Data cleanup', `Removed ${removedLoanIds.length} sample loan(s); kept ${realLoans.length} active`)
+    setData((d) => ({
+      ...d,
+      loans: realLoans,
+      clients: d.clients.filter((c) => realClientIds.has(c.id)),
+      ledger: realLedger,
+      logs: [log, ...d.logs],
+    }))
     toast('Sample data cleared — only active loans remain', 'success')
+    syncRemote(async () => {
+      await deleteLoanRows(removedLoanIds)
+      await deleteClientRows(removedClientIds)
+      await insertLog(log)
+    }, 'Data cleanup')
   }
 
   const value = useMemo<DataCtx>(

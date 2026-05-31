@@ -11,11 +11,18 @@ export function AddClientModal({ open, onClose }: { open: boolean; onClose: () =
   const [idNumber, setIdNumber] = useState('')
   const [address, setAddress] = useState('')
 
-  const valid = name.trim() && phone.trim()
+  const emailOk = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const valid = Boolean(name.trim() && phone.trim() && emailOk)
 
   function submit() {
     if (!valid) return
-    addClient({ name: name.trim(), phone: phone.trim(), email, idNumber, address })
+    addClient({
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      idNumber: idNumber.trim() || undefined,
+      address: address.trim() || undefined,
+    })
     setName('')
     setPhone('')
     setEmail('')
@@ -58,7 +65,7 @@ export function AddClientModal({ open, onClose }: { open: boolean; onClose: () =
             <input className={inputClass} value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
           </Field>
         </div>
-        <Field label="Email">
+        <Field label="Email" hint={!emailOk ? 'Enter a valid email address' : undefined}>
           <input
             className={inputClass}
             type="email"
