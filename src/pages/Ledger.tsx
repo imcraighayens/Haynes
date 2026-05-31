@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
-import { ArrowDownLeft, ArrowUpRight, Wallet, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Wallet, TrendingUp, TrendingDown, Download } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useData } from '../context/DataContext'
 import { Card } from '../components/ui/Card'
 import { StatCard } from '../components/ui/StatCard'
+import { Button } from '../components/ui/Button'
 import { money, fmtDate } from '../lib/format'
+import { exportCsv } from '../lib/csv'
 import type { LedgerType } from '../data/types'
 
 const typeLabels: Record<LedgerType, string> = {
@@ -35,9 +37,29 @@ export function Ledger() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Ledger</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Every movement of money through your business.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Ledger</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Every movement of money through your business.</p>
+        </div>
+        <Button
+          variant="outline"
+          icon={<Download size={16} />}
+          onClick={() =>
+            exportCsv(
+              `evolt-ledger-${new Date().toISOString().slice(0, 10)}.csv`,
+              data.ledger.map((e) => ({
+                Date: e.date,
+                Type: e.type,
+                Description: e.description,
+                Reference: e.reference ?? '',
+                Amount: e.amount,
+              })),
+            )
+          }
+        >
+          Export CSV
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

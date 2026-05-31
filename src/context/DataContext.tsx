@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Client, DashboardData, LedgerEntry, Loan, LogEntry } from '../data/types'
 import { loadLocal, saveLocal, resetLocal, loadRemote, usingRemote } from '../data/store'
+import { useToast } from './ToastContext'
 
 interface NewLoanInput {
   clientId: string
@@ -56,6 +57,7 @@ function recomputeLoanStatuses(loans: Loan[]): Loan[] {
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const toast = useToast()
   const [data, setData] = useState<DashboardData>(() => {
     const local = loadLocal()
     return { ...local, loans: recomputeLoanStatuses(local.loans) }
@@ -99,6 +101,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       clients: [client, ...d.clients],
       logs: [pushLog('Client added', `Added new client ${client.name}`), ...d.logs],
     }))
+    toast(`${client.name} added as a client`)
     return client
   }
 
@@ -130,10 +133,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ledger: [ledgerEntry, ...d.ledger],
       logs: [pushLog('Loan issued', `Issued R${loan.amount.toLocaleString()} to ${loan.clientName}`), ...d.logs],
     }))
+    toast(`Loan of R${loan.amount.toLocaleString()} issued to ${loan.clientName}`)
     return loan
   }
 
   const markLoanPaid: DataCtx['markLoanPaid'] = (loanId) => {
+    const target = data.loans.find((l) => l.id === loanId)
+    if (target && target.status !== 'paid') {
+      toast(`${target.clientName}'s loan marked as paid · R${target.returnAmount.toLocaleString()} collected`)
+    }
     setData((d) => {
       const loan = d.loans.find((l) => l.id === loanId)
       if (!loan || loan.status === 'paid') return d
@@ -164,6 +172,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         logs: loan ? [pushLog('Loan deleted', `Removed loan for ${loan.clientName}`), ...d.logs] : d.logs,
       }
     })
+    toast('Loan deleted', 'info')
   }
 
   const logPettyCash: DataCtx['logPettyCash'] = (input) => {
@@ -180,11 +189,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       ledger: [entry, ...d.ledger],
       logs: [pushLog('Petty cash', `Logged R${Math.abs(input.amount).toLocaleString()} — ${input.description}`), ...d.logs],
     }))
+    toast(`Petty cash logged · R${Math.abs(input.amount).toLocaleString()}`)
   }
 
   const reset: DataCtx['reset'] = () => {
     const fresh = resetLocal()
     setData({ ...fresh, loans: recomputeLoanStatuses(fresh.loans) })
+    toast('Demo data reset to sample set', 'info')
   }
 
   const value = useMemo<DataCtx>(
