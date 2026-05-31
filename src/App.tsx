@@ -22,7 +22,15 @@ function PageFallback() {
 }
 
 export default function App() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin" />
+      </div>
+    )
+  }
 
   if (!user) return <Login />
 

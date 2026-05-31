@@ -5,25 +5,23 @@ import { Button } from '../components/ui/Button'
 import { inputClass } from '../components/ui/Modal'
 
 export function Login() {
-  const { login, demoCredentials } = useAuth()
+  const { login, demoCredentials, mode } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    // Simulate a brief auth round-trip.
-    setTimeout(() => {
-      const res = login(email, password)
-      if (!res.ok) {
-        setError(res.error ?? 'Login failed.')
-        setLoading(false)
-      }
-    }, 350)
+    const res = await login(email, password)
+    if (!res.ok) {
+      setError(res.error ?? 'Login failed.')
+      setLoading(false)
+    }
+    // On success the auth listener swaps the view; no need to clear loading.
   }
 
   function fillDemo() {
@@ -130,12 +128,14 @@ export function Login() {
             </Button>
           </form>
 
-          <button
-            onClick={fillDemo}
-            className="mt-6 w-full text-center text-xs text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-300 transition-colors"
-          >
-            Use demo admin credentials →
-          </button>
+          {mode === 'demo' && (
+            <button
+              onClick={fillDemo}
+              className="mt-6 w-full text-center text-xs text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-300 transition-colors"
+            >
+              Use demo admin credentials →
+            </button>
+          )}
         </div>
       </div>
     </div>

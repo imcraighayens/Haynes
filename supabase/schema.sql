@@ -61,12 +61,14 @@ create index if not exists loans_client_idx on loans ("clientId");
 create index if not exists ledger_ref_idx on ledger (reference);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Row Level Security
+-- Row Level Security (PRODUCTION-SAFE)
 --
--- DEMO policies below grant full anonymous read/write so the app works
--- immediately with just the anon key. This is fine for a prototype but
--- INSECURE for production — see the "PRODUCTION" block at the bottom to lock
--- writes behind Supabase Auth instead.
+-- Anyone may READ (the dashboard hydrates with the anon key), but only a
+-- signed-in Supabase Auth user may WRITE. The app uses real email/password
+-- auth, so the user's JWT is attached to every write automatically.
+--
+-- To open writes to the anon key as well (quick prototyping, no login), see the
+-- commented "DEMO" block at the bottom of this file.
 -- ─────────────────────────────────────────────────────────────────────────────
 alter table clients enable row level security;
 alter table loans   enable row level security;
@@ -78,11 +80,11 @@ do $$
 declare t text;
 begin
   foreach t in array array['clients','loans','ledger','logs','team'] loop
-    execute format('drop policy if exists "demo all" on %I', t);
-    execute format(
-      'create policy "demo all" on %I for all to anon, authenticated using (true) with check (true)',
-      t
-    );
+    execute format('drop policy if exists "demo all"  on %I', t);
+    execute format('drop policy if exists "read all"  on %I', t);
+    execute format('drop policy if exists "write auth" on %I', t);
+    execute format('create policy "read all"  on %I for select using (true)', t);
+    execute format('create policy "write auth" on %I for all to authenticated using (true) with check (true)', t);
   end loop;
 end $$;
 
@@ -129,16 +131,34 @@ insert into team (id, name, email, role, active) values
 on conflict (id) do nothing;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- PRODUCTION (optional): replace the "demo all" policies above with these to
--- require a signed-in Supabase Auth user for any write, while keeping reads open.
+-- DEMO (optional): run this to ALSO allow the anon key to write, so the app
+-- works without anyone logging in. INSECURE — only for throwaway prototypes.
 --
 --   do $$
 --   declare t text;
 --   begin
 --     foreach t in array array['clients','loans','ledger','logs','team'] loop
---       execute format('drop policy if exists "demo all" on %I', t);
---       execute format('create policy "read all"  on %I for select using (true)', t);
---       execute format('create policy "write auth" on %I for all to authenticated using (true) with check (true)', t);
+--       execute format('drop policy if exists "write auth" on %I', t);
+--       execute format('create policy "demo all" on %I for all to anon, authenticated using (true) with check (true)', t);
 --     end loop;
 --   end $$;
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Creating the first admin login
+--
+-- Supabase Auth users are separate from the `team` table above. To create your
+-- admin account, either:
+--   1. Supabase Dashboard → Authentication → Users → "Add user" (set email +
+--      password, mark email confirmed), OR
+--   2. enable email signups and sign up once, then disable open signups.
+--
+-- The app derives a user's display name and role by matching their login email
+-- against the `team` table. Add a matching row so the role is correct, e.g.:
+--
+--   insert into team (id, name, email, role, active)
+--   values ('admin-1', 'Your Name', 'you@example.com', 'admin', true)
+--   on conflict (id) do nothing;
+--
+-- If no team row matches, the app defaults the user to the 'admin' role.
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -32,16 +32,21 @@ dashboard, rebuilt as a fast, responsive React web app.
 
 ## 🔐 Logging in
 
-The app opens on a login screen. Use the demo admin credentials (or click
-**"Use demo admin credentials"** to auto-fill):
+Auth has two modes, chosen automatically by whether Supabase env vars are set:
 
-```
-Email:    ecoakcess@mail.com
-Password: admin123
-```
+- **Production (Supabase configured):** real email/password sign-in via Supabase
+  Auth. Create users in the Supabase dashboard. The app resolves each user's
+  display name and role from the `team` table by email. See
+  [`DEPLOY.md`](DEPLOY.md).
+- **Demo (no env vars):** offline login persisted in `localStorage`. Click
+  **"Use demo admin credentials"** to auto-fill:
 
-Sessions persist in `localStorage`; **LogOut** clears them. Swap `AuthContext`
-for Supabase Auth in production.
+  ```
+  Email:    ecoakcess@mail.com
+  Password: admin123
+  ```
+
+**LogOut** ends the session in both modes.
 
 ## ⚙️ Admin settings
 
