@@ -34,6 +34,8 @@ interface DataCtx {
   deleteLoan: (loanId: string) => void
   logPettyCash: (input: PettyCashInput) => void
   reset: () => void
+  /** Remove all sample/paid history, keeping only real issued loans and their clients. */
+  clearSampleData: () => void
 }
 
 const Ctx = createContext<DataCtx | null>(null)
@@ -198,8 +200,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     toast('Demo data reset to sample set', 'info')
   }
 
+  const clearSampleData: DataCtx['clearSampleData'] = () => {
+    setData((d) => {
+      // Keep only loans that are currently outstanding (issued / due today / overdue) —
+      // these represent real, active money on the street. Drop the paid sample history.
+      const realLoans = recomputeLoanStatuses(d.loans).filter((l) => l.status !== 'paid')
+      const realClientIds = new Set(realLoans.map((l) => l.clientId))
+      const realClients = d.clients.filter((c) => realClientIds.has(c.id))
+      // Keep ledger entries only for surviving loans, plus capital/expense entries.
+      const realRefs = new Set(realLoans.map((l) => l.id.toUpperCase()))
+      const realLedger = d.ledger.filter(
+        (e) =>
+          (e.reference && realRefs.has(e.reference)) ||
+          e.type === 'capital' ||
+          e.type === 'expense' ||
+          e.type === 'petty_cash',
+      )
+      const removed = d.loans.length - realLoans.length
+      return {
+        ...d,
+        loans: realLoans,
+        clients: realClients,
+        ledger: realLedger,
+        logs: [pushLog('Data cleanup', `Removed ${removed} sample loan(s); kept ${realLoans.length} active`), ...d.logs],
+      }
+    })
+    toast('Sample data cleared — only active loans remain', 'success')
+  }
+
   const value = useMemo<DataCtx>(
-    () => ({ data, remote: usingRemote, addClient, addLoan, markLoanPaid, deleteLoan, logPettyCash, reset }),
+    () => ({ data, remote: usingRemote, addClient, addLoan, markLoanPaid, deleteLoan, logPettyCash, reset, clearSampleData }),
     [data],
   )
 

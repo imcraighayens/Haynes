@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   '/logbook': 'Activity Logbook',
   '/ledger': 'Ledger',
   '/petty-cash': 'Petty Cash Loan',
+  '/settings': 'Settings',
 }
 
 export function Layout({ children }: { children: ReactNode }) {

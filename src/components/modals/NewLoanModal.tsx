@@ -3,12 +3,13 @@ import { Modal, Field, inputClass } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { useData } from '../../context/DataContext'
 import { money } from '../../lib/format'
+import { loadSettings } from '../../lib/settings'
 
 export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data, addLoan } = useData()
   const [clientId, setClientId] = useState('')
   const [amount, setAmount] = useState('')
-  const [rate, setRate] = useState('35')
+  const [rate, setRate] = useState(() => String(loadSettings().defaultInterestRate))
   const [issuedDate, setIssuedDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date()
@@ -30,7 +31,7 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
   function reset() {
     setClientId('')
     setAmount('')
-    setRate('35')
+    setRate(String(loadSettings().defaultInterestRate))
   }
 
   return (

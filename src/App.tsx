@@ -2,6 +2,8 @@ import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Layout } from './components/layout/Layout'
 import { Dashboard } from './pages/Dashboard'
+import { Login } from './pages/Login'
+import { useAuth } from './context/AuthContext'
 
 const Loans = lazy(() => import('./pages/Loans').then((m) => ({ default: m.Loans })))
 const Clients = lazy(() => import('./pages/Clients').then((m) => ({ default: m.Clients })))
@@ -9,6 +11,7 @@ const Roles = lazy(() => import('./pages/Roles').then((m) => ({ default: m.Roles
 const Logbook = lazy(() => import('./pages/Logbook').then((m) => ({ default: m.Logbook })))
 const Ledger = lazy(() => import('./pages/Ledger').then((m) => ({ default: m.Ledger })))
 const PettyCash = lazy(() => import('./pages/PettyCash').then((m) => ({ default: m.PettyCash })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
 
 function PageFallback() {
   return (
@@ -19,6 +22,10 @@ function PageFallback() {
 }
 
 export default function App() {
+  const { user } = useAuth()
+
+  if (!user) return <Login />
+
   return (
     <Layout>
       <Suspense fallback={<PageFallback />}>
@@ -30,6 +37,7 @@ export default function App() {
           <Route path="/logbook" element={<Logbook />} />
           <Route path="/ledger" element={<Ledger />} />
           <Route path="/petty-cash" element={<PettyCash />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </Suspense>

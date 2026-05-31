@@ -25,6 +25,29 @@ dashboard, rebuilt as a fast, responsive React web app.
   offline by default (seeded sample data persisted to `localStorage`) and can
   be pointed at a **Supabase** backend with two environment variables.
 
+## 🔐 Logging in
+
+The app opens on a login screen. Use the demo admin credentials (or click
+**"Use demo admin credentials"** to auto-fill):
+
+```
+Email:    ecoakcess@mail.com
+Password: admin123
+```
+
+Sessions persist in `localStorage`; **LogOut** clears them. Swap `AuthContext`
+for Supabase Auth in production.
+
+## ⚙️ Admin settings
+
+The **Settings** page (admin only) lets you:
+
+- Edit your profile (name, email)
+- Set the **default interest rate** applied to new loans
+- **Remove sample data** — deletes the seeded paid/history loans and any clients
+  with no active loans, keeping only the real issued loans on the street
+- **Reset to demo data** — restores the full seeded sample set
+
 ## 🚀 Getting started
 
 ```bash

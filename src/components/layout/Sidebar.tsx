@@ -8,9 +8,11 @@ import {
   BookOpen,
   BookText,
   Wallet,
+  Settings as SettingsIcon,
   LogOut,
   Zap,
 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -20,9 +22,20 @@ const nav = [
   { to: '/logbook', label: 'Logbook', icon: BookOpen },
   { to: '/ledger', label: 'Ledger', icon: BookText },
   { to: '/petty-cash', label: 'Petty Cash Loan', icon: Wallet },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+function initials(name: string) {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+}
+
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user, logout } = useAuth()
   return (
     <>
       {open && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={onClose} />}
@@ -68,14 +81,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         <div className="p-3 border-t border-slate-200 dark:border-white/5 space-y-3">
           <div className="flex items-center gap-3 px-2">
             <div className="h-9 w-9 rounded-full bg-brand-500/20 text-brand-400 grid place-items-center text-sm font-semibold">
-              ED
+              {user ? initials(user.name) : 'ED'}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-800 dark:text-white truncate">Ecoloan Dev</p>
-              <p className="text-xs text-slate-400 truncate">ecoakcess@mail.com</p>
+              <p className="text-sm font-medium text-slate-800 dark:text-white truncate">{user?.name ?? 'Guest'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email ?? ''}</p>
             </div>
           </div>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600/90 hover:bg-red-600 text-white py-2.5 text-sm font-medium transition-colors">
+          <button
+            onClick={logout}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600/90 hover:bg-red-600 text-white py-2.5 text-sm font-medium transition-colors"
+          >
             <LogOut size={16} /> LogOut
           </button>
         </div>

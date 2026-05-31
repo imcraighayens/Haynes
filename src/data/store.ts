@@ -2,7 +2,7 @@ import type { DashboardData } from './types'
 import { seedData } from './seed'
 import { supabase, supabaseEnabled } from '../lib/supabase'
 
-const KEY = 'evolt.dashboard.v1'
+const KEY = 'evolt.dashboard.v2'
 
 /** Local (offline) persistence ------------------------------------------------ */
 export function loadLocal(): DashboardData {

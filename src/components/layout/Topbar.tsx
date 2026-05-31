@@ -1,8 +1,10 @@
 import { Menu, Moon, Sun, Bell } from 'lucide-react'
 import { useTheme } from '../../context/ThemeContext'
+import { useAuth } from '../../context/AuthContext'
 
 export function Topbar({ onMenu, title }: { onMenu: () => void; title: string }) {
   const { theme, toggle } = useTheme()
+  const { user } = useAuth()
   return (
     <header className="gradient-header relative">
       <div className="flex items-center justify-between gap-4 px-4 sm:px-6 h-16">
@@ -23,8 +25,8 @@ export function Topbar({ onMenu, title }: { onMenu: () => void; title: string })
 
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden sm:block text-right mr-1">
-            <p className="text-sm font-medium text-slate-800 dark:text-white">Ecoloan Dev</p>
-            <p className="text-xs text-slate-400">ecoakcess@mail.com</p>
+            <p className="text-sm font-medium text-slate-800 dark:text-white">{user?.name ?? 'Ecoloan Dev'}</p>
+            <p className="text-xs text-slate-400">{user?.email ?? ''}</p>
           </div>
           <button className="relative h-9 w-9 grid place-items-center rounded-full surface-muted text-slate-500 dark:text-slate-300">
             <Bell size={17} />
