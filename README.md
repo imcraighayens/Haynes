@@ -16,8 +16,13 @@ dashboard, rebuilt as a fast, responsive React web app.
 - **Working features**, not just a mockup:
   - Issue a **New Loan** (with live expected-return calculation)
   - **Add Client**, **Log Petty Cash**
-  - Loan table with **search**, **status tabs**, and per-row actions
-    (mark as paid / delete) that flow through to the ledger and logbook
+  - Loan table with **search**, **sortable columns**, **status tabs**, and
+    per-row actions (view / **edit** / mark as paid / delete) that flow through
+    to the ledger and logbook
+  - Full client management: **add**, **edit**, and **delete** borrowers
+    (deleting a client cascades to their loans and ledger entries)
+  - One-click **Clear sample data** on the Loans page and in Settings
+  - **CSV export** of loans and the ledger
   - Auto-computed loan statuses (issued / due today / overdue / paid)
 - **Seven pages** — Dashboard, Loans, Clients, Roles & Permissions, Activity
   Logbook, Ledger, and Petty Cash.

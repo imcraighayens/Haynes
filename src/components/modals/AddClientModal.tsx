@@ -1,33 +1,52 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal, Field, inputClass } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { useData } from '../../context/DataContext'
+import type { Client } from '../../data/types'
 
-export function AddClientModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { addClient } = useData()
+export function AddClientModal({
+  open,
+  onClose,
+  client,
+}: {
+  open: boolean
+  onClose: () => void
+  /** When provided, the modal edits this client instead of adding a new one. */
+  client?: Client | null
+}) {
+  const { addClient, editClient } = useData()
+  const isEdit = Boolean(client)
+
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [idNumber, setIdNumber] = useState('')
   const [address, setAddress] = useState('')
 
+  // Hydrate fields when opening in edit mode (or reset for add mode).
+  useEffect(() => {
+    if (!open) return
+    setName(client?.name ?? '')
+    setPhone(client?.phone ?? '')
+    setEmail(client?.email ?? '')
+    setIdNumber(client?.idNumber ?? '')
+    setAddress(client?.address ?? '')
+  }, [open, client])
+
   const emailOk = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   const valid = Boolean(name.trim() && phone.trim() && emailOk)
 
   function submit() {
     if (!valid) return
-    addClient({
+    const payload = {
       name: name.trim(),
       phone: phone.trim(),
       email: email.trim() || undefined,
       idNumber: idNumber.trim() || undefined,
       address: address.trim() || undefined,
-    })
-    setName('')
-    setPhone('')
-    setEmail('')
-    setIdNumber('')
-    setAddress('')
+    }
+    if (isEdit && client) editClient(client.id, payload)
+    else addClient(payload)
     onClose()
   }
 
@@ -35,15 +54,15 @@ export function AddClientModal({ open, onClose }: { open: boolean; onClose: () =
     <Modal
       open={open}
       onClose={onClose}
-      title="Add Client"
-      subtitle="Register a new borrower"
+      title={isEdit ? 'Edit Client' : 'Add Client'}
+      subtitle={isEdit ? 'Update borrower details' : 'Register a new borrower'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={!valid}>
-            Add Client
+            {isEdit ? 'Save changes' : 'Add Client'}
           </Button>
         </>
       }

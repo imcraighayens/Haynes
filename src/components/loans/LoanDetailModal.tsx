@@ -4,9 +4,17 @@ import { StatusBadge } from '../ui/Badge'
 import type { Loan } from '../../data/types'
 import { useData } from '../../context/DataContext'
 import { money, fmtDate, dueLabel } from '../../lib/format'
-import { CheckCircle2, Phone, Mail, MapPin, Calendar, Hash } from 'lucide-react'
+import { CheckCircle2, Pencil, Phone, Mail, MapPin, Calendar, Hash } from 'lucide-react'
 
-export function LoanDetailModal({ loan, onClose }: { loan: Loan | null; onClose: () => void }) {
+export function LoanDetailModal({
+  loan,
+  onClose,
+  onEdit,
+}: {
+  loan: Loan | null
+  onClose: () => void
+  onEdit?: (loan: Loan) => void
+}) {
   const { data, markLoanPaid } = useData()
   if (!loan) return null
   const client = data.clients.find((c) => c.id === loan.clientId)
@@ -24,6 +32,18 @@ export function LoanDetailModal({ loan, onClose }: { loan: Loan | null; onClose:
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
+          {onEdit && (
+            <Button
+              variant="outline"
+              icon={<Pencil size={16} />}
+              onClick={() => {
+                onEdit(loan)
+                onClose()
+              }}
+            >
+              Edit
+            </Button>
+          )}
           {loan.status !== 'paid' && (
             <Button
               icon={<CheckCircle2 size={16} />}

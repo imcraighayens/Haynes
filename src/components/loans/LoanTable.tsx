@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Search, MoreVertical, CheckCircle2, Trash2, Eye, Download, ArrowUpDown } from 'lucide-react'
+import { Search, MoreVertical, CheckCircle2, Trash2, Eye, Pencil, Download, ArrowUpDown } from 'lucide-react'
 import { clsx } from 'clsx'
 import type { Loan, LoanStatus } from '../../data/types'
 import { useData } from '../../context/DataContext'
 import { StatusBadge } from '../ui/Badge'
 import { money, fmtDate, dueLabel } from '../../lib/format'
 import { LoanDetailModal } from './LoanDetailModal'
+import { NewLoanModal } from '../modals/NewLoanModal'
 import { exportCsv } from '../../lib/csv'
 
 type Tab = 'all' | LoanStatus
@@ -17,6 +18,7 @@ export function LoanTable({ compact = false }: { compact?: boolean }) {
   const [query, setQuery] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [detail, setDetail] = useState<Loan | null>(null)
+  const [editing, setEditing] = useState<Loan | null>(null)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'dueDate', dir: 'desc' })
 
   const counts = useMemo(() => {
@@ -137,6 +139,10 @@ export function LoanTable({ compact = false }: { compact?: boolean }) {
                   setDetail(l)
                   setMenuFor(null)
                 }}
+                onEdit={() => {
+                  setEditing(l)
+                  setMenuFor(null)
+                }}
                 onPaid={() => {
                   markLoanPaid(l.id)
                   setMenuFor(null)
@@ -158,7 +164,8 @@ export function LoanTable({ compact = false }: { compact?: boolean }) {
         </table>
       </div>
 
-      <LoanDetailModal loan={detail} onClose={() => setDetail(null)} />
+      <LoanDetailModal loan={detail} onClose={() => setDetail(null)} onEdit={(l) => setEditing(l)} />
+      <NewLoanModal open={!!editing} onClose={() => setEditing(null)} loan={editing} />
     </div>
   )
 }
@@ -183,6 +190,7 @@ function LoanRow({
   onMenu,
   onCloseMenu,
   onView,
+  onEdit,
   onPaid,
   onDelete,
 }: {
@@ -191,6 +199,7 @@ function LoanRow({
   onMenu: () => void
   onCloseMenu: () => void
   onView: () => void
+  onEdit: () => void
   onPaid: () => void
   onDelete: () => void
 }) {
@@ -248,6 +257,12 @@ function LoanRow({
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
             >
               <Eye size={15} /> View details
+            </button>
+            <button
+              onClick={onEdit}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5"
+            >
+              <Pencil size={15} /> Edit loan
             </button>
             {loan.status !== 'paid' && (
               <button

@@ -17,6 +17,12 @@ export async function insertClient(client: Client): Promise<void> {
   if (error) throw new Error(`Failed to save client: ${error.message}`)
 }
 
+export async function updateClient(id: string, patch: Partial<Client>): Promise<void> {
+  if (!remoteEnabled || !supabase) return
+  const { error } = await supabase.from('clients').update(patch).eq('id', id)
+  if (error) throw new Error(`Failed to update client: ${error.message}`)
+}
+
 export async function insertLoan(loan: Loan): Promise<void> {
   if (!remoteEnabled || !supabase) return
   const { error } = await supabase.from('loans').insert(loan)

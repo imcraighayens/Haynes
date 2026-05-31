@@ -1,12 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Modal, Field, inputClass } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { useData } from '../../context/DataContext'
 import { money } from '../../lib/format'
 import { loadSettings } from '../../lib/settings'
+import type { Loan } from '../../data/types'
 
-export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { data, addLoan } = useData()
+export function NewLoanModal({
+  open,
+  onClose,
+  loan,
+}: {
+  open: boolean
+  onClose: () => void
+  /** When provided, the modal edits this loan instead of issuing a new one. */
+  loan?: Loan | null
+}) {
+  const { data, addLoan, editLoan } = useData()
+  const isEdit = Boolean(loan)
+
   const [clientId, setClientId] = useState('')
   const [amount, setAmount] = useState('')
   const [rate, setRate] = useState(() => String(loadSettings().defaultInterestRate))
@@ -17,6 +29,26 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
     return d.toISOString().slice(0, 10)
   })
 
+  // Hydrate from the loan being edited, or reset for a fresh issue.
+  useEffect(() => {
+    if (!open) return
+    if (loan) {
+      setClientId(loan.clientId)
+      setAmount(String(loan.amount))
+      setRate(String(Math.round(loan.interestRate * 100)))
+      setIssuedDate(loan.issuedDate)
+      setDueDate(loan.dueDate)
+    } else {
+      const d = new Date()
+      d.setMonth(d.getMonth() + 1)
+      setClientId('')
+      setAmount('')
+      setRate(String(loadSettings().defaultInterestRate))
+      setIssuedDate(new Date().toISOString().slice(0, 10))
+      setDueDate(d.toISOString().slice(0, 10))
+    }
+  }, [open, loan])
+
   const amt = parseFloat(amount) || 0
   const ratePct = parseFloat(rate) || 0
   const returnAmount = useMemo(() => amt * (1 + ratePct / 100), [amt, ratePct])
@@ -26,35 +58,33 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
 
   function submit() {
     if (!valid) return
-    addLoan({ clientId, amount: amt, interestRate: ratePct / 100, issuedDate, dueDate })
-    reset()
+    if (isEdit && loan) {
+      editLoan(loan.id, { amount: amt, interestRate: ratePct / 100, issuedDate, dueDate })
+    } else {
+      addLoan({ clientId, amount: amt, interestRate: ratePct / 100, issuedDate, dueDate })
+    }
     onClose()
-  }
-  function reset() {
-    setClientId('')
-    setAmount('')
-    setRate(String(loadSettings().defaultInterestRate))
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="New Loan"
-      subtitle="Disburse a loan to an existing client"
+      title={isEdit ? 'Edit Loan' : 'New Loan'}
+      subtitle={isEdit ? 'Update the terms of this loan' : 'Disburse a loan to an existing client'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={!valid}>
-            Issue Loan
+            {isEdit ? 'Save changes' : 'Issue Loan'}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        {noClients && (
+        {noClients && !isEdit && (
           <div className="rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm px-3 py-2 border border-amber-500/20">
             No clients yet — add a client first before issuing a loan.
           </div>
@@ -64,7 +94,7 @@ export function NewLoanModal({ open, onClose }: { open: boolean; onClose: () => 
             className={inputClass}
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            disabled={noClients}
+            disabled={noClients || isEdit}
           >
             <option value="">Select a client…</option>
             {data.clients.map((c) => (

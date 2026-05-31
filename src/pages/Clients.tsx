@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Search, UserPlus, Phone, Mail, MapPin } from 'lucide-react'
+import { Search, UserPlus, Phone, Mail, MapPin, Pencil, Trash2 } from 'lucide-react'
 import { useData } from '../context/DataContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { AddClientModal } from '../components/modals/AddClientModal'
 import { money } from '../lib/format'
+import type { Client } from '../data/types'
 
 export function Clients() {
-  const { data } = useData()
+  const { data, deleteClient } = useData()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Client | null>(null)
 
   const enriched = useMemo(() => {
     return data.clients
@@ -54,9 +56,9 @@ export function Clients() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {enriched.map((c) => (
           <Card key={c.id} className="p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-brand-500/15 text-brand-500 dark:text-brand-300 grid place-items-center font-semibold">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-11 w-11 shrink-0 rounded-full bg-brand-500/15 text-brand-500 dark:text-brand-300 grid place-items-center font-semibold">
                   {c.name
                     .split(' ')
                     .slice(0, 2)
@@ -75,6 +77,27 @@ export function Clients() {
                     {c.active ? '● Active' : '○ Inactive'}
                   </span>
                 </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setEditing(c)}
+                  title="Edit client"
+                  className="h-8 w-8 grid place-items-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-white transition-colors"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  onClick={() => {
+                    const msg = c.loanCount
+                      ? `Delete ${c.name} and their ${c.loanCount} loan(s)? This cannot be undone.`
+                      : `Delete ${c.name}? This cannot be undone.`
+                    if (confirm(msg)) deleteClient(c.id)
+                  }}
+                  title="Delete client"
+                  className="h-8 w-8 grid place-items-center rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             </div>
 
@@ -116,6 +139,7 @@ export function Clients() {
       </div>
 
       <AddClientModal open={open} onClose={() => setOpen(false)} />
+      <AddClientModal open={!!editing} onClose={() => setEditing(null)} client={editing} />
     </div>
   )
 }

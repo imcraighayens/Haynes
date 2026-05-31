@@ -3,6 +3,7 @@ import type { Client, DashboardData, LedgerEntry, Loan, LogEntry } from '../data
 import { loadLocal, saveLocal, resetLocal, loadRemote, usingRemote } from '../data/store'
 import {
   insertClient,
+  updateClient,
   insertLoan,
   updateLoan,
   deleteLoanRow,
@@ -35,11 +36,21 @@ interface PettyCashInput {
   date: string
 }
 
+interface EditLoanInput {
+  amount: number
+  interestRate: number
+  issuedDate: string
+  dueDate: string
+}
+
 interface DataCtx {
   data: DashboardData
   remote: boolean
   addClient: (input: NewClientInput) => Client
+  editClient: (id: string, input: NewClientInput) => void
+  deleteClient: (id: string) => void
   addLoan: (input: NewLoanInput) => Loan
+  editLoan: (id: string, input: EditLoanInput) => void
   markLoanPaid: (loanId: string) => void
   deleteLoan: (loanId: string) => void
   logPettyCash: (input: PettyCashInput) => void
@@ -131,6 +142,53 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return client
   }
 
+  const editClient: DataCtx['editClient'] = (id, input) => {
+    const patch: Partial<Client> = {
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      idNumber: input.idNumber,
+      address: input.address,
+    }
+    const log = pushLog('Client updated', `Updated details for ${input.name}`)
+    setData((d) => ({
+      ...d,
+      clients: d.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+      // Keep denormalised clientName on loans in sync.
+      loans: d.loans.map((l) => (l.clientId === id ? { ...l, clientName: input.name } : l)),
+      logs: [log, ...d.logs],
+    }))
+    toast(`${input.name} updated`)
+    syncRemote(async () => {
+      await updateClient(id, patch)
+      const affected = data.loans.filter((l) => l.clientId === id)
+      await Promise.all(affected.map((l) => updateLoan(l.id, { clientName: input.name })))
+      await insertLog(log)
+    }, 'Client update')
+  }
+
+  const deleteClient: DataCtx['deleteClient'] = (id) => {
+    const client = data.clients.find((c) => c.id === id)
+    if (!client) return
+    const loanIds = data.loans.filter((l) => l.clientId === id).map((l) => l.id)
+    const refs = new Set(loanIds.map((lid) => lid.toUpperCase()))
+    const log = pushLog('Client deleted', `Removed ${client.name} and ${loanIds.length} linked loan(s)`)
+    setData((d) => ({
+      ...d,
+      clients: d.clients.filter((c) => c.id !== id),
+      loans: d.loans.filter((l) => l.clientId !== id),
+      ledger: d.ledger.filter((e) => !(e.reference && refs.has(e.reference))),
+      logs: [log, ...d.logs],
+    }))
+    toast(`${client.name} deleted`, 'info')
+    syncRemote(async () => {
+      // Loans cascade-delete in the DB via the FK, but remove explicitly to be safe.
+      await deleteLoanRows(loanIds)
+      await deleteClientRows([id])
+      await insertLog(log)
+    }, 'Client deletion')
+  }
+
   const addLoan: DataCtx['addLoan'] = (input) => {
     const client = data.clients.find((c) => c.id === input.clientId)
     const returnAmount = Math.round(input.amount * (1 + input.interestRate) * 100) / 100
@@ -167,6 +225,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await insertLog(log)
     }, 'New loan')
     return loan
+  }
+
+  const editLoan: DataCtx['editLoan'] = (id, input) => {
+    const returnAmount = Math.round(input.amount * (1 + input.interestRate) * 100) / 100
+    const patch: Partial<Loan> = {
+      amount: input.amount,
+      interestRate: input.interestRate,
+      returnAmount,
+      issuedDate: input.issuedDate,
+      dueDate: input.dueDate,
+    }
+    const log = pushLog('Loan updated', `Updated loan ${id.toUpperCase()} — R${input.amount.toLocaleString()}`)
+    setData((d) => ({
+      ...d,
+      loans: recomputeLoanStatuses(d.loans.map((l) => (l.id === id ? { ...l, ...patch } : l))),
+      // Keep the disbursement ledger entry in step with the new amount/date.
+      ledger: d.ledger.map((e) =>
+        e.reference === id.toUpperCase() && e.type === 'loan_out'
+          ? { ...e, amount: -input.amount, date: input.issuedDate }
+          : e,
+      ),
+      logs: [log, ...d.logs],
+    }))
+    toast(`Loan ${id.toUpperCase()} updated`)
+    syncRemote(async () => {
+      await updateLoan(id, patch)
+      await insertLog(log)
+    }, 'Loan update')
   }
 
   const markLoanPaid: DataCtx['markLoanPaid'] = (loanId) => {
@@ -273,7 +359,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<DataCtx>(
-    () => ({ data, remote: usingRemote, addClient, addLoan, markLoanPaid, deleteLoan, logPettyCash, reset, clearSampleData }),
+    () => ({
+      data,
+      remote: usingRemote,
+      addClient,
+      editClient,
+      deleteClient,
+      addLoan,
+      editLoan,
+      markLoanPaid,
+      deleteLoan,
+      logPettyCash,
+      reset,
+      clearSampleData,
+    }),
     [data],
   )
 
