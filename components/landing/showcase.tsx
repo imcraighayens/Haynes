@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon, { IconName } from "@/components/icons";
 import VideoCard from "@/components/video-card";
+import { loadConfig } from "@/lib/admin";
 
 type InfoCard = { title: string; rows: string[] };
 
@@ -329,6 +330,15 @@ export default function Showcase() {
   const sectionRef = useRef<HTMLElement>(null);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
+  /* Admin video overrides, keyed by section id (set in /admin) */
+  const [videoOverrides, setVideoOverrides] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const sync = () => setVideoOverrides(loadConfig().showcaseVideos);
+    sync();
+    window.addEventListener("kodelab-admin", sync);
+    return () => window.removeEventListener("kodelab-admin", sync);
+  }, []);
+
   /* Scroll-linked: the active section is the last one whose top has crossed
      the viewport center; the rail shows only while the showcase is on screen. */
   useEffect(() => {
@@ -441,7 +451,7 @@ export default function Showcase() {
 
               <div className={PIN} style={{ zIndex: 1 }}>
                 <VideoCard
-                  src={c.video}
+                  src={videoOverrides[c.id] || c.video}
                   title={`${c.title[0]} ${c.title[1]}`}
                   className="aspect-video rounded-[20px] shadow-[0_-16px_48px_rgba(0,0,0,0.85)]"
                 />

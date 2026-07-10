@@ -58,6 +58,7 @@ const columns: { title: string; items: { label: string; href: string }[] }[] = [
       { label: "For teams", href: "/about" },
       { label: "Privacy", href: "/legal" },
       { label: "Terms", href: "/legal" },
+      { label: "Admin", href: "/admin" },
     ],
   },
 ];

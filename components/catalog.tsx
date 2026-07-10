@@ -1,18 +1,29 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CourseCard from "@/components/course-card";
+import CustomCourseCard from "@/components/custom-course-card";
 import { categories, courses } from "@/lib/data";
+import { CustomCourse, loadConfig } from "@/lib/admin";
 
 export default function Catalog() {
   const params = useSearchParams();
   const [category, setCategory] = useState<string | null>(null);
   const [query, setQuery] = useState(params.get("q") ?? "");
+  const [customCourses, setCustomCourses] = useState<CustomCourse[]>([]);
+
+  useEffect(() => {
+    const sync = () => setCustomCourses(loadConfig().customCourses);
+    sync();
+    window.addEventListener("kodelab-admin", sync);
+    return () => window.removeEventListener("kodelab-admin", sync);
+  }, []);
+
+  const q = query.trim().toLowerCase();
 
   const filtered = courses.filter((c) => {
     const matchesCategory = !category || c.category === category;
-    const q = query.trim().toLowerCase();
     const matchesQuery =
       !q ||
       c.title.toLowerCase().includes(q) ||
@@ -22,6 +33,18 @@ export default function Catalog() {
       c.instructor.name.toLowerCase().includes(q);
     return matchesCategory && matchesQuery;
   });
+
+  const filteredCustom = customCourses.filter((c) => {
+    const matchesCategory = !category || c.category === category;
+    const matchesQuery =
+      !q ||
+      c.title.toLowerCase().includes(q) ||
+      c.tagline.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q);
+    return matchesCategory && matchesQuery;
+  });
+
+  const totalResults = filtered.length + filteredCustom.length;
 
   return (
     <>
@@ -58,11 +81,14 @@ export default function Catalog() {
       </div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-3">
+        {filteredCustom.map((c) => (
+          <CustomCourseCard key={c.slug} course={c} />
+        ))}
         {filtered.map((c) => (
           <CourseCard key={c.slug} course={c} />
         ))}
       </div>
-      {filtered.length === 0 && (
+      {totalResults === 0 && (
         <div className="mt-16 text-center">
           <p className="text-neutral-400">
             No courses match “{query}” yet.
