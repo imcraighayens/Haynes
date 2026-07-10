@@ -5,8 +5,8 @@ import { useState } from "react";
 
 const links = [
   { href: "/courses", label: "Courses" },
-  { href: "/#features", label: "Product" },
-  { href: "/#community", label: "Community" },
+  { href: "/#product", label: "Product" },
+  { href: "/#mentors", label: "Community" },
   { href: "/#resources", label: "Resources" },
   { href: "/dashboard", label: "My Learning" },
 ];
@@ -39,12 +39,13 @@ export default function Nav() {
         </div>
 
         <div className="ml-auto hidden items-center md:flex">
-          <span
-            aria-label="Your profile"
-            className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-400 text-xs font-semibold text-white"
+          <Link
+            href="/dashboard"
+            aria-label="Your profile and learning"
+            className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-400 text-xs font-semibold text-white transition-transform hover:scale-105"
           >
             H
-          </span>
+          </Link>
         </div>
 
         <button

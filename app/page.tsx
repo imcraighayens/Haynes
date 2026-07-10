@@ -6,30 +6,30 @@ import Toolkit from "@/components/landing/toolkit";
 import CtaPrompt from "@/components/landing/cta-prompt";
 import { courses } from "@/lib/data";
 
-const features: { icon: IconName; label: [string, string] }[] = [
-  { icon: "refresh", label: ["Learn at", "your own pace"] },
-  { icon: "image", label: ["Watch expert-led", "video lessons"] },
-  { icon: "pencil", label: ["Build real projects", "from scratch"] },
-  { icon: "arrow", label: ["Switch from", "another platform"] },
-  { icon: "expand", label: ["Learn on", "any device"] },
-  { icon: "cube", label: ["Earn certificates", "and badges"] },
-  { icon: "search", label: ["Track progress and", "gain insights"] },
-  { icon: "database", label: ["Manage your", "learning library"] },
-  { icon: "check", label: ["Test and audit", "your skills"] },
-  { icon: "spark", label: ["Connect with mentors", "and community"] },
+const features: { icon: IconName; label: [string, string]; anchor: string }[] = [
+  { icon: "refresh", label: ["Learn at", "your own pace"], anchor: "own-pace" },
+  { icon: "image", label: ["Watch expert-led", "video lessons"], anchor: "expert-lessons" },
+  { icon: "pencil", label: ["Build real projects", "from scratch"], anchor: "projects" },
+  { icon: "arrow", label: ["Switch from", "another platform"], anchor: "switch" },
+  { icon: "expand", label: ["Learn on", "any device"], anchor: "any-device" },
+  { icon: "cube", label: ["Earn certificates", "and badges"], anchor: "certificates" },
+  { icon: "search", label: ["Track progress and", "gain insights"], anchor: "insights" },
+  { icon: "database", label: ["Manage your", "learning library"], anchor: "library" },
+  { icon: "check", label: ["Test and audit", "your skills"], anchor: "skills-audit" },
+  { icon: "spark", label: ["Connect with mentors", "and community"], anchor: "mentors" },
 ];
 
-const everything: { icon: IconName; label: string; body: string }[] = [
-  { icon: "image", label: "Video lessons", body: "Short, focused, expert-led." },
-  { icon: "pencil", label: "Projects", body: "Portfolio work in every course." },
-  { icon: "search", label: "Progress", body: "Tracked across every device." },
-  { icon: "cube", label: "Certificates", body: "Earned at 100% completion." },
-  { icon: "spark", label: "Community", body: "Cohorts, mentors, showcase." },
-  { icon: "database", label: "Library", body: "Save, queue, and archive." },
-  { icon: "check", label: "Quizzes", body: "Module checks that stick." },
-  { icon: "refresh", label: "Resume", body: "Pick up mid-lesson anytime." },
-  { icon: "expand", label: "Any device", body: "Phone, tablet, or desktop." },
-  { icon: "arrow", label: "Tracks", body: "Courses chained into careers." },
+const everything: { icon: IconName; label: string; body: string; href: string }[] = [
+  { icon: "image", label: "Video lessons", body: "Short, focused, expert-led.", href: "/courses" },
+  { icon: "pencil", label: "Projects", body: "Portfolio work in every course.", href: "/#projects" },
+  { icon: "search", label: "Progress", body: "Tracked across every device.", href: "/dashboard" },
+  { icon: "cube", label: "Certificates", body: "Earned at 100% completion.", href: "/#certificates" },
+  { icon: "spark", label: "Community", body: "Cohorts, mentors, showcase.", href: "/#mentors" },
+  { icon: "database", label: "Library", body: "Save, queue, and archive.", href: "/#library" },
+  { icon: "check", label: "Quizzes", body: "Module checks that stick.", href: "/#skills-audit" },
+  { icon: "refresh", label: "Resume", body: "Pick up mid-lesson anytime.", href: "/dashboard" },
+  { icon: "expand", label: "Any device", body: "Phone, tablet, or desktop.", href: "/#any-device" },
+  { icon: "arrow", label: "Tracks", body: "Courses chained into careers.", href: "/courses" },
 ];
 
 export default function Home() {
@@ -61,8 +61,9 @@ export default function Home() {
       <section className="rise rise-3 mx-auto max-w-6xl px-6">
         <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-hairline md:grid-cols-5">
           {features.map((f, i) => (
-            <div
+            <a
               key={f.label.join(" ")}
+              href={`#${f.anchor}`}
               className={`flex min-h-[148px] flex-col justify-between border-b border-r border-hairline p-6 transition-colors hover:bg-white/[0.03] ${
                 i % 2 === 1 ? "border-r-0 md:border-r" : ""
               } ${(i + 1) % 5 === 0 ? "md:border-r-0" : ""} ${
@@ -75,7 +76,7 @@ export default function Home() {
                 <br />
                 {f.label[1]}
               </p>
-            </div>
+            </a>
           ))}
         </div>
       </section>
@@ -87,7 +88,7 @@ export default function Home() {
       <Toolkit />
 
       {/* Everything grid — dense, borderless */}
-      <section className="mx-auto mt-32 max-w-6xl px-6">
+      <section id="resources" className="mx-auto mt-32 max-w-6xl scroll-mt-24 px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="max-w-xl font-display text-[34px] font-medium leading-[1.1] tracking-[-0.04em] text-white">
             Everything you need to learn, built into Kodelab
@@ -101,13 +102,15 @@ export default function Home() {
         </div>
         <div className="mt-12 grid grid-cols-2 gap-x-8 gap-y-12 md:grid-cols-5">
           {everything.map((f) => (
-            <div key={f.label}>
+            <Link key={f.label} href={f.href} className="group">
               <Icon name={f.icon} size={18} strokeWidth={1.3} className="text-neutral-300" />
-              <p className="mt-4 text-[13px] font-semibold text-white">{f.label}</p>
+              <p className="mt-4 text-[13px] font-semibold text-white group-hover:underline">
+                {f.label}
+              </p>
               <p className="mt-1 text-[12px] leading-relaxed text-neutral-500">
                 {f.body}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

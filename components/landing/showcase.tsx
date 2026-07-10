@@ -291,33 +291,6 @@ const categories: Category[] = [
       },
     ],
   },
-  {
-    id: "keep-building",
-    icon: "spark",
-    title: ["Keep building", "after the course"],
-    description:
-      "Tracks chain courses together into a career path, so finishing one course always points you at a concrete next step.",
-    video: v("SubaruOutbackOnStreetAndDirt"),
-    hues: ["#fb923c", "#3b0764"],
-    cards: [
-      {
-        title: "Career tracks",
-        rows: [
-          "See the full path from fundamentals to job-ready.",
-          "Know exactly which course comes next in your track.",
-          "Estimate how long the rest of your track will take.",
-        ],
-      },
-      {
-        title: "Next steps",
-        rows: [
-          "Get a next-course suggestion the moment you finish.",
-          "Chain finished courses into a custom path.",
-          "Set a target date for completing your track.",
-        ],
-      },
-    ],
-  },
 ];
 
 /* Small copy-style glyph used on each example row, as in the reference */
@@ -344,6 +317,15 @@ const PIN = "lg:sticky lg:top-[84px]";
 export default function Showcase() {
   const [active, setActive] = useState(0);
   const [railVisible, setRailVisible] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const copyRow = (text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(text);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(null), 1500);
+  };
   const sectionRef = useRef<HTMLElement>(null);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -377,7 +359,7 @@ export default function Showcase() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="mx-auto mt-28 max-w-6xl px-6">
+    <section ref={sectionRef} id="product" className="mx-auto mt-28 max-w-6xl scroll-mt-24 px-6">
       {/* Scroll-spy icon rail — floats just outside the container's left edge */}
       <div
         className={`fixed top-[96px] z-40 hidden flex-col gap-1.5 transition-opacity duration-300 xl:flex ${
@@ -408,10 +390,11 @@ export default function Showcase() {
           <div
             key={c.id}
             data-index={i}
+            id={c.id}
             ref={(el) => {
               blocksRef.current[i] = el;
             }}
-            className="lg:grid lg:grid-cols-[390px_1fr] lg:items-start lg:gap-4"
+            className="scroll-mt-24 lg:grid lg:grid-cols-[390px_1fr] lg:items-start lg:gap-4"
           >
             {/* Section blob card — pins while its section's cards stack */}
             <div className={`hidden lg:block ${PIN}`}>
@@ -479,15 +462,23 @@ export default function Showcase() {
                     />
                     <div className="mt-2 divide-y divide-white/5">
                       {card.rows.map((row) => (
-                        <div
+                        <button
                           key={row}
-                          className="flex items-center justify-between gap-4 px-6 py-3.5 transition-colors hover:bg-white/[0.03]"
+                          onClick={() => copyRow(row)}
+                          aria-label={`Copy: ${row}`}
+                          className="flex w-full items-center justify-between gap-4 px-6 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
                         >
                           <p className="text-[12.5px] leading-relaxed text-neutral-300">
                             {row}
                           </p>
-                          <RowGlyph />
-                        </div>
+                          {copied === row ? (
+                            <span className="shrink-0 text-[11px] font-medium text-emerald-400">
+                              Copied
+                            </span>
+                          ) : (
+                            <RowGlyph />
+                          )}
+                        </button>
                       ))}
                     </div>
                   </div>
