@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import Icon, { IconName } from "@/components/icons";
 import VideoCard from "@/components/video-card";
 
+type InfoCard = { title: string; rows: string[] };
+
 type Category = {
   id: string;
   icon: IconName;
   title: [string, string];
   description: string;
   video: string;
-  /* [blob A, blob B] — one distinct hue per section, per the reference */
+  /* [light sweep, base] — one distinct hue pair per section */
   hues: [string, string];
-  examples: { title: string; body: string }[];
+  cards: InfoCard[];
 };
 
 const v = (name: string) =>
@@ -26,11 +28,24 @@ const categories: Category[] = [
     description:
       "Short lessons and flexible modules that fit around your life — Kodelab keeps your place so you can stop and start anytime.",
     video: v("BigBuckBunny"),
-    hues: ["#a855f7", "#6d28d9"],
-    examples: [
-      { title: "Resume where I left off", body: "Pick a lesson back up mid-video on any device." },
-      { title: "Set a weekly learning goal", body: "Choose your hours and Kodelab paces the modules for you." },
-      { title: "Take a break without losing progress", body: "Your place is saved automatically, down to the second." },
+    hues: ["#a855f7", "#3b0764"],
+    cards: [
+      {
+        title: "Pacing controls",
+        rows: [
+          "Set a weekly goal of 3 hours and let Kodelab schedule your modules.",
+          "Spread the remaining lessons of this course over two weeks.",
+          "Resume exactly where you stopped yesterday, on any device.",
+        ],
+      },
+      {
+        title: "Flexible structure",
+        rows: [
+          "Skip ahead to the module you need now and come back later.",
+          "Rewatch the last lesson at 0.75× speed with captions on.",
+          "Mark a module as review-only so it doesn't block your progress.",
+        ],
+      },
     ],
   },
   {
@@ -40,11 +55,24 @@ const categories: Category[] = [
     description:
       "Every course is taught by a working practitioner and broken into focused, watchable lessons — no filler, no rambling.",
     video: v("Sintel"),
-    hues: ["#4ade80", "#15803d"],
-    examples: [
-      { title: "Watch a 10-minute focused lesson", body: "Each lesson covers exactly one idea, start to finish." },
-      { title: "Learn from real practitioners", body: "Every instructor ships this work professionally, every day." },
-      { title: "Preview any course free", body: "The first lesson of every course is open to everyone." },
+    hues: ["#4ade80", "#052e16"],
+    cards: [
+      {
+        title: "Lesson quality",
+        rows: [
+          "See each instructor's background before you start their course.",
+          "Preview the first lesson of every course in a track for free.",
+          "Find courses taught by people shipping this work today.",
+        ],
+      },
+      {
+        title: "Focused format",
+        rows: [
+          "Queue only lessons under 12 minutes for your commute.",
+          "One idea per video — check the outline before you press play.",
+          "Watch a full module in under an hour, start to finish.",
+        ],
+      },
     ],
   },
   {
@@ -54,11 +82,24 @@ const categories: Category[] = [
     description:
       "Modules end in hands-on projects that mirror real work, so every course leaves you with something for your portfolio.",
     video: v("TearsOfSteel"),
-    hues: ["#60a5fa", "#1d4ed8"],
-    examples: [
-      { title: "Build alongside the instructor", body: "Code and design in step with every lesson." },
-      { title: "Ship a portfolio piece", body: "Finish every course with something real to show." },
-      { title: "Compare against checkpoints", body: "Starter files include a checkpoint for every module." },
+    hues: ["#60a5fa", "#172554"],
+    cards: [
+      {
+        title: "Guided builds",
+        rows: [
+          "Start the follow-along project for this module.",
+          "Compare your work against the module's checkpoint files.",
+          "See the finished project first, so you know where you're heading.",
+        ],
+      },
+      {
+        title: "Portfolio output",
+        rows: [
+          "Add your finished course project to your public profile.",
+          "Export the project with a write-up for your portfolio.",
+          "Request mentor feedback on your final build.",
+        ],
+      },
     ],
   },
   {
@@ -68,11 +109,24 @@ const categories: Category[] = [
     description:
       "Coming from Coursera, Udemy, or YouTube playlists? Bring your goals over and pick the track that matches where you left off.",
     video: v("ElephantsDream"),
-    hues: ["#f472b6", "#be185d"],
-    examples: [
-      { title: "Take the skill placement", body: "A short assessment finds your exact starting module." },
-      { title: "Map courses you've finished", body: "Match past learning to Kodelab tracks and skip ahead." },
-      { title: "Bring your goals over", body: "Rebuild your learning plan here in a few minutes." },
+    hues: ["#f472b6", "#500724"],
+    cards: [
+      {
+        title: "Skill placement",
+        rows: [
+          "Take a short assessment and start at the right module.",
+          "Skip everything you already know from past courses.",
+          "Start at intermediate by showing what you've built before.",
+        ],
+      },
+      {
+        title: "Track mapping",
+        rows: [
+          "Map courses you've finished elsewhere to Kodelab tracks.",
+          "Import your learning goals and get a weekly plan.",
+          "See how Kodelab's approach to a topic differs before you commit.",
+        ],
+      },
     ],
   },
   {
@@ -82,11 +136,24 @@ const categories: Category[] = [
     description:
       "The player, your notes, and your progress work the same on a phone on the train as they do on a desktop at your desk.",
     video: v("ForBiggerFun"),
-    hues: ["#fb923c", "#c2410c"],
-    examples: [
-      { title: "Watch on any screen", body: "The full lesson experience at every screen size." },
-      { title: "Start on desktop, finish on your phone", body: "Progress follows you across every device." },
-      { title: "Learn on the commute", body: "Short lessons are built for in-between moments." },
+    hues: ["#fb923c", "#431407"],
+    cards: [
+      {
+        title: "Continuity",
+        rows: [
+          "Start a lesson on your laptop and finish it on your phone.",
+          "Progress, captions, and speed settings sync automatically.",
+          "Your library looks the same on every screen size.",
+        ],
+      },
+      {
+        title: "On the go",
+        rows: [
+          "Queue three short lessons for a train ride.",
+          "Switch to audio-only while you're walking.",
+          "Larger player controls kick in on small screens.",
+        ],
+      },
     ],
   },
   {
@@ -96,11 +163,24 @@ const categories: Category[] = [
     description:
       "Finish a course and get a certificate of completion; finish a track and earn a badge you can share where it matters.",
     video: v("ForBiggerBlazes"),
-    hues: ["#60a5fa", "#1e40af"],
-    examples: [
-      { title: "Earn a course certificate", body: "Issued automatically at 100% completion." },
-      { title: "Collect track badges", body: "Finish a career track and earn a shareable badge." },
-      { title: "Add credentials to your CV", body: "Every certificate has a public verification link." },
+    hues: ["#60a5fa", "#1e1b4b"],
+    cards: [
+      {
+        title: "Certificates",
+        rows: [
+          "Certificates are issued automatically at 100% completion.",
+          "Every certificate carries a public verification link.",
+          "Reissue a certificate after updating your display name.",
+        ],
+      },
+      {
+        title: "Badges",
+        rows: [
+          "See the badge you'll earn for finishing each career track.",
+          "Pin track badges to your public Kodelab profile.",
+          "Share a badge announcement straight to your network.",
+        ],
+      },
     ],
   },
   {
@@ -110,11 +190,24 @@ const categories: Category[] = [
     description:
       "See completion per course, watch-time per week, and streaks at a glance — your dashboard keeps you honest.",
     video: v("ForBiggerJoyrides"),
-    hues: ["#a78bfa", "#5b21b6"],
-    examples: [
-      { title: "See per-course completion", body: "Progress bars for everything you've started." },
-      { title: "Track your weekly rhythm", body: "Watch-time and streaks that keep you moving." },
-      { title: "Know what to review next", body: "Kodelab flags the modules that need a second pass." },
+    hues: ["#a78bfa", "#2e1065"],
+    cards: [
+      {
+        title: "Progress",
+        rows: [
+          "Completion bars for every course you've started.",
+          "See which module to review before the next quiz.",
+          "Weekly watch-time totals, split by track.",
+        ],
+      },
+      {
+        title: "Momentum",
+        rows: [
+          "Keep a streak alive with the shortest lesson left today.",
+          "Set a weekday evening reminder to continue.",
+          "Compare this month's learning time to last month's.",
+        ],
+      },
     ],
   },
   {
@@ -124,11 +217,24 @@ const categories: Category[] = [
     description:
       "Save courses for later, organize what you're working through now, and archive what you've finished — one tidy library.",
     video: v("ForBiggerEscapes"),
-    hues: ["#34d399", "#065f46"],
-    examples: [
-      { title: "Save courses for later", body: "Queue up your next course in one click." },
-      { title: "Organize what's in progress", body: "Your active courses stay front and center." },
-      { title: "Archive finished work", body: "Out of your way, never out of reach." },
+    hues: ["#34d399", "#022c22"],
+    cards: [
+      {
+        title: "Organize",
+        rows: [
+          "Save a course for later and queue the next one.",
+          "Pin active courses to the top of your library.",
+          "Archive everything you finished last year in one sweep.",
+        ],
+      },
+      {
+        title: "Curate",
+        rows: [
+          "Build a playlist of lessons on a single topic.",
+          "Share a saved list with your study group.",
+          "Duplicate a track's outline as your own custom path.",
+        ],
+      },
     ],
   },
   {
@@ -138,11 +244,24 @@ const categories: Category[] = [
     description:
       "Quick end-of-module checks confirm the lesson actually stuck — and show you exactly which lesson to rewatch when it didn't.",
     video: v("ForBiggerMeltdowns"),
-    hues: ["#ec4899", "#9d174d"],
-    examples: [
-      { title: "Take a module check", body: "A few sharp questions after every module." },
-      { title: "Jump straight to what you missed", body: "Wrong answer? Go directly to the relevant lesson." },
-      { title: "Retake quizzes anytime", body: "Checks are for learning, not gatekeeping." },
+    hues: ["#ec4899", "#500724"],
+    cards: [
+      {
+        title: "Module checks",
+        rows: [
+          "A few sharp questions after every module.",
+          "Wrong answers link straight to the lesson to rewatch.",
+          "Retake any check — they're for learning, not gatekeeping.",
+        ],
+      },
+      {
+        title: "Skill audits",
+        rows: [
+          "Run a full audit of your skills across a track.",
+          "See the gaps between you and the job-ready bar.",
+          "Turn audit results into a review plan automatically.",
+        ],
+      },
     ],
   },
   {
@@ -152,11 +271,24 @@ const categories: Category[] = [
     description:
       "Study groups, mentor sessions, and a showcase for finished projects — learning sticks better when it isn't solitary.",
     video: v("WeAreGoingOnBullrun"),
-    hues: ["#f97316", "#9a3412"],
-    examples: [
-      { title: "Join a study cohort", body: "Work through a track with people at your pace." },
-      { title: "Book a mentor review", body: "Get your project reviewed by an instructor." },
-      { title: "Post to the showcase", body: "Share finished projects with the community." },
+    hues: ["#f97316", "#431407"],
+    cards: [
+      {
+        title: "Community",
+        rows: [
+          "Join a cohort working through the same track this month.",
+          "Post your final project to the community showcase.",
+          "Find a study partner in your timezone.",
+        ],
+      },
+      {
+        title: "Mentorship",
+        rows: [
+          "Book a 30-minute project review with an instructor.",
+          "Ask a mentor whether your portfolio is job-ready.",
+          "Get a module project critiqued by the community.",
+        ],
+      },
     ],
   },
   {
@@ -166,14 +298,48 @@ const categories: Category[] = [
     description:
       "Tracks chain courses together into a career path, so finishing one course always points you at a concrete next step.",
     video: v("SubaruOutbackOnStreetAndDirt"),
-    hues: ["#fb923c", "#7c2d12"],
-    examples: [
-      { title: "Follow a career track", body: "Six paths from fundamentals to job-ready." },
-      { title: "Get a next-step nudge", body: "Every completion suggests what to take next." },
-      { title: "Chain courses into a path", body: "Each course sets up the one that follows." },
+    hues: ["#fb923c", "#3b0764"],
+    cards: [
+      {
+        title: "Career tracks",
+        rows: [
+          "See the full path from fundamentals to job-ready.",
+          "Know exactly which course comes next in your track.",
+          "Estimate how long the rest of your track will take.",
+        ],
+      },
+      {
+        title: "Next steps",
+        rows: [
+          "Get a next-course suggestion the moment you finish.",
+          "Chain finished courses into a custom path.",
+          "Set a target date for completing your track.",
+        ],
+      },
     ],
   },
 ];
+
+/* Small copy-style glyph used on each example row, as in the reference */
+function RowGlyph() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      className="shrink-0 text-neutral-600"
+      aria-hidden
+    >
+      <rect x="6" y="6" width="9" height="9" rx="2" />
+      <path d="M12 6V4.5A1.5 1.5 0 0 0 10.5 3h-6A1.5 1.5 0 0 0 3 4.5v6A1.5 1.5 0 0 0 4.5 12H6" />
+    </svg>
+  );
+}
+
+const PIN = "lg:sticky lg:top-[84px]";
 
 export default function Showcase() {
   const [active, setActive] = useState(0);
@@ -181,9 +347,8 @@ export default function Showcase() {
   const sectionRef = useRef<HTMLElement>(null);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  /* Scroll-linked activation: the wrappers tile the scroll distance one
-     viewport-height each, so the active section is the wrapper whose band
-     contains the viewport center — exactly one at any scroll position. */
+  /* Scroll-linked: the active section is the last one whose top has crossed
+     the viewport center; the rail shows only while the showcase is on screen. */
   useEffect(() => {
     let raf = 0;
     const update = () => {
@@ -211,127 +376,126 @@ export default function Showcase() {
     };
   }, []);
 
-  const cat = categories[active];
-
   return (
     <section ref={sectionRef} className="mx-auto mt-28 max-w-6xl px-6">
-      {/* Scroll-spy icon rail — fixed to the viewport's left edge, fades in
-          while the showcase is on screen (desktop only) */}
+      {/* Scroll-spy icon rail — floats just outside the container's left edge */}
       <div
-        className={`fixed left-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 xl:flex ${
+        className={`fixed top-[96px] z-40 hidden flex-col gap-1.5 transition-opacity duration-300 xl:flex ${
           railVisible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
+        style={{ left: "max(8px, calc(50vw - 618px))" }}
       >
         {categories.map((c, i) => (
           <button
             key={c.id}
             aria-label={c.title.join(" ")}
             onClick={() =>
-              blocksRef.current[i]?.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              })
+              blocksRef.current[i]?.scrollIntoView({ behavior: "smooth" })
             }
-            className={`grid h-9 w-9 place-items-center rounded-full border backdrop-blur transition-colors duration-300 ${
+            className={`grid h-8 w-8 place-items-center rounded-full border transition-colors duration-300 ${
               i === active
                 ? "border-white bg-white text-black"
                 : "border-white/15 bg-black/40 text-neutral-500 hover:border-white/40 hover:text-white"
             }`}
           >
-            <Icon name={c.icon} size={15} strokeWidth={1.4} />
+            <Icon name={c.icon} size={13} strokeWidth={1.4} />
           </button>
         ))}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[390px_1fr] lg:gap-4">
-        {/* Pinned gradient card — flush with the container's left edge */}
-        <div className="hidden lg:block">
-          <div className="sticky top-[calc(50vh-237px)]">
-            <div
-              className="relative flex h-[475px] flex-col justify-end overflow-hidden rounded-[25px] p-[30px] transition-colors duration-500"
-              style={{ backgroundColor: cat.hues[1] }}
-            >
+      <div className="space-y-24 lg:space-y-6">
+        {categories.map((c, i) => (
+          <div
+            key={c.id}
+            data-index={i}
+            ref={(el) => {
+              blocksRef.current[i] = el;
+            }}
+            className="lg:grid lg:grid-cols-[390px_1fr] lg:items-start lg:gap-4"
+          >
+            {/* Section blob card — pins while its section's cards stack */}
+            <div className={`hidden lg:block ${PIN}`}>
               <div
-                className="blob-a pointer-events-none absolute -left-24 -top-24 h-[420px] w-[420px] rounded-full blur-3xl transition-colors duration-500"
-                style={{ backgroundColor: cat.hues[0], opacity: 0.8 }}
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
-              <div key={cat.id} className="fade-swap relative">
-                <h3 className="font-display text-[28px] font-medium leading-tight tracking-[-0.02em] text-white">
-                  {cat.title[0]}
-                  <br />
-                  {cat.title[1]}
-                </h3>
-                <p className="mt-3 max-w-[280px] text-[13px] leading-relaxed text-white/75">
-                  {cat.description}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Demo card deck — all cards are sticky siblings pinned to the same
-            spot, so each one STAYS pinned while the next scrolls up and lands
-            on top of it, like a deck of cards. The margin between cards sets
-            the scroll distance per section; solid backgrounds do the occluding. */}
-        <div className="space-y-24 lg:space-y-0 lg:pb-[25vh]">
-          {categories.map((c, i) => (
-            <div
-              key={c.id}
-              data-index={i}
-              ref={(el) => {
-                blocksRef.current[i] = el;
-              }}
-              className={`lg:sticky lg:top-[max(24px,calc(50vh-360px))] ${
-                i > 0 ? "lg:mt-[50vh]" : ""
-              }`}
-              style={{ zIndex: i + 1 }}
-            >
-              <div>
-                {/* Mobile-only header (the pinned card mechanic is desktop-only) */}
-                <div className="mb-5 lg:hidden">
-                  <span
-                    className="inline-grid h-9 w-9 place-items-center rounded-full text-white"
-                    style={{ backgroundColor: c.hues[1] }}
-                  >
-                    <Icon name={c.icon} size={15} strokeWidth={1.4} />
-                  </span>
-                  <h3 className="mt-4 font-display text-2xl font-medium tracking-[-0.02em] text-white">
-                    {c.title[0]} {c.title[1]}
+                className="relative flex h-[475px] flex-col justify-end overflow-hidden rounded-[25px] p-[30px]"
+                style={{ backgroundColor: c.hues[1] }}
+              >
+                <div
+                  className="blob-a pointer-events-none absolute -left-24 -top-24 h-[420px] w-[420px] rounded-full blur-3xl"
+                  style={{ backgroundColor: c.hues[0], opacity: 0.75 }}
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                <div className="relative">
+                  <h3 className="font-display text-[28px] font-medium leading-tight tracking-[-0.02em] text-white">
+                    {c.title[0]}
+                    <br />
+                    {c.title[1]}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+                  <p className="mt-3 max-w-[280px] text-[13px] leading-relaxed text-white/75">
                     {c.description}
                   </p>
                 </div>
-
-                <div
-                  className={`rounded-[20px] border border-hairline bg-[#0a0a0a] p-4 shadow-[0_-20px_60px_rgba(0,0,0,0.8)] transition-[transform,opacity] duration-500 ease-out ${
-                    i < active ? "lg:scale-[0.96] lg:opacity-60" : ""
-                  }`}
-                >
-                  <VideoCard
-                    src={c.video}
-                    title={`${c.title[0]} ${c.title[1]}`}
-                    className="aspect-video"
-                  />
-                  <div className="mt-3 flex flex-col gap-3">
-                    {c.examples.map((ex) => (
-                      <div
-                        key={ex.title}
-                        className="rounded-[20px] border border-hairline p-5 transition-colors hover:bg-white/[0.03]"
-                      >
-                        <p className="text-[14px] font-semibold text-white">{ex.title}</p>
-                        <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-                          {ex.body}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Right column — video and info cards, each pinning in turn so
+                the next slides up and covers it */}
+            <div className="flex flex-col gap-4">
+              {/* Mobile-only header */}
+              <div className="lg:hidden">
+                <span
+                  className="inline-grid h-9 w-9 place-items-center rounded-full text-white"
+                  style={{ backgroundColor: c.hues[1] }}
+                >
+                  <Icon name={c.icon} size={15} strokeWidth={1.4} />
+                </span>
+                <h3 className="mt-4 font-display text-2xl font-medium tracking-[-0.02em] text-white">
+                  {c.title[0]} {c.title[1]}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+                  {c.description}
+                </p>
+              </div>
+
+              <div className={PIN} style={{ zIndex: 1 }}>
+                <VideoCard
+                  src={c.video}
+                  title={`${c.title[0]} ${c.title[1]}`}
+                  className="aspect-video rounded-[20px] shadow-[0_-16px_48px_rgba(0,0,0,0.85)]"
+                />
+              </div>
+
+              {c.cards.map((card, j) => (
+                <div key={card.title} className={PIN} style={{ zIndex: j + 2 }}>
+                  <div className="overflow-hidden rounded-[20px] border border-hairline bg-[#0a0a0a] shadow-[0_-16px_48px_rgba(0,0,0,0.85)]">
+                    <p className="px-6 pt-5 text-[13px] font-semibold text-white">
+                      {card.title}
+                    </p>
+                    {/* visual area, tinted by the section hue */}
+                    <div
+                      className="mx-6 mt-4 h-[170px] rounded-xl"
+                      style={{
+                        background: `radial-gradient(120% 140% at 20% 0%, ${c.hues[1]}66 0%, transparent 60%), #0d0d0d`,
+                      }}
+                    />
+                    <div className="mt-2 divide-y divide-white/5">
+                      {card.rows.map((row) => (
+                        <div
+                          key={row}
+                          className="flex items-center justify-between gap-4 px-6 py-3.5 transition-colors hover:bg-white/[0.03]"
+                        >
+                          <p className="text-[12.5px] leading-relaxed text-neutral-300">
+                            {row}
+                          </p>
+                          <RowGlyph />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
