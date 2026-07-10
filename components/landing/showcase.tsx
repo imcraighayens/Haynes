@@ -168,20 +168,38 @@ export default function Showcase() {
   const [active, setActive] = useState(0);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
+  /* Scroll-linked (not observer-band) activation: the active section is
+     whichever block's center is closest to the viewport center, so there
+     are no dead zones and the card always reflects what you're looking at. */
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const i = Number((entry.target as HTMLElement).dataset.index);
-            setActive(i);
-          }
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const mid = window.innerHeight / 2;
+      let best = 0;
+      let bestDist = Infinity;
+      blocksRef.current.forEach((el, i) => {
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const dist = Math.abs(r.top + r.height / 2 - mid);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = i;
         }
-      },
-      { rootMargin: "-45% 0px -45% 0px" }
-    );
-    blocksRef.current.forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
+      });
+      setActive((prev) => (prev === best ? prev : best));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
   const cat = categories[active];
@@ -189,9 +207,9 @@ export default function Showcase() {
   return (
     <section className="mx-auto mt-28 max-w-6xl px-6">
       <div className="lg:grid lg:grid-cols-[44px_340px_1fr] lg:gap-8">
-        {/* Scroll-spy icon rail */}
+        {/* Scroll-spy icon rail — pinned at the vertical center of the viewport */}
         <div className="hidden lg:block">
-          <div className="sticky top-[calc(50vh-220px)] flex flex-col gap-2">
+          <div className="sticky top-[calc(50vh-216px)] flex flex-col gap-2">
             {categories.map((c, i) => (
               <button
                 key={c.id}
@@ -214,9 +232,9 @@ export default function Showcase() {
           </div>
         </div>
 
-        {/* Sticky gradient blob card */}
+        {/* Pinned gradient blob card — vertically centered beside the content */}
         <div className="hidden lg:block">
-          <div className="sticky top-24">
+          <div className="sticky top-[calc(50vh-190px)]">
             <div className="relative flex h-[380px] flex-col justify-end overflow-hidden rounded-[25px] bg-neutral-950 p-[30px]">
               <div
                 className="blob-a pointer-events-none absolute -top-16 left-0 h-72 w-72 rounded-full blur-3xl transition-colors duration-500"
@@ -240,8 +258,9 @@ export default function Showcase() {
           </div>
         </div>
 
-        {/* Scrolling demo blocks */}
-        <div className="space-y-24 lg:space-y-40">
+        {/* Scrolling demo blocks — each roughly fills the viewport so section
+            boundaries line up with the pinned card's transitions */}
+        <div className="space-y-24 lg:space-y-0">
           {categories.map((c, i) => (
             <div
               key={c.id}
@@ -249,6 +268,7 @@ export default function Showcase() {
               ref={(el) => {
                 blocksRef.current[i] = el;
               }}
+              className="lg:flex lg:min-h-screen lg:flex-col lg:justify-center lg:py-10"
             >
               {/* Mobile-only header (the pinned card mechanic is desktop-only) */}
               <div className="mb-5 lg:hidden">
@@ -266,7 +286,11 @@ export default function Showcase() {
                 </p>
               </div>
 
-              <VideoCard src={c.video} className="aspect-video border border-hairline" />
+              <VideoCard
+                src={c.video}
+                title={`${c.title[0]} ${c.title[1]}`}
+                className="aspect-video border border-hairline"
+              />
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {c.examples.map((ex) => (
                   <div
