@@ -252,10 +252,11 @@ export default function Showcase() {
           </div>
         </div>
 
-        {/* Demo card stack — each wrapper spans one viewport of scroll while
-            its card sticks at center, so the next card slides up and covers
-            the previous one, Framer-style. Solid backgrounds do the occluding. */}
-        <div className="space-y-24 lg:space-y-0">
+        {/* Demo card deck — all cards are sticky siblings pinned to the same
+            spot, so each one STAYS pinned while the next scrolls up and lands
+            on top of it, like a deck of cards. The margin between cards sets
+            the scroll distance per section; solid backgrounds do the occluding. */}
+        <div className="space-y-24 lg:space-y-0 lg:pb-[25vh]">
           {categories.map((c, i) => (
             <div
               key={c.id}
@@ -263,12 +264,12 @@ export default function Showcase() {
               ref={(el) => {
                 blocksRef.current[i] = el;
               }}
-              className="lg:h-screen"
+              className={`lg:sticky lg:top-[calc(50vh-310px)] ${
+                i > 0 ? "lg:mt-[45vh]" : ""
+              }`}
+              style={{ zIndex: i + 1 }}
             >
-              <div
-                className="lg:sticky lg:top-[calc(50vh-300px)]"
-                style={{ zIndex: i + 1 }}
-              >
+              <div>
                 {/* Mobile-only header (the pinned card mechanic is desktop-only) */}
                 <div className="mb-5 lg:hidden">
                   <span
