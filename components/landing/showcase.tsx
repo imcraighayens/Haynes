@@ -177,6 +177,8 @@ const categories: Category[] = [
 
 export default function Showcase() {
   const [active, setActive] = useState(0);
+  const [railVisible, setRailVisible] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
   /* Scroll-linked activation: the wrappers tile the scroll distance one
@@ -193,6 +195,8 @@ export default function Showcase() {
         if (el.getBoundingClientRect().top <= mid) best = i;
       });
       setActive((prev) => (prev === best ? prev : best));
+      const s = sectionRef.current?.getBoundingClientRect();
+      setRailVisible(!!s && s.top < mid && s.bottom > mid);
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(update);
@@ -210,52 +214,55 @@ export default function Showcase() {
   const cat = categories[active];
 
   return (
-    <section className="mx-auto mt-28 max-w-6xl px-6">
-      <div className="lg:grid lg:grid-cols-[44px_340px_1fr] lg:gap-8">
-        {/* Scroll-spy icon rail — pinned at the vertical center of the viewport */}
-        <div className="hidden lg:block">
-          <div className="sticky top-[calc(50vh-216px)] flex flex-col gap-2">
-            {categories.map((c, i) => (
-              <button
-                key={c.id}
-                aria-label={c.title.join(" ")}
-                onClick={() =>
-                  blocksRef.current[i]?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center",
-                  })
-                }
-                className={`grid h-9 w-9 place-items-center rounded-full border transition-colors duration-300 ${
-                  i === active
-                    ? "border-white bg-white text-black"
-                    : "border-white/15 text-neutral-500 hover:border-white/40 hover:text-white"
-                }`}
-              >
-                <Icon name={c.icon} size={15} strokeWidth={1.4} />
-              </button>
-            ))}
-          </div>
-        </div>
+    <section ref={sectionRef} className="mx-auto mt-28 max-w-6xl px-6">
+      {/* Scroll-spy icon rail — fixed to the viewport's left edge, fades in
+          while the showcase is on screen (desktop only) */}
+      <div
+        className={`fixed left-4 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2 transition-opacity duration-300 xl:flex ${
+          railVisible ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        {categories.map((c, i) => (
+          <button
+            key={c.id}
+            aria-label={c.title.join(" ")}
+            onClick={() =>
+              blocksRef.current[i]?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              })
+            }
+            className={`grid h-9 w-9 place-items-center rounded-full border backdrop-blur transition-colors duration-300 ${
+              i === active
+                ? "border-white bg-white text-black"
+                : "border-white/15 bg-black/40 text-neutral-500 hover:border-white/40 hover:text-white"
+            }`}
+          >
+            <Icon name={c.icon} size={15} strokeWidth={1.4} />
+          </button>
+        ))}
+      </div>
 
-        {/* Pinned gradient blob card — vertically centered beside the content */}
+      <div className="lg:grid lg:grid-cols-[390px_1fr] lg:gap-4">
+        {/* Pinned gradient card — flush with the container's left edge */}
         <div className="hidden lg:block">
-          <div className="sticky top-[calc(50vh-180px)]">
-            <div className="relative flex h-[360px] flex-col justify-end overflow-hidden rounded-[25px] bg-neutral-950 p-[30px]">
+          <div className="sticky top-[calc(50vh-237px)]">
+            <div
+              className="relative flex h-[475px] flex-col justify-end overflow-hidden rounded-[25px] p-[30px] transition-colors duration-500"
+              style={{ backgroundColor: cat.hues[1] }}
+            >
               <div
-                className="blob-a pointer-events-none absolute -top-16 left-0 h-72 w-72 rounded-full blur-3xl transition-colors duration-500"
-                style={{ backgroundColor: cat.hues[0], opacity: 0.85 }}
+                className="blob-a pointer-events-none absolute -left-24 -top-24 h-[420px] w-[420px] rounded-full blur-3xl transition-colors duration-500"
+                style={{ backgroundColor: cat.hues[0], opacity: 0.8 }}
               />
-              <div
-                className="blob-b pointer-events-none absolute -right-10 bottom-0 h-80 w-80 rounded-full blur-3xl transition-colors duration-500"
-                style={{ backgroundColor: cat.hues[1], opacity: 0.9 }}
-              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
               <div key={cat.id} className="fade-swap relative">
-                <h3 className="font-display text-[26px] font-medium leading-tight tracking-[-0.02em] text-white">
+                <h3 className="font-display text-[28px] font-medium leading-tight tracking-[-0.02em] text-white">
                   {cat.title[0]}
                   <br />
                   {cat.title[1]}
                 </h3>
-                <p className="mt-3 text-[13px] leading-relaxed text-white/80">
+                <p className="mt-3 max-w-[280px] text-[13px] leading-relaxed text-white/75">
                   {cat.description}
                 </p>
               </div>
@@ -275,8 +282,8 @@ export default function Showcase() {
               ref={(el) => {
                 blocksRef.current[i] = el;
               }}
-              className={`lg:sticky lg:top-[calc(50vh-310px)] ${
-                i > 0 ? "lg:mt-[45vh]" : ""
+              className={`lg:sticky lg:top-[max(24px,calc(50vh-360px))] ${
+                i > 0 ? "lg:mt-[50vh]" : ""
               }`}
               style={{ zIndex: i + 1 }}
             >
@@ -307,18 +314,15 @@ export default function Showcase() {
                     title={`${c.title[0]} ${c.title[1]}`}
                     className="aspect-video"
                   />
-                  <div className="mt-4 flex flex-col gap-2">
+                  <div className="mt-3 flex flex-col gap-3">
                     {c.examples.map((ex) => (
                       <div
                         key={ex.title}
-                        className="flex items-center gap-3 rounded-xl border border-hairline px-4 py-3 transition-colors hover:bg-white/[0.03]"
+                        className="rounded-[20px] border border-hairline p-5 transition-colors hover:bg-white/[0.03]"
                       >
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/15 text-neutral-400">
-                          <Icon name="arrow" size={12} strokeWidth={1.5} />
-                        </span>
-                        <p className="min-w-0 text-[13px] leading-snug">
-                          <span className="font-semibold text-white">{ex.title}</span>
-                          <span className="text-neutral-500"> — {ex.body}</span>
+                        <p className="text-[14px] font-semibold text-white">{ex.title}</p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
+                          {ex.body}
                         </p>
                       </div>
                     ))}
