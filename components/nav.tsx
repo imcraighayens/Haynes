@@ -29,7 +29,7 @@ export default function Nav() {
             <Link
               key={l.label}
               href={l.href}
-              className={`text-[13.5px] font-medium transition-colors hover:text-white ${
+              className={`text-[13px] font-medium transition-colors hover:text-white ${
                 i === 0 ? "text-white" : "text-neutral-500"
               }`}
             >
