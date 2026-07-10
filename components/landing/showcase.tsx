@@ -28,8 +28,9 @@ const categories: Category[] = [
     video: v("BigBuckBunny"),
     hues: ["#a855f7", "#6d28d9"],
     examples: [
-      { title: "Resume anywhere", body: "Pick a lesson back up mid-video on any device." },
-      { title: "Set a weekly goal", body: "Choose your hours and Kodelab paces the modules." },
+      { title: "Resume where I left off", body: "Pick a lesson back up mid-video on any device." },
+      { title: "Set a weekly learning goal", body: "Choose your hours and Kodelab paces the modules for you." },
+      { title: "Take a break without losing progress", body: "Your place is saved automatically, down to the second." },
     ],
   },
   {
@@ -41,8 +42,9 @@ const categories: Category[] = [
     video: v("Sintel"),
     hues: ["#4ade80", "#15803d"],
     examples: [
-      { title: "10-minute lessons", body: "Each lesson covers exactly one idea, start to finish." },
-      { title: "Real practitioners", body: "Learn from people who ship this work every day." },
+      { title: "Watch a 10-minute focused lesson", body: "Each lesson covers exactly one idea, start to finish." },
+      { title: "Learn from real practitioners", body: "Every instructor ships this work professionally, every day." },
+      { title: "Preview any course free", body: "The first lesson of every course is open to everyone." },
     ],
   },
   {
@@ -54,8 +56,9 @@ const categories: Category[] = [
     video: v("TearsOfSteel"),
     hues: ["#60a5fa", "#1d4ed8"],
     examples: [
-      { title: "Follow-along builds", body: "Code and design alongside the instructor." },
-      { title: "Portfolio-ready", body: "Ship a finished piece at the end of every course." },
+      { title: "Build alongside the instructor", body: "Code and design in step with every lesson." },
+      { title: "Ship a portfolio piece", body: "Finish every course with something real to show." },
+      { title: "Compare against checkpoints", body: "Starter files include a checkpoint for every module." },
     ],
   },
   {
@@ -67,8 +70,9 @@ const categories: Category[] = [
     video: v("ElephantsDream"),
     hues: ["#f472b6", "#be185d"],
     examples: [
-      { title: "Skill placement", body: "A short assessment finds your starting module." },
-      { title: "Track mapping", body: "Match courses you've done to Kodelab tracks." },
+      { title: "Take the skill placement", body: "A short assessment finds your exact starting module." },
+      { title: "Map courses you've finished", body: "Match past learning to Kodelab tracks and skip ahead." },
+      { title: "Bring your goals over", body: "Rebuild your learning plan here in a few minutes." },
     ],
   },
   {
@@ -80,8 +84,9 @@ const categories: Category[] = [
     video: v("ForBiggerFun"),
     hues: ["#fb923c", "#c2410c"],
     examples: [
-      { title: "Responsive player", body: "Full lesson experience at every screen size." },
-      { title: "Progress that follows", body: "Start on your laptop, finish on your phone." },
+      { title: "Watch on any screen", body: "The full lesson experience at every screen size." },
+      { title: "Start on desktop, finish on your phone", body: "Progress follows you across every device." },
+      { title: "Learn on the commute", body: "Short lessons are built for in-between moments." },
     ],
   },
   {
@@ -93,8 +98,9 @@ const categories: Category[] = [
     video: v("ForBiggerBlazes"),
     hues: ["#60a5fa", "#1e40af"],
     examples: [
-      { title: "Course certificates", body: "Issued automatically at 100% completion." },
-      { title: "Shareable badges", body: "Add track badges to your profile and CV." },
+      { title: "Earn a course certificate", body: "Issued automatically at 100% completion." },
+      { title: "Collect track badges", body: "Finish a career track and earn a shareable badge." },
+      { title: "Add credentials to your CV", body: "Every certificate has a public verification link." },
     ],
   },
   {
@@ -106,8 +112,9 @@ const categories: Category[] = [
     video: v("ForBiggerJoyrides"),
     hues: ["#a78bfa", "#5b21b6"],
     examples: [
-      { title: "Per-course completion", body: "Progress bars for everything you've started." },
-      { title: "Weekly rhythm", body: "Watch-time and streaks that keep you moving." },
+      { title: "See per-course completion", body: "Progress bars for everything you've started." },
+      { title: "Track your weekly rhythm", body: "Watch-time and streaks that keep you moving." },
+      { title: "Know what to review next", body: "Kodelab flags the modules that need a second pass." },
     ],
   },
   {
@@ -119,8 +126,9 @@ const categories: Category[] = [
     video: v("ForBiggerEscapes"),
     hues: ["#34d399", "#065f46"],
     examples: [
-      { title: "Saved for later", body: "Queue up your next course in one click." },
-      { title: "Clean archive", body: "Finished work moves out of your way, not out of reach." },
+      { title: "Save courses for later", body: "Queue up your next course in one click." },
+      { title: "Organize what's in progress", body: "Your active courses stay front and center." },
+      { title: "Archive finished work", body: "Out of your way, never out of reach." },
     ],
   },
   {
@@ -132,8 +140,9 @@ const categories: Category[] = [
     video: v("ForBiggerMeltdowns"),
     hues: ["#ec4899", "#9d174d"],
     examples: [
-      { title: "Module checks", body: "A few sharp questions after every module." },
-      { title: "Targeted rewatch", body: "Wrong answer? Jump straight to the relevant lesson." },
+      { title: "Take a module check", body: "A few sharp questions after every module." },
+      { title: "Jump straight to what you missed", body: "Wrong answer? Go directly to the relevant lesson." },
+      { title: "Retake quizzes anytime", body: "Checks are for learning, not gatekeeping." },
     ],
   },
   {
@@ -145,8 +154,9 @@ const categories: Category[] = [
     video: v("WeAreGoingOnBullrun"),
     hues: ["#f97316", "#9a3412"],
     examples: [
-      { title: "Study groups", body: "Join a cohort working through the same track." },
-      { title: "Mentor feedback", body: "Get your project reviewed by an instructor." },
+      { title: "Join a study cohort", body: "Work through a track with people at your pace." },
+      { title: "Book a mentor review", body: "Get your project reviewed by an instructor." },
+      { title: "Post to the showcase", body: "Share finished projects with the community." },
     ],
   },
   {
@@ -158,8 +168,9 @@ const categories: Category[] = [
     video: v("SubaruOutbackOnStreetAndDirt"),
     hues: ["#fb923c", "#7c2d12"],
     examples: [
-      { title: "Career tracks", body: "Six paths from fundamentals to job-ready." },
-      { title: "Next-step nudges", body: "Every completion suggests what to take next." },
+      { title: "Follow a career track", body: "Six paths from fundamentals to job-ready." },
+      { title: "Get a next-step nudge", body: "Every completion suggests what to take next." },
+      { title: "Chain courses into a path", body: "Each course sets up the one that follows." },
     ],
   },
 ];
@@ -296,15 +307,18 @@ export default function Showcase() {
                     title={`${c.title[0]} ${c.title[1]}`}
                     className="aspect-video"
                   />
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="mt-4 flex flex-col gap-2">
                     {c.examples.map((ex) => (
                       <div
                         key={ex.title}
-                        className="rounded-xl border border-hairline p-5 transition-colors hover:bg-white/[0.03]"
+                        className="flex items-center gap-3 rounded-xl border border-hairline px-4 py-3 transition-colors hover:bg-white/[0.03]"
                       >
-                        <p className="text-[13px] font-semibold text-white">{ex.title}</p>
-                        <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-                          {ex.body}
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/15 text-neutral-400">
+                          <Icon name="arrow" size={12} strokeWidth={1.5} />
+                        </span>
+                        <p className="min-w-0 text-[13px] leading-snug">
+                          <span className="font-semibold text-white">{ex.title}</span>
+                          <span className="text-neutral-500"> — {ex.body}</span>
                         </p>
                       </div>
                     ))}
