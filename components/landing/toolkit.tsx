@@ -260,7 +260,7 @@ const cells: { label: string; body: string; mock: React.ReactNode }[] = [
 export default function Toolkit() {
   return (
     <section className="mx-auto mt-32 max-w-6xl px-6">
-      <h2 className="max-w-xl font-display text-[34px] font-medium leading-[1.1] tracking-[-0.03em] text-white">
+      <h2 className="max-w-xl font-display text-[34px] font-medium leading-[1.1] tracking-[-0.04em] text-white">
         Your toolkit for learning with Kodelab
       </h2>
       <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-hairline bg-white/[0.08] sm:grid-cols-2 lg:grid-cols-3">

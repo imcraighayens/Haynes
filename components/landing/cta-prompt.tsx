@@ -50,7 +50,7 @@ export default function CtaPrompt() {
 
   return (
     <section className="mx-auto my-32 max-w-3xl px-6 text-center">
-      <h2 className="font-display text-[34px] font-medium leading-[1.1] tracking-[-0.03em] text-white md:text-[44px]">
+      <h2 className="font-display text-[34px] font-medium leading-[1.1] tracking-[-0.04em] text-white md:text-[44px]">
         What do you want to learn?
       </h2>
 

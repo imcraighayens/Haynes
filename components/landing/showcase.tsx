@@ -228,8 +228,8 @@ export default function Showcase() {
 
         {/* Pinned gradient blob card — vertically centered beside the content */}
         <div className="hidden lg:block">
-          <div className="sticky top-[calc(50vh-190px)]">
-            <div className="relative flex h-[380px] flex-col justify-end overflow-hidden rounded-[25px] bg-neutral-950 p-[30px]">
+          <div className="sticky top-[calc(50vh-180px)]">
+            <div className="relative flex h-[360px] flex-col justify-end overflow-hidden rounded-[25px] bg-neutral-950 p-[30px]">
               <div
                 className="blob-a pointer-events-none absolute -top-16 left-0 h-72 w-72 rounded-full blur-3xl transition-colors duration-500"
                 style={{ backgroundColor: cat.hues[0], opacity: 0.85 }}
@@ -286,7 +286,11 @@ export default function Showcase() {
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-hairline bg-[#0a0a0a] p-4 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
+                <div
+                  className={`rounded-[20px] border border-hairline bg-[#0a0a0a] p-4 shadow-[0_-20px_60px_rgba(0,0,0,0.8)] transition-[transform,opacity] duration-500 ease-out ${
+                    i < active ? "lg:scale-[0.96] lg:opacity-60" : ""
+                  }`}
+                >
                   <VideoCard
                     src={c.video}
                     title={`${c.title[0]} ${c.title[1]}`}

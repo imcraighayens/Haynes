@@ -89,7 +89,7 @@ export default function Home() {
       {/* Everything grid — dense, borderless */}
       <section className="mx-auto mt-32 max-w-6xl px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="max-w-xl font-display text-[34px] font-medium leading-[1.1] tracking-[-0.03em] text-white">
+          <h2 className="max-w-xl font-display text-[34px] font-medium leading-[1.1] tracking-[-0.04em] text-white">
             Everything you need to learn, built into Kodelab
           </h2>
           <Link
@@ -115,7 +115,7 @@ export default function Home() {
       {/* Popular courses */}
       <section className="mx-auto mt-32 max-w-6xl px-6">
         <div className="flex items-end justify-between">
-          <h2 className="font-display text-[34px] font-medium leading-[1.1] tracking-[-0.03em] text-white">
+          <h2 className="font-display text-[34px] font-medium leading-[1.1] tracking-[-0.04em] text-white">
             Popular courses
           </h2>
           <Link
