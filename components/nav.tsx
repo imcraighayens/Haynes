@@ -24,25 +24,21 @@ export default function Nav() {
           <span className="text-[15px] font-semibold tracking-tight text-white">Kodelab</span>
         </Link>
 
-        <div className="hidden items-center gap-6 md:flex">
-          {links.map((l) => (
+        <div className="hidden items-center gap-7 md:flex">
+          {links.map((l, i) => (
             <Link
               key={l.label}
               href={l.href}
-              className="text-sm text-neutral-400 transition-colors hover:text-white"
+              className={`text-[13.5px] font-medium transition-colors hover:text-white ${
+                i === 0 ? "text-white" : "text-neutral-500"
+              }`}
             >
               {l.label}
             </Link>
           ))}
         </div>
 
-        <div className="ml-auto hidden items-center gap-4 md:flex">
-          <Link
-            href="/courses"
-            className="rounded-full bg-white px-4 py-1.5 text-sm font-medium text-black transition-opacity hover:opacity-85"
-          >
-            Get started
-          </Link>
+        <div className="ml-auto hidden items-center md:flex">
           <span
             aria-label="Your profile"
             className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 via-violet-500 to-cyan-400 text-xs font-semibold text-white"

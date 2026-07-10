@@ -92,20 +92,21 @@ export default function Home() {
   return (
     <div className="pt-16">
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pb-14 pt-24 md:pt-32">
-        <h1 className="max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight text-white md:text-7xl">
-          Video courses for learning, building, and shipping skills
+      <section className="mx-auto max-w-6xl px-6 pb-16 pt-28 md:pt-36">
+        <h1 className="rise rise-1 max-w-[1000px] text-[44px] font-semibold leading-[1.06] tracking-[-0.04em] text-white md:text-[68px]">
+          Video courses for learning,
+          <br className="hidden md:block" /> building, and mastering skills
         </h1>
-        <div className="mt-10 flex flex-wrap items-center gap-3">
+        <div className="rise rise-2 mt-9 flex flex-wrap items-center gap-3">
           <Link
             href="/courses"
-            className="rounded-full bg-white px-5 py-2.5 text-sm font-medium text-black transition-opacity hover:opacity-85"
+            className="rounded-full bg-white px-[18px] py-2.5 text-sm font-medium text-black transition-opacity hover:opacity-85"
           >
             Get started for free
           </Link>
           <Link
             href="/dashboard"
-            className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white ring-1 ring-white/10 transition-colors hover:bg-neutral-800"
+            className="rounded-full bg-[#1a1a1a] px-[18px] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#262626]"
           >
             View my learning
           </Link>
@@ -113,31 +114,31 @@ export default function Home() {
       </section>
 
       {/* Feature grid */}
-      <section className="mx-auto max-w-6xl px-6">
-        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/10 md:grid-cols-5">
+      <section className="rise rise-3 mx-auto max-w-6xl px-6">
+        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-hairline md:grid-cols-5">
           {features.map((f, i) => (
             <div
               key={f.label.join(" ")}
-              className={`flex min-h-36 flex-col justify-between border-b border-r border-white/10 p-5 transition-colors hover:bg-white/[0.03] ${
+              className={`flex min-h-[148px] flex-col justify-between border-b border-r border-hairline p-6 transition-colors hover:bg-white/[0.03] ${
                 i % 2 === 1 ? "border-r-0 md:border-r" : ""
               } ${(i + 1) % 5 === 0 ? "md:border-r-0" : ""} ${
                 i >= features.length - 2 ? "border-b-0" : ""
               } ${i >= 5 ? "md:border-b-0" : "md:border-b"}`}
             >
               <svg
-                width="18"
-                height="18"
+                width="20"
+                height="20"
                 viewBox="0 0 18 18"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.3"
+                strokeWidth="1.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-neutral-400"
+                className="text-neutral-300"
               >
                 {icon[f.icon]}
               </svg>
-              <p className="text-sm leading-snug text-neutral-200">
+              <p className="text-[13.5px] font-medium leading-[1.4] tracking-[-0.01em] text-neutral-100">
                 {f.label[0]}
                 <br />
                 {f.label[1]}
@@ -148,31 +149,33 @@ export default function Home() {
       </section>
 
       {/* Gradient card + video card */}
-      <section className="mx-auto mt-20 grid max-w-6xl gap-6 px-6 md:grid-cols-[2fr_3fr]">
-        <div className="relative flex min-h-[420px] flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 via-purple-600 to-indigo-900 p-8">
-          <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-fuchsia-400/40 blur-3xl" />
-          <h2 className="relative text-3xl font-semibold tracking-tight text-white">
+      <section className="mx-auto mt-24 grid max-w-6xl gap-6 px-6 md:grid-cols-[1fr_2fr]">
+        <div className="relative flex min-h-[440px] flex-col justify-end overflow-hidden rounded-2xl bg-[radial-gradient(120%_120%_at_15%_0%,#a855f7_0%,#7c3aed_45%,#3b0f8f_100%)] p-8">
+          <div className="pointer-events-none absolute -left-16 -top-16 h-64 w-64 rounded-full bg-fuchsia-300/30 blur-3xl" />
+          <h2 className="relative text-[28px] font-semibold leading-tight tracking-[-0.02em] text-white">
             Learn at your
             <br />
             own pace
           </h2>
-          <p className="relative mt-3 max-w-xs text-sm leading-relaxed text-purple-100/90">
+          <p className="relative mt-3 max-w-xs text-sm leading-relaxed text-white/75">
             Short lessons, hands-on projects, and progress that follows you —
             so your course fits your schedule, not the other way around.
           </p>
         </div>
         <VideoCard
           src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-          className="min-h-[420px]"
+          className="min-h-[440px]"
         />
       </section>
 
       {/* Stats */}
       <section className="mx-auto mt-24 max-w-6xl px-6">
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-hairline bg-white/[0.08] md:grid-cols-4">
           {stats.map((s) => (
             <div key={s.label} className="bg-black p-8 text-center">
-              <p className="text-4xl font-semibold tracking-tight text-white">{s.value}</p>
+              <p className="text-4xl font-semibold tracking-[-0.03em] text-white [font-variant-numeric:tabular-nums]">
+                {s.value}
+              </p>
               <p className="mt-2 text-sm text-neutral-500">{s.label}</p>
             </div>
           ))}
