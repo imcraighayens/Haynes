@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import VideoInput from "@/components/video-input";
 import { categories as staticCategories, courses as staticCourses } from "@/lib/data";
 import {
   AdminConfig,
@@ -148,8 +149,8 @@ function FrontPageVideos({ config }: { config: AdminConfig }) {
     <section>
       <h2 className="text-lg font-semibold text-white">Front-page videos</h2>
       <p className="mt-1 text-[13px] text-neutral-500">
-        Paste a video URL (MP4/WebM) to override the clip shown in each landing
-        showcase section. Leave blank to use the default.
+        Upload a video file, or paste a URL, to override the clip shown in each
+        landing showcase section. Leave blank to use the default.
       </p>
       <div className="mt-5 space-y-2">
         {showcaseSections.map((s) => (
@@ -160,17 +161,10 @@ function FrontPageVideos({ config }: { config: AdminConfig }) {
             <span className="w-56 shrink-0 text-[13px] font-medium text-white">
               {s.label}
             </span>
-            <input
-              defaultValue={config.showcaseVideos[s.id] ?? ""}
-              onBlur={(e) => setShowcaseVideo(s.id, e.target.value)}
-              placeholder="https://…/video.mp4"
-              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black px-3 py-2 text-[13px] text-white placeholder-neutral-600 outline-none focus:border-white/40"
+            <VideoInput
+              value={config.showcaseVideos[s.id] ?? ""}
+              onChange={(v) => setShowcaseVideo(s.id, v)}
             />
-            {config.showcaseVideos[s.id] && (
-              <span className="shrink-0 text-[11px] font-medium text-emerald-400">
-                Custom
-              </span>
-            )}
           </div>
         ))}
       </div>
@@ -343,17 +337,16 @@ function StudyContent({ config }: { config: AdminConfig }) {
                   placeholder="12:00"
                   className="rounded-lg border border-white/15 bg-black px-3 py-2 text-[13px] text-white placeholder-neutral-600 outline-none focus:border-white/40"
                 />
-                <input
+                <VideoInput
                   value={lesson.videoUrl}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     setLessons((ls) =>
                       ls.map((l) =>
-                        l.id === lesson.id ? { ...l, videoUrl: e.target.value } : l
+                        l.id === lesson.id ? { ...l, videoUrl: v } : l
                       )
                     )
                   }
                   placeholder="https://…/lesson.mp4"
-                  className="rounded-lg border border-white/15 bg-black px-3 py-2 text-[13px] text-white placeholder-neutral-600 outline-none focus:border-white/40"
                 />
                 <button
                   onClick={() =>

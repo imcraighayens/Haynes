@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { isStoredVideo, resolveSrc } from "@/lib/videoStore";
 
 export type TranscriptLine = { t: number; text: string };
 
@@ -37,6 +38,22 @@ export default function VideoCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeLineRef = useRef<HTMLButtonElement>(null);
 
+  /* Resolve stored (uploaded) videos to object URLs; pass plain URLs through */
+  const [resolved, setResolved] = useState(isStoredVideo(src) ? "" : src);
+  useEffect(() => {
+    let revokeUrl: string | null = null;
+    let cancelled = false;
+    resolveSrc(src).then((r) => {
+      if (cancelled || !r) return;
+      setResolved(r.url);
+      if (r.revoke) revokeUrl = r.url;
+    });
+    return () => {
+      cancelled = true;
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
+  }, [src]);
+
   /* Esc closes; lock page scroll while the popup is open */
   useEffect(() => {
     if (!open) return;
@@ -67,7 +84,7 @@ export default function VideoCard({
         aria-label={`Play video: ${title}`}
         className={`group relative block w-full cursor-pointer overflow-hidden rounded-2xl bg-neutral-900 text-left ${className}`}
       >
-        <video src={src} preload="metadata" muted playsInline tabIndex={-1} className="h-full w-full object-cover" />
+        <video src={resolved} preload="metadata" muted playsInline tabIndex={-1} className="h-full w-full object-cover" />
         <span className="absolute inset-0 grid place-items-center">
           <span className="grid h-16 w-16 place-items-center rounded-full bg-black/60 backdrop-blur transition-transform group-hover:scale-110">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
@@ -93,7 +110,7 @@ export default function VideoCard({
             <div className="relative overflow-hidden rounded-2xl border border-hairline bg-black">
               <video
                 ref={videoRef}
-                src={src}
+                src={resolved}
                 controls
                 autoPlay
                 playsInline
