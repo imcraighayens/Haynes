@@ -168,24 +168,18 @@ export default function Showcase() {
   const [active, setActive] = useState(0);
   const blocksRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  /* Scroll-linked (not observer-band) activation: the active section is
-     whichever block's center is closest to the viewport center, so there
-     are no dead zones and the card always reflects what you're looking at. */
+  /* Scroll-linked activation: the wrappers tile the scroll distance one
+     viewport-height each, so the active section is the wrapper whose band
+     contains the viewport center — exactly one at any scroll position. */
   useEffect(() => {
     let raf = 0;
     const update = () => {
       raf = 0;
       const mid = window.innerHeight / 2;
       let best = 0;
-      let bestDist = Infinity;
       blocksRef.current.forEach((el, i) => {
         if (!el) return;
-        const r = el.getBoundingClientRect();
-        const dist = Math.abs(r.top + r.height / 2 - mid);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = i;
-        }
+        if (el.getBoundingClientRect().top <= mid) best = i;
       });
       setActive((prev) => (prev === best ? prev : best));
     };
@@ -258,8 +252,9 @@ export default function Showcase() {
           </div>
         </div>
 
-        {/* Scrolling demo blocks — each roughly fills the viewport so section
-            boundaries line up with the pinned card's transitions */}
+        {/* Demo card stack — each wrapper spans one viewport of scroll while
+            its card sticks at center, so the next card slides up and covers
+            the previous one, Framer-style. Solid backgrounds do the occluding. */}
         <div className="space-y-24 lg:space-y-0">
           {categories.map((c, i) => (
             <div
@@ -268,41 +263,48 @@ export default function Showcase() {
               ref={(el) => {
                 blocksRef.current[i] = el;
               }}
-              className="lg:flex lg:min-h-screen lg:flex-col lg:justify-center lg:py-10"
+              className="lg:h-screen"
             >
-              {/* Mobile-only header (the pinned card mechanic is desktop-only) */}
-              <div className="mb-5 lg:hidden">
-                <span
-                  className="inline-grid h-9 w-9 place-items-center rounded-full text-white"
-                  style={{ backgroundColor: c.hues[1] }}
-                >
-                  <Icon name={c.icon} size={15} strokeWidth={1.4} />
-                </span>
-                <h3 className="mt-4 font-display text-2xl font-medium tracking-[-0.02em] text-white">
-                  {c.title[0]} {c.title[1]}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-400">
-                  {c.description}
-                </p>
-              </div>
-
-              <VideoCard
-                src={c.video}
-                title={`${c.title[0]} ${c.title[1]}`}
-                className="aspect-video border border-hairline"
-              />
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {c.examples.map((ex) => (
-                  <div
-                    key={ex.title}
-                    className="rounded-xl border border-hairline p-5 transition-colors hover:bg-white/[0.03]"
+              <div
+                className="lg:sticky lg:top-[calc(50vh-300px)]"
+                style={{ zIndex: i + 1 }}
+              >
+                {/* Mobile-only header (the pinned card mechanic is desktop-only) */}
+                <div className="mb-5 lg:hidden">
+                  <span
+                    className="inline-grid h-9 w-9 place-items-center rounded-full text-white"
+                    style={{ backgroundColor: c.hues[1] }}
                   >
-                    <p className="text-[13px] font-semibold text-white">{ex.title}</p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-                      {ex.body}
-                    </p>
+                    <Icon name={c.icon} size={15} strokeWidth={1.4} />
+                  </span>
+                  <h3 className="mt-4 font-display text-2xl font-medium tracking-[-0.02em] text-white">
+                    {c.title[0]} {c.title[1]}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+                    {c.description}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-hairline bg-[#0a0a0a] p-4 shadow-[0_-20px_60px_rgba(0,0,0,0.8)]">
+                  <VideoCard
+                    src={c.video}
+                    title={`${c.title[0]} ${c.title[1]}`}
+                    className="aspect-video"
+                  />
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {c.examples.map((ex) => (
+                      <div
+                        key={ex.title}
+                        className="rounded-xl border border-hairline p-5 transition-colors hover:bg-white/[0.03]"
+                      >
+                        <p className="text-[13px] font-semibold text-white">{ex.title}</p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
+                          {ex.body}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           ))}
