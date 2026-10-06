@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-800 antialiased;
+}
+
+.dark body {
+  @apply bg-[#070b1a] text-slate-200;
+}
+
+/* Themed surfaces */
+.surface {
+  @apply bg-white border border-slate-200 shadow-sm;
+}
+.dark .surface {
+  @apply bg-[#0d1430]/70 border-white/5 shadow-none backdrop-blur;
+}
+
+.surface-muted {
+  @apply bg-slate-50 border border-slate-200;
+}
+.dark .surface-muted {
+  @apply bg-white/5 border-white/5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-white/10;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gradient-header {
+  background:
+    radial-gradient(1200px 300px at 20% -50%, rgba(51, 102, 255, 0.45), transparent 60%),
+    radial-gradient(900px 300px at 80% -60%, rgba(102, 51, 255, 0.35), transparent 60%);
+}
