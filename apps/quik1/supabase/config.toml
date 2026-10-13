@@ -1,0 +1,23 @@
+# Supabase CLI project config for Quik1 (`supabase start`, `supabase functions deploy`).
+project_id = "quik1"
+
+[api]
+schemas = ["public"]
+
+[auth]
+# Customers sign in through functions/auth (4-digit SMS code / PIN); staff use
+# email + password created by an admin. No public sign-ups of any kind.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+
+[auth.sms]
+enable_signup = false
+
+[functions.auth]
+# Called before the customer has a session.
+verify_jwt = false
+
+[functions.assistant]
+verify_jwt = true

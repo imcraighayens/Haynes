@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Client, DashboardData, LedgerEntry, Loan, LogEntry } from '../data/types'
 import { loadLocal, saveLocal, resetLocal, loadRemote, usingRemote } from '../data/store'
+import { useAuth } from './AuthContext'
 import {
   insertClient,
   updateClient,
@@ -86,13 +87,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return { ...local, loans: recomputeLoanStatuses(local.loans) }
   })
 
-  // Hydrate from Supabase if configured.
+  // Hydrate from Supabase once someone is signed in (the database only
+  // returns rows to signed-in team members).
+  const { user } = useAuth()
   useEffect(() => {
-    if (!usingRemote) return
+    if (!usingRemote || !user) return
     loadRemote().then((remote) => {
       if (remote) setData({ ...remote, loans: recomputeLoanStatuses(remote.loans) })
     })
-  }, [])
+  }, [user])
 
   // Persist to local store on every change (offline mode).
   useEffect(() => {

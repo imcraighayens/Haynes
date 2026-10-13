@@ -61,20 +61,31 @@ create index if not exists loans_client_idx on loans ("clientId");
 create index if not exists ledger_ref_idx on ledger (reference);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Row Level Security (PRODUCTION-SAFE)
+-- Row Level Security
 --
--- Anyone may READ (the dashboard hydrates with the anon key), but only a
--- signed-in Supabase Auth user may WRITE. The app uses real email/password
--- auth, so the user's JWT is attached to every write automatically.
---
--- To open writes to the anon key as well (quick prototyping, no login), see the
--- commented "DEMO" block at the bottom of this file.
+-- Only signed-in members of the `team` table can see anything; client names,
+-- phone numbers and ID numbers are personal information (POPIA). Logged-out
+-- visitors and the public anon key see nothing.
+--   viewer            read only
+--   agent / manager   read + write the loan book
+--   admin             everything, including the team list
+-- Roles come from the `team` table (matched on the signed-in email), never from
+-- user-editable auth metadata.
 -- ─────────────────────────────────────────────────────────────────────────────
 alter table clients enable row level security;
 alter table loans   enable row level security;
 alter table ledger  enable row level security;
 alter table logs    enable row level security;
 alter table team    enable row level security;
+
+revoke all on clients, loans, ledger, logs, team from anon;
+
+create or replace function public.evolt_role() returns text
+language sql stable security definer set search_path = public as $$
+  select role from team where lower(email) = lower(auth.jwt() ->> 'email') and active limit 1
+$$;
+revoke execute on function public.evolt_role() from public, anon;
+grant execute on function public.evolt_role() to authenticated;
 
 do $$
 declare t text;
@@ -83,9 +94,14 @@ begin
     execute format('drop policy if exists "demo all"  on %I', t);
     execute format('drop policy if exists "read all"  on %I', t);
     execute format('drop policy if exists "write auth" on %I', t);
-    execute format('create policy "read all"  on %I for select using (true)', t);
-    execute format('create policy "write auth" on %I for all to authenticated using (true) with check (true)', t);
+    execute format('drop policy if exists "team read" on %I', t);
+    execute format('drop policy if exists "team write" on %I', t);
+    execute format('create policy "team read" on %I for select to authenticated using (public.evolt_role() is not null)', t);
   end loop;
+  foreach t in array array['clients','loans','ledger','logs'] loop
+    execute format('create policy "team write" on %I for all to authenticated using (public.evolt_role() in (''agent'',''manager'',''admin'')) with check (public.evolt_role() in (''agent'',''manager'',''admin''))', t);
+  end loop;
+  execute 'create policy "team write" on team for all to authenticated using (public.evolt_role() = ''admin'') with check (public.evolt_role() = ''admin'')';
 end $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +148,8 @@ on conflict (id) do nothing;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- DEMO (optional): run this to ALSO allow the anon key to write, so the app
--- works without anyone logging in. INSECURE — only for throwaway prototypes.
+-- works without anyone logging in. INSECURE — exposes client personal
+-- information to anyone with the site's public key. Never on real data.
 --
 --   do $$
 --   declare t text;
@@ -160,5 +177,6 @@ on conflict (id) do nothing;
 --   values ('admin-1', 'Your Name', 'you@example.com', 'admin', true)
 --   on conflict (id) do nothing;
 --
--- If no team row matches, the app defaults the user to the 'admin' role.
+-- If no team row matches, the user sees no data and the app shows them as a
+-- viewer. Add them to `team` to grant access.
 -- ─────────────────────────────────────────────────────────────────────────────

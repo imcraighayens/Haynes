@@ -32,24 +32,28 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null)
 
-/** Build an app user from a Supabase auth user, enriching name/role from the team table. */
+/**
+ * Build an app user from a Supabase auth user. Name and role come from the
+ * `team` table — never from auth metadata, which users can edit themselves.
+ * The database enforces the same role (see supabase/schema.sql); this only
+ * drives what the UI shows. No team row → least privilege.
+ */
 async function buildUser(email: string, metadata: Record<string, unknown> | undefined): Promise<AuthUser> {
   const metaName = typeof metadata?.name === 'string' ? (metadata.name as string) : undefined
-  const metaRole = typeof metadata?.role === 'string' ? (metadata.role as Role) : undefined
   let name = metaName
-  let role = metaRole
-  if ((!name || !role) && supabase) {
+  let role: Role | undefined
+  if (supabase) {
     try {
       const { data } = await supabase.from('team').select('name, role').eq('email', email).maybeSingle()
       if (data) {
         name = name ?? (data.name as string)
-        role = role ?? (data.role as Role)
+        role = data.role as Role
       }
     } catch {
-      /* ignore — fall back to defaults below */
+      /* ignore — fall back to least privilege below */
     }
   }
-  return { email, name: name ?? email.split('@')[0], role: role ?? 'admin' }
+  return { email, name: name ?? email.split('@')[0], role: role ?? 'viewer' }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

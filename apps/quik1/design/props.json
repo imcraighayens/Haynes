@@ -1,0 +1,53 @@
+{
+  "$preview": {
+    "width": 440,
+    "height": 940
+  },
+  "brand": {
+    "editor": "text",
+    "default": "Quik1",
+    "tsType": "string"
+  },
+  "interestRate": {
+    "editor": "range",
+    "default": 35,
+    "min": 10,
+    "max": 60,
+    "step": 1,
+    "unit": "%",
+    "tsType": "number"
+  },
+  "adminApprovedAmount": {
+    "editor": "int",
+    "default": 1000,
+    "min": 0,
+    "max": 8000,
+    "step": 100,
+    "tsType": "number",
+    "section": "Lending rules"
+  },
+  "longerTermsUnlocked": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean",
+    "section": "Lending rules"
+  },
+  "demoWithdrawUnlocked": {
+    "editor": "boolean",
+    "default": true,
+    "tsType": "boolean",
+    "section": "Lending rules"
+  },
+  "whiteBackground": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean",
+    "section": "Appearance"
+  },
+  "lightNavBar": {
+    "editor": "boolean",
+    "default": false,
+    "tsType": "boolean",
+    "section": "Appearance"
+  }
+}

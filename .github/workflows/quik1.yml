@@ -1,0 +1,90 @@
+name: Quik1
+
+on:
+  push:
+    branches: [master]
+    paths: ['apps/quik1/**', 'docs/quik1/**', '.github/workflows/quik1.yml']
+  pull_request:
+    paths: ['apps/quik1/**', 'docs/quik1/**', '.github/workflows/quik1.yml']
+
+defaults:
+  run:
+    working-directory: apps/quik1
+
+jobs:
+  web:
+    name: Typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: apps/quik1/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  database:
+    name: Migrations + RLS/lending tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/db-test.sh
+        env: { DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/postgres' }
+
+  functions:
+    name: Edge functions (Deno check + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.1.x }
+      - run: deno check auth/index.ts assistant/index.ts && deno test _shared/
+        working-directory: apps/quik1/supabase/functions
+
+  parity:
+    name: Visual parity vs delivered design
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: apps/quik1/package-lock.json }
+      - run: npm ci && npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: |
+          npx vite preview --port 4173 --strictPort &
+          npx wait-on http://localhost:4173 -t 30000
+          PARITY_VIEWPORTS=440x940,390x844 npm run parity
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: parity-output, path: apps/quik1/parity-output, retention-days: 14 }
+
+  android:
+    name: Android debug build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: apps/quik1/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci && npm run build && npx cap sync android
+      - run: ./gradlew assembleDebug --no-daemon
+        working-directory: apps/quik1/android
+      - uses: actions/upload-artifact@v4
+        with: { name: quik1-debug-apk, path: apps/quik1/android/app/build/outputs/apk/debug/*.apk, retention-days: 14 }
+
+  ios:
+    name: iOS simulator build (unsigned)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: apps/quik1/package-lock.json }
+      - run: npm ci && npm run build && npx cap sync ios
+      - run: xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
