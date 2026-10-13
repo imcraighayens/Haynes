@@ -32,6 +32,12 @@ export const overrides = [
     find: 'Funds land in the account ending 4471.',
     replace: 'Funds land in the account ending {{ payoutLast4 }}.',
   },
+  {
+    id: 'a11y-send-label',
+    why: 'The Help chat send button is icon-only with no accessible name; screen readers announced "button". Invisible change.',
+    find: '<button sc-camel-on-click="{{ onSend }}"',
+    replace: '<button aria-label="Send message" sc-camel-on-click="{{ onSend }}"',
+  },
 ];
 
 // Patches to design/logic.js. Same rules: exact match, expected count, a reason.
