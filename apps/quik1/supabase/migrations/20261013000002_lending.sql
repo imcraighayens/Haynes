@@ -374,6 +374,7 @@ begin
   r := jsonb_build_object(
     'status', c.status,
     'ref', c.ref,
+    'photoPath', c.photo_path,
     'profile', jsonb_build_object(
       'name', c.full_name,
       'idnum', substr(c.id_number, 1, 7) || ' ' || substr(c.id_number, 8, 3) || ' ' || substr(c.id_number, 11, 3),

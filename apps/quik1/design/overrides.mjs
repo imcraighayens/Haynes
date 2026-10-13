@@ -13,4 +13,46 @@ export const overrides = [
       '        <div style="position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>\n',
     replace: '',
   },
+  {
+    id: 'initials-from-profile',
+    why: 'The avatar fallback showed the demo persona\'s initials ("TM"). Bind to the signed-in customer (renders identically for the demo profile).',
+    find: '<sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>',
+    replace: '<sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ initials }}</sc-if>',
+    count: 5,
+  },
+  {
+    id: 'sidebar-name-from-profile',
+    why: 'Desktop sidebar showed the demo persona\'s name as static text.',
+    find: '<span style="display:block;font-size:15px;font-weight:500">Thandi Mokoena</span>',
+    replace: '<span style="display:block;font-size:15px;font-weight:500">{{ hdrName }}</span>',
+  },
+  {
+    id: 'payout-account-from-profile',
+    why: 'Tracker copy hard-coded the demo account ending 4471.',
+    find: 'Funds land in the account ending 4471.',
+    replace: 'Funds land in the account ending {{ payoutLast4 }}.',
+  },
+];
+
+// Patches to design/logic.js. Same rules: exact match, expected count, a reason.
+export const logicOverrides = [
+  {
+    id: 'real-today',
+    why: 'The prototype pinned "today" to 20 Aug 2026 for its screenshots. Production uses the real date (the parity check pins the clock instead).',
+    find: 'new Date(2026,7,20)',
+    replace: 'new Date()',
+    count: 9,
+  },
+  {
+    id: 'statement-logo-path',
+    why: 'Statement PDFs referenced a logo path that does not exist in the bundle; point at the shipped wordmark.',
+    find: "i.src='assets/quik1-yellow.png'",
+    replace: "i.src='/assets/img/quik1-wordmark.png'",
+  },
+  {
+    id: 'repay-bank-from-profile',
+    why: 'Repayment copy hard-coded the demo bank (Capitec).',
+    find: "' comes off your Capitec account on '",
+    replace: "' comes off your '+String((s.profile&&s.profile.bank)||'bank').split(' ')[0]+' account on '",
+  },
 ];

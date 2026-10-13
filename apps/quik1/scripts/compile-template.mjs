@@ -20,16 +20,20 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFragment } from 'parse5';
-import { overrides } from '../design/overrides.mjs';
+import { overrides, logicOverrides } from '../design/overrides.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let html = readFileSync(join(root, 'design/template.html'), 'utf8');
 
-for (const o of overrides) {
-  const n = html.split(o.find).length - 1;
-  if (n !== (o.count ?? 1)) throw new Error(`override "${o.id}" matched ${n} times, expected ${o.count ?? 1}`);
-  html = html.split(o.find).join(o.replace);
+function applyOverrides(text, list) {
+  for (const o of list) {
+    const n = text.split(o.find).length - 1;
+    if (n !== (o.count ?? 1)) throw new Error(`override "${o.id}" matched ${n} times, expected ${o.count ?? 1}`);
+    text = text.split(o.find).join(o.replace);
+  }
+  return text;
 }
+html = applyOverrides(html, overrides);
 
 // ── encodeCase (mirrors the runtime) ─────────────────────────────────────────
 const RAW_WRAP = { select: 'sc-raw-select', table: 'sc-raw-table', tbody: 'sc-raw-tbody', thead: 'sc-raw-thead', tfoot: 'sc-raw-tfoot', tr: 'sc-raw-tr', td: 'sc-raw-td', th: 'sc-raw-th', caption: 'sc-raw-caption' };
@@ -220,7 +224,7 @@ mkdirSync(join(root, 'src/generated'), { recursive: true });
 writeFileSync(join(root, 'src/generated/template.tsx'), out);
 writeFileSync(join(root, 'src/generated/pseudo.css'), '/* GENERATED — pseudo-class rules from style-hover / style-focus-within / style-active attributes. */\n' + [...pseudo.values()].map((p) => p.rule).join('\n') + '\n');
 // The logic class ships verbatim; it was written against two globals (DCLogic, React).
-const logic = readFileSync(join(root, 'design/logic.js'), 'utf8');
+const logic = applyOverrides(readFileSync(join(root, 'design/logic.js'), 'utf8'), logicOverrides);
 writeFileSync(join(root, 'src/generated/logic.js'), `/* GENERATED from design/logic.js — do not edit. Production behaviour is layered on in src/app/. */
 /* eslint-disable */
 import React from 'react';
@@ -228,4 +232,4 @@ import { DCLogic } from '../runtime/DCLogic';
 ${logic}
 export default Component;
 `);
-console.log(`compiled template: ${out.length} chars, ${pseudo.size} pseudo-class rules, ${overrides.length} overrides`);
+console.log(`compiled template: ${out.length} chars, ${pseudo.size} pseudo-class rules, ${overrides.length + logicOverrides.length} overrides`);

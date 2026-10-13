@@ -44,7 +44,9 @@ create policy via_loan on collections for select to authenticated
 create policy via_drawdown on payouts for select to authenticated
   using (is_staff('viewer') or exists (select 1 from drawdowns d join loans l on l.id = d.loan_id where d.id = drawdown_id and l.customer_id = auth.uid()));
 
-create policy everyone on products for select to authenticated using (true);
+-- Pricing is public (it must be disclosed before anyone applies).
+grant select on products to anon;
+create policy everyone on products for select to anon, authenticated using (true);
 create policy public_keys on app_config for select to authenticated using (key in ('lender', 'limits', 'pilot') or is_staff('admin'));
 create policy self_or_admin on staff for select to authenticated using (user_id = auth.uid() or is_staff('admin'));
 create policy admin_only on audit_log for select to authenticated using (is_staff('admin'));
@@ -94,3 +96,11 @@ create policy quik1_documents_insert on storage.objects for insert to authentica
   with check (bucket_id = 'documents' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy quik1_documents_read on storage.objects for select to authenticated
   using (bucket_id = 'documents' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff('credit_officer')));
+
+-- Live support replies (Supabase Realtime), when the publication exists.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    alter publication supabase_realtime add table support_messages;
+  end if;
+end $$;
