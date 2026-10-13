@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Sign in to Quik1 with Face ID.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Photograph your ID document and bank statements.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a statement, payslip or profile photo to upload.</string>
 </dict>
 </plist>

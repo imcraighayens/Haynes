@@ -1,6 +1,6 @@
 # Quik1 Mobile App: PRD
 
-**Status:** DRAFT. Waiting on Craig's sign-off. No build work starts until this is approved.
+**Status:** APPROVED (Craig: "go", 13 Oct 2026). Phase 1 built; see decision log. Open questions in §9 were not answered, so the recommended defaults were applied (logged below).
 **Owner:** Craig Moatshe · **Drafted:** 13 Oct 2026
 **Source of truth for the look:** [`design-source/quik1-prototype.html`](design-source/quik1-prototype.html) (the delivered bundle, kept here unchanged)
 
@@ -162,4 +162,14 @@ apps/evolt/ (existing)      back office, pointed at the same DB (if Q3 = yes)
 | 13 Oct 2026 | Store policy conflict (≤ 60-day / 36% APR) | **Open: Q1** |
 | 13 Oct 2026 | 35% flat vs NCA Reg. 42 caps | **Open: Q2, needs counsel** |
 | 13 Oct 2026 | e.Volt `schema.sql`: anon read of client PII, open writes, default-admin | **Open: fix separately (needs your go)** |
-| 13 Oct 2026 | Recommended stack: Capacitor + React/TS + Supabase | Proposed |
+| 13 Oct 2026 | Recommended stack: Capacitor + React/TS + Supabase | **Decided** (go) |
+| 13 Oct 2026 | Q1 distribution: default applied, i.e. web app (PWA) first; native builds prepared, not submitted | Default, confirm |
+| 13 Oct 2026 | Q2 pricing: default applied, i.e. closed pilot, payouts held, pricing as server data flagged `pending_counsel` | Default, confirm |
+| 13 Oct 2026 | Q3 back office: Quik1 has its own back office (`/admin.html`); e.Volt untouched apart from the security fix. The design's support address is applications@**ecoloans**.co.za, so it may be one lender; merge later if so | Default, confirm |
+| 13 Oct 2026 | Q4 splash: illustration removed; black splash keeps wordmark, dots, progress bar. Native launch screens fully blank black | Default, confirm |
+| 13 Oct 2026 | Q5 NCR number: placeholder kept in `app_config.lender` | Open |
+| 13 Oct 2026 | Q6 vendors: SMS (mock/Clickatell/Twilio seam), KYC, bureau, statements, DebiCheck, payouts are all mock or provider seams | Open, Phase 2 |
+| 13 Oct 2026 | Q7 repo: **not** moved to `apps/evolt`; the live Netlify site builds e.Volt from the repo root. Quik1 lives in `apps/quik1` | Changed from PRD |
+| 13 Oct 2026 | Sign-in: design uses 4-digit SMS codes + 4-digit PIN; Supabase OTP is 6+ digits, so custom `functions/auth` mints sessions; PIN only on SMS-verified devices | Decided |
+| 13 Oct 2026 | e.Volt RLS fixed in repo (team-only reads, roles from `team`, no default admin). **Needs re-running schema.sql on the live DB** | Done in repo; live action open |
+| 13 Oct 2026 | Design shows non-existent products (Quik1 Save "earn interest", credit card, BillOn) and "Checked with Home Affairs". Copy to fix before launch (COMPLIANCE.md) | Open |
