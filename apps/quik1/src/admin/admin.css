@@ -1,0 +1,48 @@
+@import '../../design/global.css';
+:root { --ink: #0B0620; --y: #FDD10D; --bone: #F2F0EA; --grey: #6B6675; --line: rgba(11, 6, 32, .1); }
+body { background: var(--bone); color: var(--ink); font-size: 14px; }
+.shell { display: flex; min-height: 100vh; }
+nav { flex: 0 0 220px; background: #000; color: #fff; padding: 28px 18px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+nav img { width: 96px; margin: 0 0 24px 8px; }
+nav button { text-align: left; background: transparent; color: rgba(255,255,255,.75); border: 0; padding: 10px 12px; border-radius: 12px; font-size: 14px; cursor: pointer; }
+nav button.on, nav button:hover { background: rgba(255,255,255,.08); color: #fff; }
+nav button.on { box-shadow: inset 3px 0 0 var(--y); }
+.me { margin-top: auto; font-size: 12px; color: rgba(255,255,255,.6); display: flex; flex-direction: column; gap: 8px; }
+main { flex: 1; min-width: 0; padding: 32px; }
+section h2 { font-size: 22px; font-weight: 500; letter-spacing: -.02em; margin: 0 0 18px; }
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; }
+th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; font-weight: 500; color: var(--grey); text-transform: uppercase; letter-spacing: .04em; background: #fff; }
+tr.attention td { background: rgba(253, 209, 13, .12); }
+.mono { font-family: ui-monospace, monospace; }
+.small { font-size: 12px; color: var(--grey); }
+.actions { white-space: nowrap; display: flex; gap: 6px; }
+button { font: inherit; border-radius: 999px; padding: 7px 14px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+button.yes { background: var(--y); border-color: var(--y); font-weight: 500; }
+.pill { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--bone); }
+.pill.approved, .pill.active, .pill.accepted { background: rgba(253,209,13,.3); }
+.pill.declined { background: rgba(255,138,122,.25); }
+.pill.referred { background: var(--ink); color: var(--y); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { background: #000; color: #fff; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+.kpi span { font-size: 12px; color: rgba(255,255,255,.6); }
+.kpi b { font-size: 22px; font-weight: 500; color: var(--y); }
+.error { color: #C0392B; }
+.empty { color: var(--grey); }
+.pad { padding: 40px; }
+.inbox { display: grid; grid-template-columns: 300px 1fr; gap: 16px; min-height: 60vh; }
+.inbox ul { list-style: none; margin: 0; padding: 0; background: #fff; border-radius: 16px; overflow: auto; }
+.inbox li { padding: 12px 14px; border-bottom: 1px solid var(--line); cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.inbox li.on { background: var(--bone); }
+.inbox li span { font-size: 12px; color: var(--grey); }
+.inbox li span.waiting { color: var(--ink); font-weight: 500; }
+.thread { background: #fff; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.thread p { margin: 0; max-width: 70%; padding: 10px 14px; border-radius: 16px; background: var(--bone); display: flex; flex-direction: column; gap: 4px; }
+.thread p.agent, .thread p.system { align-self: flex-end; background: #000; color: #fff; }
+.thread small { font-size: 11px; opacity: .6; }
+.thread form { margin-top: auto; display: flex; gap: 8px; }
+.thread input, .login input { flex: 1; font: inherit; padding: 11px 14px; border-radius: 14px; border: 1px solid var(--line); }
+.login { max-width: 340px; margin: 12vh auto; background: #000; color: #fff; padding: 32px; border-radius: 26px; display: flex; flex-direction: column; gap: 12px; }
+.login img { width: 110px; }
+.login h1 { font-weight: 500; font-size: 20px; margin: 0 0 8px; }
+@media (max-width: 760px) { .shell { flex-direction: column; } nav { position: static; height: auto; flex-direction: row; flex-wrap: wrap; } .kpis { grid-template-columns: repeat(2, 1fr); } .inbox { grid-template-columns: 1fr; } main { padding: 16px; overflow-x: auto; } }
