@@ -2,6 +2,7 @@ name: Quik1
 
 on:
   push:
+    branches: [master]
     paths: ['apps/quik1/**', 'docs/quik1/**', '.github/workflows/quik1.yml']
   pull_request:
     paths: ['apps/quik1/**', 'docs/quik1/**', '.github/workflows/quik1.yml']
