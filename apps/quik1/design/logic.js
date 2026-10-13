@@ -1,0 +1,2245 @@
+  const SALARY_DAY=25;
+  const DUE_DATE=(()=>{
+    const now=new Date(2026,7,20);
+    let d=new Date(now.getFullYear(),now.getMonth(),SALARY_DAY-1);
+    if(d<=now) d=new Date(now.getFullYear(),now.getMonth()+1,SALARY_DAY-1);
+    return d;
+  })();
+  const ord=n=>n+(n%10===1&&n!==11?'st':n%10===2&&n!==12?'nd':n%10===3&&n!==13?'rd':'th');
+  const DUE=DUE_DATE.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+  const MONTHS=['July','June','May'];
+  const nbsp=s=>String(s).replace(/ /g,'\u00a0');
+  const YEL='#FDD10D', INK='#0B0620', BONE='#F2F0EA', GREY='#6B6675';
+  const SHEETS=['accounts','loan','activity','schedule','statements','support','profile','tracker','documents','performance','credit'];
+  const GLASS='rgba(255,255,255,.07)', GLASS_2='rgba(255,255,255,.12)', ON_GLASS='rgba(255,255,255,.62)';
+  const NEW_FLOW=['who','amount','purpose','eligibility','docs','kyc'];
+  const RE_FLOW=['amount','purpose'];
+  const LIMIT=8000;
+  
+  class Component extends DCLogic {
+    state={infoKey:'',loanSheet:false,
+      splashMs:0, splashDone:false, amountInput:null, toastSeen:false,
+      screen:'login', loginMode:'new', authing:false, customer:false, activeLoan:null,
+      pageOut:false, closing:'', panelPhase:'', menuIcon:0, payoutAt:0,
+    employment:'', estIncome:'', estExpenses:'', payMethod:'', hideAmounts:false, cardIdx:0, alertsOpen:false, mandateSigned:false, desktopView:false, agTicked:false, closedLoans:[], letter:null, sentNote:'', agreement:null, agreementLast:null,
+      baseAmount:0, interestPaid:0, graduated:false, approvedAmount:null, upgradeTo:null, amountError:'', otpMode:false, phone:'', phoneError:'', otp:'', menuOpen:false,
+      linkId:null, linkDecision:null,
+      borrower:'', amount:2500, term:3, purpose:'', purposeError:'',
+      income:'', incomeError:'', tenure:'', consent:[], consentError:'',
+      docs:0, docsError:'', docChecks:[{state:'idle'}], docError:null, kyc:[], kycError:'',
+      decisionTick:0, terms:false, offerError:'',
+      profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
+      profile:{name:'Thandi Mokoena',idnum:'9204125 084 083',email:'thandi.m@gmail.com',mobile:'+27 82 431 9077',bank:'Capitec · ···· 4471'},
+      aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
+      aiChat:[{from:'bot',text:'Hi Thandi. I am Q1, the Quik1 assistant. Ask me about your balance, dates or limit.'}],
+      draft:'', chat:[
+        {from:'them',text:'Hi Thandi — Sipho here. How can I help?'},
+        {from:'me',text:'Can I pay off early without a penalty?'},
+        {from:'them',text:'Yes. The 35% charge is fixed when the loan is granted, so paying sooner never costs you more. Tap Settle the loan on the Repayments tab to pay it off today.'}
+      ]
+    };
+  
+    _file=React.createRef();
+    _proof=React.createRef();
+    _doc=React.createRef();
+    _docs=React.createRef();
+    _docIndex=0;
+    checkBundleFile(name){
+      const low=name.toLowerCase();
+      if(!/\.(pdf|png|jpe?g|heic)$/i.test(name)) return {ok:false,short:'Unreadable file type',
+        title:'We could not read that file',
+        body:'Quik1 reads PDF statements and clear photos. Export your statement as a PDF from your banking app and try again.'};
+      if(/screenshot|whats|edit/i.test(low)) return {ok:false,short:'Not an official statement',
+        title:'That does not look official',
+        body:'Screenshots and edited files cannot be verified. Use the original statement your bank generated.'};
+      return {ok:true};
+    }
+    checkStatement(name,i){
+      const month=MONTHS[i], low=name.toLowerCase();
+      const other=MONTHS.find((m,j)=>j!==i&&low.includes(m.toLowerCase()));
+      if(other) return {ok:false,short:'Wrong month — this looks like '+other,
+        title:'That is the '+other+' statement',
+        body:'We asked for '+month+'. Upload the '+month+' statement from your banking app so we see the right months.'};
+      const isDoc=/\.(pdf|png|jpe?g|heic)$/i.test(name);
+      if(!isDoc) return {ok:false,short:'Unreadable file type',
+        title:'We could not read that file',
+        body:'Quik1 reads PDF statements and clear photos. Export the '+month+' statement as a PDF from your banking app and try again.'};
+      if(/screenshot|whats|edit/i.test(low)) return {ok:false,short:'Not an official statement',
+        title:'That does not look official',
+        body:'Screenshots and edited files cannot be verified. Use the original '+month+' statement your bank generated.'};
+      return {ok:true};
+    }
+    _splashVid=React.createRef();
+    _loginVid=React.createRef();
+    playVideos(){
+      [this._splashVid,this._loginVid].forEach(r=>{
+        const v=r.current;
+        if(!v||!v.paused) return;
+        v.muted=true; v.defaultMuted=true;
+        v.setAttribute('muted',''); v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); v.setAttribute('autoplay','');
+        const p=v.play();
+        if(p&&p.catch) p.catch(()=>{ if(!this._vidTap){ this._vidTap=()=>{ this.playVideos(); }; ['touchstart','click'].forEach(ev=>window.addEventListener(ev,this._vidTap,{once:true,passive:true})); } });
+      });
+    }
+    componentDidUpdate(pp,ps){
+      this.persist();
+      if(this.state.quickAsking&&!this.state.aiTyping){ const c=this.state.aiChat||[], last=c[c.length-1];
+        if(last&&last.from!=='me'&&c.length>(this._qrN||0)){ const t=String(last.text||'');
+          if(t.length>70) this.setState({quickAsking:false,quickOpen:false,aiOpen:true});
+          else { this.setState({quickAsking:false,quickReply:t}); clearTimeout(this._qrT); this._qrT=setTimeout(()=>this.setState({quickReply:''}),9000); } } }
+      if(ps&&['login','signup','signupPending'].includes(ps.screen)&&this.state.screen==='home'&&this._bubLogin) this._bubLogin();
+      { const a=this._aiScroll.current; if(a) a.scrollTop=a.scrollHeight;
+        const c=this._chatScroll.current; if(c) c.scrollTop=c.scrollHeight; }
+      { const st=this.state, k=st.screen, off=(st.stepTipOff||{})[k];
+        if(!off&&ps){
+          const touched=['amount','amountInput','purpose','purposeOther','tenure','income','proof','consent','qOpen','docChecks','kyc'].some(f=>ps[f]!==st[f])&&ps.screen===k;
+          if(touched){ clearTimeout(this._tipT); this.setState(s2=>({stepTipOff:{...(s2.stepTipOff||{}),[k]:true}})); }
+          else if(ps.screen!==k||this._tipFor!==k){ this._tipFor=k; clearTimeout(this._tipT); this.setState({stepTipFade:false}); this._tipT=setTimeout(()=>{ this.setState({stepTipFade:true}); this._tipT=setTimeout(()=>this.setState(s2=>({stepTipFade:false,stepTipOff:{...(s2.stepTipOff||{}),[k]:true}})),500); },8000); }
+        } } if(ps&&ps.screen!=='home'&&this.state.screen==='home'&&this.state.bubbleIdx==null&&this._bubStart) this._bubStart(); if(Date.now()-(this._lastPlay||0)<1000) return; this._lastPlay=Date.now(); if((this._splashVid.current&&this._splashVid.current.paused)||(this._loginVid.current&&this._loginVid.current.paused)) this.playVideos(); }
+    componentDidMount(){
+      if(window.Quik1Link) this._unSu=window.Quik1Link.subscribe(ls=>{ const id=this.state.suRef; if(!id) return; const rec=(ls.signups||[]).find(x=>x.id===id); if(rec&&rec.status!==this.state.suStatus) this.setState({suStatus:rec.status}); });
+      const tick=()=>{ this._botT=setTimeout(()=>{ this.setState(st=>{ let n; do{ n=Math.floor(Math.random()*8); }while(n===(st.botMood||0)); return {botMood:n}; }); tick(); },1600+Math.random()*2200); };
+      tick();
+      const canShow=()=>{ const st=this.state; return st.splashDone&&st.screen==='home'&&!st.quickOpen&&!st.aiOpen&&!st.gridOpen&&!st.menuOpen&&!st.bubbleMuted; };
+      const bub=(wait)=>{ this._bubT=setTimeout(()=>{ if(!canShow()) return bub(1500); this.setState(st=>({bubbleOn:true,bubbleIdx:(st.bubbleIdx==null)?0:(()=>{ let n; do{ n=1+Math.floor(Math.random()*17); }while(n===st.bubbleIdx); return n; })()})); this._bubT=setTimeout(()=>{ this.setState({bubbleOn:false}); bub(9000); },4800); }, wait); };
+      const FIRST=180000;
+      this._bubStart=()=>{ clearTimeout(this._bubT); bub(this.state.bubbleIdx==null?Math.max(1500,FIRST-(Date.now()-(this._loginAt||0))):20000); };
+      this._bubLogin=()=>{ clearTimeout(this._bubT); this._loginAt=Date.now(); this.setState({bubbleOn:false,bubbleIdx:null}); bub(FIRST); };
+      this._loginAt=Date.now(); bub(FIRST);
+      this._t0=Date.now();
+      setTimeout(()=>this.playVideos(),60);
+      this._splash=setInterval(()=>{
+        const e=Date.now()-this._t0;
+        if(e>=5000){ clearInterval(this._splash); this.setState({splashMs:5000,splashDone:true}); setTimeout(()=>this.playVideos(),60); }
+        else this.setState({splashMs:e});
+      },80);
+      this._onResize=()=>this.setState({vw:window.innerWidth,vh:window.innerHeight});
+      window.addEventListener('resize',this._onResize);
+      this._onResize();
+      this.restore();
+      this._menuIconT=setInterval(()=>this.setState(st=>({menuIcon:((st.menuIcon||0)+1)%6})),3000);
+      if(window.Quik1Link) this._unRep=window.Quik1Link.subscribe(ls=>{ const r=(ls.repayments||{}).app; const ok=!!(r&&r.ok); if(ok!==!!this.state.repayOk) this.setState({repayOk:ok}); });
+      if(window.Quik1Link) this._unlink=window.Quik1Link.subscribe(s=>{
+        const id=this.state.linkId; if(!id) return;
+        const d=s.decisions[id];
+        if(d && (!this.state.linkDecision || this.state.linkDecision.at!==d.at)) this.setState({linkDecision:d});
+      });
+    }
+    signupVals(){
+      const s=this.state, u=s.su||{step:1}, step=u.step||1, tried=!!s.suTried;
+      const set=(k,fmt)=>e=>{ const v=fmt?fmt(e.target.value):e.target.value; this.setState(st=>({su:{...st.su,[k]:v},suError:''})); };
+      const digits=n=>v=>v.replace(/\D/g,'').slice(0,n);
+      const errs={
+        name:!/\S+\s+\S+/.test(u.name||'')?'Enter your first name and surname':'',
+        idnum:!/^\d{13}$/.test(u.idnum||'')?'SA ID numbers have 13 digits':'',
+        phone:(u.phone||'').replace(/\D/g,'').length!==9?'Enter 9 digits after +27':'',
+        email:!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email||'')?'Enter a valid email address':'',
+        employer:(u.employment!=='Self-employed'&&!(u.employer||'').trim())?'Who do you work for?':'',
+        income:(parseInt(u.income||'0',10)<1000)?'Monthly take-home pay, at least R1 000':'',
+        pin:!/^\d{4}$/.test(u.pin||'')?'Choose 4 digits':'',
+        pin2:(u.pin2!==u.pin)?'PINs do not match':''
+      };
+      const F=(k,label,ph,o)=>Object.assign({label,ph,value:u[k]||'',onChange:set(k,o&&o.fmt),type:'text',mode:'text',max:80,prefix:'',ls:'0',
+        err:tried?errs[k]:'',border:(tried&&errs[k])?'rgba(255,138,122,.6)':'rgba(255,255,255,.10)'},o||{});
+      const fields={
+        1:[F('name','Full name','As on your ID'),F('idnum','SA ID number','13 digits',{mode:'numeric',max:13,fmt:digits(13),ls:'.06em'}),
+           F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'})],
+        2:[F('employer',u.employment==='Self-employed'?'Business name (optional)':'Employer','Company name'),
+           F('income','Monthly take-home pay','0',{mode:'numeric',max:7,fmt:digits(7),prefix:'R'})],
+        3:[F('pin','Create a 4-digit PIN','••••',{type:'password',mode:'numeric',max:4,fmt:digits(4),ls:'.4em'}),
+           F('pin2','Confirm PIN','••••',{type:'password',mode:'numeric',max:4,fmt:digits(4),ls:'.4em'})]
+      }[step];
+      const stepKeys={1:['name','idnum','phone','email'],2:['employer','income'],3:['pin','pin2']}[step];
+      const chip=(k,v)=>({label:v,go:()=>this.setState(st=>({su:{...st.su,[k]:v}})),bg:u[k]===v?'#FDD10D':'rgba(255,255,255,.05)',fg:u[k]===v?'#0B0620':'#FFFFFF',bd:u[k]===v?'#FDD10D':'rgba(255,255,255,.12)'});
+      const tog=(k,label)=>({label,go:()=>this.setState(st=>({su:{...st.su,[k]:!st.su[k]},suError:''})),bg:u[k]?'#FDD10D':'transparent',bd:u[k]?'#FDD10D':'rgba(255,255,255,.35)',tick:u[k]?1:0});
+      const st=s.suStatus||'Pending review', ok=st==='Approved', no=st==='Declined';
+      const tl=[
+        {label:'Application submitted',meta:'Sent to applications@ecoloans.co.za',done:true},
+        {label:'Admin review',meta:ok?'Approved':no?'Not approved':'Usually within 1 business hour',done:ok||no,cur:!ok&&!no},
+        {label:'Account active',meta:ok?'You can borrow now':'We will SMS you',done:ok}];
+      return {
+        isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
+        suStep:step, suStep2:step===2, suStep3:step===3,
+        suStepName:{1:'About you',2:'Work and pay',3:'Pick a PIN'}[step],
+        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 4 numbers you will remember. You use them to open the app.'}[step],
+        suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
+        suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
+        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these 4 digits to log in. Keep them to yourself.'}[step],
+        suFields:fields, suError:s.suError||'',
+        suEmp:['Permanent','Contract','Self-employed','Part-time'].map(v=>chip('employment',v)),
+        suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
+        suConsents:[tog('credit','I agree that Quik1 can check my credit record and whether I can afford this loan.'),tog('terms','I accept the Terms and Privacy Policy (POPIA).')],
+        suCta:step<3?'Continue':'Submit for approval',
+        onSuBack:()=>step>1?this.setState(st=>({su:{...st.su,step:step-1},suTried:false,suError:''})):this.setState({screen:'login',suTried:false}),
+        onSuNext:()=>{
+          if(stepKeys.some(k=>errs[k])) return this.setState({suTried:true,suError:''});
+          if(step<3) return this.setState(st=>({su:{...st.su,step:step+1},suTried:false}));
+          if(!u.credit||!u.terms) return this.setState({suError:'Tick both boxes to continue.'});
+          const rec={name:u.name.trim(),idnum:u.idnum,phone:'+27 '+u.phone,email:u.email.trim(),employment:u.employment,employer:(u.employer||'').trim()||'—',income:u.income,payday:u.payday};
+          const id=window.Quik1Link?window.Quik1Link.submitSignup(rec):'SU-'+(2041+Math.floor(Math.random()*900));
+          this.setState(st=>({screen:'signupPending',suRef:id,suStatus:'Pending review',suTried:false,phone:u.phone,profile:{...st.profile,name:rec.name,email:rec.email,mobile:'0'+u.phone}}));
+        },
+        suRef:s.suRef||'',
+        suStatusBg:ok?'#FDD10D':no?'rgba(255,138,122,.16)':'rgba(255,255,255,.08)',
+        suStatusInk:ok?'#0B0620':no?'#FF8A7A':'#FDD10D',
+        suStatusIcon:ok?'m5.5 12.5 4 4 9-9.5':no?'M7 7l10 10M17 7 7 17':'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z',
+        suDoneTitle:ok?'You are approved':no?'We could not approve this account':'Thanks, we are reviewing your account',
+        suDoneBody:ok?'Your account is active. Sign in with your number and PIN to apply for your first loan.'
+          :no?'Our team could not verify the details supplied. Email applications@ecoloans.co.za and we will help.'
+          :'Your details are with our team at applications@ecoloans.co.za. We will SMS you as soon as your account is approved.',
+        suTimeline:tl.map((t,i)=>({...t,bg:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):'transparent',bd:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):t.cur?'#FDD10D':'rgba(255,255,255,.25)',tick:t.done?1:0,ink:t.done||t.cur?'#FFFFFF':'rgba(255,255,255,.55)',line:i<2?'rgba(255,255,255,.07)':'transparent'})),
+        suDoneCta:ok?'Sign in':no?'Back to start':'Back to start',
+        suDoneBg:ok?'#FDD10D':'transparent', suDoneInk:ok?'#0B0620':'#FFFFFF', suDoneBorder:ok?'0':'1.5px solid rgba(255,255,255,.22)',
+        onSuDone:()=>this.setState({screen:'login',loginIntro:false,loginMode:ok?'return':'new',otpMode:false})
+      };
+    }
+    botFace(){
+      const hv=this.state.botHover;
+      const m=hv?(this.state.botHoverMood||'excited'):['idle','side','bored','wink','attitude','happy','idle','sus'][this.state.botMood||0];
+      const E=React.createElement, T='all .32s cubic-bezier(.34,1.56,.64,1)';
+      const eye=(side)=>{
+        const L=side<0;
+        const cfg={
+          idle:{w:4,h:7,x:0,y:0,r:0,rad:2},
+          side:{w:4,h:7,x:2.5,y:0,r:0,rad:2},
+          bored:{w:6,h:2.5,x:0,y:1.5,r:0,rad:1.5},
+          wink:L?{w:6,h:2,x:0,y:1.5,r:-8,rad:1}:{w:4,h:7,x:0,y:0,r:0,rad:2},
+          attitude:{w:6,h:4,x:0,y:1,r:L?18:-18,rad:1.5},
+          happy:{w:6,h:3.5,x:0,y:0,r:0,rad:'4px 4px 1px 1px'},
+          sus:L?{w:6,h:2.5,x:1.5,y:1,r:0,rad:1.5}:{w:4.5,h:6,x:1.5,y:0,r:0,rad:2},
+          excited:{w:5,h:5,x:0,y:-.5,r:0,rad:'50%'},
+          surprised:{w:5,h:8,x:0,y:-.5,r:0,rad:'50%'},
+          shy:{w:5,h:2.5,x:0,y:2,r:L?-10:10,rad:'4px 4px 1px 1px'},
+          love:{w:4.5,h:4.5,x:0,y:0,r:45,rad:'2px 2px 0 2px',c:'#FF6B9A'},
+          cheeky:L?{w:6,h:3.5,x:0,y:0,r:0,rad:'4px 4px 1px 1px'}:{w:6,h:2,x:0,y:1.5,r:-8,rad:1}
+        }[m];
+        return E('span',{key:'e'+side,style:{display:'block',width:cfg.w+'px',height:cfg.h+'px',borderRadius:typeof cfg.rad==='number'?cfg.rad+'px':cfg.rad,background:cfg.c||'#FDD10D',
+          transform:'translate('+cfg.x+'px,'+cfg.y+'px) rotate('+cfg.r+'deg)',transition:T,
+          animation:(m==='idle'||m==='side')?'q-blink 3.2s '+(side>0?'.04s':'0s')+' infinite':'none'}});
+      };
+      const mouth={idle:{w:5,h:1.6,r:0,y:0},side:{w:3,h:1.6,r:0,y:0},bored:{w:6,h:1.4,r:0,y:0},wink:{w:5,h:1.6,r:-14,y:0},
+        attitude:{w:5,h:1.6,r:8,y:.5},happy:{w:7,h:3,r:0,y:0,rad:'1px 1px 4px 4px'},sus:{w:4,h:1.6,r:-10,y:0},
+        excited:{w:8,h:4,r:0,y:0,rad:'1px 1px 5px 5px'},surprised:{w:4,h:4,r:0,y:.5,rad:'50%'},shy:{w:4,h:1.6,r:0,y:.5},love:{w:6,h:3,r:0,y:0,rad:'1px 1px 4px 4px'},cheeky:{w:6,h:3,r:-12,y:0,rad:'1px 1px 4px 4px'}}[m];
+      const tilt={idle:0,side:-8,bored:6,wink:-6,attitude:10,happy:0,sus:-12,excited:0,surprised:0,shy:-10,love:6,cheeky:-8}[m];
+      return E('span',{style:{position:'relative',width:'28px',height:'28px',display:'grid',placeItems:'center',animation:hv?'q-bob .6s ease-in-out infinite':'q-bob 2.4s ease-in-out infinite',transform:hv?'scale(1.14)':'scale(1)',transition:'transform .35s cubic-bezier(.34,1.56,.64,1)'}},
+        E('span',{key:'ant',style:{position:'absolute',top:'-4px',left:'50%',width:'2px',height:'5px',marginLeft:'-1px',background:'#0B0620',borderRadius:'1px',transformOrigin:'50% 100%',animation:'q-twitch 3.6s ease-in-out infinite'}},
+          E('span',{style:{position:'absolute',top:'-3px',left:'-1.5px',width:'5px',height:'5px',borderRadius:'50%',background:m==='attitude'?'#FF5A4F':m==='love'?'#FF6B9A':hv?'#FDD10D':'#0B0620',transition:'background .3s'}})),
+        (m==='shy'||m==='love')?E('span',{key:'blush',style:{position:'absolute',left:'2px',right:'2px',top:'15px',display:'flex',justifyContent:'space-between',zIndex:2,pointerEvents:'none'}},
+          E('span',{style:{width:'5px',height:'3px',borderRadius:'50%',background:'rgba(255,107,154,.85)'}}),E('span',{style:{width:'5px',height:'3px',borderRadius:'50%',background:'rgba(255,107,154,.85)'}})):null,
+        E('span',{key:'head',style:{width:'26px',height:'22px',borderRadius:'9px',background:'#0B0620',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'3px',
+          transform:'rotate('+tilt+'deg)',transition:T,boxShadow:'inset 0 -2px 0 rgba(255,255,255,.08)'}},
+          E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
+          E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
+    }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+  
+    _cards=React.createRef();
+    _aiScroll=React.createRef();
+    _chatScroll=React.createRef();
+    _key='quik1.account.v1';
+    restore(){
+      try{
+        const raw=localStorage.getItem(this._key);
+        if(!raw) return;
+        const a=JSON.parse(raw);
+        if(!a||typeof a!=='object') return;
+        const keep={};
+        ['activeLoan','baseAmount','interestPaid','graduated','profile','approved'].forEach(k=>{
+          if(a[k]!==undefined) keep[k]=a[k];
+        });
+        if(Object.keys(keep).length) this.setState(keep);
+      }catch(e){}
+    }
+    persist(patch){
+      try{
+        const s=Object.assign({},this.state,patch||{});
+        localStorage.setItem(this._key,JSON.stringify({
+          customer:s.customer, activeLoan:s.activeLoan, baseAmount:s.baseAmount,
+          interestPaid:s.interestPaid, graduated:s.graduated, profile:s.profile,
+          approved:s.approved, savedAt:Date.now()
+        }));
+      }catch(e){}
+    }
+    num(v){ return parseInt(String(v).replace(/\D/g,'')||'0',10); }
+    estimate(){
+      const s=this.state;
+      const inc=this.num(s.estIncome), exp=this.num(s.estExpenses);
+      const spare=Math.max(0,inc-exp);
+      const caps={permanent:8000,contract:5000,selfEmployed:4000,grant:2000,none:0};
+      const cap=caps[s.employment] ?? 3000;
+      const raw=Math.floor((spare*0.25)/100)*100;
+      const amount=Math.max(0,Math.min(cap,raw,LIMIT));
+      return {eligible:amount>=500&&inc>=3000, amount, spare,
+        charge:amount*this.rate(), repay:amount*(1+this.rate()),
+        reason:inc<3000?'We fund from R3 000 a month upward.'
+          :(amount<500?'What is left after your expenses is too tight for a R500 loan right now.':'')};
+    }
+    assess(){
+      const s=this.state, L=this.calc();
+      const inc=this.num(s.income)||this.num(s.estIncome);
+      const exp=this.num(s.estExpenses)||Math.round(inc*0.7);
+      const spare=Math.max(0,inc-exp);
+      const instal=L.monthly||L.total;
+      const ratio=spare?instal/spare:1;
+      const statementOk=s.docChecks.every(d=>d.state==='ok');
+      const proofOk=!!s.proof;
+      const flags=[];
+      if(!statementOk) flags.push('Bank statement not verified');
+      if(!proofOk) flags.push('Proof of income not verified');
+      if(ratio>0.5) flags.push('Instalment above half of surplus income');
+      const verdict=flags.length?((statementOk&&proofOk)?'refer':'decline'):'approve';
+      const rec=verdict==='approve'?L.a:(verdict==='refer'?Math.floor((spare*0.35)/100)*100:0);
+      return {verdict,flags,spare,instal,
+        affordability:Math.round((1-Math.min(1,ratio))*100),
+        recommended:Math.max(0,Math.min(LIMIT,rec))};
+    }
+    money(n){ return 'R ' + String(Math.round(n||0)).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+    moneyParts(n){ const v=Math.round((n||0)*100)/100; const whole=Math.floor(v); return ['R '+String(whole).replace(/\B(?=(\d{3})+(?!\d))/g,','), '.'+String(Math.round((v-whole)*100)).padStart(2,'0')]; }
+    rate(){ return (this.props.interestRate ?? 35) / 100; }
+    flow(){ return this.state.customer?RE_FLOW:NEW_FLOW; }
+    // The earned base is the most PRINCIPAL a customer may have outstanding.
+    headroom(st){
+      const s=st||this.state;
+      if(!s.customer) return LIMIT;
+      if(s.withdrawMode&&((this.props.demoWithdrawUnlocked ?? true)||s.repayOk)) return Math.max(0,Math.floor((LIMIT-((s.activeLoan&&s.activeLoan.total)||0))/100)*100);
+      const base=Math.min(LIMIT,Math.max(500,s.baseAmount||500));
+      if(!s.activeLoan) return base;
+      if(!this.grown(s)) return 0;
+      return Math.max(0,Math.floor((base-s.activeLoan.a)/100)*100);
+    }
+    seedLoan(){ const a=1000, t=a*(1+this.rate()); return {a,total:t,term:1,monthly:t,draws:[{a,total:t,date:'2 August',ref:'QK-84210',term:1,rate:this.rate()}]}; }
+    seedGrowth(){ const a=1000; return {baseAmount:a, interestPaid:a*this.rate()}; }
+    loan(){
+      const L=this.state.activeLoan;
+      if(L) return L;
+      if(this.state.customer) return {a:0,total:0,term:1,monthly:0,draws:[]};
+      const c=this.calc();
+      return {a:c.a,total:c.total,term:c.t,monthly:c.monthly,draws:[{a:c.a,total:c.total,date:'19 August'}]};
+    }
+    // Growth rule: interest paid must accumulate to the first loan's principal
+    // before longer terms and top-ups unlock.
+    growthTarget(st){ const s=st||this.state; return s.baseAmount||500; }
+    // Each time banked interest reaches the base, the base itself steps up.
+    regrade(st){
+      let base=st.baseAmount||500, paidI=st.interestPaid||0, up=false;
+      while(base<LIMIT&&paidI>=base){ paidI-=base; base=Math.min(LIMIT,base*2); up=true; }
+      return {baseAmount:base,interestPaid:paidI,graduated:up||!!st.graduated};
+    }
+    growthPaid(st){ const s=st||this.state; return s.interestPaid||0; }
+    // Earned once, kept for good.
+    grown(st){ const s=st||this.state; return !!s.graduated || this.growthPaid(s)>=this.growthTarget(s); }
+    starRating(st){ const s=st||this.state; const pct=Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100));
+      const settled=(s.closedLoans||[]).length, onTime=!!s.mandateSigned||!!s.activeLoan;
+      return Math.max(1,Math.min(5,1+(onTime?1:0)+Math.min(2,settled)+(pct>=50?1:0))); }
+    termsUnlocked(){ return (this.props.longerTermsUnlocked ?? false) || this.starRating()>=5; }
+    activeTerm(){ return this.termsUnlocked() ? this.state.term : 1; }
+    calc(){
+      const a=this.state.amount, t=this.activeTerm();
+      const interest=a*this.rate(), total=a+interest;
+      return {a,t,interest,total,monthly:total/t};
+    }
+    _ccEl=React.createRef();
+    switchPanel(target,fromMenu){
+      if(this.state.dockPeek){ clearTimeout(this._peekT); this.setState({dockPeek:false}); }
+      if(this.state.screen===target) return;
+      this.setState(st=>({panelPhase:'out',menuOpen:fromMenu===undefined?st.menuOpen:fromMenu}));
+      clearTimeout(this._panelT);
+      this._panelT=setTimeout(()=>this.setState({screen:target,panelPhase:'in'}),400);
+    }
+    localAnswer(q){
+      const L=this.loan(), low=q.toLowerCase();
+      const pct=(this.props.interestRate ?? 35)+'%';
+      if(/owe|balance|outstanding/.test(low)) return 'Your outstanding balance is '+this.money(L.total)+'. That is the full amount including the '+pct+' charge.';
+      if(/debit|date|due|next/.test(low)) return 'Your next debit is '+DUE+', collected from '+this.state.profile.bank+'.';
+      if(/settle|early|penalty/.test(low)) return 'Yes. Settling early costs nothing extra — you pay the balance shown and the loan closes the same day.';
+      if(/limit|increase|more|bigger/.test(low)) return 'Your limit is '+this.money(LIMIT)+'. It grows once the interest you have paid reaches your original loan amount.';
+      if(/charge|interest|rate|fee/.test(low)) return 'One flat charge of '+pct+' of the amount you draw. No monthly fees, no initiation fee.';
+      return 'I have logged that for the team — they will come back to you in the chat under Help.';
+    }
+    accountBrief(){
+      const s=this.state, L=this.loan();
+      const pct=(this.props.interestRate ?? 35)+'%';
+      const term=L.term||1;
+      return [
+        'Customer: '+s.profile.name,
+        'Payout account: '+s.profile.bank,
+        'Outstanding balance (principal + charge): '+this.money(L.total),
+        'Amount drawn: '+this.money(L.a),
+        'Term: '+term+(term===1?' month':' months'),
+        'Instalment: '+this.money(term?L.total/term:0),
+        'Next debit date: '+DUE,
+        'Credit limit: '+this.money(LIMIT),
+        'Interest paid toward next growth tier: '+this.money(s.interestPaid||0)+' of '+this.money(s.baseAmount||0)
+      ].join('\n');
+    }
+    quickAsk(q){
+      clearTimeout(this._qrT);
+      this.setState({quickAsking:true,quickReply:'',aiDraft:''});
+      this._qrN=(this.state.aiChat||[]).length;
+      this.askQ1(q);
+    }
+    speakQ1(txt){
+      return;
+      try{ const ss=window.speechSynthesis; if(!ss) return; ss.cancel();
+        const u=new SpeechSynthesisUtterance(String(txt).replace(/R ?([\d,]+)/g,'R$1 rand').replace(/ rand/g,'')); 
+        const vs=ss.getVoices(); u.voice=vs.find(v=>/en-ZA/i.test(v.lang))||vs.find(v=>/en-GB/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
+        u.rate=1.02; u.pitch=1.05; u.onstart=()=>this.setState({aiSpeaking:true}); u.onend=u.onerror=()=>this.setState({aiSpeaking:false}); ss.speak(u);
+      }catch(e){}
+    }
+    toggleMic(){
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return;
+      if(this.state.aiListening){ try{ this._rec&&this._rec.stop(); }catch(e){} return; }
+      try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){}
+      const r=new SR(); this._rec=r; r.lang='en-ZA'; r.interimResults=true; r.maxAlternatives=1;
+      let finalTxt='';
+      r.onresult=e=>{ let t=''; for(let i=0;i<e.results.length;i++){ t+=e.results[i][0].transcript; if(e.results[i].isFinal) finalTxt=t; } this.setState({aiDraft:t}); };
+      r.onerror=()=>this.setState({aiListening:false});
+      r.onend=()=>{ this.setState({aiListening:false}); const q=(finalTxt||this.state.aiDraft||'').trim(); if(q){ this._voiceReply=true; this.askQ1(q); } };
+      this.setState({aiListening:true,aiDraft:''}); try{ r.start(); }catch(e){ this.setState({aiListening:false}); }
+    }
+    openGuide(){
+      const st=this.state, k=st.screen;
+      const G={
+        home:'This is your home screen. The cards up top show your next debit and available credit; tap one to flip it. Use Repay, Top up or Statement below, and the bar at the bottom to move around.',
+        accounts:'Accounts shows every Quik1 account you have and what you still owe on each. Tap one to see your loans and pay-back dates.',
+        credit:'These are the Quik1 Card packages. Swipe or tap a card to compare its limit, term, interest and fees, then tap Apply on the one you want.',
+        performance:'Rewards shows how your account is growing. Interest you pay on time counts toward a higher limit, and you can share your referral code here.',
+        profile:'Profile holds your personal details. Tap a field to edit it and Save changes when done. Account performance at the top shows your growth.',
+        schedule:'This is your repayment schedule. It shows what is due and when the debit order runs. You can settle early here with no penalty.',
+        statements:'Statements lists your monthly statements. Tap one to view or download it.',
+        documents:'Documents keeps everything Quik1 holds for you, including a signed agreement for every loan.',
+        support:'This is Help. Type a message and a real person replies between 08:00 and 18:00.',
+        tracker:'The tracker shows where your application is, from submitted to paid out.',
+        activity:'Activity lists every draw and repayment on your account, newest first.',
+        loan:'This shows the detail of your current loan: amount, interest and the date it is due.',
+        amount:'Choose how much you need with the slider, then pick a term if longer terms are unlocked. The total to repay updates as you go.',
+        purpose:'Tap what the money is for. It does not change your price.',
+        eligibility:'Answer a few questions about your income and expenses so we can confirm you can afford the repayment.',
+        docs:'Upload your latest payslip or bank statement. Clear photos are processed fastest.',
+        kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
+        who:'Pick if this loan is for you or for your business.',
+        signup:'Sign up takes 3 short steps: your details, your work and pay, then a 4-digit PIN. Tap Back any time to change something.',
+        login:'Choose how to sign in at the bottom: Face ID, your PIN, or your ID number. New here? Tap Sign up.'};
+      const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
+      const last=st.aiChat[st.aiChat.length-1];
+      const add=!(last&&last.from==='bot'&&last.text===txt);
+      this.setState(s2=>({quickOpen:false,aiOpen:true,aiChipsUsed:false,aiChat:add?[...s2.aiChat,{from:'bot',text:txt}]:s2.aiChat}));
+      if(add&&st.aiVoiceOn!==false) this.speakQ1(txt);
+    }
+    askQ1(text){
+      const q=(text||'').trim();
+      if(!q) return;
+      this.setState(st=>({aiChat:[...st.aiChat,{from:'me',text:q}],aiDraft:'',aiTyping:true,aiThinkIdx:0}));
+      const t0=Date.now(), minWait=2600+Math.min(1600,q.length*35)+Math.random()*900;
+      clearInterval(this._thinkI); this._thinkI=setInterval(()=>this.setState(st=>({aiThinkIdx:(st.aiThinkIdx||0)+1})),1300);
+      let history=this.state.aiChat.slice(-8).map(m=>({role:m.from==='me'?'user':'assistant',content:m.text}));
+      while(history.length&&history[0].role!=='user') history.shift();
+      const system='You are Q1, the in-app assistant for Quik1, a South African short-term lender. '
+        +'Answer in at most three short sentences, plain and factual, no lists, no emoji. Use rands as "R 1 350". '
+        +'Quik1 charges ONE flat '+((this.props.interestRate ?? 35))+'% of the amount drawn — no monthly fees, no initiation fee, no penalty for settling early. '
+        +'Only use the account facts below; if something is not covered, say the Help chat will pick it up.\n\n'
+        +this.accountBrief();
+      const settle=(txt)=>{
+        clearTimeout(this._aiT);
+        const wait=Math.max(0,minWait-(Date.now()-t0));
+        this._aiT=setTimeout(()=>{ clearInterval(this._thinkI); this.setState(st=>({aiTyping:false,aiChat:[...st.aiChat,{from:'bot',text:txt}]})); if(this.state.aiVoiceOn!==false) this.speakQ1(txt); },wait);
+      };
+      const canClaude=typeof window!=='undefined'&&window.claude&&window.claude.complete;
+      if(!canClaude){
+        clearTimeout(this._aiT);
+        settle(this.localAnswer(q));
+        return;
+      }
+      let done=false;
+      this._aiT=setTimeout(()=>{ if(!done){ done=true; settle(this.localAnswer(q)); } },12000);
+      window.claude.complete({system,messages:[...history,{role:'user',content:q}],max_tokens:400})
+        .then(r=>{ if(done) return; done=true; settle((r||'').trim()||this.localAnswer(q)); })
+        .catch(()=>{ if(done) return; done=true; settle(this.localAnswer(q)); });
+    }
+    async downloadStatement(d){
+      let logo=null;
+      try{ const img=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src='assets/quik1-yellow.png'; });
+        const W=344,H=Math.round(W*img.height/img.width), c=document.createElement('canvas'); c.width=W; c.height=H; const x=c.getContext('2d');
+        x.drawImage(img,0,0,W,H); x.globalCompositeOperation='source-in'; x.fillStyle='#000'; x.fillRect(0,0,W,H);
+        x.globalCompositeOperation='destination-over'; x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+        const bin=atob(c.toDataURL('image/jpeg',.92).split(',')[1]); logo={w:W,h:H,bin}; }catch(e){}
+      const A=t=>String(t==null?'':t).replace(/[\u2212\u2013\u2014]/g,'-').replace(/[^\x20-\x7E]/g,'').replace(/([\\()])/g,'\\$1');
+      const ops=[]; let y=800;
+      const T=(x,yy,size,txt,bold)=>ops.push('BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+yy+' Td ('+A(txt)+') Tj ET');
+      const R=(x,yy,size,txt,bold)=>{ const w=String(A(txt)).length*size*0.5; T(x-w,yy,size,txt,bold); };
+      const line=yy=>ops.push('0.8 G 0.6 w 50 '+yy+' m 545 '+yy+' l S 0 G');
+      ops.push('0 g 0 G');
+      if(logo){ const lw=86, lh=Math.round(lw*logo.h/logo.w); ops.push('q '+lw+' 0 0 '+lh+' 50 '+(812-lh)+' cm /Im1 Do Q'); } else T(50,797,16,'Quik1',true);
+      R(545,800,16,'Statement',true); R(545,784,10,d.mon); y=760;
+      [['Account holder',d.name],['Account no.',d.acc],['Statement date',d.date],['Next debit',d.due]].forEach((r,i)=>{ T(50+(i%2)*250,y-Math.floor(i/2)*18,10,r[0]+': '+r[1]); });
+      y=716; line(y); y-=18; T(50,y,9,'DATE',true); T(110,y,9,'DESCRIPTION',true); R(470,y,9,'AMOUNT',true); R(545,y,9,'BALANCE',true); y-=8; line(y);
+      d.tx.forEach(t=>{ y-=18; T(50,y,10,t.date); T(110,y,10,t.title); R(470,y,10,t.amount); R(545,y,10,t.balance); });
+      y-=12; line(y);
+      d.rows.forEach((r,i)=>{ y-=18; const last=i===d.rows.length-1; T(300,y,last?12:10,r[0],last); R(545,y,last?12:10,r[1],last); });
+      T(50,60,8,'Ecoloans (Pty) Ltd t/a Quik1 - Registered credit provider NCRCP00000. Generated '+new Date().toLocaleDateString('en-ZA')+'.');
+      const content=ops.join('\n');
+      const objs=['<< /Type /Catalog /Pages 2 0 R >>','<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>'+(logo?' /XObject << /Im1 7 0 R >>':'')+' >> /Contents 6 0 R >>',
+        '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+        '<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream'];
+      if(logo) objs.push('<< /Type /XObject /Subtype /Image /Width '+logo.w+' /Height '+logo.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+logo.bin.length+' >>\nstream\n'+logo.bin+'\nendstream');
+      let pdf='%PDF-1.4\n'; const off=[];
+      objs.forEach((o,i)=>{ off.push(pdf.length); pdf+=(i+1)+' 0 obj\n'+o+'\nendobj\n'; });
+      const x=pdf.length; pdf+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+off.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+'trailer\n<< /Size '+(objs.length+1)+' /Root 1 0 R >>\nstartxref\n'+x+'\n%%EOF';
+      const bytes=new Uint8Array(pdf.length); for(let i=0;i<pdf.length;i++) bytes[i]=pdf.charCodeAt(i)&255;
+      const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+      const a=document.createElement('a'); a.href=url; a.download='Quik1-statement-'+d.mon.replace(/\s+/g,'-')+'.pdf'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),4000);
+      this.setState({sentNote:'Statement for '+d.mon+' downloaded.'});
+    }
+    go(s){
+      if(this.state.dockPeek){ clearTimeout(this._peekT); this.setState({dockPeek:false}); }
+      if(this.state.screen===s) return;
+      if(s==='home'&&this.state.withdrawMode) this.setState({withdrawMode:false});
+      if(this.state.lockTipOff) this.setState({lockTipOff:false});
+      const from=this.state.screen;
+      if(SHEETS.includes(s)){ this.switchPanel(s,false); return; }
+      this.setState({pageOut:true,menuOpen:false});
+      clearTimeout(this._pageT);
+      this._pageT=setTimeout(()=>this.setState({pageOut:false,screen:s}),200);
+    }
+    alerts(s){
+      const a={};
+      const docsOutstanding=(s.docChecks||[]).filter(d=>d.state!=='ok').length
+        +(s.proof?0:1)+((s.kyc||[]).includes('id')?0:1);
+      if(!s.customer&&docsOutstanding) a.documents=docsOutstanding;
+      if(s.activeLoan&&!s.mandateSigned) a.schedule=1;
+      return a;
+    }
+    pushes(s){
+      const out=[];
+      if(s.activeLoan&&!s.mandateSigned)
+        out.push({title:'Waiting for your bank OK',body:'Open your banking app and approve the Quik1 debit order so we can collect on '+DUE+'.',go:'schedule'});
+      const missing=(s.docChecks||[]).filter(d=>d.state!=='ok').length+(s.proof?0:1);
+      if(!s.customer&&missing)
+        out.push({title:'Application unfinished',body:missing+' document'+(missing>1?'s':'')+' still needed before we can pay out.',go:'documents'});
+      return out;
+    }
+    dismiss(key,patch){
+      this.setState({closing:key});
+      clearTimeout(this._closeT);
+      this._closeT=setTimeout(()=>this.setState(Object.assign({closing:''},patch||{})),key==='panel'?380:300);
+    }
+  
+    verifyAll(){
+      const pending=this.state.docChecks
+        .map((d,i)=>({d,i}))
+        .filter(x=>x.d.file&&x.d.state!=='checking');
+      if(!pending.length) return;
+      this.setState(st=>{
+        const next=st.docChecks.slice();
+        pending.forEach(x=>{ next[x.i]={state:'checking',file:x.d.file}; });
+        return {docChecks:next,docError:null};
+      });
+      pending.forEach((x,n)=>setTimeout(()=>{
+        const v=this.checkStatement(x.d.file,x.i);
+        this.setState(st=>{
+          const next=st.docChecks.slice();
+          next[x.i]=v.ok?{state:'ok',file:x.d.file}:{state:'fail',file:x.d.file,reason:v.short};
+          return Object.assign({docChecks:next},
+            v.ok?{}:{docError:{title:v.title,body:v.body,index:x.i}});
+        });
+      },900+n*550));
+    }
+    submitApplication(){
+      this.setState(st=>{
+        this.runDecision();
+        let linkId=st.linkId;
+        if(window.Quik1Link){
+          const c=this.calc();
+          linkId=window.Quik1Link.submitApplication({
+            name:st.fullName||'Thandi Mokoena',
+            phone:st.phone?('0'+String(st.phone).replace(/\s/g,'')):'082 441 0912',
+            amount:st.amount,
+            term:(this.activeTerm()||1)+' mo',
+            purpose:st.purpose==='Other'?st.purposeOther:st.purpose,
+            income:Number(String(st.income||st.estIncome||'').replace(/\D/g,''))||0,
+            surplus:(Number(String(st.estIncome||'').replace(/\D/g,''))||0)-(Number(String(st.estExpenses||'').replace(/\D/g,''))||0)
+          });
+        }
+        return {kycError:'',screen:'deciding',linkId,linkDecision:null};
+      });
+    }
+    adminCap(){
+      const d=this.state.linkDecision;
+      if(d && d.verdict==='approved' && d.amount>0) return d.amount;
+      const v=this.props.adminApprovedAmount ?? 0; return v>0?v:null;
+    }
+    runDecision(){
+      this.setState({decisionTick:0});
+      [900,1700,2500].forEach((ms,i)=>setTimeout(()=>this.setState({decisionTick:i+1}),ms));
+      setTimeout(()=>this.setState({screen:'offer'}),3300);
+    }
+  
+    pill(on){ return on?{bg:'#000000',fg:'#FFFFFF',border:'#000000'}:{bg:'transparent',fg:INK,border:'rgba(11,6,32,.16)'}; }
+    chip(on){ return on?{bg:YEL,fg:INK,border:YEL}:{bg:'transparent',fg:INK,border:'rgba(11,6,32,.16)'}; }
+  
+    renderVals(){
+      const v=this._rv(), s=this.state;
+      const extra=[{label:'Statements',path:'M6.2 4.4h11.6a1.8 1.8 0 0 1 1.8 1.8v13.4l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6-2.4-1.6-2.2 1.6V6.2a1.8 1.8 0 0 1 1.8-1.8ZM9 8.6h6M9 12.2h6',onClick:()=>this.switchPanel('statements',false)},{label:'Profile',path:'M12 12a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM5.2 19.6a6.8 6.8 0 0 1 13.6 0',onClick:()=>this.switchPanel('profile',false)}];
+      v.gridItems=(v.menuItems||[]).concat(extra).map(m=>({label:m.label,path:m.path,hasBadge:!!m.hasBadge,badge:m.badge||'',go:()=>{ this.setState({gridOpen:false}); setTimeout(()=>{ m.onClick&&m.onClick(); this.setState({menuOpen:false}); },60); }}));
+      const lt=(s.homeLight ?? (this.props.whiteBackground ?? false))&&s.screen==='home';
+      Object.assign(v,{gridScrim:lt?'rgba(11,6,32,.18)':'rgba(0,0,0,.45)',gridSheetBg:'var(--q-surface)',gridBd:'rgba(var(--q-fg),.07)',gridShadow:lt?'0 24px 60px rgba(11,6,32,.3)':'0 24px 60px rgba(0,0,0,.65),inset 0 1px 0 rgba(var(--q-fg),.06)',gridTileBg:'var(--q-tile)',gridTileBd:'rgba(var(--q-fg),.10)',gridInk:'var(--q-ink)',gridMute:'rgba(var(--q-fg),.5)',gridIconBg:'rgba(253,209,13,.16)'});
+      v.gridOpen=!!s.gridOpen;
+      { const onProf=s.screen==='profile';
+        Object.assign(v,{hdrMenuOn:onProf?0:1,hdrBackOn:onProf?1:0,hdrCloseOn:0,hdrMenuLabel:onProf?'Close profile settings':'Profile settings',
+          onHeaderMenu:()=>{ this.setState({gridOpen:false,menuOpen:false}); if(onProf){ clearTimeout(this._panelT); this.dismiss('panel',{screen:'home',panelPhase:''}); } else this.switchPanel('profile',false); }}); }
+      { const HINT={'My loan':'What you owe and when','New loan':'Apply or top up','Application status':'See where your loan is','Repayments':'When money comes off','Documents':'Agreements and uploads','Rewards':'Grow your limit, invite friends','My contract':'The deal you signed','Help':'Chat to a person','Statements':'Monthly statements'};
+        const view=s.menuView||((typeof localStorage!=='undefined'&&localStorage.getItem('quik1_menu_view'))||'grid');
+        const setV=k=>{ try{ localStorage.setItem('quik1_menu_view',k); }catch(e){} this.setState({menuView:k}); };
+        const dLeft=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)), owing=!!s.activeLoan;
+        v.gridItems=v.gridItems.map(g=>g.label==='Repayments'&&owing?{...g,hasBadge:false,isCal:true,notCal:false,calDay:String(DUE_DATE.getDate()),calMon:DUE_DATE.toLocaleDateString('en-ZA',{month:'short'}).toUpperCase(),
+          calLeft:dLeft===0?'Today':dLeft+(dLeft===1?' day left':' days left'),calWeek:DUE_DATE.toLocaleDateString('en-ZA',{weekday:'long'}),aria:'Repayments, due '+DUE_DATE.toLocaleDateString('en-ZA',{day:'numeric',month:'long'})+', '+(dLeft===0?'today':dLeft+(dLeft===1?' day left':' days left')),calTileInk:dLeft<=3?'#FFFFFF':'#0B0620',calPillBg:dLeft<=3?'#FF3B30':'#FDD10D',calPillInk:dLeft<=3?'#FFFFFF':'#FDD10D',calListInk:dLeft<=3?'#FFFFFF':'#0B0620'}:{...g,isCal:false,notCal:true,aria:g.label});
+        v.gridItems=v.gridItems.map((g,i)=>({...g,hint:HINT[g.label]||'',sep:i===0?'transparent':'rgba(var(--q-fg),.07)'}));
+        Object.assign(v,{menuIsGrid:view==='grid',menuIsList:view==='list',menuViewX:view==='list'?'34px':'0px',
+          menuGridInk:view==='grid'?'#0B0620':'rgba(var(--q-fg),.6)',menuListInk:view==='list'?'#0B0620':'rgba(var(--q-fg),.6)',
+          onMenuGrid:()=>setV('grid'),onMenuList:()=>setV('list'),gridIconInk:'var(--q-accent)'}); }
+      { const onAuth=!!s.splashDone&&(s.screen==='login'||s.screen==='signup')&&!s.authing;
+        v.showAuthDock=onAuth;
+        if(onAuth){
+          const cur=s.screen==='signup'?'signup':s.loginMode==='return'?'face':s.loginMode==='pin'?'pin':s.loginMode==='id'?'id':'signup';
+          const act0=s.authTap||cur;
+          v.authDockItems=[
+            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,loginIntro:false})},
+            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false})},
+            {k:'id',label:'Sign in',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',otpMode:false,loginIntro:false,liError:''})},
+            {k:'signup',label:'Sign up',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
+          ].map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')) g0(); },
+            gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,pad:act?'18px':'13px',
+            labelX:act?'0px':'-6px',labelBlur:act?'0px':'3px',labelDelay:act?'.12s':'0s',
+            bg:act?'#FDD10D':'transparent',ink:act?'#0B0620':'rgba(255,255,255,.75)',
+            shadow:act?'0 6px 16px rgba(253,209,13,.25),inset 0 1px 0 rgba(255,255,255,.45)':'none'}; });
+        } }
+      { const pct=Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100));
+        const settled=(s.closedLoans||[]).length, onTime=!!s.mandateSigned||!!s.activeLoan;
+        const n=Math.max(1,Math.min(5,1+(onTime?1:0)+Math.min(2,settled)+(pct>=50?1:0)));
+        const names=['','Getting started','Building','Good','Great','Top performer'];
+        const fn=((s.profile&&s.profile.name)||'Thandi').split(' ')[0].toUpperCase();
+        const refs=s.referrals||0;
+        Object.assign(v,{
+          stars:[1,2,3,4,5].map(i=>({fill:i<=n?'#FDD10D':'transparent',stroke:i<=n?'#FDD10D':'rgba(255,255,255,.25)',glow:i<=n?'drop-shadow(0 0 6px rgba(253,209,13,.45))':'none'})),
+          starLabel:n+' of 5 · '+names[n],
+          starRules:[
+            {label:'Debit order set up',meta:onTime?'Done':'To do',ok:onTime},
+            {label:'Loans settled',meta:settled+' of 2',ok:settled>=2},
+            {label:'Interest milestone',meta:pct+'%',ok:pct>=50}
+          ].map(r=>({...r,bg:r.ok?'#FDD10D':'rgba(255,255,255,.1)',tick:r.ok?1:0})),
+          refCode:'Q1-'+fn.slice(0,6),
+          refCopyLabel:s.refCopied?'Copied':'Copy',
+          onCopyRef:()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText('Q1-'+fn.slice(0,6)); }catch(e){} this.setState({refCopied:true}); setTimeout(()=>this.setState({refCopied:false}),1600); },
+          onShareRef:()=>{ const url='https://quik1.co.za/r/Q1-'+fn.slice(0,6); if(navigator.share){ navigator.share({title:'Quik1',text:'Get fast cash with Quik1',url}).catch(()=>{}); } else this.setState({sentNote:'Invite link copied: '+url}); },
+          refStats:[{value:String(refs),label:'Friends joined'},{value:Math.min(30,refs*10)+'%',label:'Discount earned'},{value:'30%',label:'Max discount'}]
+        }); }
+      v.showDock=!s.aiOpen&&!!s.splashDone&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)&&(!!s.customer||!!v.showTabBar);
+      { const df=!!s.customer&&['amount','purpose'].includes(s.screen)&&!lt;
+        Object.assign(v,{flowBg:df?'linear-gradient(180deg,#2A2F3A 0%,#14171D 38%,#050608 70%,#000000 100%)':'transparent',
+          tipInk:df?'#FFFFFF':'#0B0620', tipLink:df?'#8FA0FF':'#0000FE',
+          fDDBg:df?'#1E2129':'#FFFFFF', purposeDDBd:s.purposeDD||s.purpose?'#FDD10D':(df?'rgba(255,255,255,.18)':'rgba(11,6,32,.16)'),
+          purposeDDInk:s.purpose?(df?'#FFFFFF':'#0B0620'):(df?'rgba(255,255,255,.5)':'#6B6675'),
+          fInk:df?'#FFFFFF':'#0B0620', fMute:df?'rgba(255,255,255,.6)':'#6B6675', fCard:df?'linear-gradient(180deg,#22252C 0%,#16181D 100%)':'#F2F0EA',
+          fLine:df?'rgba(255,255,255,.10)':'rgba(11,6,32,.10)', fLine2:df?'rgba(255,255,255,.16)':'rgba(11,6,32,.14)',
+          fCalc:df?'linear-gradient(180deg,#30353F 0%,#1C2029 100%)':'#000000', fCalcBd:df?'rgba(255,255,255,.08)':'transparent'});
+        if(df){ const dk=o=>{ if(!o) return o; const on=String(o.bg||'').toUpperCase()==='#FDD10D'; return {...o,bg:on?o.bg:'rgba(255,255,255,.05)',fg:on?'#0B0620':(String(o.fg||'').includes('.28')?'rgba(255,255,255,.3)':'#FFFFFF'),border:on?o.border:'rgba(255,255,255,.12)'}; };
+          if(Array.isArray(v.purposes)) v.purposes=v.purposes.map(dk);
+          if(Array.isArray(v.termOptions)) v.termOptions=v.termOptions.map(dk); } }
+      { const fz=!!s.cardFrozen, rv=!!s.cardReveal, idd=String((s.profile&&s.profile.idnum)||'').replace(/\D/g,'');
+        const last4=(idd.slice(-4)||'4471');
+        const sel=s.newAcct||'';
+        const opts=[['savings','Quik1 Save','Earn interest on money you put aside'],['credit','Second credit line','A separate account for planned spending'],['business','Business account','For sole traders and small businesses']];
+        Object.assign(v,{
+          isAccounts:s.screen==='accounts',
+          acName:(s.profile&&s.profile.name)||'Thandi Mokoena',
+          acCardNo:rv?('5274 0912 '+idd.slice(-8,-4).padStart(4,'0')+' '+last4):('•••• •••• •••• '+last4),
+          acFrozen:fz, acCardFilter:fz?'grayscale(1) brightness(.75)':'none',
+          acCardBg:'radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.45) 0%,rgba(255,255,255,0) 50%),linear-gradient(150deg,#FFE766 0%,#FDD10D 45%,#E8A800 100%)',
+          acControls:[
+            {label:fz?'Unfreeze':'Freeze',path:'M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9',go:()=>this.setState({cardFrozen:!fz}),on:fz},
+            {label:rv?'Hide details':'Show details',path:'M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM12 14.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z',go:()=>this.setState({cardReveal:!rv}),on:rv},
+            {label:'Replace card',path:'M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6M17.7 3v3.4h-3.4M6.3 21v-3.4h3.4',go:()=>this.setState({sentNote:'Replacement card requested. We will SMS you when it ships.'}),on:false}
+          ].map(c=>({...c,bg:c.on?'#FDD10D':'var(--q-tile)',bd:c.on?'#FDD10D':'rgba(var(--q-fg),.08)',ink:c.on?'#0B0620':'var(--q-ink)',icon:c.on?'#0B0620':'var(--q-accent)'})),
+          acList:[
+            {name:'Quik1 Credit',meta:'Q1-'+(idd.slice(-6)||'000000')+' · Limit '+this.money(LIMIT),status:fz?'Frozen':'Active',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3'},
+            {name:'Payout account',meta:(s.profile&&s.profile.bank)||'Capitec · ···· 4471',status:'Linked',path:'M4 10 12 4.6 20 10M5.6 10v7.4M10 10v7.4M14 10v7.4M18.4 10v7.4M4 19.4h16'},
+            ...((s.acctReqs||[]).map(r=>({name:r,meta:'Sent to applications@ecoloans.co.za',status:'Pending',path:'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'})))
+          ].map(a=>({...a,pillBg:a.status==='Active'||a.status==='Linked'?'rgba(253,209,13,.14)':'rgba(var(--q-fg),.08)',pillInk:a.status==='Active'||a.status==='Linked'?'var(--q-accent)':'rgba(var(--q-fg),.75)'})),
+          acNewOpts:opts.map(([k,label,note])=>({label,note,bd:sel===k?'#FDD10D':'rgba(var(--q-fg),.12)',dot:sel===k?'#FDD10D':'transparent',go:()=>this.setState({newAcct:k})})),
+          acReqBg:sel?'#FDD10D':'rgba(255,255,255,.08)', acReqInk:sel?'#0B0620':'rgba(255,255,255,.45)',
+          acReqCta:sel?'Request '+opts.find(o=>o[0]===sel)[1]:'Choose an account',
+          onAcRequest:()=>{ if(!sel) return; const name=opts.find(o=>o[0]===sel)[1];
+            if(window.Quik1Link) window.Quik1Link.submitRequest({type:'New account',detail:name,name:(s.profile&&s.profile.name)||'',to:'applications@ecoloans.co.za'});
+            this.setState(st=>({newAcct:'',acctReqs:[...(st.acctReqs||[]),name],sentNote:name+' request sent to applications@ecoloans.co.za.'})); }
+        }); }
+      const fn=((s.profile&&s.profile.name)||'there').split(' ')[0];
+      const lines=['Hi '+fn+', I am Q1. Tap me if you need anything.','Want to know when your next debit is?','Need a top-up? I can check what you qualify for.','Ask me how to settle early and save.','Questions about your statement? I can help.',
+        'Tip: paying on time grows your Quik1 limit.','Settling early means less interest. Ask me how much you would save.','Did you know? You can bank with BillOn too. Ask me about opening an account.','Pay your bills with BillOn. Electricity, water and DStv in one place.','Buy airtime and data with BillOn in seconds.','Tip: set a small budget for each payday and stick to it.','Save a little every month. Even R 100 adds up.','Your BillOn card works for tap-to-pay in store.','Tip: keep your debit order date close to payday.','Send money to family with BillOn. Ask me how.','Want a BillOn account? I can start the request for you.'];
+      v.botBubbleText=lines[(s.bubbleIdx||0)%lines.length];
+      v.botBubbleOn=s.screen==='home'&&!!s.bubbleOn&&!s.quickOpen&&!s.aiOpen&&!s.gridOpen&&!!v.showTabBar&&!s.menuOpen;
+      Object.assign(v,{bubBg:lt?'#0E0F13':'#FFFFFF',bubInk:lt?'#FFFFFF':'#0B0620',bubMute:lt?'rgba(255,255,255,.7)':'rgba(11,6,32,.6)',bubChip:lt?'rgba(255,255,255,.1)':'rgba(11,6,32,.07)',bubShadow:lt?'0 16px 36px rgba(11,6,32,.35)':'0 16px 40px rgba(0,0,0,.55),0 0 0 6px rgba(253,209,13,.10)'});
+      v.onBotBubble=()=>this.setState({bubbleOn:false,quickOpen:true});
+      v.onBotBubbleClose=e=>{ e.stopPropagation(); this.setState({bubbleOn:false,bubbleMuted:true}); }; v.onCloseGrid=()=>this.setState({gridOpen:false}); v.stopGrid=e=>e.stopPropagation();
+      { const tl=v.timeline||[], done=tl.filter(t=>t.tick===1).length, nx=tl.find(t=>t.tick!==1);
+        Object.assign(v,{trkCount:done+' of '+tl.length,trkPct:tl.length?Math.round(done/tl.length*100):0,trkNow:nx?('Next: '+nx.title):'All steps complete',
+          onOpenTracker:()=>this.switchPanel('tracker',false)}); }
+      { const busy=s.screen!=='home'&&!s.gridOpen&&!s.dockPeek;
+        const on=v.dockOn===undefined?1:Number(v.dockOn);
+        Object.assign(v,{dockFullOp:busy?0:on,dockFullPe:(busy||!on)?'none':(v.dockPe||'auto'),dockFullS:busy?.35:1,dockFullBlur:busy?'6px':'0px',
+          dockMiniOp:busy?on:0,dockMiniPe:(busy&&on)?'auto':'none',dockMiniS:busy?1:.6,dockMiniR:busy?'0deg':'-90deg',
+          onDockExpand:()=>{ clearTimeout(this._peekT); this.setState({dockPeek:true}); this._peekT=setTimeout(()=>this.setState({dockPeek:false}),5000); }}); }
+      { const hideX=!!s.calPay&&s.screen==='schedule'; v.panelCloseOp=hideX?0:1; v.panelClosePe=hideX?'none':'auto'; }
+      { const modal=!!s.loanSheet||!!s.infoKey||(!!s.manageOpen&&s.screen==='home')||!!v.lockTipOn||!!v.showToast||!!v.showDocError||!!v.showUpgrade||!!s.letter||!!s.agreement||!!s.mandatePop||(!!s.calPay&&s.screen==='schedule');
+        if(modal){ v.showDock=false; v.showQ1=false; v.botBubbleOn=false; } }
+      return v;
+    }
+    _rv(){
+      const s=this.state, c=this.calc(), brand=this.props.brand ?? 'Quik1';
+      const unlocked=this.termsUnlocked(), term=this.activeTerm();
+      const ratePct=(this.props.interestRate ?? 35)+'%';
+      const sme=s.borrower==='sme';
+      const flow=this.flow(), stepIdx=flow.indexOf(s.screen);
+      const L=this.loan(), draws=L.draws||[{a:L.a,total:L.total,date:'19 August'}];
+      const available=this.headroom(s);
+      const canTopUp=available>=500;
+      const navLight=this.props.lightNavBar ?? false;
+      const topUp=s.customer&&!!s.activeLoan;
+      const hasLoan=!!s.activeLoan;
+      const wLocked=hasLoan&&!((this.props.demoWithdrawUnlocked ?? true)||!!s.repayOk);
+      const lockedByGrowth=s.customer&&hasLoan&&!this.grown(s);
+      const blockLabel=lockedByGrowth?'Locked':'Maxed';
+      const blockLong=lockedByGrowth?'Unlocks as you grow':'Limit fully drawn';
+      const adminCap=this.adminCap();
+      const offerPrincipal=(!s.customer&&adminCap)?Math.min(adminCap,s.amount):s.amount;
+      const offerInterest=offerPrincipal*this.rate();
+      const offerTotal=offerPrincipal+offerInterest;
+      const vw=s.vw ?? (typeof window!=='undefined'?window.innerWidth:420);
+      const wide=false, mid=true;
+      const pOpen=s.menuOpen||SHEETS.includes(s.screen)||s.closing==='panel';
+      const lightHome=s.homeLight ?? (this.props.whiteBackground ?? false), lightPal=lightHome&&!!s.splashDone&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen);
+      const onTabScreen=['home','schedule','support','profile','tracker','documents','performance'].includes(s.screen)
+        || (s.customer&&['amount','purpose'].includes(s.screen));
+      const hdrOn=onTabScreen||pOpen;
+      const nav={
+        sendCode:()=>this.setState(st=>{
+          if(st.phone.replace(/\D/g,'').length<9) return {phoneError:'Enter a 9-digit mobile number, e.g. 82 000 0000'};
+          return {phoneError:'',otpMode:true,otp:''};
+        }),
+        back:()=>this.setState(st=>{
+          const fl=st.customer?RE_FLOW:NEW_FLOW, i=fl.indexOf(st.screen);
+          if(i>0) return {screen:fl[i-1]};
+          if(st.customer) return {screen:'home',withdrawMode:false};
+          return {screen:'login',otpMode:false,otp:''};
+        }),
+        amount:()=>this.setState(st=>{
+          const cap=Math.max(500,this.headroom(st));
+          const n=Math.min(st.amount,cap);
+          return {screen:'amount',amount:n,amountInput:String(n),amountError:''};
+        }),
+        purpose:()=>this.setState(st=>{
+          const cap=this.headroom(st);
+          if(st.amount>cap) return {amountError:'That is more than your remaining '+this.money(cap)+' of credit.'};
+          return {amountError:'',screen:'purpose'};
+        }),
+        eligibility:()=>this.setState(st=>{
+          if(!st.purpose) return {purposeError:'Choose what the money is for.'};
+          if(st.purpose==='Other'&&!st.purposeOther.trim()) return {purposeError:'Tell us what the money is for.'};
+          if(st.customer){ this.runDecision(); return {purposeError:'',screen:'deciding'}; }
+          return {purposeError:'',screen:'eligibility'};
+        }),
+        docs:()=>this.setState(st=>{
+          const v=parseInt(String(st.income).replace(/\D/g,'')||'0',10);
+          const patch={incomeError:'',consentError:'',proofError:''};
+          let ok=true;
+          if(!v){ patch.incomeError='Enter an amount.'; ok=false; }
+          else if(v<3000){ patch.incomeError='We fund from R3 000 a month upward. Try a smaller loan or apply again later.'; ok=false; }
+          if(!st.proof){ patch.proofError='Upload proof of income so we can verify it.'; ok=false; }
+          if(st.consent.length<2){ patch.consentError='Both boxes are needed before we can score the application.'; ok=false; }
+          if(ok) patch.screen='docs';
+          return patch;
+        }),
+        kyc:()=>this.setState(st=>st.docChecks.every(d=>d.state==='ok')?{docsError:'',screen:'kyc'}:{docsError:'Your statement must pass verification.'}),
+        accept:()=>this.setState(st=>{
+          if(!st.customer){
+            if(!st.docChecks.every(d=>d.state==='ok')) return {offerError:'Your bank statement must pass verification before payout.'};
+            if(!st.proof) return {offerError:'Upload your proof of income before payout.'};
+            if(!st.kyc.includes('id')) return {offerError:'Capture your ID document before payout.'};
+          }
+          if(!st.terms) return {offerError:'Tick the box to accept the agreement.'};
+          if(!st.mandateSigned){ const cp=this.adminCap(), pa=(!st.customer&&cp)?Math.min(cp,st.amount):st.amount;
+            return {offerError:'Approve your debit order to finish. No money is paid out until it is locked in.',pendingAccept:true,
+              agreement:{a:pa,total:pa*(1+this.rate()),term:this.activeTerm(),ref:'QK-'+String(84213+((st.activeLoan&&st.activeLoan.draws)?st.activeLoan.draws.length:0)),date:'Today'},agTicked:false}; }
+          const cap=this.adminCap();
+          const principal=(!st.customer&&cap)?Math.min(cap,st.amount):st.amount;
+          const cc={a:principal,interest:principal*this.rate(),total:principal*(1+this.rate())};
+          const prev=st.activeLoan;
+          const draw={a:cc.a,total:cc.total,date:'Today',
+            ref:'QK-'+String(84213+((prev&&prev.draws)?prev.draws.length:0)),
+            term:prev?(prev.term||1):this.activeTerm(),
+            rate:this.rate(), purpose:st.purpose||'', signedAt:Date.now()};
+          const a=(prev?prev.a:0)+cc.a, total=(prev?prev.total:0)+cc.total;
+          const lterm=prev?(prev.term||1):this.activeTerm();
+          return {offerError:'',pendingAccept:false,screen:'tracker',customer:true,menuOpen:false,panelPhase:'in',payoutAt:Date.now(),
+            baseAmount:st.baseAmount||principal,
+            activeLoan:{a,total,term:lterm,monthly:total/lterm,draws:[...(prev?prev.draws:[]),draw]}};
+        }),
+        home:()=>this.go('home'),
+        schedule:()=>this.go('schedule')
+      };
+  
+      // Footer CTA: label, target and per-step completeness
+      const incomeVal=parseInt(String(s.income).replace(/\D/g,'')||'0',10);
+      const CTA={
+        amount:{label:'Continue',action:nav.purpose,
+          valid:s.amount>=500&&s.amount<=Math.max(500,this.headroom(s)),
+          hint:'Choose an amount within your limit'},
+        purpose:{label:s.customer?'Confirm withdrawal':'Continue',action:nav.eligibility,
+          valid:!!s.purpose&&(s.purpose!=='Other'||!!s.purposeOther.trim()),
+          hint:s.purpose==='Other'?'Tell us what the money is for':'Pick what the money is for'},
+        eligibility:{label:'Continue',action:nav.docs,
+          valid:incomeVal>=3000&&!!s.tenure&&!!s.proof&&s.consent.length>=2,
+          hint:'Complete every field above to continue'},
+        docs:{label:'Continue',action:nav.kyc,
+          valid:s.docChecks.every(d=>d.state==='ok'),
+          hint:'Upload your bank statement'},
+        kyc:{label:'Submit application',action:()=>this.submitApplication(),
+          valid:s.kyc.length>=2,
+          hint:'Capture your ID document'}
+      };
+      const cta=CTA[s.screen]||{label:'Continue',action:()=>{},valid:false,hint:''};
+      const ctaLabel=cta.label, ctaValid=cta.valid, ctaHint=cta.hint;
+      const ctaAction=cta.action;
+  
+      const jump=[['login','Login'],['who','Who'],['amount','Amount'],['purpose','Purpose'],['eligibility','Checks'],['docs','Docs'],['kyc','KYC'],['deciding','Decision'],['offer','Offer'],['tracker','Tracker'],['home','Dashboard'],['schedule','Repayments'],['support','Help']];
+  
+      const paidCount=0, paid=0, balance=L.total;
+      const paidOut=!s.payoutAt||(Date.now()-s.payoutAt>8000);
+      const DATES=[DUE,'1 October 2026','1 November 2026','1 December 2026','1 January 2027','1 February 2027'];
+      const lterm=L.term||1, instal=lterm?L.total/lterm:0, multi=lterm>1;
+      // Post-accept projection: a top-up folds into the open loan's term.
+      const projTerm=topUp?(s.activeLoan.term||1):this.activeTerm();
+      const projTotal=c.total+(topUp?s.activeLoan.total:0);
+      const projInstal=projTotal/projTerm;
+      const planTerm=projTerm, planMulti=projTerm>1, planInstal=projInstal;
+      const daysLeft=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000));
+  
+      return {
+        brand, ratePct, dueDate:DUE,
+        isLogin:s.screen==='login',
+        loginPhoneStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro===false,
+        ...this.signupVals(),
+        loginIntroStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false,
+        ...(()=>{ if(s.screen!=='login') return {loginStepHeadOn:false};
+          const pin=s.loginMode==='pin';
+          const [h,sub]=s.otpMode?(pin?['Enter your PIN','The 4 digits you chose when you signed up.']:['Check your SMS','We sent a 4-digit code to +27 '+(s.phone||'82 000 0000')+'.'])
+            :s.loginMode==='id'?['Welcome back','Log in with your mobile number and SA ID.']
+            :(s.loginMode==='new'&&s.loginIntro===false)?["Let's get you started","Enter your number and we'll SMS you a code."]
+            :(s.loginMode!=='new')?['Good to see you again','Look at your phone to log in, or use your PIN.']:[null,null];
+          return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
+        loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
+        onIntroSignup:()=>this.setState({screen:'signup',su:Object.assign({step:1,name:'',idnum:'',phone:'',email:'',employment:'Permanent',employer:'',income:'',payday:'25th',pin:'',pin2:'',credit:false,terms:false},this.state.su&&this.state.su.step?this.state.su:{}),suError:'',suTried:false}),
+        onIntroLogin:()=>this.setState({loginIntro:false,loginMode:'id',liError:''}),
+        loginIdStep:s.screen==='login'&&s.loginMode==='id',
+        liPhone:s.liPhone||'', liId:s.liId||'', liError:s.liError||'',
+        liPhoneBd:(s.liError&&(s.liPhone||'').length!==9)?'rgba(255,138,122,.6)':'rgba(255,255,255,.10)',
+        liIdBd:(s.liError&&!/^\d{13}$/.test(s.liId||''))?'rgba(255,138,122,.6)':'rgba(255,255,255,.10)',
+        onLiPhone:e=>this.setState({liPhone:e.target.value.replace(/\D/g,'').slice(0,9),liError:''}),
+        onLiId:e=>this.setState({liId:e.target.value.replace(/\D/g,'').slice(0,13),liError:''}),
+        liCta:s.authing?'Signing in…':'Log in',
+        ...(()=>{ const t=s.liToast; const warn=t&&t.kind==='wait';
+          return {liToastOn:!!t, liToastTitle:t?t.title:'', liToastBody:t?t.body:'',
+            liToastBd:warn?'rgba(253,209,13,.35)':'rgba(255,138,122,.35)', liToastIconBg:warn?'rgba(253,209,13,.14)':'rgba(255,138,122,.14)', liToastIcon:warn?'#FDD10D':'#FF8A7A',
+            liToastPath:warn?'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z':'M12 8v5M12 16.2v.2M12 3.8 3.4 19.2h17.2L12 3.8Z',
+            onLiToastClose:()=>this.setState({liToast:null})}; })(),
+        onLiSubmit:()=>{
+          if(s.authing) return;
+          const toast=(title,body,kind)=>{ clearTimeout(this._liT); this.setState({liToast:{title,body,kind},authing:false}); this._liT=setTimeout(()=>this.setState({liToast:null}),5000); };
+          if((s.liPhone||'').length!==9){ this.setState({liError:'Enter the 9 digits after +27.'}); return toast('Check your number','Enter the 9 digits after +27, without the leading 0.'); }
+          if(!/^\d{13}$/.test(s.liId||'')){ this.setState({liError:'Your SA ID number has 13 digits.'}); return toast('Check your ID number','South African ID numbers have exactly 13 digits.'); }
+          const ls=window.Quik1Link?window.Quik1Link.getState():{signups:[]};
+          const su=(ls.signups||[]).find(u=>String(u.phone||'').replace(/\D/g,'').slice(-9)===s.liPhone);
+          const demo={phone:'824319077',id:String(s.profile.idnum||'').replace(/\D/g,'')};
+          if(su&&su.idnum!==s.liId) return toast('Details do not match','That ID number is not linked to this mobile number.');
+          if(su&&su.status==='Pending review') return toast('Account still in review','Your sign-up is with applications@ecoloans.co.za. We will SMS you once it is approved.','wait');
+          if(su&&su.status==='Declined') return toast('Account not approved','This sign-up was declined. Email applications@ecoloans.co.za for help.');
+          if(!su&&s.liPhone===demo.phone&&s.liId!==demo.id) return toast('Details do not match','That ID number is not linked to this mobile number.');
+          if(!su&&s.liPhone!==demo.phone) return toast('No account found','We could not find an account for +27 '+s.liPhone+'. Tap Sign up to create one.');
+          clearTimeout(this._liT);
+          this.setState({authing:true,phone:s.liPhone,liToast:null});
+          setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),900);
+        },
+        loginHeadJustify:(s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?'center':'flex-end',
+        loginOtpStep:s.screen==='login'&&(s.loginMode==='new'||s.loginMode==='pin')&&s.otpMode,
+        inFlow:stepIdx>=0, isWho:s.screen==='who', isAmount:s.screen==='amount', isPurpose:s.screen==='purpose',
+        isEligibility:s.screen==='eligibility', isDocs:s.screen==='docs', isKyc:s.screen==='kyc',
+        isDeciding:s.screen==='deciding', isOffer:s.screen==='offer', isTracker:s.screen==='tracker',
+        isEstimate:s.screen==='estimate',
+        ...(()=>{
+          const v=this.assess();
+          const ok=v.verdict==='approve', refer=v.verdict==='refer';
+          return {
+            verdictTitle:ok?'Documents check out':(refer?'Sent to an assessor':'Needs better documents'),
+            verdictIcon:ok?'M4 12.6 9.2 18 20 6.4':(refer?'M12 8v5M12 16.4v.2':'M12 8v5M12 16.4v.2'),
+            verdictDotBg:ok?YEL:(refer?'rgba(253,209,13,.35)':'rgba(192,57,43,.18)'),
+            verdictPct:Math.max(6,v.affordability),
+            verdictRows:[
+              ['Surplus after expenses',this.money(v.spare)],
+              ['Instalment',this.money(v.instal)],
+              ['Money left after bills',v.affordability+'%'],
+              ['Recommended to admin',this.money(v.recommended)]
+            ].map(([label,value])=>({label,value})),
+            verdictNote:v.flags.length
+              ?('Flagged: '+v.flags.join(' · ')+'. An assessor makes the final call before payout.')
+              :'Statement and payslip verified, instalment sits inside your surplus. An assessor confirms the first loan; after that your credit revolves.'
+          };
+        })(),
+        estIncome:s.estIncome, estExpenses:s.estExpenses,
+        onEstIncome:e=>this.setState({estIncome:e.target.value}),
+        onEstExpenses:e=>this.setState({estExpenses:e.target.value}),
+        employmentOptions:[
+          ['permanent','Permanent job'],['contract','Contract'],
+          ['selfEmployed','Self-employed'],['grant','Grant'],['none','Not earning']
+        ].map(([k,label])=>{
+          const on=s.employment===k;
+          return {label,
+            bg:on?YEL:'rgba(255,255,255,.07)',
+            fg:on?INK:'#FFFFFF',
+            border:on?YEL:'rgba(255,255,255,.18)',
+            onClick:()=>this.setState({employment:k})};
+        }),
+        ...(()=>{
+          const e=this.estimate();
+          const ready=!!s.employment&&(parseInt(String(s.estIncome).replace(/\D/g,'')||'0',10)>0);
+          return {
+            estShowResult:ready,
+            estEligible:e.eligible,
+            estHeadLabel:e.eligible?'You could borrow about':'Not right now',
+            estAmount:e.eligible?this.money(e.amount):'R 0',
+            estCopy:e.eligible
+              ?('Repay '+this.money(e.repay)+' on your next payday. That is your '+this.money(e.amount)+' plus the flat '+ratePct+' charge, nothing else.')
+              :(e.reason||'Tell us how you earn and what comes in.'),
+            estRows:[
+              ['You receive',this.money(e.amount)],
+              ['Flat charge at '+ratePct,this.money(e.charge)],
+              ['You repay',this.money(e.repay)]
+            ].map(([label,value])=>({label,value})),
+            estCtaLabel:e.eligible?'Apply for this loan':'Start an application anyway'
+          };
+        })(),
+        onStartEstimate:()=>this.setState({screen:'estimate',employment:'',estIncome:'',estExpenses:''}),
+        onLeaveEstimate:()=>this.setState({screen:'login'}),
+        onEstimateCta:()=>{
+          const e=this.estimate();
+          const amt=e.eligible?Math.max(500,e.amount):1000;
+          this.setState({screen:'who',amount:amt,amountInput:String(amt),
+            income:String(parseInt(String(s.estIncome).replace(/\D/g,'')||'0',10)||'')});
+        },
+          isHome:s.screen==='home'||SHEETS.includes(s.screen)||s.closing==='panel',
+          panelOpen:s.menuOpen||SHEETS.includes(s.screen)||s.closing==='panel',
+        isSheetPage:SHEETS.includes(s.screen)&&s.closing!=='panel',
+        menuView:!SHEETS.includes(s.screen),
+        panelRight:'0px',
+        onClosePanel:()=>{ clearTimeout(this._panelT); this.dismiss('panel',{menuOpen:false,panelPhase:'',screen:SHEETS.includes(s.screen)?'home':s.screen}); },
+        isSchedule:s.screen==='schedule', isStatements:s.screen==='statements', isSupport:s.screen==='support',
+        onCloseSheet:()=>{
+          if(s.menuOpen) return this.switchPanel('home',true);
+          clearTimeout(this._panelT);
+          this.dismiss('panel',{screen:'home',panelPhase:''});
+        },
+        panelBackLabel:SHEETS.includes(s.screen)?'Back to menu':'Close',
+        closeIconOn:SHEETS.includes(s.screen)?0:1,
+        backIconOn:SHEETS.includes(s.screen)?1:0,
+        closeIconSpin:SHEETS.includes(s.screen)?'-90deg':'0deg',
+        backIconSpin:SHEETS.includes(s.screen)?'0deg':'90deg',
+        contentAnim:s.panelPhase==='out'
+          ? 'q-pushout .4s cubic-bezier(.4,0,.7,1) both'
+          : ((SHEETS.indexOf(s.screen)+1)%2
+              ? 'q-slide1 .6s cubic-bezier(.22,1,.36,1) both'
+              : 'q-slide2 .6s cubic-bezier(.22,1,.36,1) both'),
+        onPanelBack:()=>{
+          if(!SHEETS.includes(s.screen)) return this.dismiss('panel',{menuOpen:false});
+          if(s.menuOpen) return this.switchPanel('home',true);
+          clearTimeout(this._panelT);
+          this.dismiss('panel',{screen:'home',panelPhase:''});
+        },
+        showFlowCta:stepIdx>=0&&s.screen!=='who'&&!(s.screen==='amount'&&s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500)),
+        ctaBottom:(onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px',
+        ctaLabel:ctaLabel, ctaHint:ctaValid?'':ctaHint,
+        ctaAction:ctaValid?ctaAction:()=>{},
+        ctaBg:ctaValid?'#FDD10D':'rgba(255,255,255,.66)',
+        ctaBorder:ctaValid?'#FDD10D':'rgba(255,255,255,.6)',
+        ctaColor:ctaValid?INK:'rgba(11,6,32,.35)',
+        ctaDisc:ctaValid?INK:'rgba(11,6,32,.08)',
+        ctaArrow:ctaValid?YEL:'rgba(11,6,32,.35)',
+        ctaCursor:ctaValid?'pointer':'not-allowed',
+        flowPadBottom:onTabScreen?'220px':'128px',
+        wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'34px',
+        panelTop:hdrOn?'96px':'0px', showDrawerHead:!hdrOn,
+        hdrMenuOn:pOpen?0:1, hdrCloseOn:(pOpen&&!SHEETS.includes(s.screen))?1:0, hdrBackOn:(pOpen&&SHEETS.includes(s.screen)&&s.closing!=='panel')?1:0,
+        hdrMenuLabel:!pOpen?'Menu':SHEETS.includes(s.screen)?'Back to menu':'Close',
+        onHeaderMenu:()=>{ if(!pOpen) return this.setState({menuOpen:true}); if(!SHEETS.includes(s.screen)) return this.dismiss('panel',{menuOpen:false}); return this.switchPanel('home',true); }, showTabBar:onTabScreen,
+        ...(()=>{ const L=lightHome&&!!s.splashDone&&!['login','signup','signupPending'].includes(s.screen);
+          return L?{thFg:'11,6,32',thInk:'#0B0620',thPanel:'linear-gradient(180deg,rgba(255,255,255,.86) 0%,rgba(246,245,241,.94) 55%,rgba(236,234,227,.97) 100%)',thBtn:'rgba(255,255,255,.9)',thChat:'linear-gradient(180deg,#FFFFFF 0%,#F6F5F1 100%)',thDock:'linear-gradient(180deg,rgba(40,44,54,.72) 0%,rgba(14,16,21,.82) 100%)',thDock2:'linear-gradient(135deg,#2A3BFF 0%,#0000FE 100%)',thSurface:'linear-gradient(180deg,#FFFFFF 0%,#F2F0EA 100%)',thTile:'linear-gradient(180deg,#FFFFFF 0%,#F4F2EC 100%)',thAccent:'#8A6A00',thCard:'#FFFFFF',thPage:'linear-gradient(180deg,#E4E1D8 0%,#D9D5CA 100%)'}
+           :{thFg:'255,255,255',thInk:'#FFFFFF',thPanel:'linear-gradient(180deg,rgba(28,32,41,.42) 0%,rgba(8,9,12,.72) 55%,rgba(6,7,9,.8) 100%)',thBtn:'rgba(28,32,41,.72)',thChat:'linear-gradient(180deg,rgba(24,26,32,.97) 0%,rgba(10,11,14,.98) 100%)',thDock:'linear-gradient(180deg,rgba(60,66,80,.42) 0%,rgba(20,23,30,.5) 100%)',thDock2:'rgba(12,13,17,.94)',thSurface:'linear-gradient(180deg,#17191F 0%,#0C0D11 100%)',thTile:'linear-gradient(180deg,#3A3F4A 0%,#2B2F38 100%)',thAccent:'#FDD10D',thCard:'linear-gradient(180deg,#22252C 0%,#181A20 100%)',thPage:'linear-gradient(180deg,#0C0D11 0%,#000000 100%)'}; })(),
+        showQ1:!!s.splashDone&&!s.aiOpen&&(onTabScreen||(!!s.customer&&!['login','signup','signupPending'].includes(s.screen))||SHEETS.includes(s.screen)),
+        shellPad:(s.desktopView||vw<600)?'0px':'16px 20px',
+        appMaxW:s.desktopView?'100%':vw<600?'100%':'390px',
+        appZoom:(s.desktopView||vw<600)?1:Math.min(1,Math.max(.4,((s.vh||(typeof window!=='undefined'?window.innerHeight:900))-32)/844)),
+        appRadius:(s.desktopView||vw<600)?0:44,
+        appMinH:s.desktopView?'100%':vw<600?'100dvh':'844px', appAspect:(s.desktopView||vw<600)?'auto':'390 / 844',
+        deskTrackBg:s.desktopView?YEL:'rgba(255,255,255,.2)',
+        deskKnobX:s.desktopView?'20px':'0px',
+        onToggleDesktop:()=>this.setState(st=>({desktopView:!st.desktopView})),
+        appShadow:'0 24px 60px rgba(11,6,32,.18),0 0 0 1px rgba(11,6,32,.06)',
+        statusH:(!s.splashDone||s.screen==='signup'||s.screen==='signupPending')?0:52,
+        statusBg:(s.screen==='home'||SHEETS.includes(s.screen)||onTabScreen)?'#1C2029'
+          :(s.screen==='login'||s.screen==='signup'||s.screen==='signupPending')?'#1C2029':((s.screen==='login'||s.screen==='estimate'||s.screen==='deciding'||!s.splashDone)?'#000000':'#FFFFFF'),
+        frameBg:(s.screen==='home'||(s.customer&&['amount','purpose'].includes(s.screen)))?'#000000':(s.screen==='signup'||s.screen==='signupPending')?'#0C0E13'
+          :((s.screen==='login'||s.screen==='estimate'||s.screen==='deciding'||!s.splashDone)?'#000000':'#FFFFFF'),
+        isSplash:!s.splashDone,
+        splashPct:Math.min(100,Math.round((s.splashMs/5000)*100)),
+        splashCount:Math.max(1,Math.ceil((5000-s.splashMs)/1000))+'s',
+        stepNum:Math.max(stepIdx+1,1), stepTotal:flow.length,
+        stepName:(s.screen==='amount'&&s.withdrawMode)?'Withdraw':(s.screen==='amount'&&s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500))?'Top up':(s.customer&&s.topUpMode&&s.screen==='amount')?'Top up':({who:'Who applies',amount:'How much',purpose:'What for',eligibility:'Your pay',docs:'Bank statement',kyc:'Prove it is you'})[s.screen]||'',
+        flowTip:(s.screen==='amount'&&s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500))?'Top-ups are locked for now. Pay on time and your limit grows. Tap Repay now to pay.':({who:'Pick if this loan is for you or for your business.',amount:'Slide to choose how much money you need. You will see what you pay back before you agree.',purpose:'Tap what the money is for. It does not change your price.',eligibility:'Tell us what you earn and spend each month, so we only lend what you can pay back.',docs:'Upload your last 3 months of bank statements. A clear PDF works best.',kyc:'Take a photo of your ID, then a selfie. This keeps your account safe.'})[s.screen]||'',
+        tipInk:(s.homeLight ?? (this.props.whiteBackground ?? false))&&s.customer?'#0B0620':'#FFFFFF',
+        tipLink:(s.homeLight ?? (this.props.whiteBackground ?? false))&&s.customer?'#0000FE':'#8FA0FF',
+        backGlass:((s.homeLight ?? (this.props.whiteBackground ?? false))&&!!s.customer)||(!s.customer&&!['login','signup','signupPending'].includes(s.screen))?'linear-gradient(180deg,rgba(253,209,13,.34) 0%,rgba(253,209,13,.22) 100%)':'linear-gradient(180deg,rgba(253,209,13,.22) 0%,rgba(253,209,13,.10) 100%)',
+        ...(()=>{ const TODAY=new Date(2026,7,20), term=Math.max(1,(s.activeLoan&&s.activeLoan.term)||1), has=!!s.activeLoan;
+          const L0=this.loan(), inst=has?(L0.monthly||L0.total):0;
+          const dues=has?Array.from({length:term},(_,i)=>new Date(DUE_DATE.getFullYear(),DUE_DATE.getMonth()+i,DUE_DATE.getDate())):[];
+          const off=s.calOff||0, base=new Date(TODAY.getFullYear(),TODAY.getMonth()+off,1);
+          const same=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+          const sel=s.calSel?new Date(s.calSel):(dues[0]||TODAY);
+          const lead=(base.getDay()+6)%7, dim=new Date(base.getFullYear(),base.getMonth()+1,0).getDate();
+          const cells=[]; for(let i=0;i<lead;i++) cells.push(null); for(let d=1;d<=dim;d++) cells.push(new Date(base.getFullYear(),base.getMonth(),d));
+          while(cells.length%7) cells.push(null);
+          const nextDue=dues.find(d=>d>=TODAY);
+          const calDays=cells.map(d=>{ if(!d) return {n:'',bg:'transparent',ring:'0',ink:'transparent',op:0,cursor:'default',weight:400,dot:false,dotBg:'',aria:'',pick:()=>{}};
+            const isDue=dues.some(x=>same(x,d)), isToday=same(d,TODAY), between=nextDue&&d>TODAY&&d<nextDue, past=d<TODAY&&!isToday, isSel=same(d,sel);
+            return {n:String(d.getDate()),bg:isDue?'#FDD10D':between?'rgba(253,209,13,.22)':isSel?'rgba(var(--q-fg),.08)':'transparent',
+              ring:isToday?'1.5px solid var(--q-ink)':isSel&&!isDue?'1.5px solid rgba(var(--q-fg),.3)':'0',
+              ink:isDue?'#0B0620':'var(--q-ink)',op:past?.4:1,cursor:'pointer',weight:isDue||isToday?700:500,dot:isDue&&!isSel,dotBg:'#0B0620',
+              aria:d.toLocaleDateString('en-ZA',{day:'numeric',month:'long'})+(isDue?', debit day':''),pick:()=>this.setState({calSel:d.getTime()})}; });
+          const selDue=dues.some(x=>same(x,sel)), left=Math.ceil((sel-TODAY)/86400000);
+          const leftTxt=left<0?'Past':left===0?'Today':left+(left===1?' day left':' days left');
+          const nx=nextDue?Math.ceil((nextDue-TODAY)/86400000):null;
+          return {calTitle:base.toLocaleDateString('en-ZA',{month:'long',year:'numeric'}),calWeekdays:['M','T','W','T','F','S','S'],calDays,
+            calPrev:()=>this.setState({calOff:Math.max(0,off-1)}),calNext:()=>this.setState({calOff:Math.min(11,off+1)}),calPrevOp:off>0?1:.35,
+            calSelDate:sel.toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'}),
+            calSelTag:selDue?leftTxt:(nx!=null?(nx===0?'Debit today':nx+(nx===1?' day':' days')+' to debit'):''),
+            calSelAmount:selDue?(s.hideAmounts?'R ••••':this.money(inst)):(has?'No debit':'Nothing due'),
+            calSelNote:selDue?('Debit order from '+((s.profile&&s.profile.bank)||'your bank')+(s.mandateSigned?' · approved':' · needs approval')):(nextDue?'Next debit '+nextDue.toLocaleDateString('en-ZA',{day:'numeric',month:'long'})+' · '+(s.hideAmounts?'R ••••':this.money(inst)):'You have no repayments scheduled.'),
+            calPayOpen:!!s.calPay&&has,calPayLabel:s.calPay?'Hide pay early':'Pay early or settle',onCalPayToggle:()=>this.setState({calPay:!s.calPay})}; })(),
+        onStepHelp:()=>{ this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); this.openGuide(); },
+        stepTipOp:s.stepTipFade?0:1,
+        onStepTipClose:e=>{ e&&e.stopPropagation&&e.stopPropagation(); this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); },
+        stepTipBottom:'calc('+((onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px')+' + 70px)',
+        ...(()=>{ const inc=parseInt(String(s.income||'').replace(/\D/g,'')||'0',10);
+          const done={Pay:inc>=3000,Job:!!s.tenure,Proof:!!s.proof,Ok:(s.consent||[]).length>=2};
+          const first=['Pay','Job','Proof','Ok'].find(k=>!done[k]);
+          const open=s.qOpen===undefined?first:s.qOpen;
+          const meta={Pay:['Monthly pay',inc?this.money(inc):'Add','M4 7.4h16v9.2H4ZM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z'],
+            Job:['Time at your job',s.tenure||'Choose','M8.4 7.4V5.8a1.6 1.6 0 0 1 1.6-1.6h4a1.6 1.6 0 0 1 1.6 1.6v1.6M4 7.4h16v11.2H4Z'],
+            Proof:['Proof of pay',s.proof?'Uploaded':'Upload','M12 16.5V5.4M8.2 9.2 12 5.4l3.8 3.8M5 15v2.8a1.7 1.7 0 0 0 1.7 1.7h10.6a1.7 1.7 0 0 0 1.7-1.7V15'],
+            Ok:['Your OK to check',done.Ok?'Agreed':'Tap to agree','M12 3.6 5 6.4v5.2c0 4.4 3 7.8 7 8.8 4-1 7-4.4 7-8.8V6.4Z']};
+          const o={qDone:String(Object.values(done).filter(Boolean).length),proofCta:s.proof?'Change file':'Choose a payslip or bank statement'};
+          ['Pay','Job','Proof','Ok'].forEach((k,i)=>{ const d=done[k], op=open===k;
+            o['q'+k]={label:meta[k][0],value:meta[k][1],icon:d?'M5 12.5 10 17.5 19 7.5':meta[k][2],chip:d?'#FDD10D':'rgba(11,6,32,.06)',
+              valInk:d?'#0B0620':'#6B6675',rot:op?'90deg':'0deg',open:op,sep:i===0?'transparent':'rgba(11,6,32,.07)',
+              toggle:()=>this.setState({qOpen:op?null:k})}; });
+          return o; })(),
+        manageOpen:!!s.manageOpen&&s.screen==='home',
+        onManageClose:()=>this.setState({manageOpen:false}),
+        ...(()=>{ const L2=this.loan(), has=!!s.activeLoan, av=this.headroom(s), m=v=>s.hideAmounts?'R ••••':this.money(v);
+          const close=f=>()=>{ this.setState({manageOpen:false}); setTimeout(f,220); };
+          const can=has&&av>=500;
+          const A=[
+            {label:'Top up',sub:can?'Borrow more, up to '+m(av):'Locked. Pay on time to unlock',path:'M12 5v14M5 12h14',go:close(()=>{ this.setState({topUpMode:true,withdrawMode:false}); nav.amount(); }),hi:true,off:!can},
+            {label:'Repay',sub:'Pay now or see your dates',path:'M12 5v14M6.6 13.6 12 19l5.4-5.4',go:close(()=>nav.schedule())},
+            {label:'Settle early',sub:'Pay it all off. No penalty',path:'M5 12.5 10 17.5 19 7.5',go:close(()=>nav.schedule())},
+            {label:'Statements',sub:'Every payment, month by month',path:'M7 3.6h7l4 4V20.4H7ZM14 3.6v4h4M10 12h5M10 15.4h3.4',go:close(()=>this.switchPanel('statements',false))},
+            {label:'My contract',sub:'The deal you signed',path:'M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2',go:close(()=>this.switchPanel('documents',false))},
+            {label:'Ask Q1 about my loan',sub:'Get a quick answer',path:'M5 6.5h14v9H10l-4 3.5v-3.5H5Z',go:close(()=>this.openGuide())}
+          ];
+          if(!has) A.splice(0,3,{label:'Apply for a loan',sub:'Up to '+m(LIMIT),path:'M12 5v14M5 12h14',go:close(()=>nav.amount()),hi:true});
+          return {
+            manageStats:[{label:'You owe',value:has?m(L2.total):'R 0'},{label:'Available',value:m(av)},{label:'Next debit',value:DUE_DATE.toLocaleDateString('en-ZA',{day:'numeric',month:'short'})}],
+            manageActions:A.map((a,i)=>({...a,sep:i===0?'transparent':'rgba(var(--q-fg),.08)',chip:a.hi?'#FDD10D':'rgba(253,209,13,.16)',icon:a.hi?'#0B0620':'var(--q-accent)',op:a.off?.55:1,cursor:a.off?'default':'pointer',go:a.off?close(()=>this.setState({lockTipOff:false,topUpMode:true},()=>nav.amount())):a.go}))
+          }; })(),
+        ...(()=>{ const locked=s.screen==='amount'&&!!s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500);
+          return {showFlowTip:!locked, stepTipOn:!locked&&stepIdx>=0&&s.screen!=='purpose'&&!s.agreement&&!!s.splashDone&&!s.aiOpen&&!(s.stepTipOff||{})[s.screen], lockTipOn:locked&&!s.lockTipOff&&!s.aiOpen,
+            onLockTipClose:()=>this.setState({lockTipOff:true}),
+            onLockTipRepay:()=>{ this.setState({lockTipOff:true}); nav.schedule(); }}; })(), stepPct:((stepIdx+1)/flow.length)*100,
+        nav,
+  
+        loginReturnStep:s.screen==='login'&&s.loginMode==='return',
+        onReturning:()=>this.setState({loginMode:'return'}),
+        onOtherNumber:()=>this.setState({loginMode:'new',otpMode:false,otp:'',loginIntro:false}),
+        onUsePin:()=>this.setState({loginMode:'pin',otpMode:true,otp:''}),
+        otpTitle:s.loginMode==='pin'?'Enter your 4-digit PIN':'Enter the 4-digit code',
+        otpSub:s.loginMode==='pin'?'Signing in to your saved account':('Sent to +27 '+(s.phone||'82 000 0000')),
+        faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
+          const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
+          return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
+            E('svg',{key:'c',viewBox:'0 0 24 24',style:{position:'absolute',inset:0,width:'26px',height:'26px',transformOrigin:'50% 50%',animation:on?'none':'q-corner 2.4s cubic-bezier(.4,0,.2,1) infinite'}},
+              E('path',{...sp,d:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16'})),
+            E('svg',{key:'f',viewBox:'0 0 24 24',style:{position:'absolute',inset:0,width:'26px',height:'26px',opacity:on?0:1,transition:'opacity .25s'}},
+              E('path',{...sp,strokeWidth:1.9,d:'M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0'})),
+            E('span',{key:'s',style:{position:'absolute',left:'5px',right:'5px',top:'12px',height:'2px',borderRadius:'2px',background:Y,boxShadow:'0 0 8px '+Y,opacity:on?0:1,animation:on?'none':'q-scan 1.8s cubic-bezier(.4,0,.2,1) infinite'}}),
+            E('svg',{key:'k',viewBox:'0 0 24 24',style:{position:'absolute',inset:0,width:'26px',height:'26px',opacity:on?1:0,transition:'opacity .25s'}},
+              E('path',{...sp,strokeWidth:2.4,strokeDasharray:24,d:'m7.5 12.4 3 3 6-6.4',style:{animation:on?'q-draw .5s cubic-bezier(.33,1,.68,1) .1s both':'none'}})));
+        })(),
+        biometricLabel:s.authing?'Scanning your face…':s.faceErr?'Face not recognised. Try again':'Sign in with Face ID',
+        onBiometric:async()=>{
+          if(s.authing) return;
+          this.setState({authing:true,faceErr:false});
+          const done=()=>setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),400);
+          const fail=()=>this.setState({authing:false,faceErr:true});
+          const pk=window.PublicKeyCredential, KEY='quik1_faceid_cred';
+          const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))), unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+          const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+          try{
+            if(!pk||!window.isSecureContext||!(await pk.isUserVerifyingPlatformAuthenticatorAvailable())) throw {name:'Unsupported'};
+            const saved=localStorage.getItem(KEY);
+            if(saved){
+              await navigator.credentials.get({publicKey:{challenge:rnd(32),timeout:60000,userVerification:'required',
+                allowCredentials:[{type:'public-key',id:unb64(saved),transports:['internal']}]}});
+            } else {
+              const cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),timeout:60000,
+                rp:{name:'Quik1'},user:{id:rnd(16),name:'+27'+(s.phone||'customer'),displayName:'Quik1 customer'},
+                pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+                authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'}}});
+              localStorage.setItem(KEY,b64(cred.rawId));
+            }
+            done();
+          }catch(e){
+            setTimeout(done,1400); // demo bypass: any failure still signs in
+          }
+        },
+        showToast:!!s.sentNote||(s.screen==='amount'&&!s.toastSeen&&!unlocked&&!s.withdrawMode&&!(s.customer&&!canTopUp)),
+        toastIcon:s.sentNote?'M5 12.5 10 17.5 19 7.5':'M12 8.4v6.4M12 17.4v.2M12 3.8 3.4 19.2h17.2L12 3.8Z',
+        toastText:s.sentNote?s.sentNote:s.customer
+          ?('Quik1 loans run for one month. Longer terms unlock when you reach a 5-star rating. You are on '+this.starRating(s)+' of 5.')
+          :'New applicants start on a one-month term. Longer terms unlock when you reach a 5-star rating.',
+        onCloseToast:()=>this.dismiss('modal',{toastSeen:true,sentNote:''}),
+        pageAnim:s.pageOut?'q-fade .2s cubic-bezier(.33,1,.68,1) both':'q-in .5s cubic-bezier(.33,1,.68,1)',
+        scrimAnim:s.closing==='panel'?'q-fade .34s cubic-bezier(.4,0,.7,1) both':'q-up .34s cubic-bezier(.22,1,.36,1)',
+        drawerAnim:s.closing==='panel'?'q-panel-out .38s cubic-bezier(.4,0,.7,1) both':'q-panel-in .46s cubic-bezier(.22,1,.36,1)',
+        modalScrimAnim:s.closing==='modal'?'q-fade .28s cubic-bezier(.33,1,.68,1) both':'q-up .34s cubic-bezier(.33,1,.68,1)',
+        modalCardAnim:s.closing==='modal'?'q-down .28s cubic-bezier(.33,1,.68,1) both':'q-up .42s cubic-bezier(.33,1,.68,1)',
+  
+        isProfile:s.screen==='profile',
+        onOpenPerformance:()=>this.switchPanel('performance',false),
+        isDocuments:s.screen==='documents',
+        onOpenStatements:()=>this.switchPanel('statements',false),
+        isPerformance:s.screen==='performance',
+        isCredit:s.screen==='credit',
+        ...(()=>{
+          const pct=Math.round(this.rate()*100);
+          const P=[
+            {k:'classic',name:'Classic',limit:5000,term:'3 months',rate:pct+'%',fee:'No monthly fee',last:'1001',bg:'linear-gradient(135deg,#2A2D35 0%,#0E0F12 70%)',ink:'#FFFFFF',glow:'#FDD10D',
+              note:'For everyday spending. Spend, repay and spend again up to your limit.',extra:['Tap to pay','Phone wallet']},
+            {k:'gold',name:'Gold',limit:15000,term:'6 months',rate:Math.max(1,pct-2)+'%',fee:'R 49 / month',last:'2002',bg:'linear-gradient(135deg,#FDE68A 0%,#C9A227 55%,#8A6A12 100%)',ink:'#0B0620',glow:'#FFFFFF',
+              note:'For bigger purchases. Split them into fixed instalments over up to six months.',extra:['Tap to pay','Free airtime boosts']},
+            {k:'black',name:'Black',limit:40000,term:'12 months',rate:Math.max(1,pct-4)+'%',fee:'R 99 / month',last:'3003',bg:'linear-gradient(135deg,#050506 0%,#1C1D22 60%,#050506 100%)',ink:'#FFFFFF',glow:'#9CA3AF',
+              note:'Our highest limit with the lowest rate, for customers with a strong repayment record.',extra:['Priority support','Travel insurance']}];
+          const sel=Math.min(P.length-1,s.ccSel||0), cur=P[sel], applied=(s.ccApplied||{})[cur.k];
+          return {
+            ccCards:P.map((c,i)=>({...c,limit:s.hideAmounts?'R ••••':this.money(c.limit),status:(s.ccApplied||{})[c.k]?'Applied':i===sel?'Selected':'Package',
+              ring:i===sel?'#FDD10D':'rgba(var(--q-fg),.10)',scale:i===sel?1:.94,pick:()=>{ this.setState({ccSel:i}); const el=this._ccEl.current, card=el&&el.children[0]; if(card){ this._ccLock=Date.now(); el.scrollTo({left:i*(card.offsetWidth+12),behavior:'smooth'}); } }})),
+            ccScrollRef:this._ccEl,
+            onCcScroll:e=>{ const el=e.currentTarget; clearTimeout(this._ccT); this._ccT=setTimeout(()=>{ if(Date.now()-(this._ccLock||0)<600) return; const card=el.children[0]; if(!card) return; const i=Math.max(0,Math.min(P.length-1,Math.round(el.scrollLeft/(card.offsetWidth+12)))); if(i!==this.state.ccSel) this.setState({ccSel:i}); },90); },
+            ccSelName:cur.name, ccSelFee:cur.fee, ccSelNote:cur.note,
+            ccSelFeatures:[{t:'Credit limit',d:'Up to '+this.money(cur.limit)},{t:'Repayment term',d:'Up to '+cur.term},{t:'Interest',d:cur.rate+' interest'},{t:'Monthly fee',d:cur.fee},{t:'Extras',d:cur.extra.join(', ')}],
+            ccCta:applied?'Application sent':'Apply for Quik1 '+cur.name,
+            ccCtaBg:applied?'rgba(var(--q-fg),.10)':'#FDD10D', ccCtaInk:applied?'#FFFFFF':'#0B0620',
+            onCcCta:()=>{ if(applied) return; this.setState(st=>({ccApplied:{...(st.ccApplied||{}),[cur.k]:true},sentNote:'Quik1 '+cur.name+' application sent. We will reply within one working day.'})); }
+          };
+        })(),
+        ccName:((s.profile&&s.profile.name)||'Quik1 customer').toUpperCase(),
+        documentsIntro:(s.docChecks.some(d=>d.state==='ok')||s.proof||s.kyc.length||draws.length)
+          ? 'Everything Quik1 holds for your account, including a signed agreement for every loan. Documents are kept for the term of your loan and seven years after.'
+          : 'Nothing on file yet. Documents you upload during an application appear here.',
+        documents:[
+          ...[0].map(i=>{
+            const d=s.docChecks[i]||{};
+            const ok=d.state==='ok', checking=d.state==='checking', failed=d.state==='fail';
+            return {name:'Bank statement',ok,checking,icon:'M6 3h8l4 4v14H6V3ZM14 3v4h4M9.2 13h5.6M9.2 16.4h3.4',
+              meta:ok?'Verified by Quiky'
+                :(checking?'Quiky is reading it…':(failed?d.reason:'Not uploaded')),
+              metaColor:failed?'#FF8A7A':ON_GLASS,
+              canUpload:!checking,
+              btnLabel:failed?'Retry':'Upload', canReplace:ok,
+              btnBg:ok?GLASS_2:YEL,
+              btnFg:ok?'#FFFFFF':INK,
+              bg:ok?GLASS:(failed?'rgba(255,138,122,.10)':'transparent'),
+              border:ok?'transparent':(failed?'rgba(255,138,122,.45)':'rgba(var(--q-fg),.18)'),
+              iconBg:'#FFFFFF',
+              onPick:()=>{ this._docIndex=i;
+                this.setState(st=>{ const n=st.docChecks.slice(); n[i]={state:'idle'}; return {docChecks:n}; });
+                setTimeout(()=>{ if(this._doc.current){ this._doc.current.value=''; this._doc.current.click(); } },60); }};
+          }),
+          {name:sme?'Proof of turnover':'Proof of income',ok:!!s.proof,checking:false,icon:'M3.6 6.4h16.8v11.2H3.6V6.4ZM12 9.4a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2M6.6 9.4h.02M17.4 14.6h.02',
+            meta:s.proof?'Verified by Quiky':'Not uploaded',metaColor:'rgba(var(--q-fg),.6)',
+            canUpload:!s.proof, btnLabel:'Upload', canReplace:!!s.proof,
+            btnBg:s.proof?GLASS_2:YEL, btnFg:s.proof?'#FFFFFF':INK,
+            bg:s.proof?GLASS:'transparent',border:s.proof?'transparent':'rgba(var(--q-fg),.18)',iconBg:'#FFFFFF',
+            onPick:()=>this._proof.current&&this._proof.current.click()},
+          ...[['id','ID document','Captured · verified','M3.4 5.6h17.2v12.8H3.4V5.6ZM8.6 12a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2M5.4 16.2c.5-1.7 1.8-2.6 3.2-2.6s2.7.9 3.2 2.6M14.8 10.2h3.8M14.8 13.4h3.8']].map(([k,name,done,ic])=>{
+            const has=s.kyc.includes(k);
+            return {name,ok:has,checking:false,icon:ic,
+              meta:has?done:'Not captured',metaColor:'rgba(var(--q-fg),.6)',
+              canUpload:!has, btnLabel:'Capture', btnBg:YEL, btnFg:INK, canReplace:has,
+              bg:has?GLASS:'transparent',border:has?'transparent':'rgba(var(--q-fg),.18)',iconBg:'#FFFFFF',
+              onPick:()=>this.setState(st=>({kyc:[...st.kyc,k]}))};
+          }),
+          ...draws.map((d,i)=>({
+            name:'Loan agreement',
+            ok:true, checking:false, canReplace:false,
+            canView:true, onView:()=>this.setState({agreement:Object.assign({},d,{ref:d.ref||('QK-'+(84213+i))})}),
+            icon:'M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2M9.8 13h4.8M9.8 16.2h3',
+            meta:(d.ref||('QK-'+(84213+i)))+' · '+this.money(d.a)+' · '+d.date,
+            metaColor:'rgba(var(--q-fg),.6)',
+            canUpload:false, btnLabel:'', btnBg:'rgba(var(--q-fg),.08)', btnFg:'var(--q-ink)',
+            bg:GLASS, border:'transparent', iconBg:'#FFFFFF',
+            onPick:()=>{}
+          }))
+        ],
+        showAiFab:false,
+        fabPad:'178px',
+        aiBottom:onTabScreen?'112px':'22px',
+        aiBusy:s.docChecks.some(d=>d.state==='checking'),
+        aiIdle:!s.docChecks.some(d=>d.state==='checking'),
+        botFace:this.botFace(),
+        aiFabLabel:s.screen!=='documents'?'Ask Q1'
+          :(s.docChecks.some(d=>d.state==='checking')?'Verifying…'
+          :(s.docChecks.every(d=>d.state==='ok')?'All documents verified':'Verify with Q1')),
+        onOpenAi:()=>{
+          if(s.screen!=='documents') return this.setState({screen:'support'});
+          this.verifyAll();
+        },
+        phoneDisplay:s.phone||'82 000 0000',
+        maskedPhone:'+27 •• ••• 9077',
+        onEditProfile:()=>this.switchPanel('profile',true),
+        fileRef:this._file,
+        splashVideoRef:this._splashVid, loginVideoRef:this._loginVid,
+        photo:s.photo, hasPhoto:!!s.photo, noPhoto:!s.photo,
+        photoCss:s.photo?('url("'+s.photo+'")'):'none',
+        photoLabel:s.photo?'Change photo':'Add a photo',
+        onPickPhoto:()=>this._file.current&&this._file.current.click(),
+        onPhotoChosen:e=>{
+          const f=e.target.files&&e.target.files[0];
+          if(!f) return;
+          const url=URL.createObjectURL(f);
+          this.setState(st=>{ if(st.photo) URL.revokeObjectURL(st.photo); return {photo:url,profileSaved:false}; });
+        },
+        onRemovePhoto:()=>this.setState(st=>{ if(st.photo) URL.revokeObjectURL(st.photo); return {photo:null,profileSaved:false}; }),
+        profileFields:[
+          {key:'name',label:'Full name'},
+          {key:'idnum',label:'ID number',note:'Checked with Home Affairs. Chat to us to change it.',readOnly:true},
+          {key:'email',label:'Email'},
+          {key:'mobile',label:'Mobile number'}
+        ].map((f,i)=>({
+          label:f.label, value:s.profile[f.key], note:f.note||'', sep:i===0?'transparent':'rgba(var(--q-fg),.07)', editable:!f.readOnly,
+          readOnly:!!f.readOnly, ink:f.readOnly?'rgba(var(--q-fg),.55)':'var(--q-ink)', cursor:f.readOnly?'default':'text',
+          onChange:e=>{ const v=e.target.value; this.setState(st=>({profile:{...st.profile,[f.key]:v},profileSaved:false,profileDirty:true})); }
+        })),
+        saveLabel:s.profileSaved?'Saved':'Save changes', profileName:(s.profile&&s.profile.name)||'Your name',
+        saveBg:(s.profileDirty||s.profileSaved)?'#FDD10D':'rgba(255,255,255,.10)', saveInk:(s.profileDirty||s.profileSaved)?'#0B0620':'rgba(255,255,255,.4)', saveCursor:s.profileDirty?'pointer':'default',
+        onSaveProfile:()=>{ if(!s.profileDirty) return; this.setState({profileSaved:true,profileDirty:false}); setTimeout(()=>this.setState({profileSaved:false}),1600); },
+        profileDirtyOn:!!s.profileDirty||!!s.profileSaved,
+        profileMobile:(s.profile&&s.profile.mobile)||'',
+        ...(()=>{ const BR={'Absa':'632005','Capitec':'470010','FNB':'250655','Nedbank':'198765','Standard Bank':'051001','TymeBank':'678910','Discovery Bank':'679000','African Bank':'430000','Investec':'580105'};
+          const pb=String((s.profile&&s.profile.bank)||'Capitec · ···· 4471');
+          const d=s.banking||{bank:Object.keys(BR).find(k=>pb.indexOf(k)===0)||'Capitec',holder:(s.profile&&s.profile.name)||'',acc:'',type:'Savings',masked:(pb.match(/(\d{4})\s*$/)||[])[1]||'4471'};
+          const set=patch=>this.setState(st=>({banking:{...d,...(st.banking||{}),...patch},bkDirty:true,bkSaved:false}));
+          const accDigits=String(d.acc||'').replace(/\D/g,'');
+          const err=d.acc&&(accDigits.length<6||accDigits.length>13)?'Account numbers are 6 to 13 digits.':'';
+          return {bkBanks:Object.keys(BR),bkBank:d.bank,bkHolder:d.holder,bkAcc:d.acc,bkBranch:BR[d.bank]||'—',bkAccErr:err,
+            bkTypes:['Savings','Cheque','Transmission'].map(t=>({label:t,bg:d.type===t?'#FDD10D':'transparent',ink:d.type===t?'#0B0620':'var(--q-ink)',bd:d.type===t?'#FDD10D':'rgba(var(--q-fg),.16)',pick:()=>set({type:t})})),
+            onBkBank:e=>set({bank:e.target.value}),onBkHolder:e=>set({holder:e.target.value}),onBkAcc:e=>set({acc:e.target.value.replace(/[^\d ]/g,'')}),
+            bkDirtyOn:!!s.bkDirty||!!s.bkSaved,bkSaveLabel:s.bkSaved?'Saved':'Save changes',
+            onBkSave:()=>{ if(!s.bkDirty) return; if(err) return; const last=(accDigits.slice(-4))||d.masked;
+              this.setState(st=>({bkDirty:false,bkSaved:true,mandateSigned:false,profile:{...st.profile,bank:d.bank+' · ···· '+last},sentNote:'Banking details saved. Approve a new debit order for '+d.bank+'.'}));
+              setTimeout(()=>this.setState({bkSaved:false}),1600); }}; })(),
+        settingsGroups:(()=>{
+          const light=s.homeLight ?? (this.props.whiteBackground ?? false);
+          const tg=(label,sub,icon,on,flip)=>({label,sub,icon,isToggle:true,isLink:false,value:'',track:on?'#2EAD62':'rgba(var(--q-fg),.18)',knobX:on?'18px':'0px',onClick:flip});
+          const ln=(label,sub,icon,value,go)=>({label,sub,icon,isToggle:false,isLink:true,value:value||'',onClick:go});
+          const soon=what=>()=>this.setState({sentNote:what+' link will be added before launch.'});
+          const G=[
+            {title:'Account',rows:[
+              ln('Account performance','Growth, repayments and rating','M4.4 19.6h15.2M7 16v-4M12 16V8M17 16v-6.4','',()=>this.switchPanel('performance',false)),
+              ln('Quik1 Card','Compare card packages','M6.4 4.6h11.2a1.6 1.6 0 0 1 1.6 1.6v11.6a1.6 1.6 0 0 1-1.6 1.6H6.4a1.6 1.6 0 0 1-1.6-1.6V6.2a1.6 1.6 0 0 1 1.6-1.6ZM8 8.2h3.6v3H8Z','',()=>this.switchPanel('credit',false)),
+              ln('Statements','','M6.2 4.4h11.6v15.2H6.2zM9.2 8.6h5.6M9.2 12h5.6M9.2 15.4h3.4','',()=>this.switchPanel('statements',false)),
+              ln('Documents','Agreements and uploads','M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2','',()=>this.switchPanel('documents',false))]},
+            {title:'Security',rows:[
+              tg('Sign in with Face ID','Use your face instead of a PIN','M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M9.4 15.4a3.8 3.8 0 0 0 5.2 0',s.setFaceId!==false,()=>this.setState({setFaceId:s.setFaceId===false})),
+              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'We sent a one-time code to '+((s.profile&&s.profile.mobile)||'your phone')+' to reset your PIN.'})),
+              tg('Approve logins by SMS','Extra check on new devices','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2',s.setSms!==false,()=>this.setState({setSms:s.setSms===false}))]},
+            {title:'Preferences',rows:[
+              tg('Light mode','','M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2',light,()=>this.setState({homeLight:!light})),
+              tg('Hide amounts','Mask balances on screen','M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM4 4l16 16',!!s.hideAmounts,()=>this.setState({hideAmounts:!s.hideAmounts})),
+              tg('Notifications','Debit reminders and offers','M6.4 16.6V11a5.6 5.6 0 0 1 11.2 0v5.6l1.6 1.8H4.8ZM10 20.4a2.2 2.2 0 0 0 4 0',s.setNotify!==false,()=>this.setState({setNotify:s.setNotify===false})),
+              ln('Language','','M12 20.6a8.6 8.6 0 1 0 0-17.2 8.6 8.6 0 0 0 0 17.2ZM3.4 12h17.2M12 3.4c2.4 2.4 3.4 5.4 3.4 8.6s-1 6.2-3.4 8.6M12 3.4C9.6 5.8 8.6 8.8 8.6 12s1 6.2 3.4 8.6','English',soon('Language'))]},
+            {title:'Help and legal',rows:[
+              ln('Help','Chat to a person, 08:00–18:00','M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4M12 17h.02','',()=>this.switchPanel('support',false)),
+              ln('Terms and conditions','','M7 3.6h7l4 4V20.4H7ZM14 3.6v4h4M10 12h5M10 15.4h3.4','',soon('Terms')),
+              ln('Privacy policy','POPIA','M12 3.6 5 6.4v5.2c0 4.4 3 7.8 7 8.8 4-1 7-4.4 7-8.8V6.4Z','',soon('Privacy policy')),
+              ln('PAIA manual','','M6.2 4.4h11.6v15.2H6.2zM9.2 8.6h5.6M9.2 12h5.6','',soon('PAIA manual'))]}
+          ];
+          return G.map(g=>({title:g.title,rows:g.rows.map((r,i)=>({...r,sep:i===0?'transparent':'rgba(var(--q-fg),.07)',ink:'var(--q-ink)',iconBg:'rgba(253,209,13,.16)',iconInk:'var(--q-accent)',sub:r.sub||''}))}));
+        })(),
+        showAppBarBack:false,
+        onBackHome:()=>this.go('home'),
+        onOpenMenu:()=>this.setState({menuOpen:true}),
+        menuBarsOn:s.menuIcon===0?1:0,
+        menuMoneyOn:s.menuIcon===1?1:0,
+        menuCoinsOn:s.menuIcon===2?1:0,
+        menuWalletOn:s.menuIcon===3?1:0,
+        menuGrowthOn:s.menuIcon===4?1:0,
+        menuRandOn:s.menuIcon===5?1:0,
+        menuBarsShift:s.menuIcon===0?'0px':'-6px',
+        menuMoneyShift:s.menuIcon===1?'0px':'6px',
+        menuCoinsShift:s.menuIcon===2?'0px':'6px',
+        menuWalletShift:s.menuIcon===3?'0px':'6px',
+        menuGrowthShift:s.menuIcon===4?'0px':'6px',
+        menuRandShift:s.menuIcon===5?'0px':'6px',
+        menuBarsSpin:s.menuIcon===0?'0deg':'-90deg',
+        menuMoneySpin:s.menuIcon===1?'0deg':'90deg',
+        menuCoinsSpin:s.menuIcon===2?'0deg':'90deg',
+        menuWalletSpin:s.menuIcon===3?'0deg':'90deg',
+        menuGrowthSpin:s.menuIcon===4?'0deg':'90deg',
+        menuRandSpin:s.menuIcon===5?'0deg':'90deg',
+        onCloseMenu:()=>{ clearTimeout(this._panelT); this.dismiss('panel',{menuOpen:false,panelPhase:'',screen:SHEETS.includes(s.screen)?'home':s.screen}); },
+        stopClick:e=>e.stopPropagation(),
+        onLogout:()=>{ try{ localStorage.removeItem(this._key); }catch(e){}
+          this.dismiss('panel',{menuOpen:false,screen:'login',loginMode:'return',otpMode:false,otp:'',
+            customer:false,activeLoan:null,employment:'',estIncome:'',estExpenses:'',payMethod:''}); },
+        menuItems:[
+          ['loan','My loan'],['amount','New loan'],['schedule','Repayments'],
+          ['documents','Documents'],
+          ['performance','Rewards'],
+          ['activity','My contract'],
+          ['support','Help']
+        ].map(([k,label])=>{
+          const on=s.screen===k&&SHEETS.includes(k);
+          const off=false;
+          const paths={
+            activity:'M3.6 12h3.6l2.4-5.4 3 10.8 2.4-5.4h5.4',
+            loan:'M5.4 7.2h13.2a1.6 1.6 0 0 1 1.6 1.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.4a1.6 1.6 0 0 1-1.6-1.6V8.8a1.6 1.6 0 0 1 1.6-1.6ZM12 14.4a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8Z',
+            home:'M4.4 11.2 10.7 5.3a1.9 1.9 0 0 1 2.6 0l6.3 5.9v6.4a2.4 2.4 0 0 1-2.4 2.4H6.8a2.4 2.4 0 0 1-2.4-2.4v-6.4ZM9.8 20v-4.2a2.2 2.2 0 0 1 4.4 0V20',
+            schedule:'M6.8 6.4h10.4a2.4 2.4 0 0 1 2.4 2.4v8.4a2.4 2.4 0 0 1-2.4 2.4H6.8a2.4 2.4 0 0 1-2.4-2.4V8.8a2.4 2.4 0 0 1 2.4-2.4ZM8.4 4v3.4M15.6 4v3.4M4.4 10.8h15.2M9 14.6h6',
+            tracker:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7.6V12l3.2 1.9',
+            documents:'M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2M9.8 13h4.8M9.8 16.2h3',
+            rewards:'M12 20.4a8.4 8.4 0 1 0 0-16.8 8.4 8.4 0 0 0 0 16.8ZM14.6 9.1a2.6 2.6 0 0 0-2.6-1.5c-1.5 0-2.5.8-2.5 1.9 0 1.3 1.3 1.8 2.6 2.1 1.4.4 2.7.9 2.7 2.3 0 1.2-1.1 2-2.7 2a2.8 2.8 0 0 1-2.8-1.7M12 6v12',
+            statements:'M6.2 4.4h11.6a1.8 1.8 0 0 1 1.8 1.8v13.4l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6-2.4-1.6-2.2 1.6V6.2a1.8 1.8 0 0 1 1.8-1.8ZM9 8.6h6M9 12.2h6',
+            performance:'M12 20.4a8.4 8.4 0 1 0 0-16.8 8.4 8.4 0 0 0 0 16.8ZM14.6 9.1a2.6 2.6 0 0 0-2.6-1.5c-1.5 0-2.5.8-2.5 1.9 0 1.3 1.3 1.8 2.6 2.1 1.4.4 2.7.9 2.7 2.3 0 1.2-1.1 2-2.7 2a2.8 2.8 0 0 1-2.8-1.7M12 6v12',
+            amount:'M12 5.4v13.2M5.4 12h13.2',
+            support:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4M12 17h.02'
+          };
+          const badges=this.alerts(s);
+          const n=badges[k]||0;
+          return {label,path:paths[k]||'',hasBadge:n>0,badge:String(n),
+            color:off?'rgba(var(--q-fg),.35)':(on?'var(--q-accent)':'var(--q-ink)'),dot:on&&!off?YEL:'transparent',
+            pillBg:on&&!off?'rgba(253,209,13,.18)':'transparent',
+            pillBorder:on&&!off?'rgba(253,209,13,.38)':'transparent',
+            pillGlow:on&&!off?'inset 0 1px 0 rgba(255,255,255,.18),0 10px 30px rgba(253,209,13,.16)':'none',
+            onClick:()=>{
+              const target=off?'schedule':k;
+              if(k!=='amount'&&SHEETS.includes(target)){ this.switchPanel(target,true); return; }
+              this.dismiss('panel',{menuOpen:false});
+              setTimeout(()=>{ if(k==='amount') nav.amount(); else this.go(target); },300); }};
+        }),
+  
+        phone:s.phone, phoneError:s.phoneError,
+        onPhone:e=>this.setState({phone:e.target.value,phoneError:''}),
+        otpCells:[0,1,2,3].map(i=>({char:s.otp[i]||''})),
+        keypad:['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>({
+          label:k,
+          onClick:()=>{
+            if(!k) return;
+            if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
+            this.setState(st=>{
+              const next=(st.otp+k).slice(0,4);
+              if(next.length===4){
+                const pin=st.loginMode==='pin';
+                setTimeout(()=>this.setState(pin?Object.assign({screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth()):{screen:'who'}),320);
+              }
+              return {otp:next};
+            });
+          }
+        })),
+  
+        borrowerOptions:[
+          {key:'person',title:'Just me',desc:'A personal quick loan against your salary or income.'},
+          {key:'sme',title:'My business',desc:'Stock, equipment or cash flow for a registered business.'}
+        ].map(o=>{
+          const on=s.borrower===o.key;
+          return {...o,...(on?{bg:'#000000',fg:'#FFFFFF',border:'#000000'}:{bg:'transparent',fg:INK,border:'rgba(11,6,32,.14)'}),
+            onClick:()=>{ this.setState({borrower:o.key}); setTimeout(()=>this.go('amount'),180); }};
+        }),
+  
+        amount:s.amount, amountLabel:this.money(s.amount),
+        onAmount:e=>{ const v=parseInt(e.target.value,10); this.setState(st=>{ const n=Math.min(v,Math.max(500,this.headroom(st))); return {amount:n,amountInput:String(n),amountError:''}; }); },
+        termOptions:[1,2,3,6].map(t=>{
+          const locked=!unlocked&&t!==1;
+          if(locked) return {label:t+' mos',bg:'transparent',fg:'rgba(11,6,32,.28)',border:'rgba(11,6,32,.08)',
+            onClick:()=>this.setState({sentNote:s.customer
+              ? 'Longer terms unlock when you reach a 5-star rating. You are on '+this.starRating(s)+' of 5.'
+              : 'First loans run over one month. Reach a 5-star rating to open 2, 3 and 6-month terms.'})};
+          return {label:t+(t===1?' mo':' mos'),...this.chip(term===t),onClick:()=>this.setState({term:t})};
+        }),
+        termNote:unlocked?'':(s.customer
+          ?'Quik1 loans run for one month. Longer terms unlock at a 5-star rating.'
+          :'New applicants start on a one-month term. Longer terms unlock at a 5-star rating.'),
+        termLabel:term+(term===1?' month':' months'),
+        monthlyLabel:this.money(c.monthly), interestLabel:this.money(c.interest), totalLabel:this.money(c.total),
+  
+        purposes:[
+          'Stock or supplies','Equipment','Cash flow gap','Medical or emergency','School fees','Home repairs','Other'
+        ].map(l=>({label:l,...this.chip(s.purpose===l),on:s.purpose===l,rowBg:s.purpose===l?'rgba(253,209,13,.22)':'transparent',onClick:()=>this.setState({purpose:l,purposeError:'',purposeDD:false})})),
+        purposeDDOpen:!!s.purposeDD,
+        onPurposeDD:()=>this.setState({purposeDD:!s.purposeDD}),
+        purposeDDLabel:s.purpose||'Choose what it is for',
+        purposeDDRot:s.purposeDD?'180deg':'0deg',
+        purposeError:s.purposeError,
+        purposeLabel:(s.purpose==='Other'?(s.purposeOther||'Other'):s.purpose)||'—',
+        showPurposeOther:s.purpose==='Other',
+        purposeOther:s.purposeOther,
+        onPurposeOther:e=>{ const v=e.target.value; this.setState({purposeOther:v,purposeError:''}); },
+  
+        proofRef:this._proof,
+        proofLabel:sme?'Proof of turnover':'Proof of income',
+        hasProof:!!s.proof, proofError:s.proofError,
+        proofName:s.proof||(sme?'Upload a recent invoice or statement':'Upload your latest payslip'),
+        proofHint:s.proof?'Uploaded · we verify it against your statement':'PDF or photo, not older than one month',
+        proofBg:s.proof?BONE:'rgba(253,209,13,.14)',
+        proofBorder:s.proof?BONE:YEL,
+        proofBorderStyle:'solid',
+        proofIconBg:s.proof?'#FFFFFF':YEL,
+        onPickProof:()=>this._proof.current&&this._proof.current.click(),
+        onProofChosen:e=>{ const fl=e.target.files&&e.target.files[0]; if(!fl) return; this.setState({proof:fl.name,proofError:''}); },
+        incomeLabel:sme?'Average monthly turnover':'Monthly income after deductions',
+        income:s.income, incomeError:s.incomeError,
+        onIncome:e=>this.setState({income:e.target.value,incomeError:''}),
+        tenureLabel:sme?'How long have you been trading?':'How long in your current job?',
+        tenureOptions:['6 months','6–12 months','Over a year'].map(l=>({label:l,...this.pill(s.tenure===l),onClick:()=>this.setState({tenure:l})})),
+        consents:[
+          'You may run a credit check with the bureaus.',
+          'The information I have given is true and complete.'
+        ].map(l=>{
+          const on=s.consent.includes(l);
+          return {label:l,tick:on?1:0,bg:on?YEL:'transparent',border:on?YEL:'rgba(11,6,32,.24)',
+            onClick:()=>this.setState(st=>({consent:st.consent.includes(l)?st.consent.filter(x=>x!==l):[...st.consent,l],consentError:''}))};
+        }),
+        consentError:s.consentError,
+  
+        docRef:this._doc,
+        docsRef:this._docs,
+        ...(()=>{
+          const dc=s.docChecks, inn=incomeVal||9000;
+          const d0=dc[0]||{state:'idle'};
+          const checking=d0.state==='checking';
+          const failed=d0.state==='fail';
+          const done=d0.state==='ok';
+          return {
+            bundleTitle:'Bank statement',
+            bundleStatus:checking?'Quiky is reading your statement…'
+              :(failed?(d0.reason||'That file could not be verified')
+              :(done?(d0.file+' · verified by Quiky')
+              :'Not uploaded')),
+            bundleStatusColor:failed?'#C0392B':GREY,
+            bundleChecking:checking, bundleDone:done, bundleFailed:failed,
+            bundlePick:!checking&&!done,
+            bundleBtnBg:failed?INK:YEL, bundleBtnInk:failed?YEL:INK,
+            bundleBg:done?BONE:(failed?'rgba(192,57,43,.06)':'transparent'),
+            bundleBorder:done?BONE:(failed?'rgba(192,57,43,.4)':'rgba(11,6,32,.14)'),
+            bundleIconBg:done?'#FFFFFF':(failed?'rgba(192,57,43,.12)':BONE),
+            bundleMoneyIn:this.money(inn), bundleMoneyOut:this.money(inn*0.74), bundleAvgBal:this.money(inn*0.21),
+            onPickDocs:()=>{ if(this._docs.current){ this._docs.current.value=''; this._docs.current.click(); } },
+            onDocsChosen:e=>{
+              const f=(e.target.files||[])[0];
+              if(!f) return;
+              this.setState({docChecks:[{state:'checking',file:f.name}],docsError:'',docError:null});
+              setTimeout(()=>{
+                const v=this.checkBundleFile(f.name);
+                this.setState(Object.assign(
+                  {docChecks:[v.ok?{state:'ok',file:f.name}:{state:'fail',file:f.name,reason:v.short}]},
+                  v.ok?{}:{docError:{title:v.title,body:v.body,index:0}}));
+              },1400);
+            }
+          };
+        })(),
+        docRows:MONTHS.map((m,i)=>{
+          const d=s.docChecks[i]||{state:'idle'};
+          const ok=d.state==='ok', checking=d.state==='checking', failed=d.state==='fail';
+          const inn=incomeVal||9000;
+          return {
+            name:m+' statement',
+            status:ok?(d.file+' · verified by Quiky')
+              :(checking?'Reading the statement…'
+              :(failed?d.reason:'Waiting · PDF from your banking app')),
+            statusColor:failed?'#C0392B':'#6B6675',
+            idle:d.state==='idle', checking, done:ok, failed,
+            bg:ok?BONE:(failed?'rgba(192,57,43,.06)':'transparent'),
+            border:ok?BONE:(failed?'rgba(192,57,43,.4)':'rgba(11,6,32,.14)'),
+            iconBg:ok?'#FFFFFF':(failed?'rgba(192,57,43,.12)':BONE),
+            moneyIn:this.money(inn), moneyOut:this.money(inn*0.74), avgBal:this.money(inn*0.21),
+            onPick:()=>{ this._docIndex=i; if(this._doc.current){ this._doc.current.value=''; this._doc.current.click(); } }
+          };
+        }),
+        onDocChosen:e=>{
+          const fl=e.target.files&&e.target.files[0]; if(!fl) return;
+          const i=this._docIndex||0, name=fl.name;
+          this.setState(st=>{
+            const next=st.docChecks.slice();
+            next[i]={state:'checking',file:name};
+            return {docChecks:next,docsError:''};
+          });
+          setTimeout(()=>{
+            const verdict=this.checkStatement(name,i);
+            this.setState(st=>{
+              const next=st.docChecks.slice();
+              next[i]=verdict.ok?{state:'ok',file:name}:{state:'fail',file:name,reason:verdict.short};
+              return Object.assign({docChecks:next},verdict.ok?{}:{docError:{title:verdict.title,body:verdict.body,index:i}});
+            });
+          },1500);
+        },
+        showUpgrade:!!s.upgradeTo,
+        upgradeCopy:s.upgradeTo?('You have repaid enough interest to unlock a '+this.money(s.upgradeTo)+' limit, top-ups, and terms of up to six months.'):'',
+        onCloseUpgrade:()=>this.dismiss('modal',{upgradeTo:null}),
+        showDocError:!!s.docError,
+        docErrorTitle:s.docError?s.docError.title:'',
+        docErrorBody:s.docError?s.docError.body:'',
+        onDismissDocError:()=>this.dismiss('modal',{docError:null}),
+        onRetryDoc:()=>{
+          const i=s.docError?s.docError.index:0;
+          this.setState(st=>{ const next=st.docChecks.slice(); next[i]={state:'idle'}; return {docChecks:next,docError:null}; });
+          this._docIndex=i;
+          setTimeout(()=>{ if(this._doc.current){ this._doc.current.value=''; this._doc.current.click(); } },120);
+        },
+        docsError:s.docsError,
+  
+        kycRows:[
+          {key:'id',title:'ID document',slot:'ID',hint:'Front of your green ID or card'}
+        ].map(k=>{
+          const on=s.kyc.includes(k.key);
+          return {...k,status:on?'Captured':k.hint,bg:on?BONE:'transparent',border:on?BONE:'rgba(11,6,32,.14)',dot:on?YEL:'rgba(11,6,32,.08)',
+            onClick:()=>this.setState(st=>({kyc:st.kyc.includes(k.key)?st.kyc.filter(x=>x!==k.key):[...st.kyc,k.key],kycError:''}))};
+        }),
+        kycError:s.kycError,
+        canSkipId:!s.kyc.includes('id'),
+        onSkipId:()=>{ this.runDecision(); this.setState({kycError:'',screen:'deciding'}); },
+        onSubmit:()=>this.submitApplication(),
+  
+        decisionSteps:['Bank statement read','We checked you can afford it','Offer prepared'].map((label,i)=>({
+          label:(s.decisionTick>i?'✓  ':'·  ')+label,
+          color:s.decisionTick>i?YEL:'rgba(255,255,255,.6)',
+          opacity:s.decisionTick>i?1:.55
+        })),
+  
+        ...(()=>{
+          const v=this.assess();
+          const verified=v.verdict!=='decline';
+          const idOk=s.kyc.includes('id');
+          const cleared=s.customer||(verified&&idOk);
+          return {
+            offerBadge:cleared?(v.verdict==='refer'?'Conditional':'Approved'):'Pending verification',
+            offerBadgeBg:cleared?YEL:'rgba(11,6,32,.08)',
+            offerBadgeInk:cleared?INK:GREY,
+            acceptLabel:cleared?'Accept and get paid':'Capture your ID to get paid',
+            needsId:!s.customer&&!idOk,
+            docsCleared:cleared
+          };
+        })(),
+        approvedLine:topUp?'Top-up approved':"You're good for",
+        approvedAmountLabel:this.money(offerPrincipal),
+        showAdminNote:!s.customer&&adminCap&&adminCap<s.amount,
+        adminNote:'Quik1 approved '+this.money(offerPrincipal)+' of your '+this.money(s.amount)+' request. Repay it in full and your next application starts from a higher base.',
+        offerHeadLabel:planMulti?((topUp?'New monthly instalment, from ':'Monthly, from ')+DUE)
+          :(topUp?('Total due '+DUE):('You repay on '+DUE)),
+        offerHeadValue:this.money(planMulti
+          ?((offerTotal+(topUp?s.activeLoan.total:0))/planTerm)
+          :(offerTotal+(topUp?s.activeLoan.total:0))),
+        offerRows:topUp?[
+          {k:'This top-up',v:this.money(offerPrincipal)},
+          {k:'Interest at '+ratePct+' of the loan',v:this.money(offerInterest)},
+          {k:'Initiation fee',v:'R 0'},
+          {k:'Top-up repays as',v:this.money(offerTotal)},
+          {k:'Existing balance',v:this.money(s.activeLoan.total)},
+          ...(planMulti?[{k:'Term',v:planTerm+' months (unchanged)'},
+            {k:'New monthly instalment',v:this.money((offerTotal+s.activeLoan.total)/planTerm)},
+            {k:'Total over '+planTerm+' months',v:this.money(offerTotal+s.activeLoan.total)}]
+            :[{k:'Total due '+DUE,v:this.money(offerTotal+s.activeLoan.total)}]),
+          {k:planMulti?'First debit order':'Repayment date',v:DUE}
+        ]:[
+          {k:'Loan amount',v:this.money(offerPrincipal)},
+          {k:'Term',v:term+(term===1?' month':' months')},
+          {k:'Interest at '+ratePct+' of the loan',v:this.money(offerInterest)},
+          {k:'Initiation fee',v:'R 0'},
+          {k:planMulti?('Total over '+planTerm+' months'):'Total to repay',v:this.money(offerTotal)},
+          ...(planMulti?[{k:'Monthly instalment',v:this.money(offerTotal/planTerm)}]:[]),
+          {k:planMulti?'First debit order':'Repayment date',v:DUE}
+        ],
+        onFinishId:()=>this.setState({screen:'kyc',kycError:''}),
+        onTerms:()=>this.setState(st=>({terms:!st.terms,offerError:''})),
+        termsTick:s.terms?1:0, termsBg:s.terms?YEL:'transparent', termsBorder:s.terms?YEL:'rgba(11,6,32,.24)',
+        offerError:s.offerError,
+  
+        reference:'QK-84213',
+        timeline:[
+          {title:'Application received',who:'You',meta:'Today · reference QK-84213',
+           admin:'Logged and queued for assessment.',state:'done'},
+          {title:'Documents read',who:'Quiky',meta:'Statement and payslip parsed',
+           admin:'Salary detected on the '+ord(SALARY_DAY)+'. Income and expenses extracted.',state:'done'},
+          {title:'You can afford it',who:'Quiky',meta:'Section 81 assessment complete',
+           admin:'Verdict and recommended limit sent to an assessor.',state:'done'},
+          {title:'Approved by an assessor',who:'Quik1',meta:'Human review of the verdict',
+           admin:'Assessor confirmed the recommendation and released the offer.',state:hasLoan?'done':'active'},
+          {title:'Agreement accepted',who:'You',meta:'Today · '+this.money(L.total)+' to repay',
+           admin:'Signed copy filed against your account.',state:hasLoan?'done':'todo'},
+          {title:'Paid out',who:'Quik1',meta:'Sent to '+s.profile.bank,
+           admin:'Instructed to your bank. Most clear within two hours.',state:hasLoan?(paidOut?'done':'active'):'todo'},
+          {title:'Debit order approved',who:'You',meta:'DebiCheck authorisation',
+           admin:s.mandateSigned?'Debit order is on. Your payment is booked.':'Waiting on your bank approval.',
+           state:s.mandateSigned?'done':(hasLoan?'active':'todo')},
+          {title:'First debit order',who:'Quik1',meta:this.money(instal)+' on '+nbsp(DUE),
+           admin:'Collected the day before your salary lands.',state:'todo'}
+        ].map((t,i,arr)=>({
+          title:t.title, meta:t.meta, who:t.who, admin:t.admin,
+          tick:t.state==='done'?1:0,
+          dotBg:t.state==='todo'?'rgba(var(--q-fg),.10)':YEL,
+          dotBorder:t.state==='todo'?'rgba(var(--q-fg),.22)':YEL,
+          anim:t.state==='active'?'q-pulse 1.4s ease-in-out infinite':'none',
+          lineBg:i===arr.length-1?'transparent':(t.state==='done'?YEL:'rgba(var(--q-fg),.18)'),
+          lineH:i===arr.length-1?0:28,
+          titleColor:t.state==='todo'?ON_GLASS:'#FFFFFF',
+          whoBg:t.who==='You'?'rgba(253,209,13,.18)':'rgba(255,255,255,.08)',
+          whoInk:t.who==='You'?YEL:'rgba(255,255,255,.6)',
+          _state:t.state
+        })),
+  
+        greeting:(h=>h<5?'Good night':h<12?'Good morning':h<17?'Good\nAfternoon':h<21?'Good evening':'Good night')(new Date().getHours()),
+        isLoan:s.screen==='loan',
+        isActivity:s.screen==='activity',
+        loanStatusLabel:hasLoan?'Active':'Settled',
+        loanStatusNote:hasLoan?('Next debit '+nbsp(DUE)):'Nothing owing',
+        loanStatusDot:hasLoan?'#4ADE80':'rgba(255,255,255,.4)',
+        loanStatusHalo:hasLoan?'rgba(74,222,128,.18)':'rgba(255,255,255,.10)',
+        loanStatusPulse:hasLoan?'q-breathe 2.8s ease-in-out infinite':'none',
+        loanIntro:hasLoan
+          ? 'Everything open on your account right now. The '+ratePct+' charge was fixed when the loan was granted.'
+          : 'No loan open. Your last loan is settled, so the next one starts fresh.',
+        loanRows:hasLoan?[
+          ['Drawn',this.money(L.a)],
+          ['Charge at '+ratePct,this.money(L.total-L.a)],
+          ['Total to repay',this.money(L.total)],
+          ['Term',lterm+(lterm===1?' month':' months')],
+          [multi?'Instalment':'Repayment',this.money(instal)],
+          ['Next debit',DUE]
+        ].map(([k,v])=>({label:k,value:v})):[
+          ['Limit',this.money(LIMIT)],
+          ['Available now',this.money(available)],
+          ['Charge on a new loan',ratePct]
+        ].map(([k,v])=>({label:k,value:v})),
+        balanceLabel:this.money(balance), paidPct:L.total?Math.round((paid/L.total)*100):0,
+        paidCopy:!hasLoan
+          ? ('No loan open · you can borrow up to '+this.money(available)+' now')
+          : multi
+          ? (lterm+' instalments of '+this.money(instal)+' from '+nbsp(DUE))
+          : (draws.length>1
+            ? ('Nothing due yet · '+draws.length+' draws due on '+nbsp(DUE))
+            : ('Nothing due yet · one repayment of '+this.money(L.monthly)+' on '+nbsp(DUE))),
+        homeShortcuts:[
+          {label:canTopUp?'Withdraw':'Borrow',path:'M12 3.6v11.2M7.6 10.4 12 14.8l4.4-4.4M4.6 19.4h14.8',go:'amount'},
+          {label:'Statement',path:'M7 3h7l4 4v14H7V3ZM14 3v4h4M10 12h7M10 15.6h4.5',go:'schedule'},
+          {label:'Contract',path:'M7 3h7l4 4v14H7V3ZM14 3v4h4M9.6 16.4c1.4-2.4 2.4-3.4 3.2-2.6.9.9-1.6 2.6-.6 3.2.7.4 1.8-.5 2.6-1.4',go:'documents'}
+        ].map(a=>({label:a.label,path:a.path,onClick:()=>a.go==='amount'?nav.amount():this.go(a.go)})),
+        activity:[
+          ...(draws.length?[]:[{title:'Loan settled',date:'Today',amount:'',color:GREY}]),
+          ...draws.slice().reverse().map((d,i)=>({
+            title:(draws.length>1&&i===0)?'Top-up paid out':'Loan paid out',
+            date:d.date, amount:'+'+this.money(d.a), color:INK
+          })),
+          ...(draws.length?[{title:'Application approved',date:draws[0].date,amount:'',color:GREY}]:[])
+        ],
+  
+        schedule:(multi?Array.from({length:lterm},(_,i)=>({i})):draws.map((d,i)=>({d,i}))).map((row,i)=>({
+          n:String(i+1),
+          date:multi?DATES[i]:(DUE+(draws.length>1?(i===0?' · original loan':' · top-up'):'')),
+          status:multi?('Instalment '+(i+1)+' of '+lterm)
+            :(draws.length>1?('Part of the '+DUE+' debit order'):'Debit order'),
+          amount:this.money(multi?instal:row.d.total),
+          bg:GLASS,dot:'rgba(255,255,255,.16)'
+        })),
+        loanDueLabel:this.money(instal),
+        nextPaymentNote:multi?('Instalment 1 of '+lterm+' · debit order')
+          :('Due 1 September · one'+(draws.length>1?' combined':'')+' debit order'),
+        amountError:s.amountError,
+        hasLoan:hasLoan, noLoan:!hasLoan,
+        dueMonth:DUE_DATE.toLocaleDateString('en-ZA',{month:'short'}),
+        dueDay:String(DUE_DATE.getDate()).padStart(2,'0'),
+        daysLeftLabel:daysLeft>1?(daysLeft+' days left'):(daysLeft===1?'Due tomorrow':'Due today'),
+        cyclePct:Math.max(4,Math.min(100,Math.round(((30-daysLeft)/30)*100))),
+        dueOnCopy:this.money(instal)+(multi?(' — instalment 1 of '+lterm+' —'):'')+' comes off your Capitec account on '+DUE+'.',
+        scheduleLine:!hasLoan
+          ? 'Nothing outstanding. Your next loan starts fresh.'
+          : multi ? (lterm+' instalments of '+this.money(instal)+', first on '+DUE+'.')
+          : draws.length>1 ? (draws.length+' draws collected as one debit order of '+this.money(L.total)+' on '+DUE+'.')
+          : ('One repayment of '+this.money(L.monthly)+' on '+DUE+'.'),
+        scheduleOptions:[
+          {key:'date',label:'Why this date',value:ord(DUE_DATE.getDate())+' monthly',path:'M7 3.6v3M17 3.6v3M4.4 8.4h15.2M5.6 5.4h12.8a1.8 1.8 0 0 1 1.8 1.8v11a1.8 1.8 0 0 1-1.8 1.8H5.6a1.8 1.8 0 0 1-1.8-1.8v-11a1.8 1.8 0 0 1 1.8-1.8Z'},
+          {key:'charge',label:'What it costs',value:ratePct+' fixed',path:'M12 20.4a8.4 8.4 0 1 0 0-16.8 8.4 8.4 0 0 0 0 16.8ZM9 16V8.4h2.6a2.4 2.4 0 0 1 0 4.8H9M11.6 13.2 14.8 16'},
+          {key:'settle',label:'Settle early',value:this.money(balance),path:'M5 12.5 10 17.5 19 7.5'},
+          {key:'mandate',label:'Debit order',value:s.mandateSigned?'Approved':'Needs approval',path:'M4.4 6.6h15.2a1.6 1.6 0 0 1 1.6 1.6v7.6a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V8.2a1.6 1.6 0 0 1 1.6-1.6ZM2.8 10.4h18.4'}
+        ].map(o=>({...o,go:()=>this.setState({infoKey:o.key})})),
+        onSettleInfo:()=>this.setState({infoKey:'settle'}),
+        onCloseInfo:()=>this.setState({infoKey:''}),
+        infoOpen:!!s.infoKey,
+        infoTitle:({date:'Why this date',charge:'What it costs',settle:'Settling early',mandate:'Debit order mandate'})[s.infoKey]||'',
+        infoRows:({
+          date:[{label:'Salary detected',value:ord(SALARY_DAY)+' monthly',fg:'#FFFFFF'},
+                {label:'We collect',value:ord(DUE_DATE.getDate())+' · day before',fg:YEL}],
+          charge:[{label:'You borrowed',value:this.money(L.a||0),fg:'#FFFFFF'},
+                {label:'Charge',value:ratePct+' fixed',fg:'#FFFFFF'},
+                {label:'You repay',value:this.money(L.total||L.monthly||0),fg:YEL}],
+          settle:[{label:'Settle today',value:this.money(balance),fg:YEL},
+                {label:'Closes',value:'Same day',fg:'#FFFFFF'}],
+          mandate:[{label:'Amount',value:this.money(L.monthly||L.total||0),fg:'#FFFFFF'},
+                {label:'Date',value:DUE,fg:'#FFFFFF'},
+                {label:'Account',value:s.profile.bank,fg:'#FFFFFF'},
+                {label:'Status',value:s.mandateSigned?'Approved':'Needs approval',fg:s.mandateSigned?YEL:'#FFFFFF'}]
+        })[s.infoKey]||[],
+        infoBody:({
+          date:'Read from the '+s.profile.bank+' statement you uploaded. The debit order runs the day after your salary lands, so the money is there.',
+          charge:'The charge was fixed when the loan was granted. It never grows, whether you pay on the date or earlier.',
+          settle:'Pay the balance and the loan closes the same day. The charge was fixed when the loan was granted, so paying early costs no more and no less.',
+          mandate:'Your bank sends a once-off request to authorise the collection. Nothing is taken until you approve it, and the amount can never change without a new request.'
+        })[s.infoKey]||'',
+        scheduleIntro:!hasLoan
+          ? 'Nothing outstanding. Your last loan is settled, so the next one starts fresh.'
+          : multi
+          ? (lterm+' instalments of '+this.money(instal)+', first on '+DUE+'. The '+ratePct+' charge was fixed when the loan was granted, so settling early never costs more.')
+          : draws.length>1
+          ? (draws.length+' draws, collected as one debit order of '+this.money(L.total)+' on '+DUE+'. The '+ratePct+' charge on each is fixed, so settling sooner never costs more.')
+          : ('One repayment of '+this.money(L.monthly)+' on '+DUE+', made up of your '+this.money(L.a)+' plus the '+ratePct+' charge. Settle sooner and the charge does not grow.'),
+        firstName:(s.profile.name||'').split(' ')[0]||'there',
+        homePadBottom:'116px',
+        cardsRef:this._cards,
+        cardDots:[0,1].map(i=>({bgLight:i===(s.cardIdx||0)?'#0B0620':'rgba(11,6,32,.18)'})),
+        onCardScroll:()=>{
+          const el=this._cards.current; if(!el) return;
+          const i=Math.round(el.scrollLeft/(el.clientWidth-56));
+          if(i!==this.state.cardIdx) this.setState({cardIdx:i});
+        },
+        availableLabel:s.hideAmounts?'R ••••':this.money(available),
+        limitLabel:s.hideAmounts?'R ••••':this.money(LIMIT),
+        drawnCopy:hasLoan?('on '+this.money(L.a)+' used'):'nothing drawn',
+        hidePath:s.hideAmounts?'M4 20 20 4':'',
+        onToggleHide:()=>this.setState(st=>({hideAmounts:!st.hideAmounts})),
+        availableNote:canTopUp?('of '+this.money(LIMIT)+' limit')
+          :(hasLoan?blockLong:'apply to open your account'),
+        withdrawLabel:'Withdraw',
+        withdrawPath:'M12 3.8v10.8M7.8 10.4 12 14.6l4.2-4.2M4.8 19.4h14.4',
+        withdrawBg:'#FDD10D',
+        withdrawInk:'#0B0620',
+        withdrawBorder:'#FDD10D',
+        withdrawCursor:(canTopUp||!hasLoan)?'pointer':'default',
+        onWithdraw:()=>nav.amount(),
+        onOpenDocs:()=>this.go('documents'),
+        hasLoanHome:hasLoan,
+        debitDaysLabel:(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Debit today':n===1?'1 day to next debit':n+' days to next debit'; })(),
+        debitDateLabel:(s.hideAmounts?'R ••••':this.money(L.monthly||L.total))+' on '+DUE_DATE.toLocaleDateString('en-ZA',{day:'numeric',month:'long'}),
+        topUpBg:canTopUp?'#FDD10D':'#0B0620', topUpInk:canTopUp?'#0B0620':'#FFFFFF',
+        onTopUp:()=>nav.amount(),
+        hdrGreeting:(hr=>hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')(new Date().getHours()),
+        hdrName:(s.profile&&s.profile.name)||'Thandi Mokoena',
+        heroMeta:hasLoan?(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return 'Debit in '+n+(n===1?' day':' days'); })():'No loan open',
+        debitDaysShort:(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })(),
+        debitAmount:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
+        debitShortDate:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}).replace('/','/'),
+        credCards:(()=>{
+          const front=s.credFront||'available';
+          const growthPctVal=Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100));
+          const tierNoteVal=Math.round(this.rate()*100)+'% interest';
+          const avW=this.headroom({...s,withdrawMode:true}); const owedW=hasLoan?((s.activeLoan&&s.activeLoan.total)||L.total||0):0; const owedPct=Math.round(Math.min(100,(owedW/(LIMIT||8000))*100)); const lim=LIMIT||8000, avPct=Math.round(Math.min(100,Math.max(0,(avW/lim)*100)));
+          const debitDays=(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })();
+          const name=(s.profile&&s.profile.name)||'Thandi Mokoena';
+          const cards=[
+            {k:'debit',tabLabel:'Next debit',tabValue:debitDays,line:name,big:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
+              side:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}),pct:growthPctVal,note:tierNoteVal,act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()},
+            {k:'available',tabLabel:'You owe',tabValue:s.hideAmounts?'R ••••':this.money(owedW),line:'Owed to Quik1',big:s.hideAmounts?'R ••••':this.money(owedW),
+              side:hasLoan?'Due '+DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}):'Nothing owed',pct:owedPct,note:hasLoan?'Tap to manage your loan.':'Tap to apply for a loan.',act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()}
+          ];
+          cards.forEach(c=>{ if(s.hideAmounts){ c.cents=''; return; } const amt=c.k==='debit'?(hasLoan?(L.monthly||L.total):0):owedW; const p=this.moneyParts(amt); c.big=p[0]; c.cents=p[1]; });
+          return cards.map(c=>{ const f=c.k===front;
+            const base=c.k==='debit'?['#454B57','#2A2E37','rgba(253,209,13,.16)']:['#F4F5F8','#C9CFDA','rgba(255,255,255,.6)'];
+            const Y=c.k==='debit', D=!Y&&lightPal;
+            if(D) return {...c,z:f?2:1,top:f?'50px':'0px',tf:f?'none':'scale(.96)',
+              bg:f?'radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.10) 0%,rgba(255,255,255,0) 50%),linear-gradient(155deg,#3E4552 0%,#1C2029 100%)':'linear-gradient(180deg,#30353F 0%,#272B33 100%)',
+              ink:'#FFFFFF',mute:'rgba(255,255,255,.62)',emboss:'0 1px 0 rgba(0,0,0,.35)',bigInk:'#FFFFFF',bigShadow:'0 1px 0 rgba(0,0,0,.35)',
+              track:'rgba(255,255,255,.12)',barFill:'#FDD10D',isDebit:false,isAvail:true,
+              edge:f?'rgba(255,255,255,.12)':'rgba(255,255,255,.06)',chipW:f?'30px':'0px',chipM:f?'0px':'-10px',glow:f?'rgba(120,170,255,.14)':'rgba(0,0,0,0)',sheenX:f?'60%':'-60%',
+              shadow:f?'0 22px 40px -12px rgba(11,6,32,.45),inset 0 1px 0 rgba(255,255,255,.14)':'inset 0 1px 0 rgba(255,255,255,.06)',bodyOn:f?1:0,bodyY:f?'0px':'8px',
+              badgeBg:f?'rgba(253,209,13,.16)':'transparent',badgeInk:f?'#FDD10D':'#FFFFFF',availDark:true,availLight:false,
+              aria:f?c.tabLabel:'Show '+c.tabLabel,go:f?c.act:()=>this.setState({credFront:c.k})};
+            return {...c,availDark:false,availLight:!Y,z:f?2:1,top:f?'50px':'0px',tf:f?'none':'scale(.96)',
+              bg:Y?(f?'radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.45) 0%,rgba(255,255,255,0) 50%),linear-gradient(150deg,#FFE766 0%,#FDD10D 45%,#E8A800 100%)':'linear-gradient(180deg,#C9A50A 0%,#A88806 100%)')
+                :(f?('radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.9) 0%,rgba(255,255,255,0) 55%),linear-gradient(155deg,'+base[0]+' 0%,'+base[1]+' 100%)'):'linear-gradient(180deg,#D9DDE5 0%,#BFC5D0 100%)'),
+              ink:'#0B0620', mute:'rgba(11,6,32,.62)',
+              emboss:'0 1px 0 rgba(255,255,255,.5)', bigInk:'#0B0620', bigShadow:'0 1px 0 rgba(255,255,255,.55)',
+              track:'rgba(11,6,32,.14)', barFill:Y?'#0B0620':'#0000FE',
+              isDebit:Y, isAvail:!Y,
+              edge:Y?'rgba(255,255,255,.35)':'rgba(255,255,255,.55)', chipW:f?'30px':'0px', chipM:f?'0px':'-10px', glow:Y?'rgba(255,255,255,.25)':(f?base[2]:'rgba(0,0,0,0)'), sheenX:f?'60%':'-60%',
+              shadow:f?'0 22px 40px -12px rgba(0,0,0,.6),0 -6px 20px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.14)':'inset 0 1px 0 rgba(255,255,255,.06)',bodyOn:f?1:0,bodyY:f?'0px':'8px',
+              badgeBg:f?'#0B0620':'transparent',badgeInk:f?'#FDD10D':'#0B0620',
+              aria:f?c.tabLabel:'Show '+c.tabLabel,
+              go:f?c.act:()=>this.setState({credFront:c.k})}; });
+        })(),
+        homeBg:lightPal?'linear-gradient(180deg,#FFFFFF 0%,#F6F5F1 60%,#ECEAE3 100%)':'linear-gradient(180deg,#2A2F3A 0%,#14171D 38%,#050608 70%,#000000 100%)',
+        hdrBg:lightPal?'#FFFFFF':'rgba(255,255,255,.07)', hdrWrapBg:lightPal?'linear-gradient(180deg,#ECEBE6 0%,#FFFFFF 100%)':'linear-gradient(180deg,#363C48 0%,#2A2F3A 100%)', hdrEdge:lightPal?'#FFFFFF':'#2A2F3A', hdrWrapShadow:lightPal?'0 6px 12px -6px rgba(11,6,32,.12),0 22px 40px -18px rgba(11,6,32,.35)':'0 8px 16px -8px rgba(0,0,0,.55),0 26px 48px -18px rgba(0,0,0,.85),inset 0 -1px 0 rgba(255,255,255,.06)',
+        hdrShadow:lightPal?'0 10px 30px rgba(11,6,32,.10)':'0 12px 30px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.10)', hdrInk:lightPal?'#0B0620':'#FFFFFF', hdrMute:lightPal?'rgba(11,6,32,.6)':'rgba(255,255,255,.6)',
+        hdrBtnBg:lightPal?'linear-gradient(180deg,#2E333D 0%,#1C2029 100%)':'rgba(255,255,255,.09)', hdrIconInk:'#FFFFFF', hdrFloat:lightPal?'0 4px 8px rgba(11,6,32,.08),0 16px 32px -6px rgba(11,6,32,.22)':'0 4px 10px rgba(0,0,0,.35),0 18px 36px -6px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.16)', hdrBtnBd:lightPal?'#1C2029':'rgba(255,255,255,.08)',
+        homeInk:lightPal?'#0B0620':'#FFFFFF', homeMute:lightPal?'rgba(11,6,32,.6)':'rgba(255,255,255,.7)', homeChipBg:lightPal?'rgba(11,6,32,.06)':'rgba(255,255,255,.08)',
+        themeLabel:lightHome?'Switch to dark background':'Switch to white background',
+        themeIcon:lightHome?'M20 14.2A8 8 0 0 1 9.8 4a8 8 0 1 0 10.2 10.2Z':'M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4',
+        onToggleTheme:()=>this.setState(st=>({homeLight:!(st.homeLight ?? (this.props.whiteBackground ?? false))})),
+        homeActions:[
+          {label:wLocked?'Withdraw locked':'Withdraw',locked:wLocked,path:wLocked?'M7 10.6V8a5 5 0 0 1 10 0v2.6M5.6 10.6h12.8v9H5.6z':'M12 15V4.6M7.8 8.8 12 4.6l4.2 4.2M4.6 14.4v3.4a1.8 1.8 0 0 0 1.8 1.8h11.2a1.8 1.8 0 0 0 1.8-1.8v-3.4',sub:wLocked?'Unlocks after your repayment':('Up to '+(s.hideAmounts?'R ••••':this.money(this.headroom({...s,withdrawMode:true})))),go:()=>{ if(wLocked) return this.setState({sentNote:'Withdraw unlocks once we confirm your repayment.'}); this.setState({topUpMode:hasLoan,withdrawMode:hasLoan}); nav.amount(); },on:!wLocked,wide:true},
+          {label:'Documents',path:'M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2M12 17v-5M9.8 14l2.2-2.2 2.2 2.2',go:()=>this.switchPanel('documents',false)}
+        ].map(a=>({...a,justify:a.wide?'flex-start':'center',padX:a.wide?'12px':'0',iconAnim:'none',span:a.wide?'span 3':'auto',wideOn:!!a.wide,sub:a.sub||'',enter:()=>{},leave:()=>{},bg:a.on?'linear-gradient(180deg,#FFE04A 0%,#FDD10D 100%)':(lightPal?'linear-gradient(180deg,#2E333D 0%,#1C2029 100%)':'linear-gradient(180deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.035) 100%)'),border:a.on?'#FDD10D':(lightPal?'#1C2029':'rgba(255,255,255,.08)'),shadow:a.on?'0 12px 28px rgba(253,209,13,.22),inset 0 1px 0 rgba(255,255,255,.5)':'inset 0 1px 0 rgba(255,255,255,.08)',chip:a.on?'#0B0620':'rgba(255,255,255,.08)',icon:a.on?'#FDD10D':'#FFFFFF',ink:a.on?'#0B0620':'rgba(255,255,255,.9)'})),
+        homeActions2:[
+          {label:'Repay',path:'M12 5v14M6.6 13.6 12 19l5.4-5.4',go:()=>nav.schedule()},
+          {label:'Top up',path:'M12 5v14M5 12h14',go:()=>{ this.setState({topUpMode:true,withdrawMode:false}); nav.amount(); }},
+          {label:'Statement',path:'M7 3.6h7l4 4V20.4H7ZM14 3.6v4h4M10 12h5M10 15.4h3.4',go:()=>this.switchPanel('statements',false)},
+        ].map(a=>({...a,justify:a.wide?'flex-start':'center',padX:a.wide?'12px':'0',iconAnim:a.wide?'q-rise 1.8s cubic-bezier(.4,0,.2,1) infinite':'none',span:a.wide?'span 3':'auto',wideOn:!!a.wide,tipOn:(s.tileHover===a.label&&!a.wide)?1:0,tipY:s.tileHover===a.label?'0px':'4px',enter:()=>this.setState({tileHover:a.label}),leave:()=>this.setState(st=>st.tileHover===a.label?{tileHover:''}:null),bg:a.on?'linear-gradient(180deg,#FFE04A 0%,#FDD10D 100%)':(lightPal?'linear-gradient(180deg,#2E333D 0%,#1C2029 100%)':'linear-gradient(180deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.035) 100%)'),border:a.on?'#FDD10D':(lightPal?'#1C2029':'rgba(255,255,255,.08)'),shadow:a.on?'0 12px 28px rgba(253,209,13,.22),inset 0 1px 0 rgba(255,255,255,.5)':'inset 0 1px 0 rgba(255,255,255,.08)',chip:a.on?'#0B0620':'rgba(255,255,255,.08)',icon:a.on?'#FDD10D':'#FFFFFF',ink:a.on?'#0B0620':'rgba(255,255,255,.9)'})).map(a=>({...a,bg:lightPal?'linear-gradient(180deg,#3A3F4A 0%,#2A2E37 100%)':'linear-gradient(180deg,#3A3F4A 0%,#2B2F38 100%)',border:'rgba(255,255,255,.10)',chip:'rgba(255,255,255,.12)',shadow:'0 8px 18px -8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.10)'})),
+        dockOn:(s.quickOpen||s.aiOpen)?0:1, dockPe:(s.quickOpen||s.aiOpen)?'none':'auto',
+        dockItems:[
+          {k:'home',label:'Home',path:'M4.6 10.4 12 4.4l7.4 6V19a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 19Z',go:()=>{ const g=!!s.gridOpen; this.setState({gridOpen:false,menuOpen:false}); if(s.screen==='home'&&!SHEETS.includes(s.screen)) return; if(SHEETS.includes(s.screen)) return this.dismiss('panel',{screen:'home',menuOpen:false,panelPhase:''}); this.go('home'); }},
+          {k:'credit',label:'Card',path:'M6.4 4.6h11.2a1.6 1.6 0 0 1 1.6 1.6v11.6a1.6 1.6 0 0 1-1.6 1.6H6.4a1.6 1.6 0 0 1-1.6-1.6V6.2a1.6 1.6 0 0 1 1.6-1.6ZM8 8.2h3.6v3H8ZM14 9.4a3 3 0 0 1 0 4.2M15.8 8a5 5 0 0 1 0 7',go:()=>{ this.setState({gridOpen:false}); this.switchPanel('credit',false); }},
+          {k:'accounts',label:'Accounts',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3',go:()=>{ this.setState({gridOpen:false}); this.switchPanel('accounts',false); }},
+          {k:'menu',label:'Menu',path:'M5 5h5.6v5.6H5ZM13.4 5H19v5.6h-5.6ZM5 13.4h5.6V19H5ZM13.4 13.4H19V19h-5.6Z',go:()=>this.setState(st=>({gridOpen:!st.gridOpen,quickOpen:false,alertsOpen:false}))}
+        ].map(d=>{ const real=d.k==='home'?(s.screen==='home'&&!pOpen&&!s.gridOpen):d.k==='menu'?!!s.gridOpen:(!s.gridOpen&&s.screen===d.k); const act=s.dockTap?s.dockTap===d.k:real; const go0=d.go; return {...d,go:()=>{ clearTimeout(this._dockT); this.setState({dockTap:(d.k==='menu'&&s.gridOpen)?'':d.k}); this._dockT=setTimeout(()=>this.setState({dockTap:null}),1400); go0(); },active:act,gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,shadow:act?'0 6px 16px rgba(253,209,13,.25),inset 0 1px 0 rgba(var(--q-fg),.45)':'none',pad:act?'18px':'13px',bg:act?'#FDD10D':'transparent',ink:act?'#0B0620':'rgba(255,255,255,.8)',
+          hoverBg:act?'#FDD10D':'rgba(255,255,255,.14)',iconS:act?1.08:1,iconR:act?'-6deg':'0deg',labelX:act?'0px':'-6px',labelBlur:act?'0px':'3px',labelDelay:act?'.12s':'0s'}; }),
+        shortcuts:[
+          {label:'Statements',path:'M6.2 4.4h11.6v15.2H6.2zM9.2 8.6h5.6M9.2 12h5.6M9.2 15.4h3.4',go:()=>this.switchPanel('statements',false)},
+          {label:'Top up',path:'M12 5v14M5 12h14',go:()=>nav.amount()},
+          {label:'Profile',path:'M12 12a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM5.2 19.6a6.8 6.8 0 0 1 13.6 0',go:()=>this.go('profile')},
+          {label:'Support',path:'M4.6 12a7.4 7.4 0 1 1 3.1 6L4.6 19l1-3.1A7.4 7.4 0 0 1 4.6 12ZM9.4 10.4a2.6 2.6 0 1 1 3.4 2.5c-.5.2-.8.6-.8 1.1M12 16.6h.01',go:()=>this.go('support')}
+        ],
+        docCount:String(1+draws.length+(s.proof?1:0)+s.kyc.length+s.docChecks.filter(d=>d.state==='ok').length),
+        tierLabel:s.graduated?'Bronze unlocked':'Unlock Bronze',
+        tierNote:hasLoan
+          ? (this.money(s.interestPaid||0)+' of '+this.money(s.baseAmount||0)+' interest banked')
+          : 'Settle on time to grow your limit',
+        statTiles:[
+          {hasIcon:true,hasRing:false,path:'M12 3.6 19.4 6.4v5c0 4.1-3 7.3-7.4 9-4.4-1.7-7.4-4.9-7.4-9v-5L12 3.6Z',
+            value:String(draws.length),label:'Draws'},
+          {hasIcon:true,hasRing:false,path:'M13.4 2.8 5.6 13.6h5.2l-1.2 7.6 8-11.2h-5.4l1.2-7.2Z',
+            value:this.money(L.a),label:'Deployed'},
+          {hasIcon:false,hasRing:true,ring:(L.total?Math.round((paid/L.total)*100):0)+'%',
+            value:this.money(paid),label:'Repaid'}
+        ],
+        usedPct:Math.max(2,Math.round((balance/LIMIT)*100)),
+        termLabel:hasLoan?((L.term||1)+((L.term||1)===1?' month':' months')):'—',
+        agreementOpen:!!s.agreement||(s.closing==='modal'&&!!s.agreementLast),
+        onCloseAgreement:()=>{
+          this.setState(st=>({agreementLast:st.agreement}));
+          this.dismiss('modal',{agreement:null,agreementLast:null});
+        },
+        ...(()=>{
+          const g=s.agreement||s.agreementLast||{};
+          const amt=g.a||0, tot=g.total||0, term=g.term||1;
+          const pct=((g.rate!=null?g.rate:this.rate())*100).toFixed(0)+'%';
+          const instal=term?tot/term:tot;
+          return {
+            agRef:g.ref||'—',
+            agRows:[
+              ['Credit provider','Ecoloans (Pty) Ltd'],
+              ['Trading as','Quik1'],
+              ['NCR registration','NCRCP registered credit provider'],
+              ['Agreement type','Small credit agreement · s 8(4)(f) NCA'],
+              ['Agreement number',g.ref||'—'],
+              ['Agreement date',g.date||'Today'],
+              ['Consumer',s.profile.name],
+              ['Identity number',s.profile.idnum],
+              ['Consumer address','On file · profile'],
+              ['Principal debt',this.money(amt)],
+              ['Initiation fee','R 0'],
+              ['Monthly service fee','R 0'],
+              ['Credit life insurance','R 0 · not required'],
+              ['Interest rate','0% · no interest is charged'],
+              ['Fixed charge at '+pct,this.money(tot-amt)],
+              ['Total cost of credit',this.money(tot-amt)],
+              ['Total repayable',this.money(tot)],
+              ['Instalment',this.money(instal)+' × '+term+(term===1?' month':' months')],
+              ['Salary date detected',ord(SALARY_DAY)+' of each month'],
+              ['First collection',nbsp(DUE)],
+              ['Final collection',nbsp(DUE)],
+              ['Collection method','DebiCheck debit order'],
+              ['Collection account',s.profile.bank],
+              ['Payout account',s.profile.bank],
+              ['Cooling-off period','5 business days']
+            ].map(([label,value])=>({label,value})),
+            agClauses:[
+              {n:1,title:'What you are borrowing',
+               body:'Ecoloans, trading as Quik1, advances '+this.money(amt)+' to the bank account on your profile. You repay '+this.money(tot)+' in total. No amount other than the figures in the table above is payable.'},
+              {n:2,title:'One fixed charge',
+               body:'The cost of credit is a single fixed charge of '+pct+' of the principal debt, agreed today and disclosed above. It does not compound, does not grow with time, and no further interest, initiation fee or service fee is added at any stage.'},
+              {n:3,title:'Can you afford it?',
+               body:'Ecoloans completed the assessment required by section 81 of the National Credit Act before making this offer, using your bank statement, proof of income and declared expenses. You confirm the information you gave was complete and accurate. Ecoloans may decline or reduce credit where the assessment shows the instalment is not affordable.'},
+              {n:4,title:'Your right to settle early',
+               body:'You may settle at any time by paying the outstanding balance shown in the app. No early settlement penalty applies and the charge in clause 2 does not increase.'},
+              {n:5,title:'How we collect',
+               body:'Collection is by DebiCheck debit order, which you authorise electronically at your bank. Ecoloans collects the instalment on the dates above. You will be notified before each collection.'},
+              {n:6,title:'If a collection fails',
+               body:'Where a debit order is returned unpaid, Ecoloans will contact you to agree a date within the same month. Ecoloans does not charge a default administration fee. Continued non-payment may be reported to a credit bureau and referred for debt collection, at which point statutory costs may apply.'},
+              {n:7,title:'Cooling-off and cancellation',
+               body:'You may cancel this agreement within five business days of signature by repaying the principal debt advanced, plus the charge for the days the funds were used.'},
+              {n:8,title:'Your information',
+               body:'Ecoloans processes your personal information under POPIA for credit assessment, collection and regulatory reporting only, and shares it with registered credit bureaux as the National Credit Act requires. You may request access to, or correction of, your information at any time.'},
+              {n:9,title:'Complaints',
+               body:'Raise a complaint in the app under Help. If unresolved, you may approach the National Credit Regulator or the Credit Ombud at no cost to you.'},
+              {n:10,title:'Consumer acknowledgement and consent',
+               body:'By accepting this agreement the consumer declares that: the pre-agreement statement and quotation were provided and understood before signature; the terms, the total cost of credit and the instalment were explained in a language the consumer understands; the information supplied for the affordability assessment is true and complete; the consumer is not under administration, sequestration or debt review; and the consumer consents to Ecoloans verifying that information, registering this agreement with a credit bureau, and collecting the instalment by DebiCheck on the dates set out above.'},
+              {n:11,title:'Governing law and jurisdiction',
+               body:'This agreement is governed by the law of the Republic of South Africa and, in particular, the National Credit Act 34 of 2005 and its regulations. The consumer consents to the jurisdiction of the Magistrates Court under section 45 of the Magistrates Courts Act 32 of 1944.'},
+              {n:12,title:'Responsible lending',
+               body:'Ecoloans will not extend further credit while an instalment is overdue, and increases your limit only after the account has run its full term without default. Reckless credit, as defined in the Act, is not extended and any agreement found reckless may be set aside by a court.'}
+            ],
+            agSignature:'Signed electronically by '+s.profile.name+' on '+(g.date||'Today')+', and by Ecoloans (Pty) Ltd trading as Quik1, a credit provider registered with the National Credit Regulator. Your electronic acceptance carries the same force as a written signature under the Electronic Communications and Transactions Act 25 of 2002.'
+          };
+        })(),
+        ...(()=>{
+          const now=new Date();
+          const months=[];
+          if(hasLoan||paid>0){
+            const d=new Date(now.getFullYear(),now.getMonth(),1);
+            const mon=d.toLocaleDateString('en-ZA',{month:'long',year:'numeric'});
+            const drawn=L.a||0, cost=(L.total||0)-drawn;
+            const ref=new Date(2026,7,20); const d0=new Date(ref.getFullYear(),ref.getMonth(),1);
+            const f2=n=>{ const p=this.moneyParts(Math.abs(n)); return p[0]+p[1]; };
+            const dshort=v=>{ const dt=new Date((v||'')+' '+now.getFullYear()); return isNaN(dt)?String(v||''):dt.toLocaleDateString('en-ZA',{day:'2-digit',month:'short'}); };
+            const T={payout:['Payout','rgba(var(--q-fg),.10)','rgba(var(--q-fg),.85)'],charge:['Charge','rgba(255,138,122,.14)','#FF9C8F'],repay:['Repayment','rgba(253,209,13,.16)','var(--q-accent)']};
+            let run=0; const tx=[];
+            draws.forEach((dr,i)=>{ run+=dr.a; tx.push({date:dshort(dr.date),title:i===0?'Money sent to your bank':'Top-up sent to your bank',type:T.payout[0],typeBg:T.payout[1],typeInk:T.payout[2],amount:f2(dr.a),ink:'var(--q-ink)',balance:f2(run)}); });
+            if(cost>0){ run+=cost; tx.push({date:dshort(draws[0]&&draws[0].date),title:'Cost of credit ('+Math.round(this.rate()*100)+'%)',type:T.charge[0],typeBg:T.charge[1],typeInk:T.charge[2],amount:f2(cost),ink:'var(--q-ink)',balance:f2(run)}); }
+            if(paid>0){ run-=paid; tx.push({date:ref.toLocaleDateString('en-ZA',{day:'2-digit',month:'short'}),title:'DebiCheck collection',type:T.repay[0],typeBg:T.repay[1],typeInk:T.repay[2],amount:'−'+f2(paid),ink:'var(--q-accent)',balance:f2(run)}); }
+            months.push({
+              period:d0.toLocaleDateString('en-ZA',{month:'long',year:'numeric'}),
+              range:'01 – '+String(ref.getDate()).padStart(2,'0')+' '+d0.toLocaleDateString('en-ZA',{month:'short',year:'numeric'})+' · to date',
+              onDownload:()=>this.downloadStatement({mon:d0.toLocaleDateString('en-ZA',{month:'long',year:'numeric'}),name:s.profile.name,acc:'Q1-'+(String(s.profile.idnum||'').replace(/\D/g,'').slice(-6)||'000000'),
+                date:ref.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}),due:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}),
+                tx,rows:[['Opening balance',f2(0)],['Payouts and charges',f2(drawn+cost)],['Repayments',(paid>0?'-':'')+f2(paid)],['Closing balance',f2(balance)]]}),
+              meta:[
+                {label:'Account holder',value:s.profile.name||'—'},
+                {label:'Account no.',value:'Q1-'+(String(s.profile.idnum||'').replace(/\D/g,'').slice(-6)||'000000')},
+                {label:'Statement date',value:ref.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})},
+                {label:'Next debit',value:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})}
+              ],
+              txns:tx,
+              rows:[
+                {label:'Opening balance',value:f2(0),ink:'rgba(var(--q-fg),.9)',size:'13.5px',weight:400},
+                {label:'Payouts and charges',value:f2(drawn+cost),ink:'var(--q-ink)',size:'13.5px',weight:400},
+                {label:'Repayments',value:(paid>0?'−':'')+f2(paid),ink:'var(--q-accent)',size:'13.5px',weight:400},
+                {label:'Closing balance',value:f2(balance),ink:'var(--q-ink)',size:'16px',weight:600}
+              ]
+            });
+          }
+          return {statementList:months, noStatements:months.length===0};
+        })(),
+        ...(()=>{
+          const list=this.pushes(s);
+          return {
+            alertList:list.map(a=>({title:a.title,body:a.body,
+              onClick:()=>{ this.setState({alertsOpen:false}); this.switchPanel(a.go,false); }})),
+            hasAlerts:list.length>0, alertCount:String(list.length), noAlerts:list.length===0,
+            alertsOpen:!!s.alertsOpen,
+            onOpenAlerts:()=>this.setState({alertsOpen:true}),
+            onCloseAlerts:()=>this.setState({alertsOpen:false})
+          };
+        })(),
+        ...(()=>{
+          const rows=[];
+          (s.closedLoans||[]).slice().reverse().forEach(c=>rows.push({...c,settled:true}));
+          if(hasLoan) rows.unshift({a:L.a,total:L.total,term:L.term,
+            ref:(L.draws&&L.draws[0]&&L.draws[0].ref)||'QK-84213',
+            date:(L.draws&&L.draws[0]&&L.draws[0].date)||'2 August',settled:false});
+          return {
+            noBills:rows.length===0,
+            billLoans:rows.map(b=>({
+              amount:this.money(b.a), date:b.date,
+              meta:'Taken '+b.date+' · '+b.ref,
+              status:b.settled?'Settled':'Open',
+              settled:b.settled,
+              border:b.settled?'rgba(255,255,255,.12)':'rgba(253,209,13,.34)',
+              pillBg:b.settled?'rgba(255,255,255,.10)':'rgba(253,209,13,.18)',
+              pillInk:b.settled?'rgba(255,255,255,.6)':YEL,
+              rows:[
+                {label:'Total repayable',value:this.money(b.total)},
+                {label:'Term',value:(b.term||1)+((b.term||1)===1?' month':' months')},
+                b.settled?{label:'Settled on',value:b.settledOn}:{label:'Outstanding',value:this.money(balance)}
+              ],
+              onContract:()=>this.setState({agreement:{a:b.a,total:b.total,term:b.term,ref:b.ref,date:b.date},agTicked:false}),
+              onLetter:()=>this.setState({letter:b})
+            }))
+          };
+        })(),
+        ...(()=>{
+          const g=s.letter||{};
+          return {
+            letterOpen:!!s.letter,
+            onCloseLetter:()=>this.setState({letter:null}),
+            letterRef:'PU-'+(g.ref||'').replace(/^QK-/,''),
+            letterBody:'This confirms that '+s.profile.name+' has settled loan '+(g.ref||'')+' with Quik1 in full. No amount remains outstanding and the agreement is closed.',
+            letterRows:[
+              {label:'Consumer',value:s.profile.name},
+              {label:'Agreement',value:g.ref||'—'},
+              {label:'Principal debt',value:this.money(g.a||0)},
+              {label:'Total repaid',value:this.money(g.total||0)},
+              {label:'Settled on',value:g.settledOn||'—'},
+              {label:'Balance outstanding',value:'R 0'}
+            ],
+            onEmailLetter:()=>this.setState({letter:null,sentNote:'Paid-up letter sent to '+s.profile.email+'.'})
+          };
+        })(),
+        salaryDayLabel:ord(SALARY_DAY)+' · monthly',
+        debitDayLabel:ord(DUE_DATE.getDate())+' · day before',
+        debitDateProse:DUE,
+        instalLabel:this.money(L.monthly||L.total||0),
+        mandatePending:hasLoan&&!s.mandateSigned,
+        mandateDone:hasLoan&&!!s.mandateSigned,
+        bankName:s.profile.bank,
+        dueDateLabel:DUE,
+        onSignMandate:()=>this.setState({agreement:{a:L.a,total:L.total,term:L.term,ref:'QK-84213',date:'Today'},agTicked:false}),
+        agTicked:!!s.agTicked,
+        onTickAgree:()=>this.setState(st=>({agTicked:!st.agTicked})),
+        agBoxBg:s.agTicked?YEL:'transparent',
+        agBoxBorder:s.agTicked?YEL:'rgba(11,6,32,.3)',
+        agTickOn:s.agTicked?1:0,
+        agBtnBg:s.agTicked?YEL:'rgba(11,6,32,.08)',
+        agBtnInk:s.agTicked?INK:'#9A96A3',
+        agBtnCursor:s.agTicked?'pointer':'not-allowed',
+        showAgreeBar:hasLoan&&!s.mandateSigned,
+        agreementSigned:!(hasLoan&&!s.mandateSigned),
+        onAgreeActivate:()=>{
+          if(!this.state.agTicked) return;
+          const resume=!!this.state.pendingAccept;
+          this.setState({mandateSigned:true,agreement:null,agreementLast:null,
+            sentNote:resume?'Debit order locked in. Paying out your loan now.':'Contract signed. Your debit order is on — '+this.money(L.monthly||L.total||0)+' on '+DUE+'.'},
+            ()=>{ if(resume) setTimeout(()=>nav.accept(),300); });
+        },
+        loanSheetOpen:hasLoan&&!!s.loanSheet,
+        onOpenLoanSheet:()=>{ if(hasLoan) this.setState({loanSheet:true}); },
+        onCloseLoanSheet:()=>this.setState({loanSheet:false}),
+        onSheetSettle:()=>this.setState({loanSheet:false,screen:'schedule',menuOpen:false,panelPhase:'in',payMethod:'debit'}),
+        onSheetTopUp:()=>{ this.setState({loanSheet:false,topUpMode:true,withdrawMode:false}); setTimeout(()=>nav.amount(),220); },
+        onSheetSchedule:()=>this.setState({loanSheet:false,screen:'schedule',menuOpen:false,panelPhase:'in'}),
+        loanSheetRef:'Reference '+((L.draws&&L.draws[0]&&L.draws[0].ref)||'QK-84213')+' · drawn '+((L.draws&&L.draws[0]&&L.draws[0].date)||'19 August'),
+        loanSheetRows:[
+          {label:'You borrowed',value:this.money(L.a||0),fg:'#FFFFFF'},
+          {label:'Charge at '+ratePct,value:this.money((L.total||0)-(L.a||0)),fg:'#FFFFFF'},
+          {label:'Total to repay',value:this.money(L.total||L.monthly||0),fg:'#FFFFFF'},
+          {label:'Instalments',value:String(L.term||1)+' × '+this.money(L.monthly||L.total||0),fg:'#FFFFFF'},
+          {label:'First collection',value:DUE,fg:YEL},
+          {label:'Debit order',value:s.mandateSigned?'Approved':'Needs approval',fg:s.mandateSigned?YEL:'#FF8A7A',alert:!s.mandateSigned}
+        ].map(r=>({...r,alert:!!r.alert,bd:r.alert?'rgba(255,90,79,.45)':'rgba(255,255,255,.10)',bg:'transparent',
+          labelInk:r.alert?'#FFFFFF':'rgba(255,255,255,.62)',cursor:r.alert?'pointer':'default',role:r.alert?'button':'',
+          onClick:r.alert?(()=>this.setState({mandatePop:true})):(()=>{})})),
+        mandatePopOn:!!s.mandatePop&&!s.mandateSigned,
+        onMandatePopClose:()=>this.setState({mandatePop:false}),
+        onMandatePopApprove:()=>{ this.setState({mandatePop:false,loanSheet:false}); setTimeout(()=>this.setState({agreement:{a:L.a,total:L.total,term:L.term,ref:'QK-84213',date:'Today'},agTicked:false}),220); },
+        loanSheetNote:'Collected from your '+s.profile.bank+' account by debit order, the day before your salary lands. The '+ratePct+' charge was fixed when the loan was granted, so settling early costs no more.',
+        settleLabel:this.money(balance),
+        payMethods:[
+          ['debit','Debit order · DebiCheck','Authorised collection from '+s.profile.bank,'M4.4 6.6h15.2a1.6 1.6 0 0 1 1.6 1.6v7.6a1.6 1.6 0 0 1-1.6 1.6H4.4a1.6 1.6 0 0 1-1.6-1.6V8.2a1.6 1.6 0 0 1 1.6-1.6ZM2.8 10.4h18.4']
+        ].map(([k,label,note,path])=>{
+          const on=s.payMethod===k;
+          return {label,note,path,shortLabel:'Debit order',
+            ink:'#FFFFFF', meta:on?'rgba(255,255,255,.72)':'rgba(255,255,255,.5)',
+            bg:on?'rgba(253,209,13,.16)':'rgba(255,255,255,.05)',
+            border:on?'rgba(253,209,13,.42)':'rgba(255,255,255,.14)',
+            dotBg:on?YEL:'transparent',
+            dotBorder:on?YEL:'rgba(var(--q-fg),.3)',
+            onClick:()=>this.setState({payMethod:k})};
+        }),
+        settleCta:s.payMethod?('Collect '+this.money(balance)+' today'):'Approve your debit order',
+        settleBtnBg:s.payMethod?YEL:'rgba(var(--q-fg),.08)',
+        settleBtnInk:s.payMethod?INK:'rgba(var(--q-fg),.45)',
+        settleCursor:s.payMethod?'pointer':'not-allowed',
+        onSettle:()=>this.setState(st=>{
+          if(!st.payMethod) return {};
+          const L2=st.activeLoan; if(!L2) return {};
+          const interest=L2.total-L2.a;
+          const banked={...st,interestPaid:(st.interestPaid||0)+interest};
+          const graded=this.regrade(banked);
+          const upgraded=graded.baseAmount>(st.baseAmount||500);
+          return Object.assign({activeLoan:null,screen:'home',menuOpen:false,panelPhase:'in',
+              mandateSigned:false,
+              closedLoans:[...(st.closedLoans||[]),{a:L2.a,total:L2.total,term:L2.term,
+                ref:(L2.draws&&L2.draws[0]&&L2.draws[0].ref)||'QK-84213',
+                date:(L2.draws&&L2.draws[0]&&L2.draws[0].date)||'2 August',
+                settledOn:new Date().toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'})}],
+              interestPaid:banked.interestPaid,graduated:graded.graduated},
+            upgraded?{baseAmount:graded.baseAmount,interestPaid:graded.interestPaid,
+              docError:null,upgradeTo:graded.baseAmount}:{});
+        }),
+        growthTarget:this.money(this.growthTarget(s)),
+        growthPaid:this.money(this.growthPaid(s)),
+        growthPct:Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100)),
+        grown:this.grown(s),
+        showGrowth:s.customer&&this.growthTarget(s)<LIMIT,
+        growthTitle:s.graduated?'Next limit':'Account growth',
+        growthCopy:(s.graduated
+          ?('Pay '+this.money(Math.max(0,this.growthTarget(s)-this.growthPaid(s)))+' more in interest to raise your limit to '+this.money(Math.min(LIMIT,this.growthTarget(s)*2))+'.')
+          :('Pay '+this.money(Math.max(0,this.growthTarget(s)-this.growthPaid(s)))+' more in interest to unlock terms up to six months, top-ups, and a '+this.money(Math.min(LIMIT,this.growthTarget(s)*2))+' limit.')),
+        availableLabel:this.money(available), available,
+        showTopUpSummary:!!s.topUpMode&&hasLoan&&canTopUp,
+        showTopUpBtn:s.customer&&hasLoan&&!s.topUpMode,
+        tuLabel:canTopUp?('Top up · up to '+this.money(available)):'Top up locked',
+        tuOpacity:canTopUp?1:.45, tuCursor:canTopUp?'pointer':'not-allowed',
+        tuShadow:canTopUp?'0 0 16px rgba(40,60,255,.55),inset 0 1px 0 rgba(255,255,255,.3)':'none',
+        tuLockedNote:!canTopUp,
+        onStartTopUp:()=>{ if(canTopUp) this.setState({topUpMode:true,withdrawMode:false}); },
+        blockedTitle:(s.topUpMode&&hasLoan)?'Top-ups unlock as your account grows':hasLoan?'Withdraw is locked while you owe':'Nothing to withdraw yet',
+        blockedBody:(s.topUpMode&&hasLoan)?'You have used your available limit for now. Keep paying on time and your top-up limit grows.':hasLoan
+          ?('You still owe '+this.money(s.activeLoan?s.activeLoan.total:0)+'. Once your loan is paid up, Withdraw opens for the amount you qualify for, and our team approves each withdrawal before it is paid.')
+          :'You do not qualify for a withdrawal right now. Keep your account in good standing and check back soon.',
+        showFixedAmount:!(s.topUpMode&&hasLoan&&canTopUp),
+        showExistingRow:!!s.topUpMode&&hasLoan&&canTopUp,
+        dueRowLabel:planMulti?(topUp?'New monthly instalment':'Monthly instalment')
+          :(topUp?('Total due '+DUE.replace(' 2026','')):'You repay next month'),
+        dueRowValue:this.money(planMulti?projInstal:projTotal),
+        drawRowLabel:(topUp&&canTopUp)?'This top-up':'Loan amount',
+        drawTotalLabel:(topUp&&canTopUp)?'Top-up repays as':(planMulti?('Total over '+planTerm+' months'):'Total to repay'),
+        showTermPicker:(!s.customer||unlocked)&&!topUp,
+        amountTitle:s.customer?(s.withdrawMode?'Withdraw':(s.topUpMode&&hasLoan)?'Top up':'Withdraw'):'How much do you need',
+        amountTitleMark:s.customer?'.':'?',
+        amountSub:s.customer?(s.withdrawMode?('Up to '+this.money(this.headroom(s))+' after what you owe. Paid into '+((s.profile&&s.profile.bank)||'your bank')+'.'):hasLoan?((s.topUpMode&&canTopUp)?('Add up to '+this.money(available)+' to your current loan. Approved by Quik1 before it is paid.'):s.topUpMode?'Not available on your account yet.':'Available once your current loan is paid up.'):('You qualify for up to '+this.money(available)+'. Each withdrawal is approved by Quik1 before it is paid to your bank.')):(s.customer&&hasLoan)
+          ?(planMulti
+            ?('Added to your existing balance and spread over the same '+planTerm+' instalments, at '+ratePct+' of whatever you draw.')
+            :('One month, '+ratePct+' of whatever you draw. Repaid with your existing balance on '+DUE+'.'))
+          :(unlocked
+            ?('You qualify for up to '+this.money(available)+' and can spread it over up to six months at '+ratePct+' of the loan.')
+            :('One month at '+ratePct+' of the loan. You qualify for up to '+this.money(available)+'.')),
+        calcLabel:s.customer?'Withdrawal amount':'Loan amount',
+        owingLabel:this.money(s.activeLoan?s.activeLoan.total:0),
+        amountInput:s.amountInput===null?String(s.amount):s.amountInput,
+        ...(()=>{ const on=!!s.withdrawMode&&!!s.activeLoan; if(!on) return {wdOn:false};
+          const f=n=>{ const v=Math.round((n||0)*100)/100; return 'R '+v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); };
+          const owed=s.activeLoan.total||0, a=s.amount||0, fee=a*this.rate(), add=a+fee;
+          return {wdOn:true,wdOwed:f(owed),wdAdds:f(add),wdBreak:f(a)+' to you + '+f(fee)+' fee ('+Math.round(this.rate()*100)+'%)',wdNew:f(owed+add),wdLimit:f(LIMIT),wdMax:f(this.headroom(s))}; })(),
+        onAmountFocus:e=>{ try{ e.target.select(); }catch(x){} },
+        onAmountInput:e=>{
+          const raw=e.target.value.replace(/[^0-9]/g,'');
+          this.setState(st=>{
+            const cap=Math.max(500,this.headroom(st));
+            const n=parseInt(raw||'0',10);
+            const over=n>cap;
+            return {amountInput:over?String(cap):raw, amount:n?Math.min(Math.max(n,500),cap):st.amount,
+              amountError:over?('Capped at your remaining '+this.money(cap)+' of credit.'):''};
+          });
+        },
+        sliderMax:Math.max(500,available),
+        sliderMaxLabel:this.money(Math.max(500,available)),
+        showTopUpNote:s.customer&&canTopUp,
+        limitBlocked:s.customer&&((hasLoan&&!s.topUpMode)||!canTopUp),
+        showCalculator:!(s.customer&&((hasLoan&&!s.topUpMode)||!canTopUp)),
+        drawnLabel:this.money(s.activeLoan?s.activeLoan.total:0),
+        purposeCta:s.customer?'Confirm withdrawal':'Continue',
+        canTopUp:available>=500,
+        topUpNote:available>=500
+          ?('You owe '+this.money(L.total)+' of your R8 000 limit. You can borrow up to '+this.money(available)+' more, which repays as '+this.money(available*(1+this.rate()))+'.')
+          :'Settle this loan before applying again. Your R8 000 limit is fully drawn.',
+  
+        chat:s.chat.map(m=>({text:m.text,align:m.from==='me'?'flex-end':'flex-start',
+          bg:m.from==='me'?YEL:'rgba(var(--q-fg),.08)', fg:m.from==='me'?INK:'var(--q-ink)'})),
+        aiScrollRef:this._aiScroll,
+        chatScrollRef:this._chatScroll,
+        aiOpen:s.aiOpen||s.closing==='ai',
+        aiTyping:s.aiTyping,
+        aiStatus:s.aiListening?'Listening…':s.aiTyping?'Thinking…':s.aiSpeaking?'Speaking…':'Online · powered by Claude',
+        aiThinkText:['Q1 is thinking…','Checking your account…','Crunching the numbers…','Almost there…'][Math.min(3,s.aiThinkIdx||0)],
+        aiScrimAnim:s.closing==='ai'?'q-fade .28s cubic-bezier(.33,1,.68,1) both':'q-up .32s cubic-bezier(.33,1,.68,1)',
+        aiCardAnim:s.closing==='ai'?'q-down .3s cubic-bezier(.33,1,.68,1) both':'q-up .44s cubic-bezier(.22,1,.36,1)',
+        aiChat:s.aiChat.map((m,i,arr)=>({text:m.text,align:m.from==='me'?'flex-end':'flex-start',
+          showAvatar:m.from!=='me'&&!s.aiTyping&&i===arr.map(x=>x.from).lastIndexOf(m.from),
+          radius:m.from==='me'?'18px 18px 6px 18px':'18px 18px 18px 6px',
+          bg:m.from==='me'?YEL:'rgba(40,60,255,.12)', bd:m.from==='me'?'transparent':'rgba(40,60,255,.35)', fg:m.from==='me'?INK:'var(--q-ink)'})),
+        aiDraft:s.aiDraft,
+        aiPrompts:['What do I owe?','When is my debit?','Can I settle early?','Increase my limit'].map(label=>({
+          label,onClick:()=>{ this.setState({aiChipsUsed:true}); this.askQ1(label); }})),
+        aiPromptsOn:!s.aiTyping&&!s.aiChipsUsed&&s.aiChat.length>1&&s.aiChat[s.aiChat.length-1].from!=='me',
+        onAiDraft:e=>this.setState({aiDraft:e.target.value}),
+        onAiKey:e=>{ if(e.key==='Enter') this.askQ1(this.state.aiDraft); },
+        onAiSend:()=>{ this.askQ1(this.state.aiDraft); },
+        aiVoiceOn:s.aiVoiceOn!==false, aiVoiceOff:s.aiVoiceOn===false,
+        onToggleVoice:()=>{ const on=s.aiVoiceOn===false; if(!on){ try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} } this.setState({aiVoiceOn:on,aiSpeaking:false}); },
+        micSupported:typeof window!=='undefined'&&!!(window.SpeechRecognition||window.webkitSpeechRecognition),
+        onMic:()=>this.toggleMic(),
+        micLabel:s.aiListening?'Stop listening':'Speak to Q1',
+        micBg:s.aiListening?'#FDD10D':'rgba(255,255,255,.08)', micInk:s.aiListening?'#0B0620':'#FFFFFF',
+        micAnim:s.aiListening?'q-mic-pulse 1.1s cubic-bezier(.33,1,.68,1) infinite':'none',
+        aiPlaceholder:s.aiListening?'Listening…':'Ask Q1 anything',
+        onCloseAi:()=>{ try{ this._rec&&this._rec.stop(); window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} this.dismiss('ai',{aiOpen:false,aiChipsUsed:false,aiListening:false}); },
+        draft:s.draft,
+        onDraft:e=>this.setState({draft:e.target.value}),
+        onSend:()=>{
+          this.setState(st=>st.draft.trim()?{chat:[...st.chat,{from:'me',text:st.draft}],draft:''}:{});
+          if(!s.draft.trim()) return;
+          setTimeout(()=>this.setState(st=>({chat:[...st.chat,{from:'them',text:'Got it — checking that now, one moment.'}]})),900);
+        },
+  
+        navLight:navLight,
+        navBg:navLight?'rgba(255,255,255,.62)':'#000000',
+        navBorder:navLight?'rgba(255,255,255,.55)':'rgba(255,255,255,.14)',
+        navShadow:navLight
+          ?'0 12px 32px rgba(11,6,32,.16),0 2px 8px rgba(11,6,32,.08),inset 0 1px 0 rgba(255,255,255,.7)'
+          :'0 16px 38px rgba(0,0,0,.38),0 2px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.12)',
+        quickOpen:s.quickOpen,
+        quickFieldOn:s.quickOpen?1:0,
+        quickWidth:s.quickOpen?'calc(100% - 36px)':'60px',
+        quickPadLeft:s.quickOpen?'20px':'6px',
+        quickIconSpin:'0deg',
+        onBotEnter:()=>{ const M=['excited','surprised','shy','love','cheeky']; const pick=()=>{ const cur=this.state.botHoverMood; let n; do{ n=M[Math.floor(Math.random()*M.length)]; }while(n===cur); return n; };
+          clearInterval(this._hovT); this.setState({botHover:true,botHoverMood:pick()}); this._hovT=setInterval(()=>this.setState({botHoverMood:pick()}),1100); },
+        onBotLeave:()=>{ clearInterval(this._hovT); this.setState({botHover:false}); },
+        quickBotOn:1,
+        quickSendOn:0,
+        quickPulse:s.quickOpen?'none':'q-breathe 3.6s ease-in-out infinite',
+        quickHalo:s.quickOpen?'none':'q-halo 3.6s ease-out infinite',
+        quickBlink:s.quickOpen?'none':'q-blink 4.4s ease-in-out infinite',
+        onQuickToggle:()=>{
+          if(!s.quickOpen) return this.setState({quickOpen:true});
+          const q=(this.state.aiDraft||'').trim();
+          if(!q) return this.setState({quickOpen:false});
+          this.quickAsk(q);
+        },
+        onQuickKey:e=>{ if(e.key!=='Enter') return;
+          const q=(this.state.aiDraft||'').trim();
+          if(!q) return;
+          this.quickAsk(q);
+        },
+        quickStripOn:!!(s.quickAsking||s.quickReply)&&!s.aiOpen,
+        quickStripText:s.quickAsking?'Q1 is thinking…':s.quickReply,
+        quickStripThinking:!!s.quickAsking, quickStripOp:s.quickAsking?.7:1,
+        onQuickStripClose:()=>{ clearTimeout(this._qrT); this.setState({quickReply:''}); },
+        onQuickStripOpen:()=>{ clearTimeout(this._qrT); this.setState({quickReply:'',quickOpen:false,aiOpen:true}); },
+        onQuickClose:()=>this.setState({quickOpen:false,aiDraft:''}),
+  
+        jumpList:jump.map(([k,label])=>{
+          const on=s.screen===k;
+          return {label,
+            ...(on?{bg:INK,fg:'#FFFFFF',border:INK}:{bg:'transparent',fg:GREY,border:'rgba(11,6,32,.18)'}),
+            ...(on?{bgDark:YEL,fgDark:INK,borderDark:YEL}:{bgDark:'transparent',fgDark:'rgba(255,255,255,.55)',borderDark:'rgba(255,255,255,.22)'}),
+            onClick:()=>{ if(k==='deciding'){ this.setState({screen:'deciding'}); this.runDecision(); } else this.go(k); }};
+        })
+      };
+    }
+  }
+  
+  
