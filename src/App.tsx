@@ -1,54 +1,62 @@
-import { Suspense, lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
-import { Layout } from './components/layout/Layout'
+import { Suspense, lazy, type ReactNode } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { Layout } from './shell/Layout'
+import { useAuth } from './store/auth'
+import { useBook } from './store/book'
+import { ModalHost } from './features/ModalHost'
+import { canSee, type Area } from './domain/permissions'
 import { Dashboard } from './pages/Dashboard'
-import { Login } from './pages/Login'
-import { useAuth } from './context/AuthContext'
 
+const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
 const Loans = lazy(() => import('./pages/Loans').then((m) => ({ default: m.Loans })))
+const Applications = lazy(() => import('./pages/Applications').then((m) => ({ default: m.Applications })))
 const Clients = lazy(() => import('./pages/Clients').then((m) => ({ default: m.Clients })))
-const Roles = lazy(() => import('./pages/Roles').then((m) => ({ default: m.Roles })))
 const Logbook = lazy(() => import('./pages/Logbook').then((m) => ({ default: m.Logbook })))
 const Ledger = lazy(() => import('./pages/Ledger').then((m) => ({ default: m.Ledger })))
 const PettyCash = lazy(() => import('./pages/PettyCash').then((m) => ({ default: m.PettyCash })))
-const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
 
-function PageFallback() {
+function Spinner() {
   return (
     <div className="flex items-center justify-center py-32">
-      <div className="h-8 w-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2" style={{ borderColor: 'var(--line2)', borderTopColor: 'var(--acc)' }} />
     </div>
   )
 }
 
+function Guard({ area, children }: { area: Area; children: ReactNode }) {
+  const { user } = useAuth()
+  if (!user || !canSee(user.role, area)) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   const { user, loading } = useAuth()
+  const { ready } = useBook()
 
-  if (loading) {
+  if (loading) return <Spinner />
+  if (!user)
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin" />
-      </div>
+      <Suspense fallback={<Spinner />}>
+        <Login />
+      </Suspense>
     )
-  }
-
-  if (!user) return <Login />
+  if (!ready) return <Spinner />
 
   return (
     <Layout>
-      <Suspense fallback={<PageFallback />}>
+      <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/loans" element={<Loans />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/roles" element={<Roles />} />
-          <Route path="/logbook" element={<Logbook />} />
-          <Route path="/ledger" element={<Ledger />} />
-          <Route path="/petty-cash" element={<PettyCash />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Dashboard />} />
+          <Route path="/loans" element={<Guard area="loans"><Loans /></Guard>} />
+          <Route path="/applications" element={<Guard area="applications"><Applications /></Guard>} />
+          <Route path="/clients" element={<Guard area="clients"><Clients /></Guard>} />
+          <Route path="/logbook" element={<Guard area="logbook"><Logbook /></Guard>} />
+          <Route path="/ledger" element={<Guard area="ledger"><Ledger /></Guard>} />
+          <Route path="/petty-cash" element={<Guard area="petty"><PettyCash /></Guard>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <ModalHost />
     </Layout>
   )
 }

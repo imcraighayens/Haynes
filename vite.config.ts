@@ -12,8 +12,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
-          vendor: ['date-fns', 'lucide-react', 'clsx'],
+          vendor: ['lucide-react', 'clsx', 'qrcode-generator'],
         },
       },
     },

@@ -1,40 +1,42 @@
 /** @type {import('tailwindcss').Config} */
+// Colours resolve to the CSS variables in src/styles/tokens.css, so every
+// utility (bg-panel, text-mut, border-line…) follows the active theme.
+const v = (name) => `var(--${name})`
+
 export default {
-  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
-        brand: {
-          50: '#eef4ff',
-          100: '#d9e6ff',
-          200: '#bcd3ff',
-          300: '#8eb6ff',
-          400: '#598dff',
-          500: '#3366ff',
-          600: '#1f47f5',
-          700: '#1734e1',
-          800: '#192cb6',
-          900: '#1a2c8f',
-          950: '#141b54',
-        },
+        bg: v('bg'),
+        panel: v('panel'),
+        panel2: v('panel2'),
+        panel3: v('panel3'),
+        line: v('line'),
+        line2: v('line2'),
+        ink: v('ink'),
+        mut: v('mut'),
+        dim: v('dim'),
+        acc: v('acc'),
+        accInk: v('accInk'),
+        hover: v('hover'),
+        red: v('red'),
+        redSoft: v('redSoft'),
+        amber: v('amber'),
+        amberSoft: v('amberSoft'),
+        blue: v('blue'),
+        blueSoft: v('blueSoft'),
+        green: v('green'),
+        greenSoft: v('greenSoft'),
       },
-      keyframes: {
-        'fade-in': {
-          '0%': { opacity: '0', transform: 'translateY(4px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        'scale-in': {
-          '0%': { opacity: '0', transform: 'scale(0.97)' },
-          '100%': { opacity: '1', transform: 'scale(1)' },
-        },
-      },
-      animation: {
-        'fade-in': 'fade-in 0.25s ease-out',
-        'scale-in': 'scale-in 0.18s ease-out',
+      boxShadow: {
+        lift: v('cardLift'),
+        hover: v('cardHover'),
+        modal: v('modalShadow'),
       },
     },
   },
