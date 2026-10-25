@@ -67,7 +67,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             title={collapsed ? n.label : undefined}
             className={({ isActive }) => item(isActive)}
-            style={({ isActive }) => (isActive ? { background: n.to === '/' ? 'var(--ink)' : 'var(--hover)', color: n.to === '/' ? 'var(--bg)' : 'var(--acc)' } : { color: 'var(--ink)' })}
+            style={({ isActive }) => (isActive ? { background: n.to === '/' ? 'var(--ink)' : 'var(--hover)', color: n.to === '/' ? 'var(--bg)' : 'var(--navActiveInk)' } : { color: 'var(--ink)' })}
           >
             {({ isActive }) => (
               <>

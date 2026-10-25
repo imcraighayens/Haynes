@@ -1,164 +1,389 @@
--- e.Volt loan dashboard — Supabase schema.
--- Run this in the Supabase SQL editor, then set VITE_SUPABASE_URL and
--- VITE_SUPABASE_ANON_KEY in your .env to switch the app from local sample
--- data to live data.
+-- ════════════════════════════════════════════════════════════════════════════
+-- LEDGER by Ecoloans — Supabase schema
+-- ════════════════════════════════════════════════════════════════════════════
 --
--- This script is idempotent: safe to run more than once.
-
--- ─────────────────────────────────────────────────────────────────────────────
--- Tables
--- ─────────────────────────────────────────────────────────────────────────────
-create table if not exists clients (
-  id text primary key,
-  name text not null,
-  phone text,
-  email text,
-  "idNumber" text,
-  address text,
-  notes text,
-  "createdAt" date default now()
-);
-
-create table if not exists loans (
-  id text primary key,
-  "clientId" text references clients(id) on delete cascade,
-  "clientName" text not null,
-  amount numeric not null,
-  "interestRate" numeric not null default 0.35,
-  "returnAmount" numeric not null,
-  status text not null default 'issued',
-  "issuedDate" date not null,
-  "dueDate" date not null,
-  "paidDate" date
-);
-
-create table if not exists ledger (
-  id text primary key,
-  date date not null,
-  type text not null,
-  description text not null,
-  amount numeric not null,
-  reference text
-);
-
-create table if not exists logs (
-  id text primary key,
-  date timestamptz not null default now(),
-  actor text not null,
-  action text not null,
-  detail text not null
-);
-
-create table if not exists team (
-  id text primary key,
-  name text not null,
-  email text not null,
-  role text not null default 'agent',
-  active boolean not null default true
-);
-
-create index if not exists loans_client_idx on loans ("clientId");
-create index if not exists ledger_ref_idx on ledger (reference);
-
--- ─────────────────────────────────────────────────────────────────────────────
--- Row Level Security (PRODUCTION-SAFE)
+-- HOW TO RUN
+--   Supabase dashboard → SQL Editor → paste this whole file → Run.
+--   The script is idempotent: safe to run again after changes.
 --
--- Anyone may READ (the dashboard hydrates with the anon key), but only a
--- signed-in Supabase Auth user may WRITE. The app uses real email/password
--- auth, so the user's JWT is attached to every write automatically.
+-- FIRST USER
+--   1. Authentication → Providers → Email: turn OFF "Allow new users to sign
+--      up" so nobody can self-register.
+--   2. Authentication → Users → Add user (email + password, tick
+--      "Auto-confirm").
+--   3. Add their team row so the console knows their name and role:
 --
--- To open writes to the anon key as well (quick prototyping, no login), see the
--- commented "DEMO" block at the bottom of this file.
--- ─────────────────────────────────────────────────────────────────────────────
-alter table clients enable row level security;
-alter table loans   enable row level security;
-alter table ledger  enable row level security;
-alter table logs    enable row level security;
-alter table team    enable row level security;
+--        insert into public.employees (id, name, email, role, active, approval_limit, created_at)
+--        values ('e1', 'Craig Moatshe', 'craig@ecoloans.co.za', 'admin', true, 50000, now());
+--
+--      Until the employees table has a row, the first person who signs in is
+--      treated as admin so they can set the team up from Ledger › Employees.
+--   4. Every further person needs BOTH a Supabase Auth user and an employees
+--      row with the same email (roles: admin, manager, agent, collections,
+--      auditor). Disabling them in Ledger › Employees removes their access.
+--
+-- SECURITY MODEL
+--   • RLS is on for every table. There is no anon access at all.
+--   • Only signed-in users who are active employees (is_staff()) can read or
+--     write. A signed-in user who is not on the team sees nothing.
+--   • Only admins (is_admin()) can change employees or settings, so nobody
+--     can raise their own role.
+--   • Nothing is ever hard-deleted: there are no delete policies, and a
+--     trigger blocks DELETE on the lending tables. Records are archived with
+--     deleted_at (NCA s170 / FICA retention: 5 years).
+--   • audit_log is append-only: rows can be re-sent unchanged (idempotent
+--     uploads) but never altered.
+--
+-- COLUMN NAMES
+--   Columns are the snake_case form of the TypeScript fields in
+--   src/domain/types.ts (src/store/remote.ts converts). Nested values
+--   (schedule, expenses, contract, contract_clauses) are jsonb.
+--   There are deliberately no foreign keys between tables: a single bad row
+--   in an imported book must not block the rest of the upload. The app only
+--   creates loans for clients that exist.
+--
+-- MIGRATING FROM e.VOLT
+--   e.Volt used tables named clients / loans / ledger / logs / team with
+--   camelCase columns. Those clash with this schema. Before running, either
+--   drop them (if the data is already exported) or rename them out of the
+--   way — uncomment this block:
+--
+--   alter table if exists public.clients rename to evolt_clients;
+--   alter table if exists public.loans   rename to evolt_loans;
+--   alter table if exists public.ledger  rename to evolt_ledger;
+--   alter table if exists public.logs    rename to evolt_logs;
+--   alter table if exists public.team    rename to evolt_team;
+--
+--   Then bring the book in through Ledger › Data › Import (prototype book or
+--   a LEDGER JSON export).
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ───────────────────────────── Tables ─────────────────────────────
+
+create table if not exists public.employees (
+  id              text primary key,
+  name            text not null,
+  email           text not null unique,
+  role            text not null default 'agent' check (role in ('admin', 'manager', 'agent', 'collections', 'auditor')),
+  active          boolean not null default true,
+  approval_limit  numeric(14,2) not null default 0,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  updated_by      text
+);
+
+create table if not exists public.clients (
+  id            text primary key,
+  ref           text not null,
+  name          text not null,
+  id_number     text,            -- SA ID: POPIA special personal information
+  dob           date,
+  email         text,
+  phone         text,
+  address       text,
+  city          text,
+  province      text,
+  employment    text,
+  employer      text,
+  job_title     text,
+  tenure        text,
+  net_salary    numeric(14,2) not null default 0,
+  gross_salary  numeric(14,2) not null default 0,
+  other_income  numeric(14,2) not null default 0,
+  expenses      jsonb not null default '{"rent":0,"transport":0,"groceries":0,"otherDebt":0,"other":0}'::jsonb,
+  bank          text,
+  branch_code   text,
+  account_no    text,
+  account_type  text,
+  officer_id    text,
+  score         integer not null default 0,
+  blocked       boolean not null default false,
+  contract      jsonb not null default '{"no":"","signedOn":null,"signature":null}'::jsonb,
+  created_at    timestamptz not null default now(),
+  created_by    text,
+  retain_until  date,            -- FICA / NCA: 5 years after last transaction
+  deleted_at    timestamptz,     -- soft delete only
+  updated_at    timestamptz not null default now(),
+  updated_by    text
+);
+
+create table if not exists public.loans (
+  id                 text primary key,
+  ref                text not null,
+  client_id          text not null,
+  application_id     text,
+  principal          numeric(14,2),               -- null when not recorded (bank-report loans)
+  principal_derived  boolean not null default false,
+  return_rate_pct    numeric(7,3) not null default 35,
+  instalment_amount  numeric(14,2) not null,      -- return per instalment
+  collection_fee     numeric(14,2) not null default 0,
+  schedule           jsonb not null default '[]'::jsonb,  -- ISO dates, earliest first
+  instalments_paid   integer not null default 0,
+  prior_instalments  integer not null default 0,
+  status             text not null default 'issued' check (status in ('issued', 'overdue', 'paid', 'settled_early', 'written_off')),
+  status_at          timestamptz,
+  mandate_id         text,
+  purpose            text not null default 'Personal',
+  issued_on          date,
+  issued_by          text,
+  officer_id         text,
+  created_at         timestamptz not null default now(),
+  written_off_at     timestamptz,
+  write_off_reason   text,
+  deleted_at         timestamptz,
+  updated_at         timestamptz not null default now(),
+  updated_by         text
+);
+
+create table if not exists public.applications (
+  id              text primary key,
+  ref             text not null,
+  client_id       text,
+  name            text not null,
+  phone           text,
+  email           text,
+  id_number       text,
+  employer        text,
+  job_title       text,
+  net_income      numeric(14,2) not null default 0,
+  bank            text,
+  amount          numeric(14,2) not null,
+  term_months     integer not null default 1,
+  purpose         text not null default 'Personal',
+  source          text not null default 'Walk-in',
+  status          text not null default 'new' check (status in ('new', 'reviewing', 'approved', 'declined')),
+  decline_reason  text,
+  decided_by      text,
+  decided_at      timestamptz,
+  loan_id         text,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  updated_by      text
+);
+
+-- The logbook. Append-only.
+create table if not exists public.audit_log (
+  id          text primary key,
+  at          timestamptz not null default now(),
+  type        text not null,
+  ref         text not null default '—',
+  customer    text not null default '—',
+  amount      numeric(14,2) not null default 0,
+  "by"        text not null,
+  comment     text not null default '',
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);
+
+create table if not exists public.petty_cash (
+  id          text primary key,
+  date        date not null,
+  amount      numeric(14,2) not null,
+  category    text not null default 'other' check (category in ('travel', 'office', 'airtime', 'meals', 'advance', 'other')),
+  purpose     text not null,
+  borrower    text not null default '',
+  notes       text not null default '',
+  status      text not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'REPAID', 'DECLINED')),
+  "by"        text not null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);
+
+create table if not exists public.expenses (
+  id          text primary key,
+  name        text not null,
+  amount      numeric(14,2) not null default 0,   -- per month
+  deleted_at  timestamptz,
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);
+
+create table if not exists public.bank_tx (
+  id          text primary key,
+  at          timestamptz not null default now(),
+  type        text not null check (type in ('in', 'out')),
+  amount      numeric(14,2) not null,
+  ref         text not null default '—',
+  label       text not null default '',
+  "by"        text not null,
+  updated_at  timestamptz not null default now(),
+  updated_by  text
+);
+
+-- Single row (id = 'org') holding organisation settings.
+create table if not exists public.settings (
+  id                       text primary key default 'org' check (id = 'org'),
+  org_name                 text not null default 'Ecoloans',
+  org_legal_name           text not null default 'Ecoloans Finance (Pty) Ltd',
+  ncr_reg_no               text not null default '',
+  default_return_rate_pct  numeric(7,3) not null default 35,
+  default_collection_fee   numeric(14,2) not null default 0,
+  protection_fee           numeric(14,2) not null default 0,
+  bank_opening_balance     numeric(14,2),
+  bank_opening_at          timestamptz,
+  mask_pii                 boolean not null default true,
+  contract_intro           text not null default '',
+  contract_clauses         jsonb not null default '[]'::jsonb,
+  updated_at               timestamptz not null default now(),
+  updated_by               text
+);
+
+-- ───────────────────────────── Indexes ─────────────────────────────
+
+create index if not exists loans_client_idx       on public.loans (client_id);
+create index if not exists loans_mandate_idx      on public.loans (mandate_id);
+create index if not exists loans_status_idx       on public.loans (status) where deleted_at is null;
+create index if not exists clients_id_number_idx  on public.clients (id_number);
+create index if not exists audit_log_at_idx       on public.audit_log (at desc);
+create index if not exists bank_tx_at_idx         on public.bank_tx (at desc);
+create index if not exists employees_email_idx    on public.employees (lower(email));
+
+-- ───────────────────────────── Access helper ─────────────────────────────
+
+-- True for a signed-in, active team member. While the employees table is
+-- empty, any signed-in user qualifies so the first admin can bootstrap.
+create or replace function public.is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null and (
+    not exists (select 1 from public.employees)
+    or exists (
+      select 1 from public.employees e
+      where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and e.active
+    )
+  );
+$$;
+
+-- True for an active admin (or anyone signed in while the team is empty).
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null and (
+    not exists (select 1 from public.employees)
+    or exists (
+      select 1 from public.employees e
+      where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+        and e.active and e.role = 'admin'
+    )
+  );
+$$;
+
+revoke all on function public.is_staff() from public, anon;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_staff() to authenticated;
+grant execute on function public.is_admin() to authenticated;
+
+-- ───────────────────────────── Integrity triggers ─────────────────────────────
+
+-- Lending records are archived (deleted_at), never removed.
+create or replace function public.block_hard_delete()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'Hard delete is not allowed on %. Archive the row by setting deleted_at instead.', tg_table_name
+    using errcode = 'insufficient_privilege';
+end;
+$$;
+
+drop trigger if exists clients_no_delete on public.clients;
+create trigger clients_no_delete before delete on public.clients for each row execute function public.block_hard_delete();
+drop trigger if exists loans_no_delete on public.loans;
+create trigger loans_no_delete before delete on public.loans for each row execute function public.block_hard_delete();
+drop trigger if exists audit_log_no_delete on public.audit_log;
+create trigger audit_log_no_delete before delete on public.audit_log for each row execute function public.block_hard_delete();
+drop trigger if exists bank_tx_no_delete on public.bank_tx;
+create trigger bank_tx_no_delete before delete on public.bank_tx for each row execute function public.block_hard_delete();
+
+-- Logbook rows may be re-sent unchanged (idempotent upload) but never edited.
+create or replace function public.audit_log_append_only()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (new.at, new.type, new.ref, new.customer, new.amount, new."by", new.comment)
+     is distinct from (old.at, old.type, old.ref, old.customer, old.amount, old."by", old.comment) then
+    raise exception 'The logbook is append-only — entry % cannot be changed.', old.id
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists audit_log_append_only on public.audit_log;
+create trigger audit_log_append_only before update on public.audit_log for each row execute function public.audit_log_append_only();
+
+-- ───────────────────────────── Row Level Security ─────────────────────────────
+-- Staff can select / insert / update. No delete policies anywhere.
 
 do $$
-declare t text;
+declare
+  t text;
 begin
-  foreach t in array array['clients','loans','ledger','logs','team'] loop
-    execute format('drop policy if exists "demo all"  on %I', t);
-    execute format('drop policy if exists "read all"  on %I', t);
-    execute format('drop policy if exists "write auth" on %I', t);
-    execute format('create policy "read all"  on %I for select using (true)', t);
-    execute format('create policy "write auth" on %I for all to authenticated using (true) with check (true)', t);
+  foreach t in array array['employees', 'clients', 'loans', 'applications', 'audit_log', 'petty_cash', 'expenses', 'bank_tx', 'settings']
+  loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('alter table public.%I force row level security', t);
+    execute format('revoke all on public.%I from anon', t);
+    execute format('grant select, insert, update on public.%I to authenticated', t);
+
+    execute format('drop policy if exists "staff read" on public.%I', t);
+    execute format('drop policy if exists "staff insert" on public.%I', t);
+    execute format('drop policy if exists "staff update" on public.%I', t);
+
+    execute format('create policy "staff read" on public.%I for select to authenticated using (public.is_staff())', t);
+    execute format('create policy "staff insert" on public.%I for insert to authenticated with check (public.is_staff())', t);
+    execute format('create policy "staff update" on public.%I for update to authenticated using (public.is_staff()) with check (public.is_staff())', t);
   end loop;
-end $$;
+end;
+$$;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- Seed data — the real active loan book (matches the app's offline seed).
--- Safe to re-run: on conflict the rows are upserted.
--- ─────────────────────────────────────────────────────────────────────────────
-insert into clients (id, name, phone, email, "idNumber", address, "createdAt") values
-  ('c1', 'Lovuyo Khoza',               '+27 82 145 9920', 'lovuyo.k@mail.com',   '9001125...', 'Soweto, JHB',    '2025-11-02'),
-  ('c2', 'Keabetswe Moatshe',          '+27 73 882 1140', 'kea.m@mail.com',      null,         'Pretoria North', '2025-11-14'),
-  ('c4', 'Viginia Morola',             '+27 81 220 4456', 'v.morola@mail.com',   null,         'Tembisa',        '2025-10-20'),
-  ('c5', 'Nkele Moagi',                '+27 72 551 0098', 'nkele.m@mail.com',    null,         'Katlehong',      '2026-01-09'),
-  ('c6', 'Nokuthula Patricia Montsho', '+27 83 410 7765', 'patricia.m@mail.com', null,         'Vosloorus',      '2026-01-18')
-on conflict (id) do update set
-  name = excluded.name, phone = excluded.phone, email = excluded.email,
-  "idNumber" = excluded."idNumber", address = excluded.address;
+-- Only admins change the team (roles, approval limits) and org settings,
+-- so nobody can raise their own role.
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['employees', 'settings']
+  loop
+    execute format('drop policy if exists "staff insert" on public.%I', t);
+    execute format('drop policy if exists "staff update" on public.%I', t);
+    execute format('drop policy if exists "admin insert" on public.%I', t);
+    execute format('drop policy if exists "admin update" on public.%I', t);
+    execute format('create policy "admin insert" on public.%I for insert to authenticated with check (public.is_admin())', t);
+    execute format('create policy "admin update" on public.%I for update to authenticated using (public.is_admin()) with check (public.is_admin())', t);
+  end loop;
+end;
+$$;
 
-insert into loans (id, "clientId", "clientName", amount, "interestRate", "returnAmount", status, "issuedDate", "dueDate") values
-  ('l1', 'c1', 'Lovuyo Khoza',               12000, 0.35, 16200, 'issued', '2026-05-26', '2026-06-25'),
-  ('l2', 'c2', 'Keabetswe Moatshe',           9000, 0.35, 12150, 'issued', '2026-05-31', '2026-06-30'),
-  ('l4', 'c4', 'Viginia Morola',              2000, 0.35,  2700, 'issued', '2026-05-31', '2026-06-30'),
-  ('l5', 'c4', 'Viginia Morola',              5000, 0.35,  6750, 'issued', '2026-05-16', '2026-06-15'),
-  ('l6', 'c5', 'Nkele Moagi',                 4000, 0.35,  5400, 'issued', '2026-05-26', '2026-06-25'),
-  ('l7', 'c6', 'Nokuthula Patricia Montsho',  3000, 0.35,  4050, 'issued', '2026-05-26', '2026-06-25')
-on conflict (id) do nothing;
+-- Signed-in users must be able to look up their own team row to learn their
+-- role, even before an admin has finished setting the team up.
+drop policy if exists "read own employee row" on public.employees;
+create policy "read own employee row" on public.employees
+  for select to authenticated
+  using (lower(email) = lower(coalesce(auth.jwt() ->> 'email', '')));
 
-insert into ledger (id, date, type, description, amount, reference) values
-  ('led-cap1',   '2025-10-01', 'capital',    'Initial capital injection',          50000, 'CAP-001'),
-  ('led-pc1',    '2026-05-10', 'petty_cash', 'Office airtime & data',               -350, 'PC-014'),
-  ('led-pc2',    '2026-05-22', 'petty_cash', 'Transport — client visit',            -220, 'PC-015'),
-  ('led-out-l1', '2026-05-26', 'loan_out',   'Loan disbursed — Lovuyo Khoza',     -12000, 'L1'),
-  ('led-out-l2', '2026-05-31', 'loan_out',   'Loan disbursed — Keabetswe Moatshe', -9000, 'L2'),
-  ('led-out-l4', '2026-05-31', 'loan_out',   'Loan disbursed — Viginia Morola',    -2000, 'L4'),
-  ('led-out-l5', '2026-05-16', 'loan_out',   'Loan disbursed — Viginia Morola',    -5000, 'L5'),
-  ('led-out-l6', '2026-05-26', 'loan_out',   'Loan disbursed — Nkele Moagi',       -4000, 'L6'),
-  ('led-out-l7', '2026-05-26', 'loan_out',   'Loan disbursed — Nokuthula Patricia Montsho', -3000, 'L7')
-on conflict (id) do nothing;
-
-insert into team (id, name, email, role, active) values
-  ('t1', 'Ecoloan Dev',          'ecoakcess@mail.com', 'admin',   true),
-  ('t2', 'Naledi Mthembu',       'naledi@evolt.co.za', 'manager', true),
-  ('t3', 'Kabelo Pretorius',     'kabelo@evolt.co.za', 'agent',   true),
-  ('t5', 'Auditor (read-only)',  'audit@evolt.co.za',  'viewer',  true)
-on conflict (id) do nothing;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- DEMO (optional): run this to ALSO allow the anon key to write, so the app
--- works without anyone logging in. INSECURE — only for throwaway prototypes.
---
---   do $$
---   declare t text;
---   begin
---     foreach t in array array['clients','loans','ledger','logs','team'] loop
---       execute format('drop policy if exists "write auth" on %I', t);
---       execute format('create policy "demo all" on %I for all to anon, authenticated using (true) with check (true)', t);
---     end loop;
---   end $$;
--- ─────────────────────────────────────────────────────────────────────────────
-
--- ─────────────────────────────────────────────────────────────────────────────
--- Creating the first admin login
---
--- Supabase Auth users are separate from the `team` table above. To create your
--- admin account, either:
---   1. Supabase Dashboard → Authentication → Users → "Add user" (set email +
---      password, mark email confirmed), OR
---   2. enable email signups and sign up once, then disable open signups.
---
--- The app derives a user's display name and role by matching their login email
--- against the `team` table. Add a matching row so the role is correct, e.g.:
---
---   insert into team (id, name, email, role, active)
---   values ('admin-1', 'Your Name', 'you@example.com', 'admin', true)
---   on conflict (id) do nothing;
---
--- If no team row matches, the app defaults the user to the 'admin' role.
--- ─────────────────────────────────────────────────────────────────────────────
+-- Remove the e.Volt-era policies if this database ran the old schema.
+-- (Harmless when they do not exist.)
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['clients', 'loans']
+  loop
+    execute format('drop policy if exists "read all" on public.%I', t);
+    execute format('drop policy if exists "write auth" on public.%I', t);
+    execute format('drop policy if exists "demo all" on public.%I', t);
+  end loop;
+end;
+$$;

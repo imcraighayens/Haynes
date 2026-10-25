@@ -58,6 +58,7 @@
   --btnBlueBg: rgba(30, 40, 160, 0.35);
   --btnBlueInk: #c9d2ff;
   --btnBlueLine: rgba(120, 140, 255, 0.55);
+  --navActiveInk: var(--acc);
   color-scheme: dark;
 }
 
@@ -115,5 +116,6 @@
   --btnBlueBg: #1f2bd6;
   --btnBlueInk: #ffffff;
   --btnBlueLine: #1520b0;
+  --navActiveInk: #0e1320;
   color-scheme: light;
 }

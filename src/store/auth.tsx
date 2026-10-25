@@ -42,8 +42,11 @@ async function resolveUser(id: string, email: string, meta: Record<string, unkno
       name = data.name as string
       role = (data.active === false ? 'auditor' : data.role) as Role
     } else {
-      const { count } = await supabase.from('employees').select('id', { count: 'exact', head: true })
-      if (!count) role = 'admin'
+      // No team row. The server decides: is_admin() is true only while the
+      // team is empty (first-user bootstrap). Anyone else gets a read-only
+      // role and RLS shows them nothing.
+      const { data: bootstrap } = await supabase.rpc('is_admin')
+      role = bootstrap === true ? 'admin' : 'auditor'
     }
   }
   return { id, name, email, role }

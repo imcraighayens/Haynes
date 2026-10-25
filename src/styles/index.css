@@ -40,6 +40,10 @@ textarea:focus {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
+/* Dialogs receive programmatic focus for keyboard users; don't ring the whole panel */
+[role='dialog']:focus-visible {
+  outline: none;
+}
 
 /* Thin, quiet scrollbars */
 * {
