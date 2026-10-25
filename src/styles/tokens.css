@@ -55,6 +55,9 @@
   --kpiLime: linear-gradient(135deg, #d9ff4a 0%, #b6ea2a 70%, #9fd417 100%);
   --kpiOlive: linear-gradient(135deg, #22261a 0%, #15170f 100%);
   --kpiRed: linear-gradient(135deg, #d33a4a 0%, #a3192a 100%);
+  --btnBlueBg: rgba(30, 40, 160, 0.35);
+  --btnBlueInk: #c9d2ff;
+  --btnBlueLine: rgba(120, 140, 255, 0.55);
   color-scheme: dark;
 }
 
@@ -109,5 +112,8 @@
   --rowHover: #c9cfda;
   --rowOverdue: linear-gradient(90deg, rgba(196, 43, 47, 0.16), rgba(196, 43, 47, 0.06) 60%, transparent);
   --kpiOlive: linear-gradient(135deg, #2b3020 0%, #1b1e13 100%);
+  --btnBlueBg: #1f2bd6;
+  --btnBlueInk: #ffffff;
+  --btnBlueLine: #1520b0;
   color-scheme: light;
 }

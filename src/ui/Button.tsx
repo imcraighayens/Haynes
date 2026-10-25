@@ -25,7 +25,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     outline: { background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line2)' },
     ghost: { background: 'transparent', color: 'var(--mut)', border: '1px solid transparent' },
     danger: { background: 'var(--red)', color: '#fff', border: '1px solid transparent' },
-    blue: { background: 'rgba(30,40,160,.35)', color: '#c9d2ff', border: '1px solid rgba(120,140,255,.55)' },
+    blue: { background: 'var(--btnBlueBg)', color: 'var(--btnBlueInk)', border: '1px solid var(--btnBlueLine)' },
     soft: { background: 'var(--panel3)', color: 'var(--ink)', border: '1px solid var(--line)' },
   }
   return (

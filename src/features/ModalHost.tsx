@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useUi, type ModalSpec } from '../store/ui'
 import { ConfirmModal } from '../ui/ConfirmModal'
 import { ClientHub } from './clients/ClientHub'
@@ -41,13 +42,15 @@ function render(m: ModalSpec, close: () => void) {
 /** Renders the modal stack; only the top one is interactive. */
 export function ModalHost() {
   const { stack, close } = useUi()
-  return (
+  // Portalled to <body> so no transformed ancestor can become the containing block for the fixed scrim.
+  return createPortal(
     <>
       {stack.map((m, i) => (
         <div key={i} style={{ display: i === stack.length - 1 ? 'contents' : 'none' }}>
           {render(m, close)}
         </div>
       ))}
-    </>
+    </>,
+    document.body,
   )
 }

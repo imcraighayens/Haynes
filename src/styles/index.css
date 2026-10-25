@@ -125,7 +125,7 @@ textarea:focus {
   0%, 44%, 56%, 100% { transform: scaleY(1); }
   50% { transform: scaleY(0.1); }
 }
-.fade-up { animation: fadeUp 0.35s ease both; }
+.fade-up { animation: fadeUp 0.35s ease backwards; }
 .modal-in { animation: modalIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .scrim-in { animation: scrimIn 0.2s ease both; }
 .toast-in { animation: fadeUp 0.25s ease both; }

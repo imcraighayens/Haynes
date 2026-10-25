@@ -9,15 +9,15 @@ function Kpi({ bg, ink, label, value, sub, icon, onClick, glow }: { bg: string; 
   return (
     <button
       onClick={onClick}
-      className="flex min-h-[82px] items-center gap-4 rounded-[20px] px-4 text-left transition hover:-translate-y-0.5"
+      className="flex min-h-[82px] min-w-0 items-center gap-3 rounded-[20px] px-3 text-left transition hover:-translate-y-0.5 sm:gap-4 sm:px-4"
       style={{ background: bg, color: ink, border: '1px solid rgba(255,255,255,.14)', boxShadow: glow ?? 'var(--cardLift)' }}
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px]" style={{ background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.22)' }}>
+      <span className="hidden h-9 w-9 shrink-0 sm:inline-flex items-center justify-center rounded-[12px]" style={{ background: 'rgba(255,255,255,.14)', border: '1px solid rgba(255,255,255,.22)' }}>
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[10.5px] font-semibold tracking-[0.08em]" style={{ opacity: 0.85 }}>{label}</span>
-        <span className="mt-1 block text-[18px] font-bold leading-tight num">{value}</span>
+        <span className="block text-[9.5px] font-semibold leading-tight tracking-[0.06em] sm:text-[10.5px] sm:tracking-[0.08em]" style={{ opacity: 0.85 }}>{label}</span>
+        <span className="mt-1 block text-[16px] font-bold leading-tight num sm:text-[18px]">{value}</span>
         {sub && <span className="block truncate text-[10px] font-medium" style={{ opacity: 0.85 }}>{sub}</span>}
       </span>
     </button>
