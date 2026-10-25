@@ -1,6 +1,17 @@
 # LEDGER by Ecoloans — PRD
 
-Status: **Draft, needs sign-off.** Written 25 Oct 2026 from the `Ledger.zip` prototype export.
+Status: **Signed off with amendments 25 Oct 2026. Build in progress.** Written 25 Oct 2026 from the `Ledger.zip` prototype export.
+
+## 0. Decision log
+
+| Date | Decision | By |
+|---|---|---|
+| 25 Oct 2026 | LEDGER replaces e.Volt in `imcraighayens/Haynes` (same stack, same business). | Craig |
+| 25 Oct 2026 | Scope for this pass: P0–P2. P3 integrations (Q1 LLM, Quik1, Twilio, news) come later. | Craig |
+| 25 Oct 2026 | Pricing: keep 35% flat return and the R241.25 protection fee as configurable defaults. No in-app NCA cap warning. The §3.2 compliance flag stays open, with Craig, for review with the compliance officer. | Craig |
+| 25 Oct 2026 | Craig asked for real borrower data in the repo. **Not done:** the repo is public, and committing ID numbers, bank accounts and mandates would publish third-party special personal information permanently. Instead the seed is synthetic, and real data loads through *Ledger › Data › Import prototype book*, which reads the prototype's own saved book. **Revisit if Haynes is made private.** | Claude (pushback, pending Craig) |
+| 25 Oct 2026 | The prototype's client-side passcode and delete PIN are replaced by role-based access (Supabase Auth + RLS) and typed confirmations. | Claude (per §3.3) |
+| 25 Oct 2026 | Simulated Twilio is replaced by honest device `tel:`/`sms:` links, logged as such. Biz.Mag news is replaced on the dashboard by an Attention panel. The Q1 assistant answers deterministically from the book, with no LLM and no keys in the browser. | Claude (per §3.3–3.4) |
 
 ## 1. What we received
 
@@ -86,7 +97,7 @@ Ecoloans runs its loan book in a console that only exists as a design prototype.
 ## 5. Success criteria
 
 1. Every P0 and P1 screen below matches the prototype's layout and visual language in both dark and light themes.
-2. Given the same (synthetic) book, the KPIs, tab totals, calendar totals and affordability verdicts match the prototype's numbers. This is enforced by unit tests on `lib/` money math.
+2. KPIs, tab totals, calendar totals and affordability verdicts follow the prototype's rules. The affordability rule is identical. Unit tests on the `src/domain/` money math enforce this. Loan amounts use one explicit model (principal, return per instalment, collection fee, schedule), replacing the prototype's two overloaded meanings of `amount`.
 3. `npm run build` (tsc + vite) is clean, and the unit tests pass.
 4. No real PII and no secrets in the repo or the client bundle.
 5. With Supabase configured, every write lands in a normalized table under auth-only RLS. Every mutation writes an audit-log row, and deletes are soft deletes.
