@@ -24,7 +24,7 @@ export const BANKS: Record<string, string> = {
 export const ACCOUNT_TYPES = ['Savings Account', 'Cheque Account', 'Transmission Account']
 export const EMPLOYMENT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Self-employed', 'Pensioner', 'Unemployed']
 
-/** The employee record of the signed-in user (demo: by id; Supabase: by email). */
+/** The employee record of the signed-in user (by id, else by email). */
 export function useMyEmployeeId(): string | null {
   const { user } = useAuth()
   const { book } = useBook()

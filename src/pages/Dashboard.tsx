@@ -9,10 +9,13 @@ import { dayStamp, parseDate } from '../domain/format'
 import { CollectionsCalendar } from '../features/dashboard/CollectionsCalendar'
 import { ExpectedReturnCard } from '../features/dashboard/ExpectedReturnCard'
 import { AttentionPanel } from '../features/dashboard/AttentionPanel'
+import { EmptyBook } from '../features/dashboard/EmptyBook'
+import { live } from '../domain/loans'
 
 export function Dashboard() {
   const { user } = useAuth()
-  const { today } = useBook()
+  const { book, today } = useBook()
+  const empty = !live(book.clients).length && !live(book.loans).length
   const ui = useUi()
   const role = user!.role
   return (
@@ -32,6 +35,7 @@ export function Dashboard() {
           </>
         }
       />
+      {empty && <EmptyBook />}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-4">
           <CollectionsCalendar />

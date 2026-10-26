@@ -6,7 +6,7 @@ export interface User {
   id: string
   name: string
   email: string
-  /** Role from the employees table (Supabase) or the demo user */
+  /** Role from the employees table (Supabase); admin on a local device */
   role: Role
 }
 
@@ -15,19 +15,21 @@ export interface User {
  *  - supabase: Supabase Auth email/password. Name and role come from the
  *    `employees` row with the same email. If the employees table is empty,
  *    the first person to sign in is treated as admin (bootstrap).
- *  - demo: offline sign-in for the synthetic demo book.
+ *  - local: no database connected. The book lives in this browser only, so
+ *    there is nothing to authenticate against — the operator just says who
+ *    they are (for the logbook) and works as admin on this device.
  */
-export const DEMO_LOGIN = { email: 'demo@ecoloans.co.za', password: 'ledger-demo' }
-const DEMO_USER: User = { id: 'e1', name: 'Craig Moatshe', email: DEMO_LOGIN.email, role: 'admin' }
-const DEMO_KEY = 'ledger.auth.v1'
+const LOCAL_KEY = 'ledger.auth.v1'
 
 interface AuthCtx {
   user: User | null
   loading: boolean
-  mode: 'supabase' | 'demo'
+  mode: 'supabase' | 'local'
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  /** Local mode only: open the console on this device as the named operator */
+  loginLocal: (name: string, email: string) => void
   logout: () => Promise<void>
-  /** Demo only: preview the console as another role */
+  /** Local mode only: preview the console as another role */
   setViewRole: (r: Role) => void
 }
 
@@ -53,11 +55,11 @@ async function resolveUser(id: string, email: string, meta: Record<string, unkno
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const mode = supabaseEnabled ? 'supabase' : 'demo'
+  const mode = supabaseEnabled ? 'supabase' : 'local'
   const [user, setUser] = useState<User | null>(() => {
     if (supabaseEnabled) return null
     try {
-      const raw = localStorage.getItem(DEMO_KEY)
+      const raw = localStorage.getItem(LOCAL_KEY)
       return raw ? (JSON.parse(raw) as User) : null
     } catch {
       return null
@@ -87,8 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (supabaseEnabled) return
     try {
-      if (user) localStorage.setItem(DEMO_KEY, JSON.stringify(user))
-      else localStorage.removeItem(DEMO_KEY)
+      if (user) localStorage.setItem(LOCAL_KEY, JSON.stringify(user))
+      else localStorage.removeItem(LOCAL_KEY)
     } catch {
       /* storage unavailable */
     }
@@ -100,11 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email: e, password })
       return error ? { ok: false, error: error.message } : { ok: true }
     }
-    if (e === DEMO_LOGIN.email && password === DEMO_LOGIN.password) {
-      setUser(DEMO_USER)
-      return { ok: true }
-    }
-    return { ok: false, error: 'Incorrect email or password.' }
+    void password
+    return { ok: false, error: `No database is connected — use “Open on this device” (${e || 'no email'}).` }
+  }
+
+  const loginLocal = (name: string, email: string) => {
+    if (supabaseEnabled) return
+    setUser({ id: 'local', name: name.trim(), email: email.trim().toLowerCase(), role: 'admin' })
   }
 
   const logout = async () => {
@@ -113,11 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const setViewRole = (role: Role) => {
-    if (mode !== 'demo') return
+    if (mode !== 'local') return
     setUser((u) => (u ? { ...u, role } : u))
   }
 
-  return <Ctx.Provider value={{ user, loading, mode, login, logout, setViewRole }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ user, loading, mode, login, loginLocal, logout, setViewRole }}>{children}</Ctx.Provider>
 }
 
 export function useAuth() {

@@ -14,7 +14,6 @@ import { NotificationsModal } from './notifications/NotificationsModal'
 import { DueDayModal } from './dashboard/DueDayModal'
 import { LogPettyModal } from './petty/LogPettyModal'
 import { ReconModal } from './ledger/ReconModal'
-import { Q1Panel } from './q1/Q1Panel'
 import { ApplicationModal } from './applications/ApplicationModal'
 
 function render(m: ModalSpec, close: () => void) {
@@ -32,7 +31,6 @@ function render(m: ModalSpec, close: () => void) {
     case 'dueDay': return <DueDayModal date={m.date} onClose={close} />
     case 'petty': return <LogPettyModal onClose={close} />
     case 'recon': return <ReconModal onClose={close} />
-    case 'q1': return <Q1Panel onClose={close} />
     case 'application': return <ApplicationModal applicationId={m.applicationId} onClose={close} />
     case 'confirm':
       return <ConfirmModal title={m.title} body={m.body} confirmLabel={m.confirmLabel} danger={m.danger} requireText={m.requireText} reasonLabel={m.reasonLabel} onConfirm={m.onConfirm} onClose={close} />

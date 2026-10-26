@@ -17,7 +17,8 @@ The loan-book console for Ecoloans: issuing, collecting and reconciling short-te
 | **Logbook** | Append-only audit trail of every change, with search, type and date filters, and CSV export |
 | **Ledger** (admin) | Bank balance and movements, this month's money in and out, monthly office expenses, book summary, **NuPay debit-order report import**, employees and roles, settings, and data import / export |
 | **Petty cash** | Office float log with an approval flow (pending, approved, repaid, declined) and outstanding staff advances |
-| **Notifications / Q1** | Instalments due today, and loans whose due date passed without anyone updating them; Q1 daily brief |
+| **Notifications** | Instalments due today, and loans whose due date passed without anyone updating them |
+| **Q1 assistant** | Floating bot (type or speak, en-ZA, can read answers aloud). Answers questions about the book with Claude; opens loans, clients and screens from its answers |
 
 ## Getting started
 
@@ -28,18 +29,13 @@ npm test         # vitest: loan maths, ops, importers, NuPay recon
 npm run build    # type-check + production bundle in dist/
 ```
 
-### Demo mode (no database)
+### Without a database (this device only)
 
-Without Supabase environment variables the console runs offline on a **synthetic** demo book stored in the browser. Sign in with:
+Without Supabase environment variables the console keeps the book in this browser. It **starts empty — there is no sample data**. You open it by entering your name (recorded against everything you do in the logbook) and work as admin on that device. Fill the book from the getting-started screen: **NuPay transaction report** (Ledger › Overview), **prototype book** (Ledger › Data) or by hand. Ledger › Data › **Clear this device's book** empties it again.
 
-```
-Email:    demo@ecoloans.co.za
-Password: ledger-demo
-```
+Anyone using that browser can open it, so use Supabase for anything beyond a single trusted machine.
 
-The sign-in screen has a **Use demo credentials** shortcut. Ledger › Employees & roles has a **Preview as role** control, so you can see what an agent, collections officer or auditor sees. Ledger › Data › **Reset to demo data** restores the demo book.
-
-> The demo book is entirely fictional. ID numbers start with `000000` and bank accounts with `0000`. Real borrower data never belongs in this repository.
+> Real borrower data never belongs in this repository. Unit tests use a synthetic fixture (`src/domain/seed.ts`; ID numbers start `000000`, accounts `0000`) that the app itself never loads.
 
 ## Connecting Supabase
 
@@ -76,7 +72,20 @@ Then go to **Ledger › Data › Import a book**, paste, check the preview and c
 
 You see every row before anything changes.
 
-**Moving a demo book into Supabase:** **Ledger › Data › Upload this browser's book**.
+**Moving this device's book into Supabase:** **Ledger › Data › Upload this browser's book**.
+
+## Q1 assistant (Claude)
+
+Q1 answers with **Claude Opus 5.5** (`claude-opus-5-5`) through `api/q1.ts`, a Vercel function:
+
+- The Anthropic key is a **server** env var, `ANTHROPIC_API_KEY` (never `VITE_`-prefixed, so it is never in the browser bundle).
+- The function only answers signed-in Supabase users who are active team members (`is_staff()`), so Q1's AI needs Supabase.
+- The server-side refusal fallback (`fallbacks: "default"`) is on; answers come back as structured JSON (text + up to three action buttons).
+- What Claude sees is built by `buildQ1Context` (`src/features/q1/protocol.ts`): loan refs, client names, amounts, dates, statuses and recent activity. **ID numbers, bank details, phone numbers, emails, addresses and salaries are never sent** — a unit test guards this.
+- Without the function (Netlify, `npm run dev`, no key, no Supabase) Q1 falls back to offline answers computed from the book and says so in its header.
+- In a claude.ai Artifact preview, Q1 asks Claude through the viewer's own Claude account instead.
+
+> POPIA: Claude is a third-party operator processing borrower names and loan details outside South Africa (s72). Record it in your POPIA documentation and operator agreements before switching it on with real data.
 
 ## Security model
 
@@ -99,7 +108,7 @@ src/
               prototype importer, synthetic seed (+ unit tests)
   store/      auth, book store (local cache + Supabase), audited ops, modal stack, theme, toasts
   ui/         Button, Modal, Menu, form fields, pills, confirm, print/QR/CSV helpers
-  shell/      sidebar, market strip, KPI strip, page header, Q1 button
+  shell/      sidebar, KPI strip, page header
   pages/      Dashboard, Loans, Applications, Clients, Logbook, Ledger, PettyCash, Login
   features/   modals and panes per area (loans, clients, ledger, petty, q1, …)
 supabase/schema.sql
@@ -110,10 +119,9 @@ docs/LEDGER-PRD.md
 
 These need server-side code and account keys, which should be reviewed separately:
 
-- **Q1 AI answers.** The daily brief and quick questions work today and are computed locally. Free-text answers will go through a Supabase Edge Function that holds the API key server-side and sends the model only the data it needs.
 - **Quik1 borrower-app feed.** Applications are captured manually for now.
 - **Twilio SMS and calls.** Call and SMS actions use the device's `tel:` / `sms:` links. Nothing is logged as "delivered" that wasn't.
-- **Biz.Mag news and live market data.** The market strip shows indicative reference figures and says so.
+- **Biz.Mag news and live market data.** The prototype's market strip showed made-up figures, so it was removed until a live feed is connected.
 
 ## Compliance notes
 

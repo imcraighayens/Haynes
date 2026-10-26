@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { AlertTriangle, Cloud, CloudOff, Database, Download, FileJson, RefreshCw, Upload } from 'lucide-react'
-import { useBook, buildSeed } from '../../store/book'
+import { useBook } from '../../store/book'
+import { DEFAULT_SETTINGS } from '../../domain/factories'
 import { useAuth } from '../../store/auth'
 import { useUi } from '../../store/ui'
 import { can } from '../../domain/permissions'
@@ -94,7 +95,7 @@ export function LedgerData() {
   const exportLog = () =>
     download(`ledger-logbook-${today}.csv`, toCsv([['Date', 'Type', 'Ref', 'Customer', 'Amount', 'By', 'Comment'], ...book.logbook.map((g) => [g.at, g.type, g.ref, g.customer, g.amount, g.by, g.comment])]), 'text/csv')
 
-  const statusTone = sync.status === 'error' ? 'red' : mode === 'demo' ? 'amber' : 'green'
+  const statusTone = sync.status === 'error' ? 'red' : mode === 'local' ? 'amber' : 'green'
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -102,15 +103,15 @@ export function LedgerData() {
         <Eyebrow className="flex items-center gap-2"><Database size={13} /> Connection</Eyebrow>
         <div className="flex items-start gap-4">
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style={{ background: 'var(--panel3)', color: `var(--${statusTone})` }}>
-            {mode === 'demo' ? <CloudOff size={20} /> : <Cloud size={20} />}
+            {mode === 'local' ? <CloudOff size={20} /> : <Cloud size={20} />}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[16px] font-bold">{mode === 'demo' ? 'Demo — this browser only' : `Supabase · ${supabaseHost}`}</span>
-              <Pill tone={statusTone}>{sync.status === 'error' ? 'ERROR' : sync.status === 'idle' ? (mode === 'demo' ? 'LOCAL' : 'CONNECTED') : sync.status.toUpperCase()}</Pill>
+              <span className="text-[16px] font-bold">{mode === 'local' ? 'This browser only — no database connected' : `Supabase · ${supabaseHost}`}</span>
+              <Pill tone={statusTone}>{sync.status === 'error' ? 'ERROR' : sync.status === 'idle' ? (mode === 'local' ? 'LOCAL' : 'CONNECTED') : sync.status.toUpperCase()}</Pill>
             </div>
             <p className="mt-1 text-[12.5px] leading-relaxed" style={{ color: 'var(--mut)' }}>
-              {mode === 'demo'
+              {mode === 'local'
                 ? 'No database is configured, so the book lives in this browser’s storage. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to share one book across devices and users.'
                 : `Every change is written to Supabase as it happens and cached on this device. Last sync: ${sync.lastSync ? dateTimeLabel(sync.lastSync) : '—'}.`}
             </p>
@@ -168,9 +169,9 @@ export function LedgerData() {
           <Button variant="outline" size="sm" onClick={exportLoans}>Loans CSV</Button>
           <Button variant="outline" size="sm" onClick={exportLog}>Logbook CSV</Button>
         </div>
-        {mode === 'demo' && canImport && (
+        {mode === 'local' && canImport && (
           <div className="mt-auto flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3" style={{ background: 'var(--panel2)', border: '1px solid var(--line)' }}>
-            <span className="text-[12.5px]" style={{ color: 'var(--mut)' }}>Start over with the synthetic demo book.</span>
+            <span className="text-[12.5px]" style={{ color: 'var(--mut)' }}>Remove every record from this browser and start with an empty book.</span>
             <Button
               variant="ghost"
               size="sm"
@@ -178,16 +179,16 @@ export function LedgerData() {
               onClick={() =>
                 ui.open({
                   kind: 'confirm',
-                  title: 'Reset to demo data?',
-                  body: 'Replaces everything in this browser with the synthetic demo book. This cannot be undone — export first if you need the current book.',
+                  title: 'Clear this device’s book?',
+                  body: 'Deletes every client, loan and log entry stored in this browser. This cannot be undone — export the book first if you need it.',
                   confirmLabel: 'Reset',
                   danger: true,
                   requireText: 'RESET',
-                  onConfirm: () => void replace(buildSeed(), 'Demo book restored'),
+                  onConfirm: () => void replace({ clients: [], loans: [], applications: [], logbook: [], petty: [], expenses: [], bankTx: [], employees: book.employees, settings: { ...DEFAULT_SETTINGS, ...book.settings } }, 'This device’s book is now empty'),
                 })
               }
             >
-              Reset to demo data
+              Clear this device’s book
             </Button>
           </div>
         )}

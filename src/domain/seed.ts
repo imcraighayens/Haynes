@@ -4,7 +4,8 @@ import { addDays, addMonths, round2, todayIso } from './format'
 import { buildSchedule, instalmentFor, normalizeLoan } from './loans'
 
 /**
- * SYNTHETIC demo book. Every borrower, ID number and bank account below is
+ * TEST FIXTURE ONLY — the app never loads this (it starts with an empty book).
+ * SYNTHETIC book for unit tests. Every borrower, ID number and bank account below is
  * fictional: ID numbers start with 000000 (no valid birth date) and accounts
  * with 0000. Real borrower data never lives in this repository; load it via
  * Ledger › Data › Import (prototype book) or the NuPay bank-report import.

@@ -12,6 +12,9 @@ Status: **Signed off with amendments 25 Oct 2026. Build in progress.** Written 2
 | 25 Oct 2026 | Craig asked for real borrower data in the repo. **Not done:** the repo is public, and committing ID numbers, bank accounts and mandates would publish third-party special personal information permanently. Instead the seed is synthetic, and real data loads through *Ledger › Data › Import prototype book*, which reads the prototype's own saved book. **Revisit if Haynes is made private.** | Claude (pushback, pending Craig) |
 | 25 Oct 2026 | The prototype's client-side passcode and delete PIN are replaced by role-based access (Supabase Auth + RLS) and typed confirmations. | Claude (per §3.3) |
 | 25 Oct 2026 | Simulated Twilio is replaced by honest device `tel:`/`sms:` links, logged as such. Biz.Mag news is replaced on the dashboard by an Attention panel. The Q1 assistant answers deterministically from the book, with no LLM and no keys in the browser. | Claude (per §3.3–3.4) |
+| 26 Oct 2026 | No demo data anywhere: the app starts with an empty book and a getting-started screen (NuPay report, prototype book, by hand). The made-up market ticker is removed. The synthetic seed stays as a unit-test fixture only. | Craig |
+| 26 Oct 2026 | Q1 rebuilt to the Q1 Assistant Button spec and connected to Claude Opus 5.5 through a Vercel function (`api/q1.ts`, key server-side, Supabase staff sign-in required, refusal fallback on). Claude receives a minimised snapshot: refs, names, amounts, dates and statuses; no ID numbers, bank details, contact details, addresses or salaries. POPIA s72 (cross-border operator) to be recorded by Craig. | Craig asked; Claude designed |
+| 26 Oct 2026 | Host is Vercel. Changes are previewed (private claude.ai preview) before anything is pushed. | Craig |
 
 ## 1. What we received
 

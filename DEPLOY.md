@@ -2,7 +2,7 @@
 
 LEDGER is a static Vite + React single-page app. It runs in one of two modes:
 
-- **Demo:** no env vars. A synthetic book is kept in the browser and you sign in with the demo login. Use this for previews only.
+- **This device only:** no env vars. The book starts empty and is kept in the browser; whoever opens it enters their name. Use this for previews only.
 - **Production:** Supabase Auth plus Postgres, with Row Level Security.
 
 ## 1. Supabase
@@ -32,12 +32,13 @@ LEDGER is a static Vite + React single-page app. It runs in one of two modes:
    |---|---|
    | `VITE_SUPABASE_URL` | Project URL |
    | `VITE_SUPABASE_ANON_KEY` | anon public key |
+   | `ANTHROPIC_API_KEY` | Anthropic API key for Q1 — **Production only, never `VITE_`-prefixed** |
 
 3. Deploy. Env vars are read at build time, so **redeploy after changing them**.
 
 Netlify works the same way through `netlify.toml`.
 
-> Preview deployments built without the env vars run in demo mode. That's handy for reviewing UI changes, and safe because they hold no real data.
+> Preview deployments built without the env vars run in this-device mode with an empty book. That's handy for reviewing UI changes, and safe because they hold no data until someone imports it in their own browser.
 
 ## 3. Load the book
 
@@ -48,7 +49,8 @@ Sign in as the admin, then either:
 
 ## 4. Smoke test
 
-- [ ] The sign-in screen shows **no** demo-credentials shortcut (confirms Supabase mode)
+- [ ] The sign-in screen asks for email **and password** (confirms Supabase mode)
+- [ ] Q1's header shows **Claude Opus 5.5** after the first question (confirms the AI function and key)
 - [ ] Sign in works, and the page header reads **SAVED · SUPABASE**
 - [ ] Add a client, refresh: it is still there
 - [ ] Issue a loan: it appears in the Logbook, and a bank movement appears under Ledger › Overview

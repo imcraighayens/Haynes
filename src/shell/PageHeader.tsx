@@ -9,7 +9,7 @@ export function SyncPill() {
   const err = sync.status === 'error'
   const busy = sync.status === 'saving' || sync.status === 'loading'
   const color = err ? 'var(--red)' : local ? 'var(--amber)' : 'var(--green)'
-  const label = err ? 'SYNC ERROR · SAVED ON THIS DEVICE' : local ? 'DEMO · SAVING ON THIS DEVICE' : busy ? 'SAVING…' : 'SAVED · SUPABASE'
+  const label = err ? 'SYNC ERROR · SAVED ON THIS DEVICE' : local ? 'NO DATABASE · SAVED ON THIS DEVICE' : busy ? 'SAVING…' : 'SAVED · SUPABASE'
   return (
     <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[9.5px] font-semibold tracking-[0.12em]" style={{ border: '1px solid var(--line2)', color: 'var(--mut)' }} title={err ? sync.error ?? '' : local ? 'No database connected — data stays in this browser' : `Connected to ${supabaseHost}`}>
       <span className={busy ? 'pulse' : ''} style={{ width: 6, height: 6, borderRadius: 99, background: color }} />

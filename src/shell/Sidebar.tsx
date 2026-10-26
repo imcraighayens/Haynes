@@ -9,7 +9,7 @@ import { useUi } from '../store/ui'
 import { notifications } from '../domain/loans'
 import { canSee, ROLE_LABEL, type Area } from '../domain/permissions'
 import { Avatar } from '../ui/bits'
-import { Q1Face } from './Q1Face'
+import { Q1Orb } from '../features/q1/Q1Robot'
 
 const NAV: { to: string; label: string; area: Area; icon: ReactNode }[] = [
   { to: '/', label: 'Dashboard', area: 'dashboard', icon: <LayoutGrid size={17} /> },
@@ -98,12 +98,12 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <button
-        onClick={() => ui.open({ kind: 'q1' })}
+        onClick={() => { ui.setQ1Open(true); onNavigate?.() }}
         className={clsx('mb-4 flex h-[52px] items-center gap-3 rounded-[16px] px-2.5 text-left text-[15px] font-bold transition hover:brightness-110', collapsed && 'justify-center px-0')}
         style={{ background: 'linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.04))', border: '1px solid rgba(255,255,255,.22)', boxShadow: '0 0 0 1px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.35)', color: 'var(--ink)' }}
         aria-label="Ask Q1"
       >
-        <Q1Face size={34} />
+        <Q1Orb size={34} />
         {!collapsed && 'Ask Q1'}
       </button>
 
@@ -113,7 +113,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <div className="min-w-0 leading-tight">
             <div className="truncate text-[13.5px] font-semibold">{user.name}</div>
             <div className="truncate text-[9.5px] font-semibold tracking-[0.12em]" style={{ color: 'var(--mut)' }}>
-              {ROLE_LABEL[user.role].toUpperCase()}{mode === 'demo' ? ' · DEMO' : ''}
+              {ROLE_LABEL[user.role].toUpperCase()}{mode === 'local' ? ' · THIS DEVICE' : ''}
             </div>
           </div>
         )}

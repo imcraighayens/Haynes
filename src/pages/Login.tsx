@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowRight, BarChart3, Eye, EyeOff, Lock } from 'lucide-react'
-import { DEMO_LOGIN, useAuth } from '../store/auth'
+import { useAuth } from '../store/auth'
 import { Button } from '../ui/Button'
 import { Field, Input } from '../ui/bits'
 import { useTheme } from '../store/theme'
 
 export function Login() {
-  const { login, mode } = useAuth()
+  const { login, loginLocal, mode } = useAuth()
+  const [name, setName] = useState('')
   const { theme, toggle } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,6 +18,15 @@ export function Login() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    if (mode === 'local') {
+      if (name.trim().length < 2) {
+        setError('Enter your name — it is recorded against everything you do in the logbook.')
+        setShakeKey((k) => k + 1)
+        return
+      }
+      loginLocal(name, email)
+      return
+    }
     if (!email || !password) {
       setError('Enter your email and password.')
       setShakeKey((k) => k + 1)
@@ -49,12 +59,18 @@ export function Login() {
           <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold tracking-[0.14em]" style={{ color: 'var(--mut)' }}>
             <Lock size={12} /> LOAN BOOK CONSOLE
           </div>
-          <h1 className="mb-6 text-[24px] font-extrabold">Sign in</h1>
+          <h1 className="mb-6 text-[24px] font-extrabold">{mode === 'local' ? 'Open LEDGER' : 'Sign in'}</h1>
 
           <div className="flex flex-col gap-4">
-            <Field label="Email">
-              <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@ecoloans.co.za" autoFocus />
+            {mode === 'local' && (
+              <Field label="Your name">
+                <Input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Craig Moatshe" autoFocus />
+              </Field>
+            )}
+            <Field label={mode === 'local' ? 'Email (optional)' : 'Email'}>
+              <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@ecoloans.co.za" autoFocus={mode !== 'local'} />
             </Field>
+            {mode !== 'local' && (
             <Field label="Password">
               <div className="relative">
                 <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="pr-11" />
@@ -63,32 +79,21 @@ export function Login() {
                 </button>
               </div>
             </Field>
+            )}
             {error && (
               <div role="alert" className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-medium" style={{ background: 'var(--redSoft)', color: 'var(--red)' }}>
                 {error}
               </div>
             )}
             <Button type="submit" variant="primary" size="lg" block disabled={busy} icon={busy ? undefined : <ArrowRight size={16} />}>
-              {busy ? 'Signing in…' : 'Sign in'}
+              {busy ? 'Signing in…' : mode === 'local' ? 'Open on this device' : 'Sign in'}
             </Button>
           </div>
 
-          {mode === 'demo' ? (
-            <div className="mt-6 rounded-2xl p-4 text-[12.5px]" style={{ background: 'var(--panel2)', border: '1px solid var(--line)', color: 'var(--mut)' }}>
-              <div className="mb-1 font-semibold" style={{ color: 'var(--amber)' }}>Demo mode — no database connected</div>
-              The console runs on a synthetic demo book saved in this browser.
-              <button
-                type="button"
-                className="mt-2 block font-semibold underline-offset-4 hover:underline"
-                style={{ color: 'var(--acc)' }}
-                onClick={() => {
-                  setEmail(DEMO_LOGIN.email)
-                  setPassword(DEMO_LOGIN.password)
-                  setError(null)
-                }}
-              >
-                Use demo credentials
-              </button>
+          {mode === 'local' ? (
+            <div className="mt-6 rounded-2xl p-4 text-[12.5px] leading-relaxed" style={{ background: 'var(--panel2)', border: '1px solid var(--line)', color: 'var(--mut)' }}>
+              <div className="mb-1 font-semibold" style={{ color: 'var(--amber)' }}>No database connected</div>
+              Your book is kept in this browser only and starts empty — bring it in from Ledger › Data (prototype book) or Ledger › Overview (NuPay report). Anyone using this browser can open it; connect Supabase for real sign-in and shared data.
             </div>
           ) : (
             <p className="mt-6 text-[12px] leading-relaxed" style={{ color: 'var(--mut)' }}>

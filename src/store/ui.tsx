@@ -18,7 +18,6 @@ export type ModalSpec =
   | { kind: 'dueDay'; date: string }
   | { kind: 'petty' }
   | { kind: 'recon' }
-  | { kind: 'q1' }
   | { kind: 'application'; applicationId?: string }
   | { kind: 'confirm'; title: string; body: string; confirmLabel?: string; danger?: boolean; requireText?: string; reasonLabel?: string; onConfirm: (reason: string) => void }
 
@@ -36,6 +35,9 @@ interface UiCtx {
   setRevealed: (v: boolean) => void
   navCollapsed: boolean
   setNavCollapsed: (v: boolean) => void
+  /** Q1 assistant dock expanded */
+  q1Open: boolean
+  setQ1Open: (v: boolean) => void
 }
 
 const Ctx = createContext<UiCtx | null>(null)
@@ -43,6 +45,7 @@ const Ctx = createContext<UiCtx | null>(null)
 export function UiProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<ModalSpec[]>([])
   const [revealed, setRevealed] = useState(false)
+  const [q1Open, setQ1Open] = useState(false)
   const [navCollapsed, setNavCollapsedState] = useState(() => {
     try {
       return localStorage.getItem('ledger.navCollapsed') === '1'
@@ -72,8 +75,8 @@ export function UiProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ stack, open, swap, close, closeAll, revealed, setRevealed, navCollapsed, setNavCollapsed }),
-    [stack, open, swap, close, closeAll, revealed, navCollapsed, setNavCollapsed],
+    () => ({ stack, open, swap, close, closeAll, revealed, setRevealed, navCollapsed, setNavCollapsed, q1Open, setQ1Open }),
+    [stack, open, swap, close, closeAll, revealed, navCollapsed, setNavCollapsed, q1Open],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

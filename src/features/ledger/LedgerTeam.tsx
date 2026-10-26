@@ -115,11 +115,11 @@ export function LedgerTeam() {
         )}
       </section>
 
-      {mode === 'demo' && user && (
+      {mode === 'local' && user && (
         <section className="panel flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <Eyebrow>Preview as role</Eyebrow>
-            <p className="mt-1 text-[12.5px]" style={{ color: 'var(--mut)' }}>Demo only — see the console as another role. Roles without Ledger access leave this page; sign out and back in to return to Admin.</p>
+            <p className="mt-1 text-[12.5px]" style={{ color: 'var(--mut)' }}>This device only — see the console as another role. Roles without Ledger access leave this page; sign out and back in to return to Admin.</p>
           </div>
           <Select value={user.role} onChange={(e) => setViewRole(e.target.value as Role)} className="!w-[180px]" aria-label="Preview as role">
             {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}

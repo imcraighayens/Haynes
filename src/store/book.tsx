@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Book, TableName } from '../domain/types'
-import { buildSeed } from '../domain/seed'
 import { DEFAULT_SETTINGS } from '../domain/factories'
 import { todayIso } from '../domain/format'
 import { normalizeLoan } from '../domain/loans'
@@ -45,9 +44,9 @@ function loadLocal(): Book {
     const raw = localStorage.getItem(KEY)
     if (raw) return hydrate(JSON.parse(raw))
   } catch {
-    /* fall through to seed */
+    /* unreadable save — start empty rather than lose the screen */
   }
-  return buildSeed()
+  return emptyBook()
 }
 
 function saveLocal(b: Book) {
@@ -106,6 +105,22 @@ export function BookProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (remoteEnabled && user) void reload()
   }, [user, reload])
+
+  // Local mode: whoever opens the console on this device is on the team (as admin),
+  // so officer pickers, the logbook and Q1 know who they are.
+  useEffect(() => {
+    if (remoteEnabled || !user) return
+    const b = bookRef.current
+    const known = b.employees.some((e) => e.id === user.id || (user.email && e.email === user.email) || e.name === user.name)
+    if (known) return
+    const next: Book = {
+      ...b,
+      employees: [...b.employees, { id: user.id === 'local' ? `e_${Date.now().toString(36)}` : user.id, name: user.name, email: user.email, role: 'admin', active: true, approvalLimit: 0, createdAt: new Date().toISOString() }],
+    }
+    bookRef.current = next
+    setBook(next)
+    saveLocal(next)
+  }, [user])
 
   const push = useCallback(
     async (prev: Book, next: Book) => {
@@ -196,4 +211,3 @@ export function useActor() {
   return useMemo(() => ({ name: user?.name ?? '—' }), [user?.name])
 }
 
-export { buildSeed }

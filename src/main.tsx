@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, HashRouter } from 'react-router-dom'
 import App from './App'
 import { ThemeProvider } from './store/theme'
 import { ToastProvider } from './store/toast'
@@ -9,6 +9,9 @@ import { BookProvider } from './store/book'
 import { UiProvider } from './store/ui'
 import './styles/index.css'
 
+// Preview builds (claude.ai Artifact) can't serve deep links, so they route by hash.
+const Router = import.meta.env.VITE_HASH_ROUTER === '1' ? HashRouter : BrowserRouter
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
@@ -16,9 +19,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <BookProvider>
             <UiProvider>
-              <BrowserRouter>
+              <Router>
                 <App />
-              </BrowserRouter>
+              </Router>
             </UiProvider>
           </BookProvider>
         </AuthProvider>

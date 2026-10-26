@@ -7,7 +7,7 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
  * Supabase is optional. With VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY set
  * (see .env.example) the console signs in with Supabase Auth and reads/writes
  * the normalized tables in supabase/schema.sql. Without them it runs offline
- * on a synthetic demo book kept in localStorage.
+ * on a book kept in this browser (localStorage), which starts empty.
  */
 export const supabaseEnabled = Boolean(url && anonKey)
 
