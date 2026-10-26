@@ -11,6 +11,7 @@ import { dateLabel, maskTail, round2 } from '../../domain/format'
 import { nextDue, principalOf } from '../../domain/loans'
 import type { Settings } from '../../domain/types'
 import { usePiiMasked } from './shared'
+import { PaidUpLetter } from './PaidUpLetter'
 
 /** Two-decimal amount with space thousands, no currency symbol (letter tables). */
 const money = (n: number) => {
@@ -110,6 +111,9 @@ export function SettlementLetter({ loanId, onClose }: { loanId: string; onClose:
       </Modal>
     )
   }
+
+  // Paid accounts get the Ecoloans paid-up letter (NCA s71A), which has its own paid-in-full gate
+  if (data.paid) return <PaidUpLetter loanId={loanId} onClose={onClose} />
 
   const print = () => {
     printHtml(html, `${data.title} ${data.no}`)

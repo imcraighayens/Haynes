@@ -13,6 +13,7 @@ export type ModalSpec =
   | { kind: 'loanEdit'; loanId: string }
   | { kind: 'loanStatus'; loanId: string }
   | { kind: 'settlement'; loanId: string }
+  | { kind: 'paidUp'; loanId: string }
   | { kind: 'bulkUpload' }
   | { kind: 'notifications' }
   | { kind: 'dueDay'; date: string }

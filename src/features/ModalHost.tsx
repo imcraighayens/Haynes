@@ -9,6 +9,7 @@ import { LoanDetail } from './loans/LoanDetail'
 import { LoanEditModal } from './loans/LoanEditModal'
 import { LoanStatusModal } from './loans/LoanStatusModal'
 import { SettlementLetter } from './loans/SettlementLetter'
+import { PaidUpLetter } from './loans/PaidUpLetter'
 import { BulkUpload } from './loans/BulkUpload'
 import { NotificationsModal } from './notifications/NotificationsModal'
 import { DueDayModal } from './dashboard/DueDayModal'
@@ -26,6 +27,7 @@ function render(m: ModalSpec, close: () => void) {
     case 'loanEdit': return <LoanEditModal loanId={m.loanId} onClose={close} />
     case 'loanStatus': return <LoanStatusModal loanId={m.loanId} onClose={close} />
     case 'settlement': return <SettlementLetter loanId={m.loanId} onClose={close} />
+    case 'paidUp': return <PaidUpLetter loanId={m.loanId} onClose={close} />
     case 'bulkUpload': return <BulkUpload onClose={close} />
     case 'notifications': return <NotificationsModal onClose={close} />
     case 'dueDay': return <DueDayModal date={m.date} onClose={close} />

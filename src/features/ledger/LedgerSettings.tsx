@@ -18,7 +18,8 @@ type Draft = Omit<Settings, 'defaultReturnRatePct' | 'defaultCollectionFee' | 'p
 }
 
 const LABELS: Partial<Record<keyof Settings, string>> = {
-  orgName: 'org name', orgLegalName: 'legal name', ncrRegNo: 'NCR reg no', defaultReturnRatePct: 'default return rate',
+  orgName: 'org name', orgLegalName: 'legal name', ncrRegNo: 'NCR reg no', companyRegNo: 'company reg no', tagline: 'tagline',
+  address: 'address', contactEmail: 'contact email', contactPhone: 'contact phone', website: 'website', defaultReturnRatePct: 'default return rate',
   defaultCollectionFee: 'collection fee', protectionFee: 'protection fee', maskPii: 'PII masking', contractIntro: 'contract intro', contractClauses: 'contract clauses',
 }
 
@@ -46,6 +47,12 @@ export function LedgerSettings() {
     orgName: d.orgName.trim(),
     orgLegalName: d.orgLegalName.trim(),
     ncrRegNo: d.ncrRegNo.trim(),
+    companyRegNo: d.companyRegNo.trim(),
+    tagline: d.tagline.trim(),
+    address: d.address.trim(),
+    contactEmail: d.contactEmail.trim(),
+    contactPhone: d.contactPhone.trim(),
+    website: d.website.trim(),
     defaultReturnRatePct: rate,
     defaultCollectionFee: fee,
     protectionFee: tpf,
@@ -78,7 +85,13 @@ export function LedgerSettings() {
           <Eyebrow className="md:col-span-3">Organisation</Eyebrow>
           <Field label="Trading name" error={errors.orgName}><Input value={d.orgName} onChange={(e) => set('orgName', e.target.value)} /></Field>
           <Field label="Legal name"><Input value={d.orgLegalName} onChange={(e) => set('orgLegalName', e.target.value)} /></Field>
-          <Field label="NCR registration no" hint="Printed on agreements and settlement letters"><Input value={d.ncrRegNo} onChange={(e) => set('ncrRegNo', e.target.value)} placeholder="NCRCP…" /></Field>
+          <Field label="NCR registration no" hint="Printed on agreements and letters"><Input value={d.ncrRegNo} onChange={(e) => set('ncrRegNo', e.target.value)} placeholder="NCRCP…" /></Field>
+          <Field label="Company registration no"><Input value={d.companyRegNo} onChange={(e) => set('companyRegNo', e.target.value)} placeholder="2023/000000/07" /></Field>
+          <Field label="Tagline" hint="Under the logo on paid-up letters"><Input value={d.tagline} onChange={(e) => set('tagline', e.target.value)} /></Field>
+          <Field label="Website"><Input value={d.website} onChange={(e) => set('website', e.target.value)} placeholder="ecoloan.co.za" /></Field>
+          <Field label="Physical address" className="md:col-span-3"><Input value={d.address} onChange={(e) => set('address', e.target.value)} /></Field>
+          <Field label="Client queries email"><Input type="email" value={d.contactEmail} onChange={(e) => set('contactEmail', e.target.value)} /></Field>
+          <Field label="Client queries WhatsApp"><Input inputMode="tel" value={d.contactPhone} onChange={(e) => set('contactPhone', e.target.value)} placeholder="+27 …" /></Field>
         </section>
 
         <section className="panel grid gap-4 p-6 md:grid-cols-3">

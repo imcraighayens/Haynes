@@ -63,9 +63,11 @@ function Detail({ loanId, onClose }: { loanId: string; onClose: () => void }) {
         <>
           <Menu items={menu} label="More actions" />
           <span className="flex-1" />
-          <Button variant="outline" onClick={() => ui.open({ kind: 'settlement', loanId: loan.id })}>
-            {status === 'paid' ? 'Paid-up letter' : 'Settlement quote'}
-          </Button>
+          {status === 'paid' ? (
+            <Button variant="outline" onClick={() => ui.open({ kind: 'paidUp', loanId: loan.id })}>Generate paid-up letter</Button>
+          ) : (
+            status !== 'written_off' && <Button variant="outline" onClick={() => ui.open({ kind: 'settlement', loanId: loan.id })}>Settlement quote</Button>
+          )}
           {!closed && canStatus && (
             <Button variant="primary" onClick={() => commit((b) => ops.recordPayment(b, loan.id, 1, actor), `${loan.ref} · instalment recorded`)}>
               Record payment
@@ -95,6 +97,7 @@ function Detail({ loanId, onClose }: { loanId: string; onClose: () => void }) {
         <Meta label="Officer" value={officer?.name ?? 'Unassigned'} />
         <Meta label="Purpose" value={loan.purpose} />
         <Meta label="Debit mandate" value={loan.mandateId ?? 'None registered'} mono />
+        {loan.contractRef && <Meta label="DebiCheck contract" value={loan.contractRef} mono />}
         <Meta label="Collecting bank" value={client?.bank ?? '—'} />
         <Meta label="Last status update" value={dateTimeLabel(loan.statusAt)} />
       </div>

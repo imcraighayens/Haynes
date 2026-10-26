@@ -68,7 +68,8 @@ export function useLoanMenu(loan: Loan, opts: { hideView?: boolean } = {}): Menu
     },
     { label: 'Change status', icon: <RefreshCw size={15} />, hidden: !can(role, 'loan.status'), onClick: () => ui.open({ kind: 'loanStatus', loanId: loan.id }) },
     { label: 'Edit loan', icon: <Pencil size={15} />, hidden: !can(role, 'loan.edit'), onClick: () => ui.open({ kind: 'loanEdit', loanId: loan.id }) },
-    { label: eff === 'paid' ? 'Paid-up letter' : 'Settlement quote', icon: <FileText size={15} />, onClick: () => ui.open({ kind: 'settlement', loanId: loan.id }) },
+    { label: 'Generate paid-up letter', icon: <FileText size={15} />, hidden: eff !== 'paid', onClick: () => ui.open({ kind: 'paidUp', loanId: loan.id }) },
+    { label: 'Settlement quote', icon: <FileText size={15} />, hidden: eff === 'paid' || eff === 'written_off', onClick: () => ui.open({ kind: 'settlement', loanId: loan.id }) },
     { label: 'Open client', icon: <User size={15} />, hidden: !client, onClick: () => ui.open({ kind: 'client', clientId: loan.clientId }) },
     {
       label: 'Archive loan',

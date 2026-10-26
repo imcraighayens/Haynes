@@ -8,6 +8,8 @@ export default defineConfig({
     port: 5173,
   },
   build: {
+    // Letter logos must be data URLs: printed letters render in a blank iframe
+    assetsInlineLimit: (file) => (file.includes('/src/assets/') ? true : undefined),
     rollupOptions: {
       output: {
         manualChunks: {

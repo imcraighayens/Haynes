@@ -33,8 +33,14 @@ export interface ReconRow {
   orig: number
   pif: number
   cycle: string
+  /** Date the bank actually ran the debit */
+  actionDate: string
   first: string
   nameRaw: string
+  /** DebiCheck contract reference (DCPRD…) */
+  contract: string
+  /** Debtor's bank as the report names it, e.g. FNB */
+  bank: string
   clientId: string | null
   clientName: string
   loanId?: string
@@ -235,12 +241,14 @@ export function analyse(raw: RawRow[], book: Pick<Book, 'loans' | 'clients'>): R
     const deb = num(o['instalment amount']), orig = num(o['original amount']), pif = num(o['pif value'])
     const cycle = brIso(o['cycle date'] || o['action date'])
     const first = brIso(o['date of first instalment'])
+    const actionDate = brIso(o['action date'])
     const outcome = outcomeOf(res, o._section)
     const l = loans.find((x) => String(x.mandateId || '') === mid)
     const cli = l ? clients.find((c) => c.id === l.clientId) : idno ? clients.find((c) => String(c.idNumber || '') === idno) : undefined
     const nameRaw = cleanReference(o['client reference'])
     const r: ReconRow = {
-      key: `r${i}`, mid, idno, res, outcome, K, V, deb, orig, pif, cycle, first, nameRaw,
+      key: `r${i}`, mid, idno, res, outcome, K, V, deb, orig, pif, cycle, actionDate, first, nameRaw,
+      contract: String(o['contract reference'] || '').trim(), bank: String(o['debtor bank'] || '').trim(),
       clientId: cli?.id ?? null, clientName: cli?.name ?? (nameRaw || 'Unknown'),
       kind: 'skip', action: '', warn: '', on: true, dueLbl: cycle ? dateLabel(cycle) : undefined,
     }
@@ -306,6 +314,14 @@ export interface ApplyCounts {
   clients: number
 }
 
+/** Backfill the contract reference and the debtor's bank where the book has none (never overwrites). */
+function fillFromReport(b: Book, l: Book['loans'][number], r: ReconRow): Book {
+  let out = b
+  if (!l.contractRef && r.contract) out = { ...out, loans: out.loans.map((x) => (x.id === l.id ? { ...x, contractRef: r.contract } : x)) }
+  if (r.bank) out = { ...out, clients: out.clients.map((c) => (c.id === l.clientId && !c.bank ? { ...c, bank: r.bank } : c)) }
+  return out
+}
+
 /** Apply the switched-on rows as audited ops. Pure: returns the new book. */
 export function applyRecon(book: Book, rows: ReconRow[], file: string, actor: ops.Actor): { book: Book; counts: ApplyCounts } {
   const src = ` · bank report ${file}`
@@ -317,7 +333,7 @@ export function applyRecon(book: Book, rows: ReconRow[], file: string, actor: op
       // reuse a client created earlier in this same import, matched on ID number.
       let cid = r.clientId ?? (r.idno ? b.clients.find((c) => !c.deletedAt && c.idNumber === r.idno)?.id ?? null : null)
       if (!cid) {
-        const c = blankClient({ ref: nextClientRef(b.clients), name: r.nameRaw || 'Unknown', idNumber: r.idno || null, createdBy: actor.name })
+        const c = blankClient({ ref: nextClientRef(b.clients), name: r.nameRaw || 'Unknown', idNumber: r.idno || null, bank: r.bank || null, createdBy: actor.name })
         b = ops.addClient(b, c, actor)
         cid = c.id
         counts.clients++
@@ -337,20 +353,22 @@ export function applyRecon(book: Book, rows: ReconRow[], file: string, actor: op
         instalmentsPaid: r.outcome === 'paid' ? paidN - 1 : paidN,
         status: r.outcome === 'unpaid' ? 'overdue' : 'issued',
         mandateId: r.mid,
+        contractRef: r.contract || null,
         issuedOn: first,
         createdAt: `${first}T09:00:00.000Z`,
       })
       b = ops.issueLoan(b, loan, actor, `Mandate ${r.mid}${src}`)
-      if (r.outcome === 'paid') b = ops.recordPayment(b, loan.id, 1, actor, `${r.res || 'Success'}${src}`)
+      if (r.outcome === 'paid') b = ops.recordPayment(b, loan.id, 1, actor, `${r.res || 'Success'}${src}`, r.actionDate || r.cycle || undefined)
       counts.new++
       continue
     }
     const l = b.loans.find((x) => x.id === r.loanId)
     if (!l || r.idx == null) continue
+    b = fillFromReport(b, l, r)
     if (r.kind === 'paid') {
       const k = r.idx + 1 - l.instalmentsPaid
       if (k > 0) {
-        b = ops.recordPayment(b, l.id, k, actor, `${r.dueLbl} · ${r.res || 'Success'}${src}`)
+        b = ops.recordPayment(b, l.id, k, actor, `${r.dueLbl} · ${r.res || 'Success'}${src}`, r.actionDate || r.cycle || undefined)
         counts.paid++
       }
     } else if (r.kind === 'unpaid') {

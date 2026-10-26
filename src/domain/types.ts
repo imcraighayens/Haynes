@@ -90,6 +90,10 @@ export interface Loan {
   /** When the status was last set by a person or import */
   statusAt: string | null
   mandateId: string | null
+  /** DebiCheck contract reference from the debit-order platform, e.g. DCPRD00029SZ2N */
+  contractRef: string | null
+  /** Date each schedule instalment was actually collected (index-aligned; missing = not recorded) */
+  paidDates: string[]
   purpose: string
   issuedOn: string | null
   issuedBy: string | null
@@ -190,6 +194,16 @@ export interface Settings {
   orgName: string
   orgLegalName: string
   ncrRegNo: string
+  /** CIPC company registration number, e.g. 2023/848161/07 */
+  companyRegNo: string
+  /** Line under the logo on letters */
+  tagline: string
+  /** Physical address printed in letter footers */
+  address: string
+  contactEmail: string
+  /** WhatsApp / phone number for client queries */
+  contactPhone: string
+  website: string
   /** Default simple return rate for new loans */
   defaultReturnRatePct: number
   /** Default collection fee per debit instalment */

@@ -123,6 +123,8 @@ create table if not exists public.loans (
   status             text not null default 'issued' check (status in ('issued', 'overdue', 'paid', 'settled_early', 'written_off')),
   status_at          timestamptz,
   mandate_id         text,
+  contract_ref       text,                         -- DebiCheck contract reference (DCPRD…)
+  paid_dates         jsonb not null default '[]'::jsonb,  -- actual collection date per instalment
   purpose            text not null default 'Personal',
   issued_on          date,
   issued_by          text,
@@ -215,8 +217,14 @@ create table if not exists public.bank_tx (
 create table if not exists public.settings (
   id                       text primary key default 'org' check (id = 'org'),
   org_name                 text not null default 'Ecoloans',
-  org_legal_name           text not null default 'Ecoloans Finance (Pty) Ltd',
+  org_legal_name           text not null default 'Ecoloans (Pty) Ltd',
   ncr_reg_no               text not null default '',
+  company_reg_no           text not null default '',
+  tagline                  text not null default '',
+  address                  text not null default '',
+  contact_email            text not null default '',
+  contact_phone            text not null default '',
+  website                  text not null default '',
   default_return_rate_pct  numeric(7,3) not null default 35,
   default_collection_fee   numeric(14,2) not null default 0,
   protection_fee           numeric(14,2) not null default 0,
@@ -228,6 +236,16 @@ create table if not exists public.settings (
   updated_at               timestamptz not null default now(),
   updated_by               text
 );
+
+-- Columns added after the first release (safe to re-run).
+alter table public.loans add column if not exists contract_ref text;
+alter table public.loans add column if not exists paid_dates   jsonb not null default '[]'::jsonb;
+alter table public.settings add column if not exists company_reg_no text not null default '';
+alter table public.settings add column if not exists tagline        text not null default '';
+alter table public.settings add column if not exists address        text not null default '';
+alter table public.settings add column if not exists contact_email  text not null default '';
+alter table public.settings add column if not exists contact_phone  text not null default '';
+alter table public.settings add column if not exists website        text not null default '';
 
 -- ───────────────────────────── Indexes ─────────────────────────────
 

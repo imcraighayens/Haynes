@@ -6,7 +6,7 @@
 import type {
   Application, Book, Client, Employee, Expense, Loan, LoanStatus, LogEntry, PettyEntry, PettyStatus, Settings,
 } from '../domain/types'
-import { round2, uid, zar } from '../domain/format'
+import { round2, todayIso, uid, zar } from '../domain/format'
 import { normalizeLoan, principalOf, remainingInstalments } from '../domain/loans'
 
 export interface Actor {
@@ -93,12 +93,15 @@ export function updateLoan(b: Book, id: string, patch: Partial<Loan>, by: Actor,
 }
 
 /** Collect `count` instalments. Completing the schedule marks the loan paid. */
-export function recordPayment(b: Book, id: string, count: number, by: Actor, note = ''): Book {
+/** `on` is the date the money actually came in (bank action date); defaults to today. */
+export function recordPayment(b: Book, id: string, count: number, by: Actor, note = '', on = todayIso()): Book {
   const l = b.loans.find((x) => x.id === id)
   if (!l) return b
   const k = Math.max(0, Math.min(count, remainingInstalments(l)))
   if (!k) return b
-  const next = normalizeLoan({ ...l, instalmentsPaid: l.instalmentsPaid + k, status: l.status === 'overdue' ? 'issued' : l.status, statusAt: new Date().toISOString() })
+  const paidDates = (l.paidDates ?? []).slice(0, l.instalmentsPaid)
+  for (let i = l.instalmentsPaid; i < l.instalmentsPaid + k; i++) paidDates[i] = on
+  const next = normalizeLoan({ ...l, instalmentsPaid: l.instalmentsPaid + k, paidDates, status: l.status === 'overdue' ? 'issued' : l.status, statusAt: new Date().toISOString() })
   const amount = round2(l.instalmentAmount * k)
   const from = l.priorInstalments + l.instalmentsPaid + 1
   const label = k > 1 ? `Inst ${from}–${from + k - 1}` : `Inst ${from}`
@@ -127,9 +130,11 @@ export function setLoanStatus(b: Book, id: string, status: LoanStatus, by: Actor
   if (status === 'paid' || status === 'settled_early') {
     const k = remainingInstalments(l)
     if (k) bankTx = [bankMove(by, 'in', l.instalmentAmount * k, l.ref, status === 'paid' ? 'Collected · marked paid' : 'Settled early'), ...bankTx]
-    next = { ...next, instalmentsPaid: l.schedule.length }
+    const paidDates = (l.paidDates ?? []).slice(0, l.instalmentsPaid)
+    for (let i = l.instalmentsPaid; i < l.schedule.length; i++) paidDates[i] = todayIso()
+    next = { ...next, instalmentsPaid: l.schedule.length, paidDates }
   } else if (l.status === 'paid' || l.status === 'settled_early') {
-    next = { ...next, instalmentsPaid: Math.max(0, l.schedule.length - 1) }
+    next = { ...next, instalmentsPaid: Math.max(0, l.schedule.length - 1), paidDates: (l.paidDates ?? []).slice(0, Math.max(0, l.schedule.length - 1)) }
     bankTx = [bankMove(by, 'out', l.instalmentAmount, l.ref, 'Reversed · unmarked paid'), ...bankTx]
   }
   if (status === 'written_off') next = { ...next, writtenOffAt: now, writeOffReason: note || 'Written off' }
