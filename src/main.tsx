@@ -12,6 +12,14 @@ import './styles/index.css'
 // Preview builds (claude.ai Artifact) can't serve deep links, so they route by hash.
 const Router = import.meta.env.VITE_HASH_ROUTER === '1' ? HashRouter : BrowserRouter
 
+// Inside a frame (e.g. a claude.ai preview on a phone) the window often can't scroll,
+// so the app becomes its own scroll container there.
+try {
+  if (window.self !== window.top) document.documentElement.classList.add('embedded')
+} catch {
+  document.documentElement.classList.add('embedded')
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>

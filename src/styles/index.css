@@ -11,6 +11,17 @@ body,
   height: 100%;
 }
 
+/* Framed (preview) mode: #root scrolls instead of the window */
+html.embedded,
+html.embedded body {
+  overflow: hidden;
+}
+html.embedded #root {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 body {
   margin: 0;
   background: var(--appbg);
