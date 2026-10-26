@@ -43,6 +43,8 @@ export interface ReconRow {
   idx?: number
   dueLbl?: string
   kind: ReconKind
+  /** A new client for this debtor is already being created by an earlier row */
+  sharedClient?: boolean
   action: string
   warn: string
   on: boolean
@@ -79,8 +81,7 @@ export function parseDelimited(txt: string): string[][] {
   })
 }
 
-/** Minimal .xlsx reader: unzips sharedStrings + sheet1 and builds a grid. */
-export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
+async function unzipXml(buf: ArrayBuffer, want: (name: string) => boolean): Promise<Record<string, string>> {
   const u = new Uint8Array(buf), dv = new DataView(buf), files: Record<string, string> = {}
   let e = u.length - 22
   while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--
@@ -92,7 +93,7 @@ export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
     const xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true)
     const name = new TextDecoder().decode(u.slice(p + 46, p + 46 + nl))
     p += 46 + nl + xl + cl
-    if (!/^xl\/(sharedStrings|worksheets\/sheet1)\.xml$/.test(name)) continue
+    if (!want(name)) continue
     const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true)
     const raw = u.slice(ds, ds + cs)
     files[name] =
@@ -100,28 +101,65 @@ export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
         ? new TextDecoder().decode(raw)
         : await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text()
   }
-  const ss = files['xl/sharedStrings.xml'] || '', sh = files['xl/worksheets/sheet1.xml'] || ''
-  const strs = [...ss.matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => [...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((x) => xmlDecode(x[1])).join(''))
+  return files
+}
+
+export interface Sheet {
+  name: string
+  grid: string[][]
+}
+
+/**
+ * Minimal .xlsx reader. Returns every worksheet in workbook order with its tab
+ * name — NuPay exports put each outcome on its own tab ("Success", "At Issuer"…).
+ */
+export async function readXlsxSheets(buf: ArrayBuffer): Promise<Sheet[]> {
+  const files = await unzipXml(buf, (n) => /^xl\/(sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)$/.test(n))
+  const strs = [...(files['xl/sharedStrings.xml'] || '').matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) =>
+    [...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((x) => xmlDecode(x[1])).join(''),
+  )
+  const rels = new Map<string, string>()
+  for (const m of (files['xl/_rels/workbook.xml.rels'] || '').matchAll(/<Relationship\b[^>]*>/g)) {
+    const id = /Id="([^"]+)"/.exec(m[0])?.[1], target = /Target="([^"]+)"/.exec(m[0])?.[1]
+    if (id && target) rels.set(id, 'xl/' + target.replace(/^\/?xl\//, '').replace(/^\//, ''))
+  }
+  const listed = [...(files['xl/workbook.xml'] || '').matchAll(/<sheet\b[^>]*>/g)].map((m) => ({
+    name: xmlDecode(/name="([^"]*)"/.exec(m[0])?.[1] ?? ''),
+    path: rels.get(/r:id="([^"]+)"/.exec(m[0])?.[1] ?? '') ?? '',
+  }))
+  const order = listed.length
+    ? listed
+    : Object.keys(files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort().map((path) => ({ name: '', path }))
   const col = (c: string) => c.split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1
-  return [...sh.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)].map((r) => {
-    const a: string[] = []
-    for (const c of r[1].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
-      const v = (c[3] || '').match(/<v>([\s\S]*?)<\/v>/), is = (c[3] || '').match(/<t[^>]*>([\s\S]*?)<\/t>/)
-      a[col(c[1])] = v ? (/t="s"/.test(c[2]) ? strs[+v[1]] : xmlDecode(v[1])) : is ? xmlDecode(is[1]) : ''
-    }
-    return Array.from(a, (x) => x ?? '')
-  })
+  return order
+    .filter((s) => files[s.path])
+    .map((s) => ({
+      name: s.name,
+      grid: [...files[s.path].matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)].map((r) => {
+        const a: string[] = []
+        for (const c of r[1].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+          const v = (c[3] || '').match(/<v>([\s\S]*?)<\/v>/), is = (c[3] || '').match(/<t[^>]*>([\s\S]*?)<\/t>/)
+          a[col(c[1])] = v ? (/t="s"/.test(c[2]) ? strs[+v[1]] : xmlDecode(v[1])) : is ? xmlDecode(is[1]) : ''
+        }
+        return Array.from(a, (x) => x ?? '')
+      }),
+    }))
+}
+
+/** First worksheet only (kept for callers that want a single grid). */
+export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
+  return (await readXlsxSheets(buf))[0]?.grid ?? []
 }
 
 const sectionOf = (t: string) =>
-  /^success/i.test(t) ? 'Success' : /^failed/i.test(t) ? 'Failed' : /tracking/i.test(t) ? 'In Tracking' : /^revers/i.test(t) ? 'Reversed' : /^cancel/i.test(t) ? 'Cancelled' : ''
+  /^success/i.test(t) ? 'Success' : /^failed/i.test(t) ? 'Failed' : /tracking|at issuer/i.test(t) ? 'In Tracking' : /^revers/i.test(t) ? 'Reversed' : /^cancel/i.test(t) ? 'Cancelled' : ''
 
 /** Turn a report grid into transaction rows keyed by lower-case column header. */
-export function gridToRows(grid: string[][]): RawRow[] {
+export function gridToRows(grid: string[][], section = ''): RawRow[] {
   const hi = grid.findIndex((r) => (r || []).some((x) => /mandate\s*id/i.test(String(x || ''))))
   if (hi < 0) throw new Error('No "Mandate ID" column found — is this a NuPay transaction report?')
   let H = grid[hi].map((x) => String(x || '').trim().toLowerCase())
-  let sec = ''
+  let sec = section
   const out: RawRow[] = []
   for (let ri = 0; ri < grid.length; ri++) {
     const cells = (grid[ri] || []).map((x) => String(x ?? '').trim())
@@ -147,8 +185,11 @@ export function gridToRows(grid: string[][]): RawRow[] {
 }
 
 export async function readReport(file: File): Promise<RawRow[]> {
-  const grid = /\.xlsx$/i.test(file.name) ? await readXlsx(await file.arrayBuffer()) : parseDelimited(await file.text())
-  return gridToRows(grid)
+  if (!/\.xlsx$/i.test(file.name)) return gridToRows(parseDelimited(await file.text()))
+  // Every tab is read; tabs without a "Mandate ID" header (notes, summaries) are skipped.
+  const sheets = (await readXlsxSheets(await file.arrayBuffer())).filter((s) => s.grid.some((r) => r.some((x) => /mandate\s*id/i.test(x))))
+  if (!sheets.length) throw new Error('No "Mandate ID" column found — is this a NuPay transaction report?')
+  return sheets.flatMap((s) => gridToRows(s.grid, sectionOf(s.name)))
 }
 
 /** Excel serial (45953) or any string containing YYYY-MM-DD → ISO date; else ''. */
@@ -163,6 +204,14 @@ export function brIso(v: string | undefined): string {
 
 // ───────────────────────────── Analysis ─────────────────────────────
 
+/** "EcoloansP Dube" / "ECOLOANS-K.Moatshe" → "P Dube" / "K. Moatshe" */
+export function cleanReference(v: string | undefined): string {
+  return String(v || '')
+    .replace(/^ecoloans[\s\-_.:]*/i, '')
+    .replace(/^([A-Za-z])\.(?=\S)/, '$1. ')
+    .trim()
+}
+
 const num = (v: string | undefined) => parseFloat(String(v || '').replace(/[^\d.-]/g, '')) || 0
 
 export function outcomeOf(res: string, section: string): Outcome {
@@ -175,6 +224,8 @@ export function outcomeOf(res: string, section: string): Outcome {
 export function analyse(raw: RawRow[], book: Pick<Book, 'loans' | 'clients'>): ReconRow[] {
   const loans = book.loans.filter((l) => !l.deletedAt)
   const clients = book.clients.filter((c) => !c.deletedAt)
+  // Debtors already getting a new client earlier in this report (one person, several mandates)
+  const newDebtors = new Set<string>()
   return raw.map((o, i) => {
     const mid = String(o['mandate id'] || '').trim()
     const idno = String(o['debtor id'] || '').trim()
@@ -187,7 +238,7 @@ export function analyse(raw: RawRow[], book: Pick<Book, 'loans' | 'clients'>): R
     const outcome = outcomeOf(res, o._section)
     const l = loans.find((x) => String(x.mandateId || '') === mid)
     const cli = l ? clients.find((c) => c.id === l.clientId) : idno ? clients.find((c) => String(c.idNumber || '') === idno) : undefined
-    const nameRaw = String(o['client reference'] || '').replace(/^ecoloans\s*/i, '').trim()
+    const nameRaw = cleanReference(o['client reference'])
     const r: ReconRow = {
       key: `r${i}`, mid, idno, res, outcome, K, V, deb, orig, pif, cycle, first, nameRaw,
       clientId: cli?.id ?? null, clientName: cli?.name ?? (nameRaw || 'Unknown'),
@@ -195,7 +246,10 @@ export function analyse(raw: RawRow[], book: Pick<Book, 'loans' | 'clients'>): R
     }
     if (!l) {
       r.kind = 'new'
-      r.action = `Not on the book · add as new loan (${V} instalment${V > 1 ? 's' : ''})${cli ? '' : ' + new client'}`
+      const repeat = !cli && !!idno && newDebtors.has(idno)
+      if (!cli && idno) newDebtors.add(idno)
+      r.sharedClient = repeat
+      r.action = `Not on the book · add as new loan (${V} instalment${V > 1 ? 's' : ''})${cli ? '' : repeat ? ' · same new client as above' : ' + new client'}`
       if (!(r.first || r.cycle)) {
         r.kind = 'skip'
         r.on = false
@@ -259,7 +313,9 @@ export function applyRecon(book: Book, rows: ReconRow[], file: string, actor: op
   let b = book
   for (const r of rows.filter((x) => x.on && x.kind !== 'skip')) {
     if (r.kind === 'new') {
-      let cid = r.clientId
+      // Several report rows can belong to one person (one mandate per loan):
+      // reuse a client created earlier in this same import, matched on ID number.
+      let cid = r.clientId ?? (r.idno ? b.clients.find((c) => !c.deletedAt && c.idNumber === r.idno)?.id ?? null : null)
       if (!cid) {
         const c = blankClient({ ref: nextClientRef(b.clients), name: r.nameRaw || 'Unknown', idNumber: r.idno || null, createdBy: actor.name })
         b = ops.addClient(b, c, actor)

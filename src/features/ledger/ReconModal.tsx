@@ -165,7 +165,7 @@ export function ReconModal({ onClose }: { onClose: () => void }) {
                       {r.mid}
                       {r.ref && <div className="font-sans text-[10.5px] font-semibold" style={{ color: 'var(--acc)' }}>{r.ref}</div>}
                     </td>
-                    <td className="px-3 py-2.5 font-semibold">{r.clientName}{!r.clientId && r.kind === 'new' && <div className="text-[10.5px] font-medium" style={{ color: 'var(--blue)' }}>new client</div>}</td>
+                    <td className="px-3 py-2.5 font-semibold">{r.clientName}{!r.clientId && r.kind === 'new' && <div className="text-[10.5px] font-medium" style={{ color: 'var(--blue)' }}>{r.sharedClient ? 'same new client' : 'new client'}</div>}</td>
                     <td className="px-3 py-2.5 num">{r.K}/{r.V}<div className="text-[10.5px]" style={{ color: 'var(--dim)' }}>{r.dueLbl ?? r.cycle}</div></td>
                     <td className="px-3 py-2.5 text-right num">{zar(r.deb)}</td>
                     <td className="px-3 py-2.5" style={{ color: r.outcome === 'paid' ? 'var(--green)' : r.outcome === 'unpaid' ? 'var(--red)' : 'var(--mut)' }}>{r.res || '—'}</td>
