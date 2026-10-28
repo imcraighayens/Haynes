@@ -41,8 +41,8 @@ Anyone using that browser can open it, so use Supabase for anything beyond a sin
 
 1. Create a Supabase project.
 2. **SQL Editor:** run [`supabase/schema.sql`](supabase/schema.sql). It is idempotent, and its header explains each step. It creates normalized tables, Row Level Security (signed-in team members only, no anon access), soft-delete protection and an append-only audit log.
-3. **Authentication:** turn off public sign-ups. Then add your user under **Users → Add user** with auto-confirm.
-4. Add your `employees` row with role `admin`. The SQL is in the schema header. Until that row exists nobody, including you, can see anything — there is no first-sign-in shortcut.
+3. Add your `employees` row with role `admin` (the SQL is in the schema header). Until that row exists nobody, including you, can see anything — there is no first-sign-in shortcut.
+4. **Authentication → Users → Add user** with the same email, a strong password and auto-confirm. The database refuses logins for anyone not on the team, so the employees row must come first. Turning off public sign-ups as well does no harm.
 5. Copy `.env.example` to `.env` and set:
    ```
    VITE_SUPABASE_URL=https://xxxx.supabase.co

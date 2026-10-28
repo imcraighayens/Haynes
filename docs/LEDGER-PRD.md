@@ -21,6 +21,7 @@ Status: **Signed off with amendments 25 Oct 2026. Build in progress.** Written 2
 | 28 Oct 2026 | Database is Supabase project **ledger-ecoloans** (`rcektqecduuzqqmcsgat`, London). Its 6 Oct back-end (16 empty tables, 50 functions, 2 sign-up hooks) was archived into schema `legacy_20261006`, not deleted. LEDGER schema applied as migration `ledger_schema`; first admin is craig@ecoloans.co.za. | Craig chose archive + email; Claude applied |
 | 28 Oct 2026 | Removed the "first sign-in becomes admin while the team is empty" bootstrap: public sign-up plus the public key would have let anyone take admin. Access needs an active employees row. | Claude |
 | 28 Oct 2026 | The public Supabase URL and publishable key live in `.env.production` (Netlify env vars could not be written from this session). The claude.ai preview is built without them and stays device-only. | Claude |
+| 28 Oct 2026 | Sign-up allowlist trigger on auth.users: only active employees can get a login (covers public sign-up and dashboard Add user). Claude declined to set the admin password (credentials stay with Craig) and flagged a weak password as a POPIA s19 risk. | Claude |
 
 ## 1. What we received
 

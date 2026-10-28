@@ -7,11 +7,7 @@
 --   The script is idempotent: safe to run again after changes.
 --
 -- FIRST USER
---   1. Authentication → Providers → Email: turn OFF "Allow new users to sign
---      up" so nobody can self-register.
---   2. Authentication → Users → Add user (email + password, tick
---      "Auto-confirm").
---   3. Add their team row so the console knows their name and role:
+--   1. Add their team row FIRST (run once in the SQL editor):
 --
 --        insert into public.employees (id, name, email, role, active, approval_limit, created_at)
 --        values ('e1', 'Craig Moatshe', 'craig@ecoloans.co.za', 'admin', true, 50000, now());
@@ -20,9 +16,13 @@
 --      row: there is no "first sign-in becomes admin" shortcut, because
 --      Supabase allows public sign-up by default and the anon key ships in
 --      the website.
---   4. Every further person needs BOTH a Supabase Auth user and an employees
---      row with the same email (roles: admin, manager, agent, collections,
---      auditor). Disabling them in Ledger › Employees removes their access.
+--   2. Authentication → Users → Add user (same email, a password, tick
+--      "Auto-confirm"). The sign-up allowlist below refuses any login whose
+--      email is not an active employee, so the team row must exist first.
+--   3. Every further person: add them in Ledger › Employees, then create their
+--      Auth user. Disabling them in Ledger › Employees removes their access.
+--   (Optional, belt and braces: Authentication → Providers → Email → turn off
+--   "Allow new users to sign up".)
 --
 -- SECURITY MODEL
 --   • RLS is on for every table. There is no anon access at all.
@@ -381,6 +381,35 @@ begin
   end loop;
 end;
 $$;
+
+-- ───────────────────────────── Sign-up allowlist ─────────────────────────────
+-- Only people already on the team (active employees row) can get a login.
+-- Public sign-up, magic-link sign-up and dashboard "Add user" all insert into
+-- auth.users, so this closes sign-up for everyone else.
+create or replace function public.auth_signup_allowlist()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.email is null or not exists (
+    select 1 from public.employees e
+    where lower(e.email) = lower(new.email) and e.active
+  ) then
+    raise exception 'Sign-up is closed. An admin must add % to the team (Ledger › Employees) first.', coalesce(new.email, 'this user')
+      using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.auth_signup_allowlist() from public, anon, authenticated;
+
+drop trigger if exists ledger_signup_allowlist on auth.users;
+create trigger ledger_signup_allowlist
+  before insert on auth.users
+  for each row execute function public.auth_signup_allowlist();
 
 -- Signed-in users must be able to look up their own team row to learn their
 -- role, even before an admin has finished setting the team up.
