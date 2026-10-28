@@ -303,6 +303,7 @@ grant execute on function public.is_admin() to authenticated;
 create or replace function public.block_hard_delete()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   raise exception 'Hard delete is not allowed on %. Archive the row by setting deleted_at instead.', tg_table_name
@@ -323,6 +324,7 @@ create trigger bank_tx_no_delete before delete on public.bank_tx for each row ex
 create or replace function public.audit_log_append_only()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if (new.at, new.type, new.ref, new.customer, new.amount, new."by", new.comment)

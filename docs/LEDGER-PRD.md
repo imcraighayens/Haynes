@@ -18,6 +18,9 @@ Status: **Signed off with amendments 25 Oct 2026. Build in progress.** Written 2
 | 26 Oct 2026 | Paid-up letter follows Craig's Ecoloans template (logo, layout, wording). It can be generated only when the loan's stored status is Paid (or Settled early) **and** every instalment is collected; written-off, open or status-not-set accounts are refused with the reason. All of a client's fully paid accounts can share one letter. The full ID must be revealed (logged) before printing; each account is logged as PAID-UP LETTER ISSUED. | Craig asked; Claude built |
 | 26 Oct 2026 | Letter cites **section 71A** NCA (paid-up letter within 7 days of settlement, copy to credit bureaus), not section 71 as in the template draft — s71 is the debt-review clearance certificate. Craig to confirm with compliance. | Claude flagged |
 | 26 Oct 2026 | NuPay import now keeps the DebiCheck contract reference (printed as the account ref), the actual debit (action) date per instalment, and the debtor's bank when the client has none. | Claude |
+| 28 Oct 2026 | Database is Supabase project **ledger-ecoloans** (`rcektqecduuzqqmcsgat`, London). Its 6 Oct back-end (16 empty tables, 50 functions, 2 sign-up hooks) was archived into schema `legacy_20261006`, not deleted. LEDGER schema applied as migration `ledger_schema`; first admin is craig@ecoloans.co.za. | Craig chose archive + email; Claude applied |
+| 28 Oct 2026 | Removed the "first sign-in becomes admin while the team is empty" bootstrap: public sign-up plus the public key would have let anyone take admin. Access needs an active employees row. | Claude |
+| 28 Oct 2026 | The public Supabase URL and publishable key live in `.env.production` (Netlify env vars could not be written from this session). The claude.ai preview is built without them and stays device-only. | Claude |
 
 ## 1. What we received
 
