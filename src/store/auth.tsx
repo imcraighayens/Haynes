@@ -13,8 +13,8 @@ export interface User {
 /**
  * Two modes, chosen by whether Supabase env vars are present:
  *  - supabase: Supabase Auth email/password. Name and role come from the
- *    `employees` row with the same email. If the employees table is empty,
- *    the first person to sign in is treated as admin (bootstrap).
+ *    `employees` row with the same email. Without an active row nobody
+ *    sees anything (RLS); the first admin's row is added in the SQL editor.
  *  - local: no database connected. The book lives in this browser only, so
  *    there is nothing to authenticate against — the operator just says who
  *    they are (for the logbook) and works as admin on this device.
@@ -44,11 +44,8 @@ async function resolveUser(id: string, email: string, meta: Record<string, unkno
       name = data.name as string
       role = (data.active === false ? 'auditor' : data.role) as Role
     } else {
-      // No team row. The server decides: is_admin() is true only while the
-      // team is empty (first-user bootstrap). Anyone else gets a read-only
-      // role and RLS shows them nothing.
-      const { data: bootstrap } = await supabase.rpc('is_admin')
-      role = bootstrap === true ? 'admin' : 'auditor'
+      // Not on the team: read-only role, and RLS shows them nothing.
+      role = 'auditor'
     }
   }
   return { id, name, email, role }

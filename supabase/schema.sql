@@ -16,8 +16,10 @@
 --        insert into public.employees (id, name, email, role, active, approval_limit, created_at)
 --        values ('e1', 'Craig Moatshe', 'craig@ecoloans.co.za', 'admin', true, 50000, now());
 --
---      Until the employees table has a row, the first person who signs in is
---      treated as admin so they can set the team up from Ledger › Employees.
+--      Nobody can read or write anything until they have an active employees
+--      row: there is no "first sign-in becomes admin" shortcut, because
+--      Supabase allows public sign-up by default and the anon key ships in
+--      the website.
 --   4. Every further person needs BOTH a Supabase Auth user and an employees
 --      row with the same email (roles: admin, manager, agent, collections,
 --      auditor). Disabling them in Ledger › Employees removes their access.
@@ -259,8 +261,8 @@ create index if not exists employees_email_idx    on public.employees (lower(ema
 
 -- ───────────────────────────── Access helper ─────────────────────────────
 
--- True for a signed-in, active team member. While the employees table is
--- empty, any signed-in user qualifies so the first admin can bootstrap.
+-- True for a signed-in, active team member. No bootstrap: the first admin's
+-- employees row is inserted from the SQL editor (see FIRST USER above).
 create or replace function public.is_staff()
 returns boolean
 language sql
@@ -268,17 +270,14 @@ stable
 security definer
 set search_path = public
 as $$
-  select auth.uid() is not null and (
-    not exists (select 1 from public.employees)
-    or exists (
-      select 1 from public.employees e
-      where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and e.active
-    )
+  select auth.uid() is not null and exists (
+    select 1 from public.employees e
+    where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and e.active
   );
 $$;
 
--- True for an active admin (or anyone signed in while the team is empty).
+-- True for a signed-in, active admin.
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -286,13 +285,10 @@ stable
 security definer
 set search_path = public
 as $$
-  select auth.uid() is not null and (
-    not exists (select 1 from public.employees)
-    or exists (
-      select 1 from public.employees e
-      where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-        and e.active and e.role = 'admin'
-    )
+  select auth.uid() is not null and exists (
+    select 1 from public.employees e
+    where lower(e.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+      and e.active and e.role = 'admin'
   );
 $$;
 
