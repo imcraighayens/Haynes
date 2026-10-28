@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Ubuntu:wght@400;500;700&display=swap');
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Framed (preview) mode: #root scrolls instead of the window */
+html.embedded,
+html.embedded body {
+  overflow: hidden;
+}
+html.embedded #root {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+body {
+  margin: 0;
+  background: var(--appbg);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+select,
+textarea {
+  outline: none;
+  font: inherit;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--acc) !important;
+}
+::placeholder {
+  color: var(--dim);
+}
+:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+/* Dialogs receive programmatic focus for keyboard users; don't ring the whole panel */
+[role='dialog']:focus-visible {
+  outline: none;
+}
+
+/* Thin, quiet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 99px;
+}
+
+@layer components {
+  /* Small caps label used across the console */
+  .eyebrow {
+    @apply text-[10.5px] font-semibold uppercase tracking-[0.08em];
+    color: var(--mut);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: var(--cardLift);
+  }
+  .glass {
+    background: var(--calGlass);
+    border: 1px solid var(--calGlassLine);
+    border-radius: 22px;
+    backdrop-filter: blur(26px) saturate(1.6);
+    -webkit-backdrop-filter: blur(26px) saturate(1.6);
+    box-shadow: var(--cardLift);
+  }
+  .field {
+    @apply w-full rounded-xl px-3.5 py-2.5 text-[13.5px];
+    background: var(--panel2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+  }
+  .field:disabled {
+    opacity: 0.6;
+  }
+  .row-hover:hover {
+    background: var(--hover);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.975); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes growBar {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-7px); }
+  75% { transform: translateX(7px); }
+}
+@keyframes q-blink {
+  0%, 44%, 56%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+}
+/* Q1 assistant (spec: Q1 Assistant Button) */
+@keyframes q-mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(253, 209, 13, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(253, 209, 13, 0); } }
+@keyframes q-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes q-halo { 0% { transform: scale(1); opacity: 0.5; } 70% { transform: scale(1.7); opacity: 0; } 100% { transform: scale(1.7); opacity: 0; } }
+@keyframes q-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes q-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@keyframes q-twitch { 0%, 90%, 100% { transform: rotate(0); } 93% { transform: rotate(-14deg); } 96% { transform: rotate(10deg); } }
+@keyframes q-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.q1-font { font-family: Ubuntu, 'Plus Jakarta Sans', system-ui, sans-serif; }
+.q1-press:active { transform: scale(0.92); }
+/* The bar itself carries the focus glow; no box inside it */
+.q1-font input:focus-visible { outline: none; }
+.q1-thinking {
+  background: linear-gradient(90deg, rgba(255,255,255,.45) 0%, #fff 50%, rgba(255,255,255,.45) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: q-shimmer 1.8s linear infinite;
+}
+.fade-up { animation: fadeUp 0.35s ease backwards; }
+.modal-in { animation: modalIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.scrim-in { animation: scrimIn 0.2s ease both; }
+.toast-in { animation: fadeUp 0.25s ease both; }
+.shake { animation: shake 0.3s ease; }
+.ticker-track { animation: ticker 60s linear infinite; }
+.ticker-track:hover { animation-play-state: paused; }
+.grow-bar { transform-origin: bottom; animation: growBar 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.pulse { animation: pulse 1.6s ease infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* Printing: only the .print-root document is printed */
+@media print {
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-root, .print-root * { visibility: visible; }
+  .print-root { position: absolute; inset: 0; padding: 0; }
+  .no-print { display: none !important; }
+}

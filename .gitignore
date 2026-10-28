@@ -8,3 +8,4 @@ dist-ssr
 *.log
 .vite
 *.tsbuildinfo
+dist-preview

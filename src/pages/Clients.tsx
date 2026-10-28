@@ -1,145 +1,152 @@
 import { useMemo, useState } from 'react'
-import { Search, UserPlus, Phone, Mail, MapPin, Pencil, Trash2 } from 'lucide-react'
-import { useData } from '../context/DataContext'
-import { Card } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { AddClientModal } from '../components/modals/AddClientModal'
-import { money } from '../lib/format'
-import type { Client } from '../data/types'
+import { Ban, Search, UserPlus } from 'lucide-react'
+import { PageHeader } from '../shell/PageHeader'
+import { useBook } from '../store/book'
+import { useAuth } from '../store/auth'
+import { useUi } from '../store/ui'
+import { can } from '../domain/permissions'
+import { clientLoans, isOpen, outstanding } from '../domain/loans'
+import { dateLabel, maskTail, zar } from '../domain/format'
+import { Button } from '../ui/Button'
+import { Empty, Input, Pill, Segmented } from '../ui/bits'
+import { officerName, scopeClients, useMyEmployeeId, usePiiVisible } from '../features/clients/shared'
+
+type View = 'active' | 'archived'
 
 export function Clients() {
-  const { data, deleteClient } = useData()
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<Client | null>(null)
+  const { book } = useBook()
+  const { user } = useAuth()
+  const ui = useUi()
+  const myId = useMyEmployeeId()
+  const showPii = usePiiVisible()
+  const [q, setQ] = useState('')
+  const [view, setView] = useState<View>('active')
 
-  const enriched = useMemo(() => {
-    return data.clients
+  const scoped = useMemo(() => scopeClients(book.clients, user!.role, myId), [book.clients, user, myId])
+  const onBook = scoped.filter((c) => !c.deletedAt)
+  const archived = scoped.filter((c) => c.deletedAt)
+
+  const rows = useMemo(() => {
+    const src = view === 'active' ? onBook : archived
+    const k = q.trim().toLowerCase()
+    const list = k
+      ? src.filter((c) => [c.name, c.ref, c.phone, c.employer, c.city, officerName(book, c.officerId)].some((v) => (v ?? '').toLowerCase().includes(k)) || (c.idNumber ?? '').endsWith(k))
+      : src
+    return list
       .map((c) => {
-        const loans = data.loans.filter((l) => l.clientId === c.id)
-        const outstanding = loans.filter((l) => l.status !== 'paid')
-        return {
-          ...c,
-          loanCount: loans.length,
-          outstandingAmount: outstanding.reduce((s, l) => s + l.returnAmount, 0),
-          totalBorrowed: loans.reduce((s, l) => s + l.amount, 0),
-          active: outstanding.length > 0,
-        }
+        const ls = clientLoans(book.loans, c.id).filter(isOpen)
+        return { c, open: ls.length, owed: ls.reduce((s, l) => s + outstanding(l), 0) }
       })
-      .filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-  }, [data, query])
+      .sort((a, b) => b.c.createdAt.localeCompare(a.c.createdAt))
+  }, [view, onBook, archived, q, book])
+
+  const idCell = (v: string | null) => (showPii ? v ?? '—' : maskTail(v))
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Clients</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {data.clients.length} registered borrowers · {enriched.filter((c) => c.active).length} active
-          </p>
-        </div>
-        <Button icon={<UserPlus size={16} />} onClick={() => setOpen(true)}>
-          Add Client
-        </Button>
-      </div>
+    <>
+      <PageHeader
+        title="Clients"
+        sub={`${onBook.length} ON BOOK`}
+        actions={can(user!.role, 'client.create') && <Button variant="primary" icon={<UserPlus size={15} />} onClick={() => ui.open({ kind: 'clientForm' })}>Add client</Button>}
+      />
 
-      <div className="relative">
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search clients…"
-          className="w-full h-12 rounded-xl pl-11 pr-4 text-sm surface-muted text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1">
+          <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--dim)' }} />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, ref, phone, employer, officer…" className="!h-12 !rounded-2xl !pl-11" aria-label="Search clients" />
+        </div>
+        <Segmented<View>
+          value={view}
+          onChange={setView}
+          options={[
+            { value: 'active', label: `On book · ${onBook.length}` },
+            { value: 'archived', label: `Archived · ${archived.length}` },
+          ]}
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {enriched.map((c) => (
-          <Card key={c.id} className="p-5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-11 w-11 shrink-0 rounded-full bg-brand-500/15 text-brand-500 dark:text-brand-300 grid place-items-center font-semibold">
-                  {c.name
-                    .split(' ')
-                    .slice(0, 2)
-                    .map((n) => n[0])
-                    .join('')}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-800 dark:text-white truncate">{c.name}</p>
-                  <span
-                    className={
-                      c.active
-                        ? 'text-[11px] text-green-500 font-medium'
-                        : 'text-[11px] text-slate-400 font-medium'
-                    }
-                  >
-                    {c.active ? '● Active' : '○ Inactive'}
+      <div className="overflow-hidden rounded-[22px]" style={{ background: 'var(--calGlass)', border: '1px solid var(--calGlassLine)', boxShadow: 'var(--cardLift)', backdropFilter: 'blur(26px) saturate(1.6)' }}>
+        {/* desktop table */}
+        <table className="hidden w-full text-left md:table">
+          <thead>
+            <tr className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: 'var(--mut)', background: 'rgba(0,0,0,.25)' }}>
+              <th className="w-12 py-4 pl-5 font-semibold">#</th>
+              <th className="py-4 font-semibold">Ref</th>
+              <th className="py-4 font-semibold">Customer</th>
+              <th className="py-4 font-semibold">ID number</th>
+              <th className="py-4 text-right font-semibold">Open loans</th>
+              <th className="py-4 pl-6 font-semibold">Added</th>
+              <th className="py-4 pr-5 font-semibold">Officer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ c, open, owed }, i) => (
+              <tr
+                key={c.id}
+                onClick={() => ui.open({ kind: 'client', clientId: c.id })}
+                className="cursor-pointer text-[13.5px] transition hover:bg-[var(--rowHover)]"
+                style={{ borderTop: '1px solid var(--calCellLine)', opacity: c.deletedAt ? 0.6 : 1 }}
+              >
+                <td className="py-3 pl-5 num" style={{ color: 'var(--dim)' }}>{i + 1}</td>
+                <td className="py-3 num" style={{ color: 'var(--mut)' }}>{c.ref}</td>
+                <td className="py-3 font-semibold">
+                  <span className="inline-flex items-center gap-2">
+                    {c.name}
+                    {c.blocked && <Pill tone="red"><Ban size={10} className="mr-1" />Blocked</Pill>}
                   </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setEditing(c)}
-                  title="Edit client"
-                  className="h-8 w-8 grid place-items-center rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-700 dark:hover:text-white transition-colors"
-                >
-                  <Pencil size={15} />
-                </button>
-                <button
-                  onClick={() => {
-                    const msg = c.loanCount
-                      ? `Delete ${c.name} and their ${c.loanCount} loan(s)? This cannot be undone.`
-                      : `Delete ${c.name}? This cannot be undone.`
-                    if (confirm(msg)) deleteClient(c.id)
-                  }}
-                  title="Delete client"
-                  className="h-8 w-8 grid place-items-center rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
+                </td>
+                <td className="py-3 font-mono text-[12.5px]" style={{ color: 'var(--mut)' }}>{idCell(c.idNumber)}</td>
+                <td className="py-3 text-right num">
+                  {open ? (
+                    <span>
+                      <span className="font-semibold">{zar(owed)}</span>
+                      <span className="ml-1.5 text-[11px]" style={{ color: 'var(--dim)' }}>· {open}</span>
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--dim)' }}>—</span>
+                  )}
+                </td>
+                <td className="py-3 pl-6 num" style={{ color: 'var(--mut)' }}>{dateLabel(c.createdAt)}</td>
+                <td className="py-3 pr-5" style={{ color: 'var(--mut)' }}>{officerName(book, c.officerId)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-            <div className="mt-4 space-y-1.5 text-sm text-slate-500 dark:text-slate-400">
-              <p className="flex items-center gap-2">
-                <Phone size={14} /> {c.phone}
-              </p>
-              {c.email && (
-                <p className="flex items-center gap-2 truncate">
-                  <Mail size={14} /> {c.email}
-                </p>
-              )}
-              {c.address && (
-                <p className="flex items-center gap-2">
-                  <MapPin size={14} /> {c.address}
-                </p>
-              )}
-            </div>
+        {/* mobile cards */}
+        <ul className="divide-y md:hidden" style={{ borderColor: 'var(--calCellLine)' }}>
+          {rows.map(({ c, open, owed }) => (
+            <li key={c.id}>
+              <button onClick={() => ui.open({ kind: 'client', clientId: c.id })} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left" style={{ opacity: c.deletedAt ? 0.6 : 1 }}>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-[14px] font-semibold">
+                    <span className="truncate">{c.name}</span>
+                    {c.blocked && <Pill tone="red">Blocked</Pill>}
+                  </span>
+                  <span className="mt-0.5 block text-[11.5px]" style={{ color: 'var(--mut)' }}>
+                    {c.ref} · {idCell(c.idNumber)} · {officerName(book, c.officerId)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-[12.5px] num">
+                  {open ? <span className="font-semibold">{zar(owed)}</span> : <span style={{ color: 'var(--dim)' }}>—</span>}
+                  <span className="block text-[10.5px]" style={{ color: 'var(--dim)' }}>{dateLabel(c.createdAt)}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
 
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 dark:border-white/5 pt-4 text-center">
-              <div>
-                <p className="text-xs text-slate-400">Loans</p>
-                <p className="font-semibold text-slate-800 dark:text-white">{c.loanCount}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Borrowed</p>
-                <p className="font-semibold text-slate-800 dark:text-white">{money(c.totalBorrowed)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Owing</p>
-                <p className="font-semibold text-amber-500">{money(c.outstandingAmount)}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-        {enriched.length === 0 && (
-          <p className="col-span-full text-center text-slate-400 py-10">No clients found.</p>
+        {!rows.length && (
+          <Empty>
+            {q ? `No clients match “${q}”.` : view === 'archived' ? 'No archived clients.' : 'No clients on the book yet — add your first client.'}
+          </Empty>
         )}
       </div>
 
-      <AddClientModal open={open} onClose={() => setOpen(false)} />
-      <AddClientModal open={!!editing} onClose={() => setEditing(null)} client={editing} />
-    </div>
+      <p className="px-2 text-[10.5px] font-medium uppercase tracking-[0.06em]" style={{ color: 'var(--dim)' }}>
+        {showPii ? 'Full PII visible — revealed for this session' : 'ID numbers masked — full PII visible only with elevated access'}
+        {view === 'archived' && ' · archived clients are read-only and kept for the 5-year retention period'}
+      </p>
+    </>
   )
 }

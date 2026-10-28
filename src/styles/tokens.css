@@ -1,0 +1,121 @@
+/* LEDGER design tokens — ported from the prototype's applyTheme(). */
+:root,
+[data-theme='dark'] {
+  --acc: #c3f53c;
+  --accInk: #1a1a17;
+  --accText: #d9a066;
+  --accSoft: rgba(195, 245, 60, 0.14);
+  --tlG: #39ff88;
+  --tlB: #2ec5ff;
+  --tlR: #ff3b6b;
+  --scrim: rgba(2, 2, 12, 0.62);
+  --modalBg: linear-gradient(180deg, #151513 0%, #0c0c0a 140px);
+  --modalLine: rgba(255, 255, 255, 0.09);
+  --modalShadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3), 0 40px 90px -24px rgba(0, 0, 0, 0.8);
+  --bg: #000000;
+  --panel: #0c0c0a;
+  --panel2: #111110;
+  --panel3: #181816;
+  --line: #2a2a25;
+  --line2: #3a3933;
+  --ink: #f5f4ee;
+  --mut: #b3b0a4;
+  --dim: #8a8778;
+  --red: #e08a76;
+  --redSoft: rgba(224, 138, 118, 0.16);
+  --amber: #dbb26a;
+  --amberSoft: rgba(219, 178, 106, 0.16);
+  --blue: #8fa7c9;
+  --blueSoft: rgba(143, 167, 201, 0.18);
+  --green: #8fb98a;
+  --greenSoft: rgba(143, 185, 138, 0.16);
+  --hover: #242420;
+  --glass: rgba(44, 44, 39, 0.86);
+  --glassLine: rgba(245, 244, 238, 0.07);
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  --cardLift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.26), 0 20px 44px rgba(0, 0, 0, 0.28);
+  --cardHover: 0 2px 6px rgba(0, 0, 0, 0.36), 0 14px 28px rgba(0, 0, 0, 0.32), 0 34px 68px rgba(0, 0, 0, 0.34);
+  --appbg: radial-gradient(1250px 780px at 4% -12%, rgba(0, 0, 254, 0.75), transparent 66%),
+    radial-gradient(1080px 820px at 102% 2%, rgba(0, 0, 254, 0.52), transparent 64%),
+    radial-gradient(1000px 780px at 52% 116%, rgba(0, 0, 254, 0.39), transparent 66%),
+    linear-gradient(168deg, #06061a 0%, #02020a 60%, #000004 100%);
+  --sideTint: rgba(0, 0, 0, 0.55);
+  --calGlass: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 55%, rgba(120, 140, 255, 0.05));
+  --calGlassLine: rgba(255, 255, 255, 0.14);
+  --calCell: rgba(4, 4, 12, 0.72);
+  --calCellWk: rgba(4, 4, 12, 0.38);
+  --calCellHas: rgba(10, 10, 24, 0.92);
+  --calCellLine: rgba(255, 255, 255, 0.05);
+  --calCellHasLine: rgba(255, 255, 255, 0.18);
+  --calCellInk: var(--ink);
+  --calCellMut: var(--mut);
+  --rowHover: #05050a;
+  --rowOverdue: linear-gradient(90deg, rgba(120, 38, 26, 0.9), rgba(70, 22, 16, 0.55) 60%, rgba(20, 8, 6, 0.35));
+  --kpiBlue: linear-gradient(135deg, #1f1fff 0%, #0b0bd6 60%, #0505a0 100%);
+  --kpiLime: linear-gradient(135deg, #d9ff4a 0%, #b6ea2a 70%, #9fd417 100%);
+  --kpiOlive: linear-gradient(135deg, #22261a 0%, #15170f 100%);
+  --kpiRed: linear-gradient(135deg, #d33a4a 0%, #a3192a 100%);
+  --btnBlueBg: rgba(30, 40, 160, 0.35);
+  --btnBlueInk: #c9d2ff;
+  --btnBlueLine: rgba(120, 140, 255, 0.55);
+  --navActiveInk: var(--acc);
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --accText: #14161a;
+  --accInk: #101408;
+  --accSoft: rgba(150, 205, 30, 0.18);
+  --tlG: #0b6532;
+  --tlB: #0b5fa8;
+  --tlR: #b0242a;
+  --scrim: rgba(16, 20, 56, 0.34);
+  --modalBg: #ffffff;
+  --modalLine: rgba(14, 19, 32, 0.08);
+  --modalShadow: 0 2px 6px rgba(14, 19, 40, 0.06), 0 18px 40px -12px rgba(14, 19, 40, 0.22), 0 50px 100px -30px rgba(20, 24, 80, 0.4);
+  --bg: #e7eaf0;
+  --panel: #ffffff;
+  --panel2: #f7f8fb;
+  --panel3: #f1f3f7;
+  --line: #e2e6ec;
+  --line2: #cbd2dc;
+  --ink: #0e1320;
+  --mut: #363e4e;
+  --dim: #565e6f;
+  --red: #b0242a;
+  --redSoft: rgba(196, 43, 47, 0.1);
+  --amber: #7a4706;
+  --amberSoft: rgba(138, 82, 10, 0.12);
+  --blue: #1845a6;
+  --blueSoft: rgba(24, 69, 166, 0.1);
+  --green: #0b6532;
+  --greenSoft: rgba(15, 122, 61, 0.12);
+  --hover: #edf0f5;
+  --glass: rgba(255, 255, 255, 0.82);
+  --glassLine: rgba(14, 19, 32, 0.1);
+  --shadow: 0 24px 60px rgba(18, 22, 34, 0.18);
+  --cardLift: 0 0 0 1px rgba(14, 19, 32, 0.06), 0 1px 2px rgba(14, 19, 32, 0.06), 0 6px 16px rgba(14, 19, 32, 0.06), 0 16px 36px rgba(14, 19, 32, 0.06);
+  --cardHover: 0 0 0 1px rgba(14, 19, 32, 0.08), 0 2px 4px rgba(14, 19, 32, 0.08), 0 14px 28px -8px rgba(14, 19, 32, 0.14), 0 32px 60px -20px rgba(14, 19, 32, 0.18);
+  --appbg: radial-gradient(1250px 780px at 4% -12%, rgba(0, 0, 254, 0.62), transparent 66%),
+    radial-gradient(1080px 820px at 102% 2%, rgba(0, 0, 254, 0.44), transparent 64%),
+    radial-gradient(1000px 780px at 52% 116%, rgba(0, 0, 254, 0.34), transparent 66%),
+    linear-gradient(168deg, #d6dbff 0%, #c7cdf6 60%, #b9c0f0 100%);
+  --sideTint: transparent;
+  --calGlass: linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.3) 55%, rgba(200, 210, 255, 0.34));
+  --calGlassLine: rgba(255, 255, 255, 0.7);
+  --calCell: #1b1d26;
+  --calCellWk: #2b2e3a;
+  --calCellHas: #0b0c12;
+  --calCellLine: rgba(255, 255, 255, 0.06);
+  --calCellHasLine: rgba(255, 255, 255, 0.22);
+  --calCellInk: #f2f4f8;
+  --calCellMut: #c3c8d4;
+  --rowHover: #c9cfda;
+  --rowOverdue: linear-gradient(90deg, rgba(196, 43, 47, 0.16), rgba(196, 43, 47, 0.06) 60%, transparent);
+  --kpiOlive: linear-gradient(135deg, #2b3020 0%, #1b1e13 100%);
+  --btnBlueBg: #1f2bd6;
+  --btnBlueInk: #ffffff;
+  --btnBlueLine: #1520b0;
+  --navActiveInk: #0e1320;
+  color-scheme: light;
+}

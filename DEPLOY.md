@@ -1,68 +1,73 @@
-# Deployment Guide — e.Volt Dashboard → Vercel
+# Deploying LEDGER
 
-This app is a static Vite + React SPA. It runs in two modes:
+LEDGER is a static Vite + React single-page app. It runs in one of two modes:
 
-- **Offline / demo** — no env vars; seeded data in `localStorage`, demo login.
-- **Production** — Supabase backend + real Supabase Auth (email/password).
+- **This device only:** no env vars. The book starts empty and is kept in the browser; whoever opens it enters their name. Use this for previews only.
+- **Production:** Supabase Auth plus Postgres, with Row Level Security.
 
-Follow these steps for a production deploy on **Vercel**.
+## 1. Supabase
 
-## 1. Set up Supabase
+1. Create a project at [supabase.com](https://supabase.com). A region near South Africa (e.g. `af-south-1`) keeps latency down and simplifies POPIA cross-border questions.
+2. **Moving from e.Volt?** Its `clients` and `loans` tables use different columns. Export what you need, then uncomment the rename block at the top of `supabase/schema.sql`, or drop the old tables.
+3. **SQL Editor:** run [`supabase/schema.sql`](supabase/schema.sql). It is safe to run again.
+4. **Authentication → Providers → Email:** turn off **Allow new users to sign up**.
+5. **Authentication → Users → Add user:** your admin login, with auto-confirm on.
+6. Add your team row:
+   ```sql
+   insert into public.employees (id, name, email, role, active, approval_limit, created_at)
+   values ('e1', 'Your Name', 'you@ecoloans.co.za', 'admin', true, 50000, now());
+   ```
+   After this, add everyone else from **Ledger › Employees & roles**. Each person also needs a Supabase Auth user with the same email.
+7. **Settings → API:** copy the **Project URL** and the **anon public** key. The anon key is safe in a browser bundle, because RLS grants it nothing.
+8. **Authentication → URL Configuration:** set the **Site URL** to your production domain.
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql).
-   This creates the tables, indexes, **production RLS policies** (public read,
-   authenticated write), and seeds the real clients + active loans.
-3. Create your admin login — **Authentication → Users → Add user** (set an email
-   and password, tick "Auto-confirm").
-4. (Optional) Add a matching row to the `team` table so your name/role resolve
-   correctly — see the note at the bottom of `schema.sql`. Without it you still
-   get the `admin` role by default.
-5. **Settings → API** — copy the **Project URL** and the **anon public** key.
+## 2. Vercel (or Netlify)
 
-## 2. Deploy to Vercel
+`vercel.json` sets the build (`npm run build` → `dist`), the SPA rewrites, security headers and asset caching. Node 20 is pinned in `.nvmrc`.
 
-The repo includes [`vercel.json`](vercel.json) (build command, SPA rewrites,
-security headers, asset caching) and pins Node 20 via `.nvmrc`.
+1. **Add New → Project:** import this repository.
+2. **Settings → Environment Variables** (Production and Preview):
 
-1. **Add New → Project**, import this repo and branch.
-2. Vercel auto-detects Vite; `vercel.json` provides build settings
-   (`npm run build` → output `dist`).
-3. **Settings → Environment Variables** — add (for Production, Preview, Dev):
    | Key | Value |
-   | --- | --- |
-   | `VITE_SUPABASE_URL` | your Project URL |
-   | `VITE_SUPABASE_ANON_KEY` | your anon public key |
-4. **Deploy**. (Env vars are read at build time — redeploy after changing them.)
+   |---|---|
+   | `VITE_SUPABASE_URL` | Project URL |
+   | `VITE_SUPABASE_ANON_KEY` | anon public key |
+   | `ANTHROPIC_API_KEY` | Anthropic API key for Q1 — **Production only, never `VITE_`-prefixed** |
 
-## 3. Point Supabase at your domain
+3. Deploy. Env vars are read at build time, so **redeploy after changing them**.
 
-In Supabase **Authentication → URL Configuration**, set the **Site URL** and add
-your Vercel domain(s) to **Redirect URLs** so auth links resolve correctly.
+Netlify works the same way through `netlify.toml`.
 
-## 4. Smoke-test the live site
+> Preview deployments built without the env vars run in this-device mode with an empty book. That's handy for reviewing UI changes, and safe because they hold no data until someone imports it in their own browser.
 
-- [ ] Login screen appears; the demo-credentials link is **gone** (confirms Supabase mode)
-- [ ] Sign in with your Supabase user
-- [ ] Dashboard loads the seeded clients/loans from the database
-- [ ] Add a client, refresh → it persists (DB write working)
-- [ ] Settings → Data management shows **🟢 Connected to Supabase**
-- [ ] Direct-load a deep route (e.g. `/loans`) and refresh → no 404 (SPA rewrite)
-- [ ] Log out returns you to the login screen
+## 3. Load the book
 
-## Rollback / preview
+Sign in as the admin, then either:
 
-Every push/PR gets a Vercel **preview deployment**. Production deploys are
-atomic — use **Deployments → ⋯ → Promote to Production** (or **Rollback**) on a
-previous build to revert instantly.
+- **Ledger › Data › Import a book:** paste the prototype save. In the prototype's browser console, run `copy(localStorage.getItem('evoltConsoleV4'))`. Or choose a LEDGER JSON export. Confirm by typing `IMPORT`; the import is written straight to Supabase.
+- **Ledger › Overview › Import NuPay report:** load the latest debit-order report to bring statuses up to date.
+
+## 4. Smoke test
+
+- [ ] The sign-in screen asks for email **and password** (confirms Supabase mode)
+- [ ] Q1's header shows **Claude Opus 5.5** after the first question (confirms the AI function and key)
+- [ ] Sign in works, and the page header reads **SAVED · SUPABASE**
+- [ ] Add a client, refresh: it is still there
+- [ ] Issue a loan: it appears in the Logbook, and a bank movement appears under Ledger › Overview
+- [ ] Sign in as a user with **no** employees row: they see an empty book (RLS working)
+- [ ] An agent cannot open `/ledger` and cannot change roles
+- [ ] Opening a deep link like `/loans` directly and refreshing gives no 404
+- [ ] Log out returns to the sign-in screen
+
+## Rollback
+
+Every deploy is atomic. In Vercel, use **Deployments → ⋯ → Promote to Production / Rollback** on an earlier build. Database changes are additive (`create … if not exists`), so an older build keeps working against the same schema.
 
 ## Local production check
 
 ```bash
 npm ci
+npm test
 npm run build      # type-check + bundle
-npm run preview    # serve dist/ at http://localhost:4173
+npm run preview    # http://localhost:4173
 ```
-
-> A `netlify.toml` is also included if you ever prefer Netlify — same build,
-> redirects, and headers. Vercel ignores it.

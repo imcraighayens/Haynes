@@ -8,12 +8,13 @@ export default defineConfig({
     port: 5173,
   },
   build: {
+    // Letter logos must be data URLs: printed letters render in a blank iframe
+    assetsInlineLimit: (file) => (file.includes('/src/assets/') ? true : undefined),
     rollupOptions: {
       output: {
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
-          vendor: ['date-fns', 'lucide-react', 'clsx'],
+          vendor: ['lucide-react', 'clsx', 'qrcode-generator'],
         },
       },
     },

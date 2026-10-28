@@ -1,141 +1,112 @@
-import { useState } from 'react'
-import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
-import { Button } from '../components/ui/Button'
-import { inputClass } from '../components/ui/Modal'
+import { useState, type FormEvent } from 'react'
+import { ArrowRight, BarChart3, Eye, EyeOff, Lock } from 'lucide-react'
+import { useAuth } from '../store/auth'
+import { Button } from '../ui/Button'
+import { Field, Input } from '../ui/bits'
+import { useTheme } from '../store/theme'
 
 export function Login() {
-  const { login, demoCredentials, mode } = useAuth()
+  const { login, loginLocal, mode } = useAuth()
+  const [name, setName] = useState('')
+  const { theme, toggle } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [shakeKey, setShakeKey] = useState(0)
 
-  async function submit(e: React.FormEvent) {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
-    const res = await login(email, password)
-    if (!res.ok) {
-      setError(res.error ?? 'Login failed.')
-      setLoading(false)
+    if (mode === 'local') {
+      if (name.trim().length < 2) {
+        setError('Enter your name — it is recorded against everything you do in the logbook.')
+        setShakeKey((k) => k + 1)
+        return
+      }
+      loginLocal(name, email)
+      return
     }
-    // On success the auth listener swaps the view; no need to clear loading.
-  }
-
-  function fillDemo() {
-    setEmail(demoCredentials.email)
-    setPassword(demoCredentials.password)
-    setError('')
+    if (!email || !password) {
+      setError('Enter your email and password.')
+      setShakeKey((k) => k + 1)
+      return
+    }
+    setBusy(true)
+    setError(null)
+    const r = await login(email, password)
+    setBusy(false)
+    if (!r.ok) {
+      setError(r.error ?? 'Sign-in failed.')
+      setShakeKey((k) => k + 1)
+    }
   }
 
   return (
-    <div className="min-h-full grid lg:grid-cols-2">
-      {/* Brand panel */}
-      <div className="hidden lg:flex relative flex-col justify-between p-12 overflow-hidden bg-gradient-to-br from-brand-700 via-brand-800 to-violet-900">
-        <div className="absolute inset-0 gradient-header opacity-60" />
-        <div className="relative flex items-center gap-2">
-          <div className="h-10 w-10 rounded-xl bg-white/15 grid place-items-center text-white">
-            <Zap size={20} fill="currentColor" />
-          </div>
-          <span className="text-2xl font-extrabold text-white">e.Volt</span>
-          <span className="text-[10px] align-super text-white/60">TM</span>
-        </div>
-        <div className="relative max-w-md">
-          <h1 className="text-4xl font-bold text-white leading-tight">
-            Monitor and manage your loan service operations.
-          </h1>
-          <p className="mt-4 text-white/70">
-            Track loans, clients, repayments and cash flow — all in one modern dashboard built for micro-lenders.
-          </p>
-        </div>
-        <div className="relative flex gap-8 text-white/80">
-          <div>
-            <p className="text-2xl font-bold text-white">35%</p>
-            <p className="text-xs">Default return</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-white">Real-time</p>
-            <p className="text-xs">Ledger &amp; logbook</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-white">Secure</p>
-            <p className="text-xs">Role-based access</p>
+    <div className="flex min-h-full items-center justify-center px-4 py-10" style={{ background: 'var(--appbg)' }}>
+      <div className="w-full max-w-[420px]">
+        <div className="mb-7 flex items-center justify-center gap-3">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-[15px]" style={{ background: 'var(--acc)', color: 'var(--accInk)', boxShadow: '0 10px 30px -6px rgba(195,245,60,.5)' }}>
+            <BarChart3 size={22} strokeWidth={2.6} />
+          </span>
+          <div className="leading-none">
+            <div className="text-[24px] font-extrabold tracking-[-0.01em]">LEDGER</div>
+            <div className="mt-1 text-[9.5px] font-semibold tracking-[0.22em]" style={{ color: 'var(--mut)' }}>BY ECOLOANS</div>
           </div>
         </div>
-      </div>
 
-      {/* Form panel */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 grid place-items-center text-white">
-              <Zap size={20} fill="currentColor" />
-            </div>
-            <span className="text-2xl font-extrabold text-slate-800 dark:text-white">e.Volt</span>
+        <form key={shakeKey} onSubmit={submit} className={`glass p-7 ${shakeKey ? 'shake' : ''}`} style={{ background: 'var(--glass)', borderColor: 'var(--glassLine)' }} noValidate>
+          <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold tracking-[0.14em]" style={{ color: 'var(--mut)' }}>
+            <Lock size={12} /> LOAN BOOK CONSOLE
           </div>
+          <h1 className="mb-6 text-[24px] font-extrabold">{mode === 'local' ? 'Open LEDGER' : 'Sign in'}</h1>
 
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Welcome back</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sign in to your admin dashboard.</p>
-
-          <form onSubmit={submit} className="mt-8 space-y-4">
-            <label className="block">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Email</span>
-              <div className="relative mt-1.5">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className={inputClass + ' pl-9'}
-                  autoComplete="email"
-                />
-              </div>
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Password</span>
-              <div className="relative mt-1.5">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={show ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={inputClass + ' pl-9 pr-9'}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShow((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                >
-                  {show ? <EyeOff size={16} /> : <Eye size={16} />}
+          <div className="flex flex-col gap-4">
+            {mode === 'local' && (
+              <Field label="Your name">
+                <Input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Craig Moatshe" autoFocus />
+              </Field>
+            )}
+            <Field label={mode === 'local' ? 'Email (optional)' : 'Email'}>
+              <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@ecoloans.co.za" autoFocus={mode !== 'local'} />
+            </Field>
+            {mode !== 'local' && (
+            <Field label="Password">
+              <div className="relative">
+                <Input type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="pr-11" />
+                <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full" style={{ color: 'var(--mut)' }} aria-label={show ? 'Hide password' : 'Show password'}>
+                  {show ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-            </label>
-
+            </Field>
+            )}
             {error && (
-              <div className="rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 text-sm px-3 py-2 border border-red-500/20">
+              <div role="alert" className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-medium" style={{ background: 'var(--redSoft)', color: 'var(--red)' }}>
                 {error}
               </div>
             )}
-
-            <Button type="submit" className="w-full" disabled={loading} icon={!loading ? <ArrowRight size={16} /> : undefined}>
-              {loading ? 'Signing in…' : 'Sign in'}
+            <Button type="submit" variant="primary" size="lg" block disabled={busy} icon={busy ? undefined : <ArrowRight size={16} />}>
+              {busy ? 'Signing in…' : mode === 'local' ? 'Open on this device' : 'Sign in'}
             </Button>
-          </form>
+          </div>
 
-          {mode === 'demo' && (
-            <button
-              onClick={fillDemo}
-              className="mt-6 w-full text-center text-xs text-slate-500 dark:text-slate-400 hover:text-brand-500 dark:hover:text-brand-300 transition-colors"
-            >
-              Use demo admin credentials →
-            </button>
+          {mode === 'local' ? (
+            <div className="mt-6 rounded-2xl p-4 text-[12.5px] leading-relaxed" style={{ background: 'var(--panel2)', border: '1px solid var(--line)', color: 'var(--mut)' }}>
+              <div className="mb-1 font-semibold" style={{ color: 'var(--amber)' }}>No database connected</div>
+              Your book is kept in this browser only and starts empty — bring it in from Ledger › Data (prototype book) or Ledger › Overview (NuPay report). Anyone using this browser can open it; connect Supabase for real sign-in and shared data.
+            </div>
+          ) : (
+            <p className="mt-6 text-[12px] leading-relaxed" style={{ color: 'var(--mut)' }}>
+              Accounts are created by an admin in Supabase Auth. Your role comes from your row in the team list (Ledger › Employees &amp; roles) — ask an admin if you can sign in but see the wrong screens.
+            </p>
           )}
+        </form>
+
+        <div className="mt-5 flex items-center justify-between px-2 text-[11px]" style={{ color: 'var(--dim)' }}>
+          <span>Access is logged. Records are retained per NCA / FICA.</span>
+          <button onClick={toggle} className="font-semibold tracking-[0.1em]" style={{ color: 'var(--mut)' }}>
+            {theme === 'dark' ? 'LIGHT' : 'DARK'} THEME
+          </button>
         </div>
       </div>
     </div>
