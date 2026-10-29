@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 const ENV = { SUPABASE_URL: 'https://db.test.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service-role-secret-NEVER-RETURN' };
 Object.assign(process.env, ENV);
 
-const handler = (await import('../../api/quik1/[...path].js')).default;
+const handler = (await import('../../api/quik1.js')).default;
 const { publicLimiter } = await import('../../api/_lib/ratelimit.js');
 
 function makeRes() {

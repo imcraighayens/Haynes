@@ -4,13 +4,13 @@
 //   POST /api/quik1/signups             GET /api/quik1/signups/:id
 //   POST /api/quik1/requests            GET /api/quik1/repayments/:key
 import { randomBytes } from 'node:crypto';
-import { wrap, json, readBody, pathParts, requireEnv, HttpError, PUBLIC_BODY_CAP } from '../_lib/http.js';
-import { publicLimiter, clientIp } from '../_lib/ratelimit.js';
-import { selectOne, count, upsert, eq } from '../_lib/supabase.js';
+import { wrap, json, readBody, pathParts, requireEnv, HttpError, PUBLIC_BODY_CAP } from './_lib/http.js';
+import { publicLimiter, clientIp } from './_lib/ratelimit.js';
+import { selectOne, count, upsert, eq } from './_lib/supabase.js';
 import {
   wellFormedClientId, isSafeId, cleanText, cleanPhone, cleanEmail, parseAmount, parseTerm, num, toMs,
   quik1StatusLabel
-} from '../_lib/validate.js';
+} from './_lib/validate.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085

@@ -6,7 +6,7 @@ const ENV = { SUPABASE_URL: 'https://db.test.supabase.co', SUPABASE_SERVICE_ROLE
 const KEY = ENV.LEDGER_KEY;
 Object.assign(process.env, ENV);
 
-const handler = (await import('../../api/q1/[...path].js')).default;
+const handler = (await import('../../api/q1.js')).default;
 
 function makeRes() {
   const res = { statusCode: 0, headers: {}, body: '', headersSent: false,

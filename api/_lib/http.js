@@ -43,11 +43,17 @@ export function header(req, name) {
   return Array.isArray(v) ? v[0] : (v == null ? undefined : String(v));
 }
 
-// Vercel gives catch-all segments as req.query.path (array for `[...path]`, string for one
-// segment). Fall back to the URL so the handlers also work behind other runtimes/tests.
+// vercel.json rewrites /api/<area>/<rest> to /api/<area>?path=<rest>, so the sub-path arrives
+// as req.query.path (a string, or an array if it was repeated). If req.query is missing we read
+// `path` off the URL's query, then fall back to the URL path itself (other runtimes, tests).
 export function pathParts(req, prefix) {
-  const q = req.query && req.query.path;
-  let parts = Array.isArray(q) ? q.slice() : (typeof q === 'string' && q ? q.split('/') : null);
+  let q = req.query && req.query.path;
+  if (q == null) {
+    const url = String(req.url || '');
+    const i = url.indexOf('?');
+    if (i >= 0) q = new URLSearchParams(url.slice(i + 1)).get('path');
+  }
+  let parts = Array.isArray(q) ? q.join('/').split('/') : (typeof q === 'string' && q ? q.split('/') : null);
   if (!parts) {
     const url = String(req.url || '').split('?')[0];
     parts = url.split('/').filter(Boolean);

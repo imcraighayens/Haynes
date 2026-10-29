@@ -2,10 +2,10 @@
 // qkMap/qkPush code:
 //   GET   /api/q1/applications?status=new|reviewing|approved|declined|all
 //   PATCH /api/q1/applications/:id   body {status}
-import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from '../_lib/http.js';
-import { requireStaff } from '../_lib/auth.js';
-import { select, selectOne, update, eq } from '../_lib/supabase.js';
-import { APPLICATION_STATUS, applicationStatusToDb, isSafeId, num } from '../_lib/validate.js';
+import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
+import { requireStaff } from './_lib/auth.js';
+import { select, selectOne, update, eq } from './_lib/supabase.js';
+import { APPLICATION_STATUS, applicationStatusToDb, isSafeId, num } from './_lib/validate.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const LIST_LIMIT = 200;
