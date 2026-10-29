@@ -25,7 +25,7 @@ ledger/                 LEDGER console (desktop). Served at /ledger/
 quik1/                  Quik1 customer app (mobile, 440x940). Served at /quik1/
   index.html            design template (frozen); script tag points at quik1-link.js
   quik1-link.js         NEW  window.Quik1Link backed by the API (same API as the local one)
-api/                    Vercel Node 20 serverless functions (ESM)
+api/                    Vercel Node 22 serverless functions (ESM)
   _lib/                 shared helpers (supabase REST client, auth, validation, rate limit)
   ledger/[...path].js   staff endpoints  (Bearer LEDGER_KEY)
   q1/[...path].js       LEDGER's "Quik1 loan app" integration endpoints (Bearer LEDGER_KEY)
@@ -163,7 +163,7 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
 
 ## Server API (`api/`)
 
-* Runtime: Vercel Node 20, ESM (`"type":"module"`), zero npm dependencies (use global `fetch`).
+* Runtime: Vercel Node 22 (`engines.node` = `22.x` in package.json), ESM (`"type":"module"`), zero npm dependencies (use global `fetch`).
   Each file `export default async function handler(req, res)`. Catch-all routes:
   `api/ledger/[...path].js`, `api/q1/[...path].js`, `api/quik1/[...path].js`.
 * Env: `SUPABASE_URL` (`https://rcektqecduuzqqmcsgat.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY`,
@@ -176,17 +176,24 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
   `_lib/validate.js`: column whitelists per table + status maps; `_lib/ratelimit.js`:
   best-effort in-memory per-IP limiter for public routes (e.g. 30 req/min).
 * Staff (`/api/ledger/*`, Bearer LEDGER_KEY):
-  * `GET state` → `{clients, loans, employees, applications, audit_log (newest 1000), petty_cash,
-    bank_tx (newest 500), expenses, settings|null, ledger_book:{updated_at}|null, server_time}`
-    (include `deleted_at` rows; client filters).
+  * `GET state` → `{clients, loans, employees, applications (newest 500), audit_log (newest 1000),
+    petty_cash, bank_tx (newest 500), expenses, settings|null, ledger_book:{updated_at}|null, server_time}`
+    (include `deleted_at` rows; client filters). Unlimited tables are paged through PostgREST's
+    `db-max-rows` cap and checked against `Content-Range`; a snapshot that cannot be completed is a
+    503 `partial state`, never a truncated book.
   * `POST sync` body `{ops:[{table, op:'upsert'|'insert'|'update'|'soft_delete', rows?, id?, patch?, reason?}]}`
     — applies in order with per-table whitelists; `audit_log` and `bank_tx` accept insert/upsert
     only (ignore duplicates: `on_conflict=id` + `resolution=ignore-duplicates`); `settings` is
     upsert on id='org' with the NCR/fee columns stripped; soft_delete sets `deleted_at`
     (and `write_off_reason`/`delete_reason` never — just `deleted_at`). Returns
-    `{ok, results:[{table, op, count, error?}]}` — partial failures are reported, not thrown.
+    `{ok, results:[{table, op, count, error?, retryable?}]}` — partial failures are reported, not
+    thrown; `retryable:true` (upstream unreachable / 5xx / 429) tells the clients to keep the op
+    and retry with backoff, anything else is final and dropped.
   * `GET rest/v1/ledger_book?...` and `POST rest/v1/ledger_book?on_conflict=id` (PostgREST
     semantics the console expects: `id=eq.main`, `select=`, `limit=`; respond with JSON arrays).
+    The book is a **write-only backup**: a GET that projects `payload` returns it without
+    `clients/loans/employees/applications`, so the console's own "Stored book is missing records"
+    guard stops sbPull from restoring a stale snapshot over the live tables (sbPush still works).
 * Q1 integration (`/api/q1/*`, Bearer LEDGER_KEY) — shaped for `qkMap`/`qkPush`:
   * `GET applications?status=new` → JSON array of `applications` rows where `source='quik1'`
     (default status filter `new`; `status=all` for everything) each augmented with
@@ -199,7 +206,12 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     `id:'ap_'+random(12 hex), ref:'AP-'+(1085+count)` (use count query), `name, phone, email?,
     id_number?, amount (number > 0, ≤ 50000), term_months: parseInt(term)||1, purpose, net_income:
     income, employer?, job_title?, bank?, source:'quik1', status:'new',
-    meta:{surplus, submittedAt, client:'quik1', raw: <whitelisted extras>}` → `{id, status:'Needs decision'}`.
+    meta:{surplus, submittedAt, client:'quik1', raw: <whitelisted extras>}` → `201 {id, ref, status:'Needs decision'}`.
+    A POST whose id already exists answers `200 {id, ref, status, decision}` from the stored row
+    (retries never mint a second ref or reset a decided status). Before inserting, two DB-backed
+    throttles (they survive cold starts, unlike the in-memory limiter) answer 429: more than
+    `QUIK1_HOURLY_CAP` (60) quik1 applications in the last hour, or `QUIK1_PHONE_DAILY_CAP` (3)
+    from the same phone in 24 h. Stored rows stay small: ≤ 5 doc names of ≤ 80 chars, raw extras ≤ 60 chars.
   * `GET applications/:id` → `{id, status, decision}` mapped for the app:
     `status: new|reviewing→'Needs decision', approved→'Approved', declined→'Declined'`,
     `decision: null | {verdict:'approved'|'declined', amount, by, note, at (ms)}`.
@@ -208,7 +220,9 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     policy; `decided_by:'auto'`, `note:'Auto-approved by Quik1 bridge'`) → `{id, status}`.
     `GET signups/:id` → `{id, status, decidedAt, by, note}`.
   * `POST requests` → insert `q1_requests` → `{id, status:'New'}`.
-  * `GET repayments/:key` → `{ok, by, at}` or `null`.
+  * `GET repayments/:key` → `{ok, by, at}` or `null`. Keys are scoped to one customer record:
+    `app:<applicationId>` (staff write that key); the unscoped `app` of the local original would be
+    one global flag for every customer and is answered `null` without a lookup.
 * Responses: `Content-Type: application/json`, `Cache-Control: no-store`. Validate everything;
   strip unknown keys; never echo the service key; never log PII.
 
@@ -224,8 +238,13 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
    `ledjaa.expenses` ← `expenses` (not deleted), `ledjaa.bank` ← settings bank_opening_*,
    `evoltOrg` ← settings org fields, `ledjaa.clientRefHigh` ← max client ref number. Also ensure
    `q1.apps` has the Quik1 entry pointing at `location.origin + '/api/q1'` with the same key,
-   `on:true, actions:true` (only fill fields that are empty — never overwrite a user's edits).
-   On failure or no key: continue local-only, remember the error for the adapter.
+   `on:true, actions:true` (only fill fields that are empty — never overwrite a user's edits; the
+   key is filled **only when the entry's url is our own `/api/q1`** — LEDGER_KEY never accompanies a
+   third-party url). Seed `loanSeq`/`clientSeq` from the highest live `ECL-`/`EC-` ref + 1 so a
+   fresh browser never reissues a ref (the console formats `'ECL-0'+seq`).
+   On failure or no key: continue local-only, remember the error for the adapter — but always make
+   sure `evoltConsoleV4` holds `clients/loans/logbook/petty/employees/applications` arrays (`[]`
+   when absent): the console only discards its built-in demo book when `clients` and `loans` exist.
 3. Then inject the dc runtime `<script src="c53b361c-bb83-4c37-90f5-7116b8407f79.js">`
    (the original tag is removed from the head and replaced by this shim).
 4. Mirror: wrap `Storage.prototype.setItem`; on writes to `evoltConsoleV4`, `ledjaa.bank.tx`,
@@ -242,8 +261,11 @@ work), `ROLES`, `PERMISSIONS` (copy), `class LedjaaDB`, `const db`, default `db`
 * Tables held in memory: `users` (from `employees`), `clients`, `loans`, `applications`,
   `audit_log`, `row_versions` (local only), plus pass-through of the rest.
 * `ready`: await `window.__ledger.state` (if present) else fetch itself; populate; cache a copy in
-  `localStorage['ledjaa.db.v3']` for offline boot; if neither cloud nor cache → empty tables
-  (NOT the demo seed — the hosted console must never show demo clients).
+  `localStorage['ledjaa.db.v3']` for offline boot; if neither cloud nor cache → the module
+  **rejects** (the console's `initDb()` catch sets `dbReady:false`, "DATABASE UNAVAILABLE") and the
+  adapter refuses every write, so an empty adapter can never originate writes (dbPush against an
+  empty book would "create" everything the console holds — demo rows included — once a key exists).
+  NOT the demo seed — the hosted console must never show demo clients.
 * `toConsoleState()` → `{clients, loans, employees}` in console vocabulary, every non-deleted row,
   dates as labels, `employee` = officer name or 'Unassigned', loans with
   `amount=principal, ret=return_rate_pct, retAmt=instalment_amount, paidInst=instalments_paid,
@@ -253,7 +275,13 @@ work), `ROLES`, `PERMISSIONS` (copy), `class LedjaaDB`, `const db`, default `db`
 * `insert/update/softDelete/restore`: apply locally (same semantics, versions, local audit) AND
   queue the op (`upsert` rows with live column names, status normalised to the DB enum,
   dates to ISO) → debounce 400 ms → `POST /api/ledger/sync` via `window.__ledger.api`.
-  Unknown columns are dropped by the whitelist — do not send them.
+  Unknown columns are dropped by the whitelist — do not send them. `principal_derived` is never
+  sent (live boolean NOT NULL the console does not own). A console-created loan carries only
+  `due_date`: when no schedule exists anywhere it becomes `schedule:[due]`. A closed loan
+  (`paid|settled_early|written_off`) that stays closed never has `instalments_paid`/`paid_dates`
+  rewritten by the console's "every instalment paid" presentation. Per-op `retryable` errors go
+  back on the queue with backoff. "Removed in console" archives are collected per save and refused
+  as a burst (> max(3, 10 %) of a table) — a stale console state must not archive the book.
 * `setActor`, `table`, `rows`, `find`, `where`, `can`, `meta`, `id`, `subscribe`, `history`,
   `balance`, `staffMetrics`, `reassignBook`, `forceRelogin`, `actorTrail`, `counts`, `feeAt`,
   `empty`, `reset`, `logRaw`, `version` — keep signatures; `staffMetrics` may return zeros for
@@ -266,15 +294,17 @@ records only). Network via `window.QUIK1_API || location.origin + '/api/quik1'`.
 the temp id in the record AND return the server id synchronously? No: the app uses the returned
 id as `linkId` immediately, so generate the id client-side (`'ap_' + 12 hex`) and send it in the
 body; the server honours a well-formed client id). Same for signups (`'su_'…`) and requests.
-Poll `GET applications/:id` / `signups/:id` / `repayments/app` every 6 s while any own record is
-undecided and a subscriber exists; stop when decided; also poll once on `subscribe`. Keep the
+Poll `GET applications/:id` / `signups/:id` / `repayments/app:<latest own application id>` every
+6 s while any own record is undecided and a subscriber exists (the result still lands in
+`repayments.app`, where the app reads it); stop when decided; also poll once on `subscribe`. Keep the
 BroadcastChannel so two tabs stay in step. `decide/decideSignup/confirmRepayment/reset` keep
 working on the local cache (they are admin-side helpers the customer app never calls).
 
 ## Conventions
-* No build step. No bundler. No npm dependencies in production code. Node 20 features only.
+* No build step. No bundler. No npm dependencies in production code. Node 22 features only.
 * Plain readable JS; small functions; comments say *why*.
 * Never DELETE rows, never UPDATE `audit_log`, never write NCR/fee columns, never put the service
   key or `LEDGER_KEY` in any committed file, never log PII (names, ID numbers, bank accounts).
-* Tests: `node --test tests/` for units (mock `fetch`), Playwright for boot
+* Tests: `npm test` (= `node --test` over every `tests/**/*.test.js`; on Node 21+ a bare
+  `node --test tests/` fails, so use the glob or a single file) for units (mock `fetch`), Playwright for boot
   (`tools/boot-test.js` pattern: serve the folder, open, wait, assert text, screenshot).

@@ -10,6 +10,10 @@ import { COLUMNS, pick, requireId } from '../_lib/validate.js';
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
 const BANK_TX_LIMIT = 500;
+// applications is fed by the public Quik1 route, so its size is not under staff control: the
+// console only works the newest ones, and an unbounded list would let junk submissions bloat
+// (and eventually break) the boot snapshot.
+const APPLICATIONS_LIMIT = 500;
 const MAX_OPS = 500;
 const MAX_ROWS_PER_OP = 1000;
 
@@ -31,10 +35,10 @@ async function tolerant(p) { try { return await p; } catch { return null; } }
 
 async function getState(req, res) {
   const [clients, loans, employees, applications, audit_log, petty_cash, bank_tx, expenses, settings, book] = await Promise.all([
-    select('clients', { select: '*', order: 'created_at.asc' }),
-    select('loans', { select: '*', order: 'created_at.asc' }),
-    select('employees', { select: '*', order: 'created_at.asc' }),
-    select('applications', { select: '*', order: 'created_at.desc' }),
+    select('clients', { select: '*', order: 'created_at.asc,id.asc' }),
+    select('loans', { select: '*', order: 'created_at.asc,id.asc' }),
+    select('employees', { select: '*', order: 'created_at.asc,id.asc' }),
+    select('applications', { select: '*', order: 'created_at.desc', limit: APPLICATIONS_LIMIT }),
     select('audit_log', { select: '*', order: 'at.desc', limit: AUDIT_LIMIT }),
     select('petty_cash', { select: '*', order: 'date.desc' }),
     select('bank_tx', { select: '*', order: 'at.desc', limit: BANK_TX_LIMIT }),
@@ -116,9 +120,12 @@ async function postSync(req, res) {
       const count = await applyOp(op);
       results.push({ ...base, count });
     } catch (e) {
-      // Partial failures are reported per op; the console retries what it must.
+      // Partial failures are reported per op. `retryable` tells the clients whether to keep the
+      // op (upstream down / 5xx / throttled) or drop it (validation, conflict, bad table).
       const msg = e instanceof HttpError ? e.message : 'Internal error';
-      results.push({ ...base, count: 0, error: msg });
+      const retryable = !(e instanceof HttpError) || e.message === 'Database unreachable'
+        || (e.upstream != null && (e.upstream >= 500 || e.upstream === 429));
+      results.push({ ...base, count: 0, error: msg, retryable });
     }
   }
   json(res, 200, { ok: results.every(r => !r.error), results, server_time: new Date().toISOString() }, req);
@@ -129,7 +136,8 @@ async function postSync(req, res) {
 function parseFilters(sp) {
   const filters = {};
   for (const [k, v] of sp.entries()) {
-    if (k === 'select' || k === 'limit' || k === 'order' || k === 'on_conflict') continue;
+    // `path` is Vercel's catch-all routing key (it can appear on req.url as well as req.query).
+    if (k === 'path' || k === 'select' || k === 'limit' || k === 'order' || k === 'on_conflict') continue;
     if (!COLUMNS.ledger_book.includes(k)) throw new HttpError(400, `unsupported filter ${k}`);
     if (!/^eq\./.test(v)) throw new HttpError(400, 'only eq. filters are supported');
     filters[k] = v.slice(3);
@@ -145,6 +153,19 @@ function parseSelect(sp) {
   return cols;
 }
 
+// The book is a write-only backup. The record tables (clients, loans, employees, applications)
+// live in their own tables and are synced from every device regardless of the book's `connected`
+// flag, so a stored book is always behind them; handing it back would let the console's sbPull
+// replace the live book with a stale one (and dbPush would then archive everything created since).
+// Without `clients`/`loans` the console's own guard ("Stored book is missing records") trips and
+// nothing is restored, while sbPush keeps working.
+const BACKUP_ONLY_STRIP = ['clients', 'loans', 'employees', 'applications'];
+function backupOnly(payload) {
+  const out = { ...payload };
+  for (const k of BACKUP_ONLY_STRIP) delete out[k];
+  return out;
+}
+
 async function bookGet(req, res) {
   const sp = searchParams(req);
   const cols = parseSelect(sp);
@@ -155,7 +176,11 @@ async function bookGet(req, res) {
   if (limit) query.limit = limit;
   const rows = await select('ledger_book', query);
   // PostgREST would already project; re-project defensively so `select=id` never leaks payloads.
-  const out = rows.map(r => Object.fromEntries(cols.map(c => [c, r[c] === undefined ? null : r[c]])));
+  const out = rows.map(r => {
+    const o = Object.fromEntries(cols.map(c => [c, r[c] === undefined ? null : r[c]]));
+    if (o.payload && typeof o.payload === 'object') o.payload = backupOnly(o.payload);
+    return o;
+  });
   if (req.method === 'HEAD') { json(res, 200, undefined, req); return; }
   json(res, 200, out, req);
 }

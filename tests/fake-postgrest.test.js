@@ -48,6 +48,17 @@ test('insert vs upsert: duplicates 409, merge keeps unsent columns, ignore-dupli
   assert.equal(f.writes('loans', 'POST').length, 1, 'the refused insert is not logged as a write');
 });
 
+test('live NOT NULL columns are enforced like PostgREST does (loans.principal_derived → 23502)', async () => {
+  const f = createFakePostgrest(seed);
+  let r = await call(f, 'POST', '/rest/v1/loans?on_conflict=id', { body: [{ id: 'l1', principal_derived: null }], prefer: 'resolution=merge-duplicates,return=representation' });
+  assert.equal(r.status, 400); assert.equal(r.body.code, '23502');
+  r = await call(f, 'PATCH', '/rest/v1/loans?id=eq.l1', { body: { principal_derived: null }, prefer: 'return=representation' });
+  assert.equal(r.status, 400); assert.equal(r.body.code, '23502');
+  r = await call(f, 'POST', '/rest/v1/loans?on_conflict=id', { body: [{ id: 'l1', status: 'overdue' }], prefer: 'resolution=merge-duplicates,return=representation' });
+  assert.equal(r.status, 201, 'omitting the column is fine (stored value stands)');
+  assert.equal(f.find('loans', 'l1').status, 'overdue');
+});
+
 test('patch updates matching rows and delete is refused', async () => {
   const f = createFakePostgrest(seed);
   let r = await call(f, 'PATCH', '/rest/v1/loans?id=eq.l1', { body: { deleted_at: '2026-10-29T00:00:00Z' }, prefer: 'return=representation' });

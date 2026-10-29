@@ -58,9 +58,31 @@ async function request(method, table, query, { body, prefer, headers } = {}) {
   return { data, status: res.status, contentRange: get('content-range') };
 }
 
+function rowsOf(data) { return Array.isArray(data) ? data : (data == null ? [] : [data]); }
+
+// Supabase caps every response at db-max-rows (1000 by default) and answers 2xx with a partial
+// page, so an unlimited select pages through with limit/offset and checks the exact total from
+// the first page's Content-Range. A snapshot that cannot be completed is refused (503) rather
+// than returned truncated: the clients tolerate a failed /state, not a silently incomplete one.
+const PAGE = 1000;
+const MAX_PAGES = 100;
 export async function select(table, query) {
-  const { data } = await request('GET', table, query);
-  return Array.isArray(data) ? data : (data == null ? [] : [data]);
+  const q = typeof query === 'string' ? Object.fromEntries(new URLSearchParams(query)) : { ...(query || {}) };
+  if (q.limit != null) {
+    const { data } = await request('GET', table, q);
+    return rowsOf(data);
+  }
+  const out = [];
+  let total = null;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data, contentRange } = await request('GET', table, { ...q, limit: PAGE, offset: page * PAGE }, page === 0 ? { prefer: 'count=exact' } : {});
+    const rows = rowsOf(data);
+    out.push(...rows);
+    if (page === 0) { const m = contentRange && /\/(\d+)\s*$/.exec(String(contentRange)); total = m ? Number(m[1]) : null; }
+    if (!rows.length || (total != null ? out.length >= total : rows.length < PAGE)) break;
+  }
+  if (total != null && out.length < total) throw new HttpError(503, 'partial state');
+  return out;
 }
 
 export async function selectOne(table, query) {

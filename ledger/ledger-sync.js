@@ -176,15 +176,21 @@
     flushTimer = setTimeout(function () { flushTimer = null; flush(); }, delay == null ? DEBOUNCE_MS : delay);
     if (flushTimer && typeof flushTimer.unref === 'function') flushTimer.unref();
   }
+  // A per-op error the server marks retryable (upstream down, 5xx, throttled) keeps the op; a
+  // validation/conflict error drops it. Older servers without the flag: retry on the messages
+  // that only ever mean "try later".
+  function retryable(r) { return r.retryable === true || (r.retryable == null && /unreachable|Internal error/i.test(String(r.error || ''))); }
   function flush() {
     if (flushing || !pending.length) return Promise.resolve();
     if (!cfg().key) return Promise.resolve(); // keep the queue until the console is connected
     flushing = true;
     var batch = pending.slice(0, MAX_BATCH);
     return api('POST', '/sync', { ops: batch }).then(function (res) {
-      var results = (res && res.results) || [];
-      results.forEach(function (r, i) { if (r && r.error) info('sync op rejected', batch[i].table, batch[i].op, r.error); });
-      pending = pending.slice(batch.length); persistQueue(); backoff = DEBOUNCE_MS; flushing = false;
+      var results = (res && res.results) || [], again = [];
+      results.forEach(function (r, i) { if (r && r.error) { info('sync op rejected', batch[i].table, batch[i].op, r.error); if (retryable(r)) again.push(batch[i]); } });
+      pending = again.concat(pending.slice(batch.length)); persistQueue(); flushing = false;
+      if (again.length) { info('retrying', again.length, 'op(s) in', backoff, 'ms'); scheduleFlush(backoff); backoff = Math.min(backoff * 2, 60000); return; }
+      backoff = DEBOUNCE_MS;
       if (pending.length) scheduleFlush(0); else info('synced', batch.length, 'op(s)');
     }, function (e) {
       flushing = false; info('sync failed, retrying in', backoff, 'ms —', String((e && e.message) || e));
@@ -201,6 +207,22 @@
 
   function clientRefNum(ref) { var m = String(ref || '').match(/(\d+)\s*$/); return m ? parseInt(m[1], 10) : 0; }
 
+  // The console's constructor only discards its built-in demo book when the saved state has
+  // `clients` and `loans` ([] is truthy, so empty arrays are enough). The hosted console must
+  // never show — let alone push — demo rows, so every boot path guarantees these keys exist.
+  var BOOK_LISTS = ['clients', 'loans', 'logbook', 'petty', 'employees', 'applications'];
+  function ensureBook(sv) {
+    var out = Object.assign({}, sv && typeof sv === 'object' ? sv : {}), changed = !sv || typeof sv !== 'object';
+    BOOK_LISTS.forEach(function (k) { if (!Array.isArray(out[k])) { out[k] = []; changed = true; } });
+    return { book: out, changed: changed };
+  }
+  // Next loan/client sequence from the highest live ref ('ECL-112' → 113). The console formats
+  // new refs as 'ECL-0' + seq, so 113 renders 'ECL-0113' — unique, which is what matters.
+  function seedSeq(payload, key, rows) {
+    var hi = 0; (rows || []).forEach(function (r) { hi = Math.max(hi, clientRefNum(r && r.ref)); });
+    if (hi) payload[key] = Math.max(num(payload[key]), hi + 1);
+  }
+
   // Fills only empty fields of the Quik1 entry (and seeds the console's default list when absent).
   function seedQ1Apps(key) {
     var cur = readJSON(KEYS.q1, null), list;
@@ -213,7 +235,10 @@
     if (!q) { q = { id: 'q_quik1', name: 'Quik1 loan app', url: '', path: '/applications?status=new', key: '', proxy: '', on: false, actions: false, hint: 'Q1 checks this every minute and brings new loan applications into Applications.', pathHint: '/applications?status=new' }; list.unshift(q); }
     var changed = !Array.isArray(cur);
     if (!q.url) { q.url = origin() + '/api/q1'; q.on = true; q.actions = true; changed = true; } // first configuration only — never flip a user's toggles
-    if (!q.key && key) { q.key = key; changed = true; }
+    // LEDGER_KEY unlocks the whole book, so it only ever accompanies our own /api/q1 — never a
+    // third-party url the operator pointed this entry at.
+    var ours = String(q.url || '').replace(/\/+$/, '') === origin() + '/api/q1';
+    if (ours && !q.key && key) { q.key = key; changed = true; }
     if (!q.path) { q.path = '/applications?status=new'; changed = true; }
     if (changed) writeJSON(KEYS.q1, list);
     return list;
@@ -243,8 +268,9 @@
     localPetty.forEach(function (p) { if (p && p.id && !dbPettyIds[p.id]) { petty.push(p); ops.push({ table: 'petty_cash', op: 'upsert', rows: [pettyToRow(p)] }); } });
     petty.sort(function (a, b) { return String(b.iso || '').localeCompare(String(a.iso || '')); });
 
-    var payload = Object.assign({ clients: [], loans: [] }, sv || {}, { logbook: logbook, petty: petty });
-    if (!Array.isArray(payload.clients)) payload.clients = []; if (!Array.isArray(payload.loans)) payload.loans = [];
+    var payload = Object.assign(ensureBook(sv).book, { logbook: logbook, petty: petty });
+    seedSeq(payload, 'loanSeq', st && st.loans);
+    seedSeq(payload, 'clientSeq', st && st.clients);
     writeJSON(KEYS.console, payload);
     rememberLog(logbook); rememberPetty(petty);
 
@@ -289,9 +315,11 @@
 
   // Offline / no-key boot: just remember what is there so later writes diff correctly.
   function snapshotLocal() {
-    var sv = readJSON(KEYS.console, null) || {};
-    if (Array.isArray(sv.logbook)) { var a = assignLogIds(sv.logbook, Date.now()); if (a.changed) writeJSON(KEYS.console, Object.assign({}, sv, { logbook: a.list })); rememberLog(a.list); }
-    if (Array.isArray(sv.petty)) rememberPetty(sv.petty);
+    var eb = ensureBook(readJSON(KEYS.console, null)), sv = eb.book;
+    var a = assignLogIds(sv.logbook, Date.now());
+    if (eb.changed || a.changed) writeJSON(KEYS.console, Object.assign({}, sv, { logbook: a.list }));
+    rememberLog(a.list);
+    rememberPetty(sv.petty);
     rememberBankTx((readJSON(KEYS.bankTx, []) || []).map(function (t) { return Object.assign({}, t, { id: bankTxId(t) }); }));
     rememberExpenses(readJSON(KEYS.expenses, []) || []);
     known.bank = stableJSON(bankToSettings(readJSON(KEYS.bank, null)));
@@ -365,7 +393,7 @@
   }
 
   // Internals exposed for unit tests only.
-  L._ = { KEYS: KEYS, assignLogIds: assignLogIds, auditToLog: auditToLog, logToAudit: logToAudit, pettyToRow: pettyToRow, rowToPetty: rowToPetty, bankTxToRow: bankTxToRow, rowToBankTx: rowToBankTx, expToRow: expToRow, rowToExp: rowToExp, bankToSettings: bankToSettings, orgToSettings: orgToSettings, settingsToOrg: settingsToOrg, seedQ1Apps: seedQ1Apps, applyState: applyState, parseLabel: parseLabel, labelOf: labelOf, flush: flush, queue: function () { return pending.slice(); }, known: known };
+  L._ = { KEYS: KEYS, ensureBook: ensureBook, assignLogIds: assignLogIds, auditToLog: auditToLog, logToAudit: logToAudit, pettyToRow: pettyToRow, rowToPetty: rowToPetty, bankTxToRow: bankTxToRow, rowToBankTx: rowToBankTx, expToRow: expToRow, rowToExp: rowToExp, bankToSettings: bankToSettings, orgToSettings: orgToSettings, settingsToOrg: settingsToOrg, seedQ1Apps: seedQ1Apps, applyState: applyState, parseLabel: parseLabel, labelOf: labelOf, flush: flush, queue: function () { return pending.slice(); }, known: known };
   W.__ledger = L;
   boot();
 })(typeof window !== 'undefined' ? window : this);

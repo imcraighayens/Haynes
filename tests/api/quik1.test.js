@@ -35,13 +35,21 @@ function stubFetch(route) {
     return { ok: out.status < 400, status: out.status, headers: new Headers(out.headers || {}), text: async () => text, json: async () => JSON.parse(text) };
   };
 }
-// count() asks PostgREST for an exact count via the Content-Range header.
-const countThen = (n, rest) => r => (r.method === 'GET' && r.headers.Prefer === 'count=exact')
-  ? { status: 200, body: [], headers: { 'content-range': `0-0/${n}` } }
-  : rest(r);
+// The handler's reads, in order: an existence check by id, the two throttle counts (last hour /
+// same phone today), the ref count, then the insert. count() reads Content-Range (Prefer: count=exact).
+function stubDb({ total = 12, hourly = 0, phone = 0, existing = null, insert } = {}) {
+  stubFetch(r => {
+    if (r.method === 'GET' && r.headers.Prefer === 'count=exact') {
+      const n = r.url.searchParams.has('phone') ? phone : r.url.searchParams.has('created_at') ? hourly : total;
+      return { status: 200, body: [], headers: { 'content-range': `0-0/${n}` } };
+    }
+    if (r.method === 'GET') return { status: 200, body: existing ? [existing] : [] };
+    return insert ? insert(r) : { status: 201, body: r.body || [] };
+  });
+}
 describe('quik1', () => {
 
-beforeEach(() => { publicLimiter.reset(); stubFetch(countThen(12, r => ({ status: 201, body: r.body || [] }))); });
+beforeEach(() => { publicLimiter.reset(); stubDb(); });
 
 const appRecord = { // exactly what quik1/index.html passes to Quik1Link.submitApplication (+ the link's own id/submittedAt)
   id: 'ap_0123456789ab', submittedAt: 1761724800000, status: 'Needs decision', source: 'app',
@@ -97,11 +105,51 @@ test('quik1 POST applications: amount bounds, phone/name required, term parsing'
   assert.equal(res.statusCode, 400); assert.match(res.json().error, /name/);
   assert.equal(calls.filter(c => c.method === 'POST').length, 2, 'invalid payloads never reach the database');
 
-  stubFetch(countThen(0, r => ({ status: 201, body: r.body })));
+  stubDb({ total: 0 });
   res = await call({ method: 'POST', path: ['applications'], body: { ...appRecord, term: 'whatever', purpose: '', income: 'R 20 000', email: 'not-an-email', surplus: '1 200' } });
   const row = calls.find(c => c.method === 'POST').body[0];
   assert.equal(res.json().ref, 'AP-1085', 'first application gets the base ref');
   assert.equal(row.term_months, 1); assert.equal(row.purpose, 'Personal'); assert.equal(row.net_income, 20000); assert.equal(row.email, null); assert.equal(row.meta.surplus, 1200);
+});
+
+test('quik1 POST applications: a retried id answers from the stored row (ref and verdict) instead of a fresh one', async () => {
+  const stored = { id: 'ap_0123456789ab', ref: 'AP-2585', status: 'approved', amount: 2500, decided_at: '2026-10-29T10:00:00Z', decision: { verdict: 'approved', amount: 2000, by: 'Ecoloans', note: '', at: '2026-10-29T10:00:00Z' } };
+  stubDb({ existing: stored });
+  const res = await call({ method: 'POST', path: ['applications'], body: appRecord });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), { id: 'ap_0123456789ab', ref: 'AP-2585', status: 'Approved', decision: { verdict: 'approved', amount: 2000, by: 'Ecoloans', note: '', at: Date.parse('2026-10-29T10:00:00Z') } });
+  assert.equal(calls[0].url.searchParams.get('id'), 'eq.ap_0123456789ab');
+  assert.equal(calls[0].url.searchParams.get('source'), 'eq.quik1');
+  assert.ok(!calls[0].url.searchParams.get('select').includes('decline_reason'));
+  assert.equal(calls.filter(c => c.method === 'POST').length, 0, 'nothing re-inserted, no second ref consumed');
+});
+
+test('quik1 POST applications: database-backed throttles (per hour, per phone per day) answer 429 before any insert', async () => {
+  stubDb({ hourly: 60 });
+  let res = await call({ method: 'POST', path: ['applications'], body: appRecord });
+  assert.equal(res.statusCode, 429);
+  assert.match(res.json().error, /Too many applications/);
+  assert.ok(Number(res.headers['retry-after']) >= 60);
+  assert.equal(calls.filter(c => c.method === 'POST').length, 0);
+  const throttle = calls.filter(c => c.headers.Prefer === 'count=exact');
+  assert.equal(throttle.length, 2, 'both windows are checked in one round trip');
+  for (const c of throttle) { assert.equal(c.url.searchParams.get('source'), 'eq.quik1'); assert.match(c.url.searchParams.get('created_at'), /^gte\.\d{4}-/); }
+  assert.equal(throttle.find(c => c.url.searchParams.has('phone')).url.searchParams.get('phone'), 'eq.0824410912');
+
+  stubDb({ hourly: 59, phone: 3 });
+  assert.equal((await call({ method: 'POST', path: ['applications'], body: appRecord })).statusCode, 429, 'per-phone cap');
+  stubDb({ hourly: 59, phone: 2 });
+  assert.equal((await call({ method: 'POST', path: ['applications'], body: appRecord })).statusCode, 201, 'just under both caps');
+});
+
+test('quik1 POST applications: the stored row stays small (docs and raw extras are capped)', async () => {
+  const body = { ...appRecord, docs: Array(10).fill('d'.repeat(120)), employment: 'e'.repeat(120), payday: 'p'.repeat(120), idnum: 'i'.repeat(120) };
+  const res = await call({ method: 'POST', path: ['applications'], body });
+  assert.equal(res.statusCode, 201);
+  const row = calls.find(c => c.method === 'POST').body[0];
+  assert.equal(row.meta.docs.length, 5); assert.ok(row.meta.docs.every(d => d.length <= 80));
+  assert.ok(Object.values(row.meta.raw).every(v => String(v).length <= 60));
+  assert.ok(JSON.stringify(row).length < 1200, 'well under the 2.9 KB a flooded row used to weigh');
 });
 
 test('quik1 POST applications: body must be JSON, 16 KB cap, non-object rejected', async () => {
@@ -118,8 +166,9 @@ test('quik1 GET applications/:id: status mapping and decision shape', async () =
     [{ ...base, status: 'reviewing' }, { status: 'Needs decision', decision: null }],
     [{ ...base, status: 'approved', decided_at: '2026-10-29T10:00:00Z', decision: { verdict: 'approved', amount: 2000, by: 'Ecoloans', note: '', at: '2026-10-29T10:00:00Z' } },
       { status: 'Approved', decision: { verdict: 'approved', amount: 2000, by: 'Ecoloans', note: '', at: Date.parse('2026-10-29T10:00:00Z') } }],
-    [{ ...base, status: 'declined', decided_at: '2026-10-29T10:00:00Z', decline_reason: 'Affordability' },
-      { status: 'Declined', decision: { verdict: 'declined', amount: 2500, by: 'Ecoloans', note: 'Affordability', at: Date.parse('2026-10-29T10:00:00Z') } }]
+    // decided by staff tooling without a decision blob: the internal decline_reason never reaches the customer
+    [{ ...base, status: 'declined', decided_at: '2026-10-29T10:00:00Z', decline_reason: 'INTERNAL: suspected fraud, see SAPS case 123' },
+      { status: 'Declined', decision: { verdict: 'declined', amount: 2500, by: 'Ecoloans', note: '', at: Date.parse('2026-10-29T10:00:00Z') } }]
   ];
   for (const [row, expect] of cases) {
     stubFetch(() => ({ status: 200, body: [row] }));
@@ -129,6 +178,7 @@ test('quik1 GET applications/:id: status mapping and decision shape', async () =
     assert.equal(calls[0].url.searchParams.get('id'), 'eq.' + row.id);
     assert.equal(calls[0].url.searchParams.get('source'), 'eq.quik1', 'only app-originated rows are readable');
     assert.ok(!res.body.includes('0824410912') && !res.body.includes('Thandi'), 'no PII beyond status/decision');
+    assert.ok(!res.body.includes('INTERNAL') && !calls[0].url.searchParams.get('select').includes('decline_reason'), 'decline_reason is neither selected nor echoed');
   }
   stubFetch(() => ({ status: 200, body: [] }));
   assert.equal((await call({ path: ['applications', 'ap_ffffffffffff'] })).statusCode, 404);
@@ -167,12 +217,17 @@ test('quik1 POST requests and GET repayments/:key', async () => {
   assert.equal(row.type, 'New account'); assert.equal(row.detail, 'Savings pocket'); assert.equal(row.to, 'applications@ecoloans.co.za'); assert.equal(row.status, 'New');
   assert.equal((await call({ method: 'POST', path: ['requests'], body: { detail: 'no type' } })).statusCode, 400);
 
-  stubFetch(() => ({ status: 200, body: [{ key: 'app', ok: true, by: 'Craig', at: '2026-10-29T10:00:00Z' }] }));
-  let rep = await call({ path: ['repayments', 'app'] });
+  // keys are scoped to one application (`app:<id>`); the bare `app` of the local original would be a global flag
+  stubFetch(() => ({ status: 200, body: [{ key: 'app:ap_0123456789ab', ok: true, by: 'Craig', at: '2026-10-29T10:00:00Z' }] }));
+  let rep = await call({ path: ['repayments', 'app:ap_0123456789ab'] });
   assert.deepEqual(rep.json(), { ok: true, by: 'Craig', at: Date.parse('2026-10-29T10:00:00Z') });
-  assert.equal(calls[0].url.searchParams.get('key'), 'eq.app');
-  stubFetch(() => ({ status: 200, body: [] }));
+  assert.equal(calls[0].url.searchParams.get('key'), 'eq.app:ap_0123456789ab');
+  stubFetch(() => ({ status: 200, body: [{ key: 'app', ok: true, by: 'Admin', at: '2026-10-29T10:00:00Z' }] }));
   rep = await call({ path: ['repayments', 'app'] });
+  assert.equal(rep.statusCode, 200); assert.equal(rep.json(), null, 'an unscoped key is never served');
+  assert.equal(calls.length, 0, 'and never looked up');
+  stubFetch(() => ({ status: 200, body: [] }));
+  rep = await call({ path: ['repayments', 'app:ap_ffffffffffff'] });
   assert.equal(rep.statusCode, 200); assert.equal(rep.json(), null);
 });
 
@@ -190,26 +245,26 @@ test('quik1: rate limiter returns 429 after the per-minute limit from one ip, ot
   const limit = publicLimiter.limit;
   assert.ok(limit >= 30 && limit <= 1000, 'sane default (120/min unless QUIK1_RATE_LIMIT overrides it)');
   let last;
-  for (let i = 0; i < limit; i++) { last = await call({ path: ['repayments', 'app'], ip: '203.0.113.9' }); assert.equal(last.statusCode, 200); }
+  for (let i = 0; i < limit; i++) { last = await call({ path: ['repayments', 'app:ap_0123456789ab'], ip: '203.0.113.9' }); assert.equal(last.statusCode, 200); }
   assert.equal(last.headers['x-ratelimit-remaining'], '0');
-  const blocked = await call({ path: ['repayments', 'app'], ip: '203.0.113.9' });
+  const blocked = await call({ path: ['repayments', 'app:ap_0123456789ab'], ip: '203.0.113.9' });
   assert.equal(blocked.statusCode, 429);
   assert.deepEqual(blocked.json(), { error: 'Too many requests' });
   assert.ok(Number(blocked.headers['retry-after']) >= 1);
-  assert.equal((await call({ path: ['repayments', 'app'], ip: '203.0.113.10' })).statusCode, 200);
+  assert.equal((await call({ path: ['repayments', 'app:ap_0123456789ab'], ip: '203.0.113.10' })).statusCode, 200);
   assert.equal(calls.length, limit + 1, 'the blocked request never touched the database');
 });
 
 test('quik1: missing env → 503 plain message; db failure → 502 without internals', async () => {
   const saved = process.env.SUPABASE_URL; delete process.env.SUPABASE_URL; process.env.__keepEnv = '1';
-  try { const res = await call({ path: ['repayments', 'app'] }); assert.equal(res.statusCode, 503); assert.deepEqual(res.json(), { error: 'Server not configured' }); }
+  try { const res = await call({ path: ['repayments', 'app:ap_0123456789ab'] }); assert.equal(res.statusCode, 503); assert.deepEqual(res.json(), { error: 'Server not configured' }); }
   finally { delete process.env.__keepEnv; process.env.SUPABASE_URL = saved; }
   stubFetch(() => ({ status: 500, body: { code: 'XX000', message: 'stack trace here' } }));
-  const res = await call({ path: ['repayments', 'app'] });
+  const res = await call({ path: ['repayments', 'app:ap_0123456789ab'] });
   assert.equal(res.statusCode, 502);
   assert.deepEqual(res.json(), { error: 'Database error XX000' });
   globalThis.fetch = async () => { throw new Error('ECONNREFUSED'); };
-  const down = await call({ path: ['repayments', 'app'] });
+  const down = await call({ path: ['repayments', 'app:ap_0123456789ab'] });
   assert.equal(down.statusCode, 502); assert.deepEqual(down.json(), { error: 'Database unreachable' });
 });
 });

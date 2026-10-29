@@ -118,7 +118,7 @@ vercel.json             redirects, security headers, cache rules
 
 Sign-ups (`POST /api/quik1/signups`) and service requests (`POST /api/quik1/requests`) follow the
 same POST-then-poll pattern into `q1_signups` / `q1_requests`; repayment confirmations are read
-from `q1_repayments`.
+from `q1_repayments` under the customer's own key (`app:<applicationId>`).
 
 ## Where data lives
 

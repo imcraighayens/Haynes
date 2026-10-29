@@ -287,7 +287,9 @@ export const LIVE_COLUMNS = {
   clients: ['id', 'ref', 'name', 'id_number', 'dob', 'email', 'phone', 'address', 'city', 'province', 'employment', 'employer',
     'job_title', 'tenure', 'net_salary', 'gross_salary', 'other_income', 'expenses', 'bank', 'branch_code', 'account_no',
     'account_type', 'officer_id', 'score', 'blocked', 'contract', 'created_at', 'created_by', 'retain_until', 'deleted_at'],
-  loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'principal_derived', 'return_rate_pct', 'instalment_amount',
+  // principal_derived (live boolean NOT NULL) is deliberately absent: the console never owns it,
+  // and carrying it in a full-row upsert is how it once reached PostgREST as null (23502).
+  loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'return_rate_pct', 'instalment_amount',
     'collection_fee', 'schedule', 'instalments_paid', 'prior_instalments', 'status', 'status_at', 'mandate_id', 'contract_ref',
     'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at'],
   applications: ['id', 'ref', 'client_id', 'name', 'phone', 'email', 'id_number', 'employer', 'job_title', 'net_income', 'bank',
@@ -298,9 +300,13 @@ const RENAME = { loans: { instalment: 'instalment_amount', employee_id: 'officer
 
 // Translate a console/ldb patch into live column names + DB value types. Unknown columns are
 // dropped. `prev` is the current row (for status normalisation and derived timestamps).
+const CLOSED = ['paid', 'settled_early', 'written_off'];
 export function toLive(name, patch, prev) {
   const live = LIVE_TABLE[name]; if (!live) return {};
   const ren = RENAME[name] || {}, cols = LIVE_COLUMNS[live], out = {};
+  // due_date is not a live column; it is the only date a console-created loan carries, so it
+  // becomes the single-instalment schedule when no schedule exists anywhere (see below).
+  const dueIso = name === 'loans' ? isoOf((patch && (patch.due_date || patch.due)) || null) : null;
   Object.keys(patch || {}).forEach(k => {
     const key = ren[k] || k;
     if (!cols.includes(key) || patch[k] === undefined) return;
@@ -314,7 +320,15 @@ export function toLive(name, patch, prev) {
         if (out.status === 'written_off' && !prev.written_off_at) out.written_off_at = nowIso();
       }
     }
+    // A closed loan that stays closed keeps its collection history: the console shows settled /
+    // paid loans with every instalment ticked (so its instNorm does not re-open them), and that
+    // presentation must never rewrite how many instalments were actually collected.
+    const nextStatus = 'status' in out ? out.status : (prev && prev.status);
+    if (prev && CLOSED.includes(prev.status) && nextStatus === prev.status) { delete out.instalments_paid; delete out.paid_dates; }
     if ('schedule' in out) out.schedule = Array.isArray(out.schedule) ? out.schedule.map(isoOf).filter(Boolean) : [];
+    const hasSched = Array.isArray(out.schedule) && out.schedule.length > 0;
+    const prevSched = prev && Array.isArray(prev.schedule) && prev.schedule.length > 0;
+    if (dueIso && !hasSched && !prevSched) out.schedule = [dueIso];
     if ('paid_dates' in out) out.paid_dates = Array.isArray(out.paid_dates) ? out.paid_dates.map(isoOf).filter(Boolean) : [];
     if ('issued_on' in out) out.issued_on = isoOf(out.issued_on);
     if ('written_off_at' in out) out.written_off_at = tsOf(out.written_off_at);
@@ -478,7 +492,11 @@ async function unwrap(p) {
   return r;
 }
 
+// "Removed in console" archives per table per save that are applied without question.
+const ARCHIVE_BURST_MIN = 3;
+const ARCHIVE_BURST_SHARE = 0.1;
 const CACHE_LEAN = ['audit_log_remote', 'bank_tx', 'petty_cash', 'row_versions', 'audit_log'];
+function retryableResult(r) { return r.retryable === true || (r.retryable == null && /unreachable|Internal error/i.test(String(r.error || ''))); }
 
 // ---------------------------------------------------------------------------
 // The adapter
@@ -586,8 +604,18 @@ export class LedjaaDB {
   }
 
   // ---- writes: apply locally, then queue for /api/ledger/sync -------------
+  // With neither cloud state nor a cache the adapter holds nothing, so any write it accepted
+  // would be a diff against an empty book (the console would "create" every row it holds —
+  // including its built-in demo book) and reach the live tables once a key is entered. Such an
+  // adapter never originates writes; the console keeps its records locally until a real boot.
+  _writable(what) {
+    if (this.sync.source !== 'empty') return true;
+    if (!this._warnedEmpty) { this._warnedEmpty = true; try { console.warn('[ledjaa-db] no cloud state and no cache — ' + what + ' ignored (nothing is written from an empty adapter)'); } catch (e) { } }
+    return false;
+  }
   insert(name, values) {
     if (!this.can('create', name)) throw new Error('Not permitted: ' + (this.actor && this.actor.role) + ' cannot create in ' + name);
+    if (!this._writable('insert into ' + name)) return null;
     const id = values.id || this.id(name.slice(0, 2));
     const row = LIVE_TABLE[name] ? { id, ...toLive(name, values, null) } : { id, ...values };
     if (name === 'loans') { row.schedule = row.schedule || []; row.instalments_paid = row.instalments_paid || 0; }
@@ -599,6 +627,7 @@ export class LedjaaDB {
   }
   update(name, id, patch) {
     if (!this.can('update', name)) throw new Error('Not permitted: ' + (this.actor && this.actor.role) + ' cannot update ' + name);
+    if (!this._writable('update of ' + name)) return null;
     const row = this.find(name, id); if (!row) throw new Error('No such row ' + name + '.' + id);
     const live = LIVE_TABLE[name] ? toLive(name, patch, row) : { ...patch };
     const diff = {};
@@ -613,6 +642,33 @@ export class LedjaaDB {
   }
   softDelete(name, id, reason) {
     if (!this.can('delete', name)) throw new Error('Not permitted: ' + (this.actor && this.actor.role) + ' cannot delete from ' + name);
+    if (!this._writable('archive in ' + name)) return null;
+    // The console archives whatever its state no longer holds ("Removed in console") on every
+    // save. A stale state (e.g. a restored backup) would archive most of the book in one burst,
+    // so those are collected for a tick and applied only when the burst is small; everything
+    // else (an explicit, reasoned archive) applies immediately.
+    if (/removed in console/i.test(String(reason || ''))) { this._deferArchive(name, id, reason); return this.find(name, id); }
+    return this._softDelete(name, id, reason);
+  }
+  _deferArchive(name, id, reason) {
+    const b = this._archiveBatch || (this._archiveBatch = { items: [], t: null });
+    if (!b.items.some(x => x.name === name && x.id === id)) b.items.push({ name, id, reason });
+    if (!b.t) b.t = timer(() => { this._archiveBatch = null; this._applyArchives(b.items); }, 0);
+  }
+  _applyArchives(items) {
+    const byTable = {};
+    items.forEach(x => { (byTable[x.name] || (byTable[x.name] = [])).push(x); });
+    Object.keys(byTable).forEach(name => {
+      const list = byTable[name], total = this.rows(name).length;
+      const limit = Math.max(ARCHIVE_BURST_MIN, Math.ceil(total * ARCHIVE_BURST_SHARE));
+      if (list.length > limit) {
+        try { console.warn('[ledjaa-db] refused to archive ' + list.length + ' of ' + total + ' ' + name + ' rows in one save (the console state looks stale); nothing archived'); } catch (e) { }
+        return;
+      }
+      list.forEach(x => { try { this._softDelete(name, x.id, x.reason); } catch (e) { } });
+    });
+  }
+  _softDelete(name, id, reason) {
     const row = this.find(name, id); if (!row) return null;
     this.version(name, row);
     row.deleted_at = nowIso(); if (reason) row.delete_reason = reason;
@@ -622,6 +678,7 @@ export class LedjaaDB {
     return row;
   }
   restore(name, id) {
+    if (!this._writable('restore in ' + name)) return null;
     const row = this.find(name, id); if (!row) return null;
     this.version(name, row); row.deleted_at = null;
     this.logRaw('restore', name, id, (row.ref || row.name || id) + ' restored');
@@ -690,9 +747,27 @@ export class LedjaaDB {
         const res = await this._post({ ops: batch });
         if (!res || res.ok === false && !Array.isArray(res.results)) throw new Error((res && (res.error || res.message)) || 'sync rejected');
         const results = Array.isArray(res.results) ? res.results : [];
-        results.forEach(r => { if (r && r.error) { this.sync.failed++; this.sync.lastError = r.table + ' ' + r.op + ': ' + r.error; try { console.warn('[ledjaa-db] sync op failed', r); } catch (e) { } } });
-        this._inflight = []; this.sync.attempts = 0; this._holdUntil = 0; this.sync.lastSyncAt = nowIso();
-        this.sync.status = this.queue.length ? 'syncing' : 'ready';
+        // Per-op failures: a retryable one (upstream down / 5xx / throttled) goes back to the
+        // head of the queue with backoff — the local row already carries the change, so nothing
+        // else would ever resend it; a validation/conflict error is final and only reported.
+        const again = [];
+        results.forEach((r, i) => {
+          if (!r || !r.error) return;
+          this.sync.failed++; this.sync.lastError = r.table + ' ' + r.op + ': ' + r.error;
+          try { console.warn('[ledjaa-db] sync op failed', r); } catch (e) { }
+          if (retryableResult(r) && batch[i]) again.push(batch[i]);
+        });
+        this._inflight = []; this.sync.lastSyncAt = nowIso();
+        if (again.length) {
+          this.queue.unshift(...again);
+          this.sync.attempts++; this.sync.status = 'error';
+          const wait = Math.min(60000, 1000 * Math.pow(2, this.sync.attempts - 1));
+          this._holdUntil = Date.now() + wait;
+          try { console.info('[ledjaa-db] ' + again.length + ' op(s) failed upstream, retry in ' + Math.round(wait / 1000) + 's'); } catch (e2) { }
+        } else {
+          this.sync.attempts = 0; this._holdUntil = 0;
+          this.sync.status = this.queue.length ? 'syncing' : 'ready';
+        }
       } catch (e) {
         this.queue.unshift(...batch); this._inflight = [];
         this.sync.attempts++; this.sync.lastError = String((e && e.message) || e); this.sync.status = 'error';
@@ -750,6 +825,7 @@ export class LedjaaDB {
   }
   reassignBook(fromUserId, toUserId) {
     if (!this.can('update', 'loans')) throw new Error('Not permitted: ' + (this.actor && this.actor.role) + ' cannot reassign loans');
+    if (!this._writable('reassign')) return { loans: 0, clients: 0 };
     const loans = this.rows('loans').filter(l => l.officer_id === fromUserId);
     const clients = this.rows('clients').filter(x => x.officer_id === fromUserId);
     loans.forEach(l => { this.version('loans', l); l.officer_id = toUserId; this._queueUpsert('loans', l); });
@@ -782,4 +858,7 @@ export class LedjaaDB {
 export const db = new LedjaaDB();
 try { W.__ledgerDb = db; } catch (e) { }
 await db.ready;
+// No cloud, no cache: fail the import so the console's initDb() lands in its catch (dbReady
+// false, "DATABASE UNAVAILABLE") and dbPush never runs against an empty adapter.
+if (db.sync.source === 'empty') throw new Error('Ledger data unavailable: ' + (db.sync.lastError || 'no cloud state and no local cache'));
 export default db;

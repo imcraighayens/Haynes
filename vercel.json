@@ -22,13 +22,25 @@
       ]
     },
     {
-      "source": "/ledger/(.*)\\.(woff2|js|png|webp)",
+      "source": "/ledger/([0-9a-f-]{36})\\.js",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     },
     {
-      "source": "/quik1/(.*)\\.(woff2|js|png|webp)",
+      "source": "/quik1/([0-9a-f-]{36})\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/(ledger|quik1)/(react|react-dom)\\.production\\.min\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/(ledger|quik1)/(.*)\\.(woff2|png|webp)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]

@@ -76,6 +76,9 @@ test('validate.pick: unknown columns dropped, NCR/fee settings stripped, values 
   const e = V.pick('employees', { id: 'e1', role: 'Manager', active: 'DISABLED', approval_limit: '250000' });
   assert.deepEqual(e, { id: 'e1', role: 'manager', active: false, approval_limit: 250000 });
   assert.equal('status' in V.pick('loans', { status: 'nonsense' }), false, 'unknown enum values are dropped, not sent');
+  // live boolean NOT NULL the console never owns: never forwarded (it once reached PostgREST as null → 23502)
+  for (const v of [true, false, null, 'true']) assert.equal('principal_derived' in V.pick('loans', { id: 'l1', principal_derived: v }), false, 'principal_derived ' + v);
+  assert.equal(V.COLUMNS.loans.includes('principal_derived'), false);
   assert.throws(() => V.pick('nope', {}), e => e.status === 400);
   assert.throws(() => V.pick('loans', [1]), e => e.status === 400);
 });

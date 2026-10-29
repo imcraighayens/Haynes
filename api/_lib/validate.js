@@ -9,7 +9,9 @@ export const COLUMNS = {
   clients: ['id', 'ref', 'name', 'id_number', 'dob', 'email', 'phone', 'address', 'city', 'province', 'employment', 'employer',
     'job_title', 'tenure', 'net_salary', 'gross_salary', 'other_income', 'expenses', 'bank', 'branch_code', 'account_no',
     'account_type', 'officer_id', 'score', 'blocked', 'contract', 'created_at', 'created_by', 'retain_until', 'deleted_at'],
-  loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'principal_derived', 'return_rate_pct', 'instalment_amount',
+  // principal_derived is a live boolean the console never owns: it is deliberately absent so an
+  // upsert can never write it (the DB default/stored value stands).
+  loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'return_rate_pct', 'instalment_amount',
     'collection_fee', 'schedule', 'instalments_paid', 'prior_instalments', 'status', 'status_at', 'mandate_id', 'contract_ref',
     'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at'],
   applications: ['id', 'ref', 'client_id', 'name', 'phone', 'email', 'id_number', 'employer', 'job_title', 'net_income', 'bank',
@@ -117,7 +119,7 @@ export function toIsoDate(v) { const d = parseDate(v); return d ? d.toISOString(
 export function toIsoTs(v) { const d = parseDate(v); return d ? d.toISOString() : null; }
 export function toMs(v) { const d = parseDate(v); return d ? d.getTime() : null; }
 
-const NUMERIC = new Set(['net_salary', 'gross_salary', 'other_income', 'principal', 'principal_derived', 'return_rate_pct',
+const NUMERIC = new Set(['net_salary', 'gross_salary', 'other_income', 'principal', 'return_rate_pct',
   'instalment_amount', 'collection_fee', 'amount', 'net_income', 'approval_limit', 'bank_opening_balance', 'default_return_rate_pct', 'income']);
 const INTEGER = new Set(['instalments_paid', 'prior_instalments', 'score', 'term_months']);
 const BOOLEAN = new Set(['blocked', 'active', 'mask_pii', 'ok']);

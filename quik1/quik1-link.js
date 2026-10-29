@@ -241,11 +241,18 @@
       });
     });
   }
+  // The repayment flag is scoped to this customer's latest application (`app:<id>`): the local
+  // original's bare `app` key was implicitly per-device, but on a shared backend it would be one
+  // global flag every customer sees. Staff confirm against the scoped key.
+  function repaymentKey() {
+    var a = read().applications[0];
+    return a && typeof a.id === 'string' && a.id ? 'app:' + (a.serverId || a.id) : null;
+  }
   function pollRepayments() {
-    var key = 'get:repayments';
-    if (inflight[key]) return;
+    var key = 'get:repayments', rk = repaymentKey();
+    if (!rk || inflight[key]) return;
     inflight[key] = true;
-    request('GET', 'repayments/app').then(function (r) {
+    request('GET', 'repayments/' + encodeURIComponent(rk)).then(function (r) {
       delete inflight[key];
       if (r.ok) applyRepayment(r.body);
     });

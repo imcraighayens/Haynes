@@ -107,7 +107,7 @@ test('a poll that returns an approved decision reaches subscribers as decisions[
   let decided = false;
   const { Link, calls, timers } = boot(c => {
     if (c.method === 'POST') return json(201, { id: c.body.id, status: 'Needs decision' });
-    if (/\/repayments\/app$/.test(c.url)) return json(200, null);
+    if (/\/repayments\//.test(c.url)) return json(200, null);
     if (!decided) return json(200, { id: c.url.split('/').pop(), status: 'Needs decision', decision: null });
     return json(200, { id: c.url.split('/').pop(), status: 'Approved', decision: { verdict: 'approved', amount: 2000, by: 'Ecoloans', note: 'ok', at: 1_760_000_100_000 } });
   });
@@ -147,7 +147,7 @@ test('signups: status transitions Pending review → Approved when the server de
   let approved = false;
   const { Link, calls, timers } = boot(c => {
     if (c.method === 'POST') return json(201, { id: c.body.id, status: 'Pending review' });
-    if (/\/repayments\/app$/.test(c.url)) return json(200, null);
+    if (/\/repayments\//.test(c.url)) return json(200, null);
     if (!approved) return json(200, { id: c.url.split('/').pop(), status: 'Pending review', decidedAt: null, by: null, note: '' });
     return json(200, { id: c.url.split('/').pop(), status: 'Approved', decidedAt: '2026-10-29T10:00:00.000Z', by: 'auto', note: 'Auto-approved by Quik1 bridge' });
   });
@@ -200,7 +200,7 @@ test('offline: nothing throws, the record stays Needs decision, and the POST is 
   const { Link, calls, timers, localStorage } = boot(c => {
     if (!online) throw new TypeError('Failed to fetch');
     if (c.method === 'POST') return json(201, { id: c.body.id, status: 'Needs decision' });
-    return json(200, c.url.endsWith('/repayments/app') ? null : { id: c.url.split('/').pop(), status: 'Needs decision', decision: null });
+    return json(200, /\/repayments\//.test(c.url) ? null : { id: c.url.split('/').pop(), status: 'Needs decision', decision: null });
   });
   Link.subscribe(() => {});
   const id = Link.submitApplication(APP);
@@ -247,11 +247,12 @@ test('a 4xx rejection is not retried forever; 404 on poll re-sends the record', 
   assert.equal(reposts.length, 2, 'record re-sent after the server said 404');
 });
 
-test('submitRequest returns an rq_ id and POSTs to requests; repayments/app flows into state', async () => {
+test('submitRequest returns an rq_ id and POSTs to requests; the repayment flag is polled under the customer\'s own key', async () => {
   const { Link, calls, timers } = boot(c => {
-    if (c.method === 'POST') return json(201, { id: c.body.id, status: 'New' });
-    if (c.url.endsWith('/repayments/app')) return json(200, { ok: true, by: 'Craig', at: '2026-10-29T09:00:00Z' });
-    return json(200, null);
+    if (c.method === 'POST') return json(201, { id: c.body.id, status: c.url.endsWith('/requests') ? 'New' : 'Needs decision' });
+    if (/\/repayments\/app%3Aap_[0-9a-f]{12}$/.test(c.url)) return json(200, { ok: true, by: 'Craig', at: '2026-10-29T09:00:00Z' });
+    if (/\/repayments\//.test(c.url)) return json(200, null);
+    return json(200, { id: c.url.split('/').pop(), status: 'Needs decision', decision: null });
   });
   const id = Link.submitRequest({ type: 'New account', detail: 'Savings', name: 'Thandi', to: 'applications@ecoloans.co.za' });
   assert.match(id, /^rq_[0-9a-f]{12}$/);
@@ -262,11 +263,21 @@ test('submitRequest returns an rq_ id and POSTs to requests; repayments/app flow
   assert.equal(post.body.type, 'New account');
 
   let repay = null;
-  Link.subscribe(s => { repay = (s.repayments || {}).app || null; });
+  const unsub = Link.subscribe(s => { repay = (s.repayments || {}).app || null; });
   await drain();
-  assert.deepEqual(plain(repay), { ok: true, by: 'Craig', at: Date.parse('2026-10-29T09:00:00Z') });
-  assert.equal(Link.repaymentFor('app').ok, true);
+  assert.equal(calls.filter(c => /\/repayments\//.test(c.url)).length, 0, 'nothing to ask about before the customer has an application');
+  assert.equal(repay, null);
   assert.equal(timers.intervals, 0, 'requests do not keep the poller alive once sent');
+
+  const appId = Link.submitApplication(APP);
+  await drain();
+  await timers.advance(6000);
+  const polls = calls.filter(c => /\/repayments\//.test(c.url));
+  assert.ok(polls.length >= 1);
+  assert.ok(polls.every(c => c.url === API + '/repayments/' + encodeURIComponent('app:' + appId)), 'never the bare global key');
+  assert.deepEqual(plain(repay), { ok: true, by: 'Craig', at: Date.parse('2026-10-29T09:00:00Z') }, 'still lands where the app reads it: repayments.app');
+  assert.equal(Link.repaymentFor('app').ok, true);
+  unsub();
 });
 
 test('local admin helpers and cross-tab sync keep working; storage failures never throw', async () => {

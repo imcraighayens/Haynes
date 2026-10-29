@@ -198,6 +198,7 @@ test('insert() and softDelete() map users→employees and never hard delete', as
   db.insert('clients', { id: 'c_new', ref: 'EC-017', name: 'New Client', id_number: null, phone: '0821234567', net_salary: 0, score: 0,
     blocked: false, blocked_at: null, dob: null, officer_id: null, branch_id: null, created_at: '2026-10-29T08:00:00Z', retain_until: null, deleted_at: null });
   db.softDelete('loans', 'l_wo', 'Removed in console');
+  await new Promise(r => setTimeout(r, 5)); // console-driven archives are applied a tick later (burst guard)
   await db.flush();
   const ops = calls[0].body.ops;
   assert.deepEqual(ops.map(o => [o.table, o.op]), [['employees', 'upsert'], ['clients', 'upsert'], ['loans', 'soft_delete']]);
@@ -211,6 +212,109 @@ test('insert() and softDelete() map users→employees and never hard delete', as
   assert.equal(db.toConsoleState().loans.some(l => l.id === 'l_wo'), false);
   assert.equal(db.toConsoleState().employees.length, 2);
   assert.equal(db.toConsoleState().clients.find(c => c.id === 'c_new').employee, 'Unassigned');
+});
+
+test('a console-created loan keeps its due date as a one-date schedule; principal_derived is never sent', async () => {
+  calls.length = 0;
+  // the exact insert shape the console's dbPush() sends for a loan it created (no sched, only due)
+  const row = db.insert('loans', { id: 'l_new', ref: 'ECL-0113', client_id: 'c_nupay_15', principal: 1000, return_rate_pct: 35, status: 'issued',
+    due_date: '25 Nov 2026', purpose: 'Groceries', instalment: 1350, schedule: undefined, issued_on: '2026-10-29', issued_by: 'Craig Moatshe',
+    employee_id: null, mandate_id: null, instalments_paid: 0, application_id: null, term_months: 1, initiation_fee: 0, service_fee: 0,
+    disbursed_on: '2026-10-29', parent_loan_id: null, relation: 'original', written_off_at: null, write_off_reason: null, written_off_by: null,
+    officer_id: null, branch_id: null, created_at: '2026-10-29T08:00:00.000Z', deleted_at: null, principal_derived: null });
+  assert.deepEqual(row.schedule, ['2026-11-25']);
+  assert.equal('due_date' in row, false);
+  assert.equal(db.toConsoleState().loans.find(l => l.id === 'l_new').due, '25 Nov 2026', 'the console sees the date again after a reload');
+  await db.flush();
+  const sent = calls[0].body.ops[0].rows[0];
+  assert.deepEqual(sent.schedule, ['2026-11-25']);
+  assert.equal('principal_derived' in sent, false);
+  // a later save that still carries no schedule (sched derived from due only) must not clear it
+  db.update('loans', 'l_new', { due_date: '2026-11-25', schedule: undefined, purpose: 'Groceries' });
+  assert.deepEqual(db.find('loans', 'l_new').schedule, ['2026-11-25']);
+  // ...and a loan that already has a multi-date schedule never gets it replaced by the next due date
+  db.update('loans', 'l_nupay_80786120', { due_date: '2026-11-25', schedule: undefined });
+  assert.deepEqual(db.find('loans', 'l_nupay_80786120').schedule, ['2026-09-25', '2026-10-23', '2026-11-25']);
+});
+
+test('a closed loan keeps its collection history: the console\'s "every instalment paid" view never rewrites it', async () => {
+  calls.length = 0;
+  const before = db.sync.pending;
+  // what dbPush sends for l_paid (schedule 2, instalments_paid 0 in the DB; the console shows paidInst 2)
+  db.update('loans', 'l_paid', { ref: 'ECL-090', client_id: 'c_nupay_15', status: 'paid', due_date: '2026-04-25', schedule: ['25 Mar 2026', '25 Apr 2026'], instalments_paid: 2 });
+  assert.equal(db.find('loans', 'l_paid').instalments_paid, 0);
+  db.update('loans', 'l_settled', { status: 'paid', instalments_paid: 1, paid_dates: ['25 May 2026'] });
+  assert.equal(db.find('loans', 'l_settled').status, 'settled_early');
+  assert.equal(db.find('loans', 'l_settled').instalments_paid, 1);
+  assert.equal(db.sync.pending, before, 'nothing queued: the first boot does not touch closed loans');
+  // reopening a loan is a real change and the counter travels with it
+  db.update('loans', 'l_paid', { status: 'issued', instalments_paid: 1 });
+  assert.equal(db.find('loans', 'l_paid').status, 'issued');
+  assert.equal(db.find('loans', 'l_paid').instalments_paid, 1);
+  await db.flush();
+});
+
+test('ops the server reports as retryable go back on the queue with backoff; final errors are dropped', async () => {
+  const realFetch = globalThis.fetch;
+  let outage = true;
+  globalThis.fetch = async (url, init) => {
+    const ops = JSON.parse(init.body).ops;
+    return { ok: true, status: 200, json: async () => ({ ok: false, results: ops.map(o => outage && o.table === 'clients'
+      ? { table: o.table, op: o.op, count: 0, error: 'Database unreachable', retryable: true }
+      : o.table === 'loans' ? { table: o.table, op: o.op, count: 0, error: 'Database error 23505', retryable: false } : { table: o.table, op: o.op, count: 1 }) }) };
+  };
+  try {
+    db.update('clients', 'c_new', { score: 41 });
+    db.update('loans', 'l_new', { purpose: 'dup' });
+    db.update('users', 'e2', { name: 'Poppy S' });
+    await db.flush();
+    assert.equal(db.sync.status, 'error');
+    assert.equal(db.sync.attempts, 1);
+    assert.equal(db.sync.pending, 1, 'only the outage op is kept');
+    assert.deepEqual(db.queue.map(o => [o.table, o.rows[0].id]), [['clients', 'c_new']]);
+    assert.deepEqual(JSON.parse(localStorage.getItem('ledjaa.db.queue')).ops.map(o => o.table), ['clients']);
+    assert.ok(db._holdUntil > Date.now());
+    outage = false; db._holdUntil = 0;
+    await db.flush();
+    assert.equal(db.sync.status, 'ready');
+    assert.equal(db.sync.pending, 0);
+    assert.equal(db.sync.attempts, 0);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test('a burst of "Removed in console" archives is refused; small ones apply', async () => {
+  for (let i = 1; i <= 7; i++) db.insert('loans', { id: 'l_b' + i, ref: 'ECL-b' + i, client_id: 'c_nupay_15', principal: 1, status: 'issued', due_date: '2026-12-25' });
+  await db.flush();
+  const live = db.rows('loans').length;
+  const limit = Math.max(3, Math.ceil(live * 0.1));
+  assert.ok(limit < 7);
+  calls.length = 0;
+  for (let i = 1; i <= limit + 1; i++) db.softDelete('loans', 'l_b' + i, 'Removed in console');
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(db.rows('loans').length, live, 'a stale console state cannot archive the book');
+  assert.equal(db.sync.pending, 0);
+  for (let i = 1; i <= 2; i++) db.softDelete('loans', 'l_b' + i, 'Removed in console');
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(db.rows('loans').length, live - 2);
+  await db.flush();
+  assert.deepEqual(calls[0].body.ops.map(o => [o.op, o.id]), [['soft_delete', 'l_b1'], ['soft_delete', 'l_b2']]);
+  const explicit = db.softDelete('loans', 'l_b7', 'Client request');
+  assert.ok(explicit.deleted_at, 'an explicit, reasoned archive applies at once');
+  await db.flush();
+  assert.equal(db.sync.pending, 0);
+});
+
+test('an adapter with neither cloud nor cache never originates writes', async () => {
+  const src = db.sync.source; const pending = db.sync.pending;
+  db.sync.source = 'empty';
+  try {
+    assert.equal(db.insert('clients', { id: 'c_demo', ref: 'EC-032', name: 'Viginia Morola' }), null);
+    assert.equal(db.update('clients', 'c_new', { score: 99 }), null);
+    assert.equal(db.softDelete('loans', 'l_new', 'Removed in console'), null);
+    assert.equal(db.find('clients', 'c_demo'), null);
+    assert.equal(db.find('clients', 'c_new').score, 41);
+    assert.equal(db.sync.pending, pending);
+  } finally { db.sync.source = src; }
 });
 
 test('a failed sync keeps the queue, backs off and persists it', async () => {

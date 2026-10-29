@@ -18,26 +18,37 @@ const AUTO_NOTE = 'Auto-approved by Quik1 bridge';
 const DEFAULT_REVIEWER = 'applications@ecoloans.co.za';
 // Extra fields from the app record we keep (whitelisted) under meta.raw for staff context.
 const RAW_KEYS = ['source', 'status', 'employment', 'payday', 'estIncome', 'estExpenses', 'idnum'];
+const RAW_MAX = 60;      // short labels only; the row must stay small (it rides in every /state)
+const DOCS_MAX = 5;
+const DOC_NAME_MAX = 80;
+// Server-side throttles that survive cold starts and horizontal scaling (the in-memory limiter
+// does not): a global cap on new app applications per hour and a per-phone cap per day. A hit
+// is a 429, which the app's outbox retries later rather than dropping.
+const HOURLY_CAP = Math.max(1, parseInt(process.env.QUIK1_HOURLY_CAP, 10) || 60);
+const PHONE_DAILY_CAP = Math.max(1, parseInt(process.env.QUIK1_PHONE_DAILY_CAP, 10) || 3);
+const HOUR_MS = 3600_000;
+const DAY_MS = 24 * HOUR_MS;
 
 export function newId(prefix) { return `${prefix}_${randomBytes(6).toString('hex')}`; }
 
 function rawExtras(body) {
   const out = {};
-  for (const k of RAW_KEYS) if (body[k] != null && body[k] !== '') out[k] = typeof body[k] === 'number' ? body[k] : cleanText(body[k], 120);
+  for (const k of RAW_KEYS) if (body[k] != null && body[k] !== '') out[k] = typeof body[k] === 'number' ? body[k] : cleanText(body[k], RAW_MAX);
   return out;
 }
 function docsOf(v) {
   if (!Array.isArray(v)) return [];
-  return v.slice(0, 10).map(d => (typeof d === 'string' ? cleanText(d, 120) : (d && typeof d === 'object' && d.name ? cleanText(d.name, 120) : ''))).filter(Boolean);
+  return v.slice(0, DOCS_MAX).map(d => (typeof d === 'string' ? cleanText(d, DOC_NAME_MAX) : (d && typeof d === 'object' && d.name ? cleanText(d.name, DOC_NAME_MAX) : ''))).filter(Boolean);
 }
 function decisionOf(row) {
   const d = row.decision && typeof row.decision === 'object' ? row.decision : null;
   if (d && (d.verdict === 'approved' || d.verdict === 'declined')) {
     return { verdict: d.verdict, amount: num(d.amount, num(row.amount)), by: cleanText(d.by || 'Ecoloans', 80), note: cleanText(d.note, 400), at: toMs(d.at) || toMs(row.decided_at) || Date.now() };
   }
-  // Decided through another path (e.g. the console's own UI) without a decision blob.
+  // Decided through another path (e.g. the console's own UI) without a decision blob. The note
+  // stays empty: `decline_reason` is a staff-internal column and must never reach the customer.
   if (row.status === 'approved' || row.status === 'declined') {
-    return { verdict: row.status, amount: num(row.amount), by: 'Ecoloans', note: cleanText(row.decline_reason, 400), at: toMs(row.decided_at) || toMs(row.updated_at) || Date.now() };
+    return { verdict: row.status, amount: num(row.amount), by: 'Ecoloans', note: '', at: toMs(row.decided_at) || toMs(row.updated_at) || Date.now() };
   }
   return null;
 }
@@ -50,6 +61,16 @@ async function postApplication(req, res, body) {
   if (!phone) throw new HttpError(400, 'phone is required');
   const amount = parseAmount(body.amount);
   const id = wellFormedClientId(body.id, 'ap') || newId('ap');
+  // A retried submit (client timeout, outbox resend) must answer from the stored row: its ref is
+  // already assigned and staff may already have decided it.
+  const saved = await selectOne('applications', { select: APP_VIEW, id: eq(id), source: eq('quik1') });
+  if (saved) { json(res, 200, { id: saved.id, ref: saved.ref, status: quik1StatusLabel(saved.status), decision: decisionOf(saved) }, req); return; }
+  const since = ms => new Date(Date.now() - ms).toISOString();
+  const [lastHour, samePhone] = await Promise.all([
+    count('applications', { source: eq('quik1'), created_at: 'gte.' + since(HOUR_MS) }),
+    count('applications', { source: eq('quik1'), phone: eq(phone), created_at: 'gte.' + since(DAY_MS) })
+  ]);
+  if (lastHour >= HOURLY_CAP || samePhone >= PHONE_DAILY_CAP) { res.setHeader('Retry-After', '900'); throw new HttpError(429, 'Too many applications right now — please try again later'); }
   const existing = await count('applications', {}); // sequence-free ref like the local link did
   const row = {
     id,
@@ -80,9 +101,11 @@ async function postApplication(req, res, body) {
   json(res, 201, { id, ref: row.ref, status: 'Needs decision' }, req);
 }
 
+const APP_VIEW = 'id,ref,status,amount,decision,decided_at,updated_at'; // never decline_reason
+
 async function getApplication(req, res, id) {
   if (!isSafeId(id)) throw new HttpError(400, 'bad id');
-  const row = await selectOne('applications', { select: 'id,status,amount,decision,decided_at,decline_reason,updated_at', id: eq(id), source: eq('quik1') });
+  const row = await selectOne('applications', { select: APP_VIEW, id: eq(id), source: eq('quik1') });
   if (!row) throw new HttpError(404, 'Application not found');
   json(res, 200, { id: row.id, status: quik1StatusLabel(row.status), decision: decisionOf(row) }, req);
 }
@@ -139,8 +162,12 @@ async function postRequest(req, res, body) {
 }
 
 // ---- repayments -----------------------------------------------------------------------------------
+// Keys are scoped to one customer record (`app:<applicationId>`, written by staff); the bare
+// `app` the local original used would be one global flag shown to every customer, so it is
+// answered with null without touching the table.
 async function getRepayment(req, res, key) {
   if (!isSafeId(key)) throw new HttpError(400, 'bad key');
+  if (key.indexOf(':') < 0) { json(res, 200, null, req); return; }
   const row = await selectOne('q1_repayments', { select: 'key,ok,by,at', key: eq(key) });
   json(res, 200, row ? { ok: !!row.ok, by: row.by || 'Admin', at: toMs(row.at) } : null, req);
 }

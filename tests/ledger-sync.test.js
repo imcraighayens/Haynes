@@ -21,14 +21,14 @@ function jsonResponse(status, body) {
 }
 
 // Boots the script in a vm context with stubbed window/localStorage/fetch/document.
-async function boot({ local = {}, state = null, stateStatus = 200 } = {}) {
+async function boot({ local = {}, state = null, stateStatus = 200, sync } = {}) {
   const localStorage = new FakeStorage();
   for (const [k, v] of Object.entries(local)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
   const calls = [];
   const fetch = async (url, init) => {
     calls.push({ url, init });
     if (/\/state$/.test(url)) return jsonResponse(stateStatus, state);
-    if (/\/sync$/.test(url)) return jsonResponse(200, { ok: true, results: (JSON.parse(init.body).ops || []).map(() => ({ count: 1 })) });
+    if (/\/sync$/.test(url)) { const ops = JSON.parse(init.body).ops || []; const results = sync ? sync(ops) : ops.map(() => ({ count: 1 })); return jsonResponse(200, { ok: results.every(r => !r.error), results }); }
     return jsonResponse(404, {});
   };
   const head = { children: [], appendChild(el) { this.children.push(el); } };
@@ -72,6 +72,56 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key', asy
   assert.equal(head.children.length, 1);
   assert.equal(head.children[0].src, 'c53b361c-bb83-4c37-90f5-7116b8407f79.js');
   assert.equal(read('q1.apps'), null, 'q1.apps untouched without a key');
+  // No cloud state: the saved book must still exist with empty lists, or the console's
+  // constructor keeps its built-in demo book (c1 'EC-032'…, l1 'ECL-094'…) and dbPush would
+  // insert all of it into the live tables the moment a key is pasted.
+  assert.deepEqual(read('evoltConsoleV4'), { clients: [], loans: [], logbook: [], petty: [], employees: [], applications: [] });
+});
+
+test('a no-state boot fills only the missing book lists and keeps whatever the browser already held', async () => {
+  const sv0 = { clients: [{ id: 'c1' }], loans: [{ id: 'l1' }], logbook: [], theme: 'dark', loanSeq: 101 };
+  const { read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0 }, state: { error: 'nope' }, stateStatus: 503 });
+  const sv = read('evoltConsoleV4');
+  assert.deepEqual(sv.clients, [{ id: 'c1' }]); assert.deepEqual(sv.loans, [{ id: 'l1' }]);
+  assert.equal(sv.theme, 'dark'); assert.equal(sv.loanSeq, 101);
+  assert.deepEqual(sv.petty, []); assert.deepEqual(sv.employees, []); assert.deepEqual(sv.applications, []);
+});
+
+test('seeds loanSeq / clientSeq from the highest live refs so a fresh browser never reissues a ref', async () => {
+  const st = { ...STATE, loans: [{ id: 'l1', ref: 'ECL-112' }, { id: 'l2', ref: 'ECL-0113', deleted_at: '2026-10-01T00:00:00Z' }, { id: 'l3', ref: 'ECL-095' }] };
+  let { read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: st });
+  let sv = read('evoltConsoleV4');
+  assert.equal(sv.loanSeq, 114, 'archived loans count too — refs are never reused');
+  assert.equal(sv.clientSeq, 16, 'EC-015 is the highest client ref');
+  // a browser that is already ahead keeps its own counter
+  ({ read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: { clients: [], loans: [], loanSeq: 130, clientSeq: 40 } }, state: st }));
+  sv = read('evoltConsoleV4');
+  assert.equal(sv.loanSeq, 130); assert.equal(sv.clientSeq, 40);
+  ({ read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: { ...STATE, loans: [], clients: [] } }));
+  assert.equal('loanSeq' in read('evoltConsoleV4'), false, 'nothing to seed from an empty book — the console default stands');
+});
+
+test('flush keeps ops the server marks retryable and drops the rest', async () => {
+  let fail = true;
+  const sync = ops => ops.map(o => {
+    if (!fail) return { table: o.table, op: o.op, count: 1 };
+    if (o.table === 'bank_tx') return { table: o.table, op: o.op, count: 0, error: 'Database unreachable', retryable: true };
+    if (o.table === 'expenses') return { table: o.table, op: o.op, count: 0, error: 'Database error 23505', retryable: false };
+    return { table: o.table, op: o.op, count: 1 };
+  });
+  const { L, localStorage, read, queue } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: STATE, sync });
+  localStorage.setItem('ledjaa.bank.tx', JSON.stringify([{ type: 'out', amount: 1, ref: 'R', label: 'x', at: 1761727200000, by: 'me' }, ...read('ledjaa.bank.tx')]));
+  localStorage.setItem('ledjaa.expenses', JSON.stringify([...read('ledjaa.expenses'), { id: 'x9', name: 'Wifi', amount: 699 }]));
+  localStorage.setItem('ledjaa.bank', JSON.stringify({ balance: 1, at: 1761727200000, by: 'me', history: [] }));
+  assert.equal(queue().length, 3);
+  await L._.flush();
+  let q = queue();
+  assert.deepEqual(q.map(o => o.table), ['bank_tx'], 'the outage keeps the bank_tx insert; the duplicate and the successes are gone');
+  assert.deepEqual(read('ledjaa.sync.queue').map(o => o.table), ['bank_tx'], 'persisted for the retry');
+  fail = false;
+  await L._.flush();
+  assert.equal(queue().length, 0);
+  assert.deepEqual(read('ledjaa.sync.queue'), []);
 });
 
 test('fills only the empty fields of ledjaa.supabase and q1.apps', async () => {
@@ -91,12 +141,23 @@ test('fills only the empty fields of ledjaa.supabase and q1.apps', async () => {
   assert.equal(apps.length, 2, 'existing list kept');
   assert.equal(apps[0].url, 'https://mine.example/q1', 'user url not overwritten');
   assert.equal(apps[0].on, false, 'user toggle not flipped when url already set');
-  assert.equal(apps[0].key, 'secret-key', 'empty key filled');
+  assert.equal(apps[0].key, '', 'LEDGER_KEY is never handed to a third-party url');
   assert.equal(apps[0].path, '/applications?status=new', 'empty path filled');
   assert.equal(apps[1].url, '', 'other entries untouched');
   const stateCall = calls.find((c) => /\/state$/.test(c.url));
   assert.ok(stateCall);
   assert.equal(stateCall.init.headers.Authorization, 'Bearer secret-key');
+});
+
+test('fills an empty key only when the Quik1 entry points at our own /api/q1', async () => {
+  const mine = [{ id: 'q0', name: 'Quik1 loan app', url: ORIGIN + '/api/q1/', path: '/applications?status=new', key: '', proxy: '', on: true, actions: true, hint: 'h', pathHint: '' }];
+  let { read } = await boot({ local: { 'ledjaa.supabase': { key: 'secret-key' }, 'q1.apps': mine }, state: STATE });
+  assert.equal(read('q1.apps')[0].key, 'secret-key', 'trailing slash tolerated');
+  const foreign = [{ id: 'q0', name: 'Quik1 loan app', url: 'https://partner.example.com/v1', path: '/applications?status=new', key: '', proxy: '', on: true, actions: true, hint: 'h', pathHint: '' }];
+  ({ read } = await boot({ local: { 'ledjaa.supabase': { url: 'https://ledger.test/api/ledger', key: 'SUPER-SECRET-LEDGER-KEY' }, 'q1.apps': foreign }, state: STATE }));
+  assert.equal(read('q1.apps')[0].key, '');
+  assert.equal(read('q1.apps')[0].url, 'https://partner.example.com/v1');
+  assert.ok(!JSON.stringify(read('q1.apps')).includes('SUPER-SECRET'));
 });
 
 test('seeds the full default q1.apps list with a configured Quik1 entry when the key is absent', async () => {

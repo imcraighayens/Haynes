@@ -74,6 +74,12 @@ export function createFakePostgrest(seed = {}) {
     return rows.map(r => Object.fromEntries(cols.map(c => [c, r[c] === undefined ? null : clone(r[c])])));
   }
 
+  // The live columns that are NOT NULL without a default the handlers could lean on; the real
+  // PostgREST answers 23502 for these and the fake must not hide that.
+  const NOT_NULL = { loans: ['principal_derived'] };
+  function checkNotNull(table, row) {
+    for (const col of NOT_NULL[table] || []) if (col in row && row[col] === null) throw httpError(400, '23502', `null value in column "${col}" violates not-null constraint`);
+  }
   function nowIso() { return new Date().toISOString(); }
   function stamp(table, row, isNew) {
     // Mimic the DB defaults the handlers rely on: created_at for list ordering, updated_at everywhere.
@@ -120,6 +126,7 @@ export function createFakePostgrest(seed = {}) {
         for (const r of list) {
           const id = r[pk];
           if (id == null || id === '') throw httpError(400, '23502', `null value in column "${pk}"`);
+          checkNotNull(table, r);
           const i = rows.findIndex(x => String(x[pk]) === String(id));
           if (i >= 0) {
             if (!onConflict || !resolution) throw httpError(409, '23505', `duplicate key value violates unique constraint "${table}_pkey"`);
@@ -135,6 +142,7 @@ export function createFakePostgrest(seed = {}) {
 
       if (method === 'PATCH') {
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw httpError(400, 'PGRST102', 'patch must be an object');
+        checkNotNull(table, body);
         const hit = rows.filter(r => matches(r, filters));
         hit.forEach(r => { Object.assign(r, clone(body)); stamp(table, r, false); });
         log.push({ method: 'PATCH', table, filters: clone(filters), patch: clone(body), count: hit.length, prefer });

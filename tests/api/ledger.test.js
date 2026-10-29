@@ -173,8 +173,57 @@ test('ledger POST sync: a database error on one op is reported, not thrown', asy
   ] } });
   const out = res.json();
   assert.equal(out.ok, false);
-  assert.deepEqual(out.results[0], { table: 'loans', op: 'upsert', count: 0, error: 'Database error 23503' });
+  assert.deepEqual(out.results[0], { table: 'loans', op: 'upsert', count: 0, error: 'Database error 23503', retryable: false });
   assert.deepEqual(out.results[1], { table: 'clients', op: 'upsert', count: 1 });
+});
+
+test('ledger POST sync: upstream outages are reported as retryable, validation/conflict errors are not', async () => {
+  stubFetch(r => r.table === 'loans' ? { status: 503, body: { code: 'XX000', message: 'pooler restarting' } } : { status: 200, body: r.body || [] });
+  let out = (await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l1', ref: 'x', client_id: 'c1' }] },
+    { table: 'audit_log', op: 'update', id: 'a1', patch: { comment: 'x' } },
+    { table: 'clients', op: 'upsert', rows: [{ id: 'c1', ref: 'EC-1', name: 'A' }] }
+  ] } })).json();
+  assert.equal(out.ok, false);
+  assert.deepEqual(out.results[0], { table: 'loans', op: 'upsert', count: 0, error: 'Database error XX000', retryable: true });
+  assert.equal(out.results[1].retryable, false, 'append-only violation is final');
+  assert.deepEqual(out.results[2], { table: 'clients', op: 'upsert', count: 1 });
+
+  globalThis.fetch = async () => { throw new Error('ECONNREFUSED'); };
+  out = (await call({ method: 'POST', path: ['sync'], body: { ops: [{ table: 'clients', op: 'upsert', rows: [{ id: 'c1', ref: 'EC-1', name: 'A' }] }] } })).json();
+  assert.deepEqual(out.results[0], { table: 'clients', op: 'upsert', count: 0, error: 'Database unreachable', retryable: true });
+  assert.equal((await call({ method: 'POST', path: ['sync'], body: { ops: [{ table: 'loans', op: 'upsert', rows: [{ id: 'l1', principal_derived: null }] }] } })).statusCode, 200);
+});
+
+test('ledger GET state: applications are capped, record tables are paged to completion, a short page is a 503', async () => {
+  let res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  const byTable = Object.fromEntries(calls.map(c => [c.table, c]));
+  assert.equal(byTable.applications.url.searchParams.get('limit'), '500', 'public submissions cannot grow the boot snapshot without bound');
+  assert.equal(byTable.clients.url.searchParams.get('limit'), '1000');
+  assert.equal(byTable.clients.url.searchParams.get('offset'), '0');
+  assert.equal(byTable.clients.headers.Prefer, 'count=exact');
+
+  // 1500 loans behind Supabase's 1000-row cap: two pages, concatenated in order
+  const loans = Array.from({ length: 1500 }, (_, i) => ({ id: 'l' + i, ref: 'ECL-' + i, client_id: 'c1', status: 'issued' }));
+  stubFetch(r => {
+    if (r.table !== 'loans') return { status: 200, body: tableRows[r.table] || [] };
+    const off = Number(r.url.searchParams.get('offset') || 0), page = loans.slice(off, off + 1000);
+    return { status: 200, body: page, headers: { 'content-range': `${off}-${off + page.length - 1}/1500` } };
+  });
+  res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().loans.length, 1500);
+  assert.deepEqual(calls.filter(c => c.table === 'loans').map(c => c.url.searchParams.get('offset')), ['0', '1000']);
+  assert.equal(calls.filter(c => c.table === 'loans')[1].headers.Prefer, undefined, 'count only on the first page');
+
+  // the server says 1500 exist but stops handing rows out: never return a truncated book
+  stubFetch(r => r.table === 'loans'
+    ? { status: 200, body: Number(r.url.searchParams.get('offset') || 0) ? [] : loans.slice(0, 1000), headers: { 'content-range': '0-999/1500' } }
+    : { status: 200, body: tableRows[r.table] || [] });
+  res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 503);
+  assert.deepEqual(res.json(), { error: 'partial state' });
 });
 
 test('ledger POST sync: bad envelope / method', async () => {
@@ -201,10 +250,29 @@ test('ledger rest/v1/ledger_book: the console\'s exact GET shapes forward to the
   res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?id=eq.main&select=updated_at' });
   assert.deepEqual(res.json(), [{ updated_at: '2026-10-28T10:00:00Z' }]);
 
+  // Vercel's catch-all can put its own routing key on req.url; it is not a filter
+  res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&select=id&limit=1' });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), [{ id: 'main' }]);
+  res = await call({ path: 'rest/v1/ledger_book', url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&id=eq.main&select=updated_at' });
+  assert.deepEqual(res.json(), [{ updated_at: '2026-10-28T10:00:00Z' }]);
+
   res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?payload=like.*x*' });
   assert.equal(res.statusCode, 400);
   res = await call({ path: ['rest', 'v1', 'clients'], url: '/api/ledger/rest/v1/clients?select=*' });
   assert.equal(res.statusCode, 404, 'only the book is exposed through the emulation');
+});
+
+test('ledger rest/v1/ledger_book: a pulled payload never carries the record tables (write-only backup)', async () => {
+  const stale = { schema: 'ledger-book/2', clients: [{ id: 'c_old' }], loans: [{ id: 'l_old', status: 'issued' }], employees: [{ id: 'e1' }], applications: [{ id: 'a1' }],
+    logbook: [{ ref: 'ECL-1' }], petty: [], bank: { balance: 1 }, bankTx: [], expenses: [], loanSeq: 95, clientSeq: 40, txnSeq: 1041 };
+  stubFetch(() => ({ status: 200, body: [{ id: 'main', payload: stale, updated_at: '2026-10-28T10:00:00Z', updated_by: 'Craig' }] }));
+  const res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?id=eq.main&select=payload,updated_at,updated_by' });
+  assert.equal(res.statusCode, 200);
+  const p = res.json()[0].payload;
+  for (const k of ['clients', 'loans', 'employees', 'applications']) assert.equal(k in p, false, k + ' stripped so the console cannot restore a stale book over the live tables');
+  assert.deepEqual(p.logbook, stale.logbook); assert.equal(p.loanSeq, 95); assert.equal(p.schema, 'ledger-book/2');
+  assert.equal(res.json()[0].updated_by, 'Craig');
 });
 
 test('ledger rest/v1/ledger_book: POST ?on_conflict=id upserts and honours Prefer return=minimal', async () => {
@@ -216,7 +284,9 @@ test('ledger rest/v1/ledger_book: POST ?on_conflict=id upserts and honours Prefe
   assert.equal(calls[0].method, 'POST');
   assert.equal(calls[0].url.searchParams.get('on_conflict'), 'id');
   assert.equal(calls[0].headers.Prefer, 'resolution=merge-duplicates,return=minimal');
-  assert.deepEqual(calls[0].body, [{ id: 'main', payload: { clients: [] }, updated_at: '2026-10-29T00:00:00.000Z', updated_by: 'Craig' }]);
+  assert.deepEqual(calls[0].body, [{ id: 'main', payload: { clients: [] }, updated_at: '2026-10-29T00:00:00.000Z', updated_by: 'Craig' }], 'the push keeps the full book');
+  const viaVercel = await call({ method: 'POST', path: 'rest/v1/ledger_book', url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&on_conflict=id', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body });
+  assert.equal(viaVercel.statusCode, 201);
 
   const bad = await call({ method: 'POST', path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?on_conflict=id', body: [{ id: 'main', payload: 'string' }] });
   assert.equal(bad.statusCode, 400);
