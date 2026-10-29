@@ -6,7 +6,7 @@ const ENV = { SUPABASE_URL: 'https://db.test.supabase.co', SUPABASE_SERVICE_ROLE
 const KEY = ENV.LEDGER_KEY;
 Object.assign(process.env, ENV);
 
-const handler = (await import('../../api/ledger/[...path].js')).default;
+const handler = (await import('../../api/ledger.js')).default;
 
 // ---- tiny req/res + fetch fakes -------------------------------------------------------------------
 function makeRes() {
@@ -251,10 +251,10 @@ test('ledger rest/v1/ledger_book: the console\'s exact GET shapes forward to the
   assert.deepEqual(res.json(), [{ updated_at: '2026-10-28T10:00:00Z' }]);
 
   // Vercel's catch-all can put its own routing key on req.url; it is not a filter
-  res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&select=id&limit=1' });
+  res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger?path=rest%2Fv1%2Fledger_book&select=id&limit=1' });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json(), [{ id: 'main' }]);
-  res = await call({ path: 'rest/v1/ledger_book', url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&id=eq.main&select=updated_at' });
+  res = await call({ path: 'rest/v1/ledger_book', url: '/api/ledger?path=rest%2Fv1%2Fledger_book&id=eq.main&select=updated_at' });
   assert.deepEqual(res.json(), [{ updated_at: '2026-10-28T10:00:00Z' }]);
 
   res = await call({ path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?payload=like.*x*' });
@@ -285,7 +285,7 @@ test('ledger rest/v1/ledger_book: POST ?on_conflict=id upserts and honours Prefe
   assert.equal(calls[0].url.searchParams.get('on_conflict'), 'id');
   assert.equal(calls[0].headers.Prefer, 'resolution=merge-duplicates,return=minimal');
   assert.deepEqual(calls[0].body, [{ id: 'main', payload: { clients: [] }, updated_at: '2026-10-29T00:00:00.000Z', updated_by: 'Craig' }], 'the push keeps the full book');
-  const viaVercel = await call({ method: 'POST', path: 'rest/v1/ledger_book', url: '/api/ledger/[...path]?path=rest%2Fv1%2Fledger_book&on_conflict=id', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body });
+  const viaVercel = await call({ method: 'POST', path: 'rest/v1/ledger_book', url: '/api/ledger?path=rest%2Fv1%2Fledger_book&on_conflict=id', headers: { prefer: 'resolution=merge-duplicates,return=minimal' }, body });
   assert.equal(viaVercel.statusCode, 201);
 
   const bad = await call({ method: 'POST', path: ['rest', 'v1', 'ledger_book'], url: '/api/ledger/rest/v1/ledger_book?on_conflict=id', body: [{ id: 'main', payload: 'string' }] });

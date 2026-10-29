@@ -45,9 +45,9 @@ quik1/                  Quik1 app (frozen) + 1 bridge module
   quik1-link.js           window.Quik1Link backed by /api/quik1 (same API as the demo version)
 api/                    Vercel Node functions, ESM, zero dependencies
   _lib/                   PostgREST client, auth, validation whitelists, rate limit, http helpers
-  ledger/[...path].js     staff routes       (Bearer LEDGER_KEY)
-  q1/[...path].js         LEDGER's Q1 panel  (Bearer LEDGER_KEY)
-  quik1/[...path].js      customer routes    (no auth; insert-only + read-own-by-id)
+  ledger.js              staff routes       (Bearer LEDGER_KEY)
+  q1.js                  LEDGER's Q1 panel  (Bearer LEDGER_KEY)
+  quik1.js               customer routes    (no auth; insert-only + read-own-by-id)
 supabase/migrations/    20261029_quik1_bridge.sql — additive only
 tests/  tools/  docs/   unit + boot tests, boot-test runner, the spec (not deployed)
 vercel.json             redirects, security headers, cache rules

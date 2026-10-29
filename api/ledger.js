@@ -2,10 +2,10 @@
 //   GET  /api/ledger/state                      full snapshot for boot
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
-import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from '../_lib/http.js';
-import { requireStaff } from '../_lib/auth.js';
-import { select, selectOne, upsert, insert, update, eq } from '../_lib/supabase.js';
-import { COLUMNS, pick, requireId } from '../_lib/validate.js';
+import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
+import { requireStaff } from './_lib/auth.js';
+import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
+import { COLUMNS, pick, requireId } from './_lib/validate.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;

@@ -121,6 +121,10 @@ test('http.readBody: parsed objects, strings, streams, and the size cap', async 
 test('http.pathParts: Vercel query array, single string, or URL fallback', () => {
   assert.deepEqual(pathParts({ query: { path: ['applications', 'ap_1'] } }), ['applications', 'ap_1']);
   assert.deepEqual(pathParts({ query: { path: 'state' } }), ['state']);
+  // vercel.json rewrite: /api/quik1/applications/ap_1 -> /api/quik1?path=applications/ap_1
+  assert.deepEqual(pathParts({ query: { path: 'applications/ap_1' } }, 'quik1'), ['applications', 'ap_1']);
+  assert.deepEqual(pathParts({ url: '/api/quik1?path=applications%2Fap_1' }, 'quik1'), ['applications', 'ap_1']);
+  assert.deepEqual(pathParts({ query: {}, url: '/api/ledger?path=rest/v1/ledger_book&id=eq.main' }, 'ledger'), ['rest', 'v1', 'ledger_book']);
   assert.deepEqual(pathParts({ url: '/api/ledger/rest/v1/ledger_book?id=eq.main' }, 'ledger'), ['rest', 'v1', 'ledger_book']);
 });
 });

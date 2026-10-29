@@ -27,9 +27,9 @@ quik1/                  Quik1 customer app (mobile, 440x940). Served at /quik1/
   quik1-link.js         NEW  window.Quik1Link backed by the API (same API as the local one)
 api/                    Vercel Node 22 serverless functions (ESM)
   _lib/                 shared helpers (supabase REST client, auth, validation, rate limit)
-  ledger/[...path].js   staff endpoints  (Bearer LEDGER_KEY)
-  q1/[...path].js       LEDGER's "Quik1 loan app" integration endpoints (Bearer LEDGER_KEY)
-  quik1/[...path].js    public customer endpoints (no auth; insert-only + read-own-by-id)
+  ledger.js             staff endpoints  (Bearer LEDGER_KEY)
+  q1.js                 LEDGER's "Quik1 loan app" integration endpoints (Bearer LEDGER_KEY)
+  quik1.js              public customer endpoints (no auth; insert-only + read-own-by-id)
 supabase/migrations/    additive SQL for the bridge tables/columns
 tests/                  node:test unit tests + Playwright boot tests
 tools/                  unpack-bundle.py (how the apps were unpacked), boot-test.js
@@ -165,7 +165,7 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
 
 * Runtime: Vercel Node 22 (`engines.node` = `22.x` in package.json), ESM (`"type":"module"`), zero npm dependencies (use global `fetch`).
   Each file `export default async function handler(req, res)`. Catch-all routes:
-  `api/ledger/[...path].js`, `api/q1/[...path].js`, `api/quik1/[...path].js`.
+  `api/ledger.js`, `api/q1.js`, `api/quik1.js` (vercel.json rewrites `/api/<area>/*` to `/api/<area>?path=*`).
 * Env: `SUPABASE_URL` (`https://rcektqecduuzqqmcsgat.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY`,
   `LEDGER_KEY` (long random secret shared with the console). Optional `ALLOWED_ORIGIN`.
   Missing env → 503 with a plain message, never a stack trace.
