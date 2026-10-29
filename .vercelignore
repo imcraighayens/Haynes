@@ -1,0 +1,28 @@
+# Not needed at runtime — keeps the deployment small and the originals private. Nothing here is
+# secret, but the migration (table/policy names), the deploy notes and the env layout are free
+# reconnaissance for anyone probing the host. package.json stays: Vercel reads "type":"module"
+# and engines.node from it to run api/ as ESM on Node 22.
+tests
+tools
+docs
+ledger/original
+quik1/original
+supabase
+README.md
+DEPLOY.md
+.env.example
+
+# Scratch / local-only files
+node_modules
+.env
+.env.*
+.vercel
+.claude
+.mcp.json
+skills-lock.json
+*.log
+*.png.tmp
+/*.png
+scratch
+scratch.*
+.DS_Store

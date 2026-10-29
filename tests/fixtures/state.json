@@ -1,0 +1,73 @@
+{
+  "_note": "SYNTHETIC test data only. No real people, ids or accounts. Shape = the live tables the bridge syncs.",
+  "employees": [
+    { "id": "e1", "name": "Test Admin", "email": "admin@test.invalid", "role": "admin", "active": true, "approval_limit": 50000, "created_at": "2025-11-01T08:00:00.000Z" }
+  ],
+  "clients": [
+    { "id": "c_test_1", "ref": "EC-901", "name": "Test Client One", "id_number": "0000000000000", "dob": "1980-01-01", "email": "one@test.invalid", "phone": "0820000001",
+      "address": "1 Test Street", "city": "Testville", "province": "Gauteng", "employment": "Full-time", "employer": "Test Employer", "job_title": "Tester", "tenure": "3 years",
+      "net_salary": 12000, "gross_salary": 15000, "other_income": 0, "expenses": { "rent": 3000, "groceries": 1500, "transport": 800, "otherDebt": 0, "other": 200 },
+      "bank": "Test Bank", "branch_code": "000000", "account_no": "0000000001", "account_type": "Cheque", "officer_id": "e1", "score": 3, "blocked": false,
+      "contract": null, "created_at": "2026-01-10T08:00:00.000Z", "created_by": "e1", "retain_until": null, "deleted_at": null },
+    { "id": "c_test_2", "ref": "EC-902", "name": "Test Client Two", "id_number": "0000000000000", "dob": "1985-05-05", "email": null, "phone": "0820000002",
+      "address": null, "city": "Testville", "province": "North West", "employment": "Contract", "employer": "Test Mine", "job_title": "Operator", "tenure": null,
+      "net_salary": 9500, "gross_salary": null, "other_income": null, "expenses": null,
+      "bank": "Test Bank", "branch_code": "000000", "account_no": "0000000002", "account_type": "Savings", "officer_id": "e1", "score": 2, "blocked": false,
+      "contract": null, "created_at": "2026-02-14T08:00:00.000Z", "created_by": "e1", "retain_until": null, "deleted_at": null },
+    { "id": "c_test_3", "ref": "EC-903", "name": "Test Client Three", "id_number": "0000000000000", "dob": null, "email": null, "phone": "0820000003",
+      "address": null, "city": null, "province": null, "employment": null, "employer": null, "job_title": null, "tenure": null,
+      "net_salary": 7000, "gross_salary": null, "other_income": null, "expenses": null,
+      "bank": null, "branch_code": null, "account_no": null, "account_type": null, "officer_id": null, "score": 0, "blocked": true,
+      "contract": null, "created_at": "2026-03-01T08:00:00.000Z", "created_by": "e1", "retain_until": null, "deleted_at": null },
+    { "id": "c_test_gone", "ref": "EC-904", "name": "Test Client Archived", "id_number": "0000000000000", "phone": "0820000004", "net_salary": 0, "score": 0, "blocked": false,
+      "officer_id": "e1", "created_at": "2026-03-02T08:00:00.000Z", "deleted_at": "2026-04-01T00:00:00.000Z" }
+  ],
+  "loans": [
+    { "id": "l_test_901", "ref": "ECL-901", "client_id": "c_test_1", "application_id": null, "principal": 2000, "principal_derived": true, "return_rate_pct": 35, "instalment_amount": 2700,
+      "collection_fee": 0, "schedule": ["2026-11-25"], "instalments_paid": 0, "prior_instalments": 0, "status": "issued", "status_at": "2026-10-25T08:00:00.000Z",
+      "mandate_id": "90000001", "contract_ref": null, "paid_dates": [], "purpose": "Groceries", "issued_on": "2026-10-25", "issued_by": "Test Admin", "officer_id": "e1",
+      "created_at": "2026-10-25T08:00:00.000Z", "written_off_at": null, "write_off_reason": null, "deleted_at": null },
+    { "id": "l_test_902", "ref": "ECL-902", "client_id": "c_test_2", "application_id": null, "principal": 1500, "principal_derived": true, "return_rate_pct": 35, "instalment_amount": 675,
+      "collection_fee": 0, "schedule": ["2026-09-25", "2026-10-25", "2026-11-25"], "instalments_paid": 1, "prior_instalments": 0, "status": "overdue", "status_at": "2026-10-26T08:00:00.000Z",
+      "mandate_id": "90000002", "contract_ref": null, "paid_dates": ["2026-09-25"], "purpose": "School fees", "issued_on": "2026-08-25", "issued_by": "Test Admin", "officer_id": "e1",
+      "created_at": "2026-08-25T08:00:00.000Z", "written_off_at": null, "write_off_reason": null, "deleted_at": null },
+    { "id": "l_test_903", "ref": "ECL-903", "client_id": "c_test_1", "application_id": null, "principal": 1000, "principal_derived": true, "return_rate_pct": 35, "instalment_amount": 675,
+      "collection_fee": 0, "schedule": ["2026-06-25", "2026-07-25"], "instalments_paid": 2, "prior_instalments": 0, "status": "paid", "status_at": "2026-07-25T08:00:00.000Z",
+      "mandate_id": "90000003", "contract_ref": null, "paid_dates": ["2026-06-25", "2026-07-25"], "purpose": "Transport", "issued_on": "2026-05-25", "issued_by": "Test Admin", "officer_id": "e1",
+      "created_at": "2026-05-25T08:00:00.000Z", "written_off_at": null, "write_off_reason": null, "deleted_at": null },
+    { "id": "l_test_904", "ref": "ECL-904", "client_id": "c_test_2", "application_id": null, "principal": 800, "principal_derived": true, "return_rate_pct": 35, "instalment_amount": 540,
+      "collection_fee": 0, "schedule": ["2026-04-25", "2026-05-25"], "instalments_paid": 1, "prior_instalments": 0, "status": "settled_early", "status_at": "2026-05-02T08:00:00.000Z",
+      "mandate_id": "90000004", "contract_ref": null, "paid_dates": ["2026-04-25"], "purpose": "Medical", "issued_on": "2026-03-25", "issued_by": "Test Admin", "officer_id": "e1",
+      "created_at": "2026-03-25T08:00:00.000Z", "written_off_at": null, "write_off_reason": null, "deleted_at": null },
+    { "id": "l_test_905", "ref": "ECL-905", "client_id": "c_test_3", "application_id": null, "principal": 500, "principal_derived": true, "return_rate_pct": 35, "instalment_amount": 675,
+      "collection_fee": 0, "schedule": ["2026-02-25"], "instalments_paid": 0, "prior_instalments": 0, "status": "written_off", "status_at": "2026-06-01T08:00:00.000Z",
+      "mandate_id": null, "contract_ref": null, "paid_dates": [], "purpose": "Personal", "issued_on": "2026-01-25", "issued_by": "Test Admin", "officer_id": null,
+      "created_at": "2026-01-25T08:00:00.000Z", "written_off_at": "2026-06-01T08:00:00.000Z", "write_off_reason": "Test write-off", "deleted_at": null }
+  ],
+  "applications": [],
+  "audit_log": [
+    { "id": "al_test_1", "at": "2026-10-25T08:05:00.000Z", "type": "LOAN ADDED", "ref": "ECL-901", "customer": "Test Client One", "amount": 2000, "by": "e1", "comment": "Test seed" },
+    { "id": "al_test_2", "at": "2026-09-25T08:05:00.000Z", "type": "PAYMENT RECEIVED", "ref": "ECL-902", "customer": "Test Client Two", "amount": 675, "by": "e1", "comment": "Inst 1" },
+    { "id": "al_test_3", "at": "2026-06-01T08:05:00.000Z", "type": "STATUS → Written off", "ref": "ECL-905", "customer": "Test Client Three", "amount": 500, "by": "Test Admin", "comment": "Test write-off" }
+  ],
+  "petty_cash": [
+    { "id": "pc_test_1", "date": "2026-10-20", "amount": 150, "category": "travel", "purpose": "Taxi to client", "borrower": "", "notes": "", "status": "REPAID", "by": "Test Admin", "created_at": "2026-10-20T09:00:00.000Z" }
+  ],
+  "bank_tx": [
+    { "id": "bt_test_1", "at": "2026-10-25T08:10:00.000Z", "type": "out", "amount": 2000, "ref": "ECL-901", "label": "Loan issued", "by": "Test Admin" },
+    { "id": "bt_test_2", "at": "2026-09-25T08:10:00.000Z", "type": "in", "amount": 675, "ref": "ECL-902", "label": "Collected", "by": "Test Admin" }
+  ],
+  "expenses": [
+    { "id": "x_test_1", "name": "Test Rent", "amount": 4500, "deleted_at": null }
+  ],
+  "settings": [
+    { "id": "org", "org_name": "Test Lender", "org_legal_name": "Test Lender (Pty) Ltd", "ncr_reg_no": "NCRCP0000", "company_reg_no": "0000/000000/07", "tagline": "Test tagline",
+      "address": "1 Test Street, Testville", "contact_email": "info@test.invalid", "contact_phone": "0100000000", "website": "https://test.invalid",
+      "default_return_rate_pct": 35, "default_collection_fee": 0, "protection_fee": 0, "bank_opening_balance": 25000, "bank_opening_at": "2026-10-01T06:00:00.000Z",
+      "mask_pii": false, "contract_intro": null, "contract_clauses": null, "updated_at": "2026-10-01T06:00:00.000Z", "updated_by": "e1" }
+  ],
+  "ledger_book": [],
+  "q1_signups": [],
+  "q1_requests": [],
+  "q1_repayments": []
+}
