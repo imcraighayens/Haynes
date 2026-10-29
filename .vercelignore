@@ -1,0 +1,22 @@
+# Not needed at runtime — keeps the deployment small and the originals private.
+tests
+tools
+docs
+ledger/original
+quik1/original
+
+# Scratch / local-only files
+node_modules
+.env
+.env.*
+!.env.example
+.vercel
+.claude
+.mcp.json
+skills-lock.json
+*.log
+*.png.tmp
+/*.png
+scratch
+scratch.*
+.DS_Store

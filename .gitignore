@@ -1,10 +1,29 @@
+# Dependencies (there are none in production; this covers local experiments)
 node_modules
+
+# Secrets — only the template is tracked
+.env
+.env.*
+!.env.example
+
+# Vercel CLI project link / local build output
+.vercel
+
+# Build leftovers from the previous site
 dist
 dist-ssr
-*.local
-.env
-.env.local
-.DS_Store
-*.log
 .vite
 *.tsbuildinfo
+
+# Local junk
+*.local
+*.log
+.DS_Store
+
+# Root-level screenshots from boot tests (ledger/ and quik1/ PNGs are app assets and stay tracked;
+# the npm scripts write their screenshots to /tmp, so nothing lands here in normal use)
+/*.png
+scratch
+scratch.*
+
+# Keep tracked on purpose: .claude/ (skills) and .mcp.json (Supabase MCP config)

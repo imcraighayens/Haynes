@@ -1,11 +1,10 @@
-// node --test tests/  — unit tests for ledger/ledger-sync.js (browser globals are stubbed).
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
+// node --test tests/ledger-sync.test.js  — unit tests for ledger/ledger-sync.js (browser globals are stubbed).
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
 
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'ledger', 'ledger-sync.js'), 'utf8');
+const SRC = fs.readFileSync(new URL('../ledger/ledger-sync.js', import.meta.url), 'utf8');
 const ORIGIN = 'https://ledger.test';
 
 class FakeStorage {

@@ -664,6 +664,9 @@ export class LedjaaDB {
   }
   async _post(body) {
     const L = W.__ledger;
+    // Same rule as the mirror in ledger-sync.js: without a key the queue is kept, never POSTed
+    // (an unauthenticated /sync would only earn a 401 and a retry every minute).
+    if (L && typeof L.cfg === 'function' && !(L.cfg() || {}).key) throw new Error('No ledger API url/key configured');
     if (L && typeof L.api === 'function') return unwrap(L.api('POST', '/sync', body));
     const cfg = readCfg();
     if (!apiBase(cfg) || !cfg.key) throw new Error('No ledger API url/key configured');
