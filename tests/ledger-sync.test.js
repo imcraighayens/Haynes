@@ -313,3 +313,48 @@ test('a failed or slow state fetch falls back to local-only and still injects th
   localStorage.setItem('evoltConsoleV4', JSON.stringify({ ...sv0, logbook: [{ ref: 'Z', customer: 'Q', amount: 2, type: 'T', date: '29 OCT 2026', by: 'me', comment: '' }, ...sv0.logbook] }));
   assert.equal(L._.queue().length, 1);
 });
+
+test('an edit that lands while a sync request is in flight is never acknowledged by that request', async () => {
+  // The server hook runs while the first /sync is "on the wire": the console changes the same
+  // expense from 100 to 200 before the response arrives. Only the 100 was sent; the 200 must
+  // survive the acknowledgement and go out on the next flush.
+  let store = null, mutate = true;
+  const sync = ops => {
+    if (mutate) { mutate = false; const cur = JSON.parse(store.getItem('ledjaa.expenses')); store.setItem('ledjaa.expenses', JSON.stringify(cur.map(e => e.id === 'x9' ? { ...e, amount: 200 } : e))); }
+    return ops.map(o => ({ table: o.table, op: o.op, count: 1 }));
+  };
+  const { L, localStorage, read, queue, calls } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: STATE, sync });
+  store = localStorage;
+  localStorage.setItem('ledjaa.expenses', JSON.stringify([...read('ledjaa.expenses'), { id: 'x9', name: 'Wifi', amount: 100 }]));
+  assert.equal(queue().length, 1);
+  await L._.flush();
+  const sent = calls.filter(c => /\/sync$/.test(c.url)).map(c => JSON.parse(c.init.body).ops);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0][0].rows[0].amount, 100, 'the first request carried the old value');
+  const q = queue();
+  assert.equal(q.length, 1, 'the newer edit is still queued after the older request succeeded');
+  assert.equal(q[0].rows[0].amount, 200);
+  assert.equal(read('ledjaa.sync.queue')[0].rows[0].amount, 200, 'and persisted');
+  await L._.flush();
+  const sent2 = calls.filter(c => /\/sync$/.test(c.url)).map(c => JSON.parse(c.init.body).ops);
+  assert.equal(sent2.length, 2);
+  assert.equal(sent2[1][0].rows[0].amount, 200, 'second flush sends the newer value');
+  assert.equal(queue().length, 0);
+});
+
+test('a failed in-flight batch is requeued underneath any newer edit of the same row', async () => {
+  let store = null, phase = 0;
+  const { L, localStorage, read, queue, window } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: STATE });
+  store = localStorage;
+  const realFetch = window.fetch;
+  window.fetch = async (url, init) => {
+    if (/\/sync$/.test(url) && phase === 0) { phase = 1; const cur = JSON.parse(store.getItem('ledjaa.expenses')); store.setItem('ledjaa.expenses', JSON.stringify(cur.map(e => e.id === 'x9' ? { ...e, name: 'Fibre' } : e))); throw new Error('network down'); }
+    return realFetch(url, init);
+  };
+  localStorage.setItem('ledjaa.expenses', JSON.stringify([...read('ledjaa.expenses'), { id: 'x9', name: 'Wifi', amount: 100 }]));
+  await L._.flush();
+  const q = queue();
+  assert.equal(q.length, 1, 'one merged op, not two');
+  assert.equal(q[0].rows[0].name, 'Fibre', 'the newer edit wins');
+  assert.equal(q[0].rows[0].amount, 100, 'fields the newer edit did not touch are kept from the failed batch');
+});

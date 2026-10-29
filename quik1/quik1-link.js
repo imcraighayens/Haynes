@@ -17,6 +17,8 @@
   var POLL_MS = 6000;
   var MAX_BACKOFF_MS = 5 * 60 * 1000;
   var MAX_POLL_AGE_MS = 7 * 24 * 60 * 60 * 1000; // stop asking about week-old records
+  var REPAY_POLL_MS = 60 * 1000;                   // repayment flag: once a minute when idle
+  var REPAY_WATCH_MS = 120 * 24 * 60 * 60 * 1000;  // ...and only for loans younger than 4 months
   var FETCH_TIMEOUT_MS = 15000;
 
   var subs = [];
@@ -211,7 +213,15 @@
     });
     return out;
   }
-  function hasWork() { return readOutbox().queue.length > 0 || pollTargets().length > 0; }
+  // After an approval the customer still waits for staff to confirm the repayment, which can be
+  // weeks later; that watch keeps the poller alive (throttled, see pollRepayments) until the
+  // flag is seen or the application is too old to matter.
+  function needsRepayment() {
+    var s = read(), a = s.applications[0], d = a && s.decisions[a.id], r = (s.repayments || {}).app;
+    if (!a || !d || d.verdict !== 'approved' || (r && r.ok)) return false;
+    return Date.now() - num(a.submittedAt) < REPAY_WATCH_MS;
+  }
+  function hasWork() { return readOutbox().queue.length > 0 || pollTargets().length > 0 || needsRepayment(); }
 
   function flush() {
     var now = Date.now();
@@ -248,13 +258,18 @@
     var a = read().applications[0];
     return a && typeof a.id === 'string' && a.id ? 'app:' + (a.serverId || a.id) : null;
   }
+  var lastRepayAt = 0;
   function pollRepayments() {
-    var key = 'get:repayments', rk = repaymentKey();
+    var key = 'get:repayments', rk = repaymentKey(), now = Date.now();
     if (!rk || inflight[key]) return;
-    inflight[key] = true;
+    // Decisions are polled every tick; the repayment flag changes rarely, so once nothing else
+    // is pending it is asked for once a minute rather than every 6 s.
+    if (pollTargets().length === 0 && readOutbox().queue.length === 0 && now - lastRepayAt < REPAY_POLL_MS) return;
+    lastRepayAt = now; inflight[key] = true;
     request('GET', 'repayments/' + encodeURIComponent(rk)).then(function (r) {
       delete inflight[key];
       if (r.ok) applyRepayment(r.body);
+      safe(schedule);
     });
   }
   function tick() { flush(); poll(); pollRepayments(); }

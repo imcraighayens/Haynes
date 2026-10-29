@@ -47,8 +47,18 @@ async function getState(req, res) {
     // The book table only exists after the bridge migration; its absence must not break boot.
     tolerant(selectOne('ledger_book', { select: 'updated_at', id: eq('main') }))
   ]);
+  // The console computes the bank balance as the confirmed opening balance plus every movement
+  // after it, so the snapshot must carry all of those even when more than BANK_TX_LIMIT have
+  // happened since; the newest window on its own would understate or overstate the balance.
+  let bankTx = bank_tx;
+  const openingAt = settings && settings.bank_opening_at && !Number.isNaN(Date.parse(settings.bank_opening_at)) ? new Date(settings.bank_opening_at).toISOString() : null;
+  if (openingAt && bank_tx.length >= BANK_TX_LIMIT) {
+    const since = await select('bank_tx', { select: '*', order: 'at.desc', at: 'gte.' + openingAt });
+    const seen = new Set(bank_tx.map(r => r.id));
+    bankTx = bank_tx.concat(since.filter(r => !seen.has(r.id)));
+  }
   json(res, 200, {
-    clients, loans, employees, applications, audit_log, petty_cash, bank_tx, expenses,
+    clients, loans, employees, applications, audit_log, petty_cash, bank_tx: bankTx, expenses,
     settings: settings || null,
     ledger_book: book ? { updated_at: book.updated_at } : null,
     server_time: new Date().toISOString()

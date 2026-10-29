@@ -158,9 +158,22 @@
   }
 
   // ---- op queue (persisted) --------------------------------------------------------------------
-  var pending = [], flushTimer = null, flushing = false, backoff = DEBOUNCE_MS;
+  // `pending` is what still has to go; `inflight` is the batch currently on the wire. They are
+  // separate lists so an edit that lands while a request is awaiting its response can never be
+  // acknowledged by that older request (ops are retired by identity, never by queue position).
+  var pending = [], inflight = [], flushTimer = null, flushing = false, backoff = DEBOUNCE_MS;
   function opKey(op) { var id = op.op === 'soft_delete' ? op.id : (op.rows && op.rows[0] && op.rows[0].id); return op.table + '|' + op.op + '|' + id; }
-  function persistQueue() { writeJSON(KEYS.queue, pending); }
+  function persistQueue() { writeJSON(KEYS.queue, inflight.concat(pending)); }
+  // Put ops back in front of newer work. A newer op for the same row was built without the
+  // returning one, so an upsert folds underneath it (newer fields win); anything else yields.
+  function requeue(ops) {
+    for (var n = ops.length - 1; n >= 0; n--) {
+      var op = ops[n], k = opKey(op), j;
+      for (j = 0; j < pending.length; j++) if (opKey(pending[j]) === k) break;
+      if (j === pending.length) pending.unshift(op);
+      else if (op.op === 'upsert' && pending[j].op === 'upsert') pending[j] = Object.assign({}, pending[j], { rows: [Object.assign({}, op.rows[0], pending[j].rows[0])] });
+    }
+  }
   function restoreQueue() { var q = readJSON(KEYS.queue, []); pending = Array.isArray(q) ? q.filter(function (o) { return o && o.table && o.op; }) : []; }
   function enqueue(op) {
     var k = opKey(op), i;
@@ -184,16 +197,18 @@
     if (flushing || !pending.length) return Promise.resolve();
     if (!cfg().key) return Promise.resolve(); // keep the queue until the console is connected
     flushing = true;
-    var batch = pending.slice(0, MAX_BATCH);
+    var batch = pending.splice(0, MAX_BATCH);
+    inflight = batch; persistQueue();
     return api('POST', '/sync', { ops: batch }).then(function (res) {
       var results = (res && res.results) || [], again = [];
       results.forEach(function (r, i) { if (r && r.error) { info('sync op rejected', batch[i].table, batch[i].op, r.error); if (retryable(r)) again.push(batch[i]); } });
-      pending = again.concat(pending.slice(batch.length)); persistQueue(); flushing = false;
+      inflight = []; requeue(again); persistQueue(); flushing = false;
       if (again.length) { info('retrying', again.length, 'op(s) in', backoff, 'ms'); scheduleFlush(backoff); backoff = Math.min(backoff * 2, 60000); return; }
       backoff = DEBOUNCE_MS;
       if (pending.length) scheduleFlush(0); else info('synced', batch.length, 'op(s)');
     }, function (e) {
-      flushing = false; info('sync failed, retrying in', backoff, 'ms —', String((e && e.message) || e));
+      inflight = []; requeue(batch); persistQueue(); flushing = false;
+      info('sync failed, retrying in', backoff, 'ms —', String((e && e.message) || e));
       scheduleFlush(backoff); backoff = Math.min(backoff * 2, 60000);
     });
   }
@@ -278,7 +293,9 @@
     var localTx = (readJSON(KEYS.bankTx, []) || []).map(function (t) { return Object.assign({}, t, { id: bankTxId(t) }); });
     var dbTxIds = {}, tx = ((st && st.bank_tx) || []).map(function (r) { dbTxIds[r.id] = 1; return rowToBankTx(r); });
     localTx.forEach(function (t) { if (!dbTxIds[t.id]) { tx.push(t); ops.push({ table: 'bank_tx', op: 'insert', rows: [bankTxToRow(t)] }); } });
-    tx.sort(function (a, b) { return (b.at || 0) - (a.at || 0); }); tx = tx.slice(0, 500);
+    // Keep everything the server returned: it already includes every movement since the bank
+    // opening balance was set, and the console's bankNow() needs all of those to be right.
+    tx.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
     writeJSON(KEYS.bankTx, tx); rememberBankTx(tx);
 
     // expenses ← expenses (not deleted); local-only ones are re-queued

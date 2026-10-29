@@ -135,11 +135,37 @@ test('a poll that returns an approved decision reaches subscribers as decisions[
   assert.equal(last.decisions[id].at, 1_760_000_100_000);
   assert.equal(last.applications[0].status, 'Approved');
   assert.equal(Link.decisionFor(id).verdict, 'approved');
-  assert.equal(timers.intervals, 0, 'nothing undecided → interval cleared');
+  assert.equal(timers.intervals, 1, 'approved and unpaid → only the repayment watch stays alive');
 
-  const n = calls.length;
+  const appGets = () => calls.filter(c => c.method === 'GET' && c.url === API + '/applications/' + id).length;
+  const n = appGets(), rep = calls.filter(c => /\/repayments\//.test(c.url)).length;
   await timers.advance(30000);
-  assert.equal(calls.length, n, 'no more polling after the decision');
+  assert.equal(appGets(), n, 'the application itself is not polled after the decision');
+  assert.equal(calls.filter(c => /\/repayments\//.test(c.url)).length, rep, 'repayment flag is throttled to once a minute when idle');
+  await timers.advance(36000);
+  assert.equal(calls.filter(c => /\/repayments\//.test(c.url)).length, rep + 1, 'one repayment poll per minute');
+  unsub();
+  assert.equal(timers.intervals, 0, 'no subscriber → nothing polls');
+});
+
+test('a repayment confirmed weeks after approval still reaches the open app', async () => {
+  let confirmed = false;
+  const { Link, timers } = boot(c => {
+    if (c.method === 'POST') return json(201, { id: c.body.id, status: 'Needs decision' });
+    if (/\/repayments\//.test(c.url)) return json(200, confirmed ? { ok: true, by: 'Craig', at: '2026-11-25T09:00:00Z' } : null);
+    return json(200, { id: c.url.split('/').pop(), status: 'Approved', decision: { verdict: 'approved', amount: 1500, by: 'Ecoloans', note: '', at: 1_760_000_100_000 } });
+  });
+  let repayOk = false;
+  const unsub = Link.subscribe(s => { repayOk = !!((s.repayments || {}).app && s.repayments.app.ok); });
+  const id = Link.submitApplication(APP);
+  await drain();
+  await timers.advance(6000);
+  assert.equal(Link.decisionFor(id).verdict, 'approved');
+  assert.equal(repayOk, false);
+  confirmed = true;
+  await timers.advance(2 * 60000);
+  assert.equal(repayOk, true, 'confirmation arrives without a reload');
+  assert.equal(timers.intervals, 0, 'nothing left to watch once the repayment is confirmed');
   unsub();
 });
 

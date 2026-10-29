@@ -293,4 +293,34 @@ test('ledger rest/v1/ledger_book: POST ?on_conflict=id upserts and honours Prefe
   const noAuth = await call({ method: 'POST', path: ['rest', 'v1', 'ledger_book'], auth: false, body });
   assert.equal(noAuth.statusCode, 401);
 });
+
+test('ledger GET state: once the newest bank_tx window is full, every movement since the bank opening balance is included', async () => {
+  const many = Array.from({ length: 500 }, (_, i) => ({ id: 'bt' + i, at: new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString(), type: 'in', amount: 1 }));
+  const older = [{ id: 'old1', at: '2026-02-01T00:00:00Z', type: 'out', amount: 7 }, { id: 'bt1', at: many[1].at, type: 'in', amount: 1 }];
+  stubFetch(r => {
+    if (r.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_at: '2026-01-01T00:00:00Z' }] };
+    if (r.table === 'bank_tx') return { status: 200, body: r.url.searchParams.has('at') ? older : many, headers: { 'content-range': '0-1/2' } };
+    return { status: 200, body: tableRows[r.table] || [] };
+  });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  const s = res.json();
+  const bankCalls = calls.filter(c => c.table === 'bank_tx');
+  assert.equal(bankCalls.length, 2);
+  assert.equal(bankCalls[0].url.searchParams.get('limit'), '500');
+  assert.equal(bankCalls[1].url.searchParams.get('at'), 'gte.2026-01-01T00:00:00.000Z');
+  assert.equal(s.bank_tx.length, 501, 'union by id: the 500 newest plus the one older movement since opening');
+  assert.ok(s.bank_tx.some(t => t.id === 'old1'));
+});
+
+test('ledger GET state: no second bank_tx query while the newest window is not full or no opening balance is set', async () => {
+  stubFetch(r => {
+    if (r.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_at: '2026-01-01T00:00:00Z' }] };
+    if (r.table === 'bank_tx') return { status: 200, body: [{ id: 'bt1', at: '2026-10-01T00:00:00Z', type: 'in', amount: 1 }] };
+    return { status: 200, body: tableRows[r.table] || [] };
+  });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  assert.equal(calls.filter(c => c.table === 'bank_tx').length, 1);
+});
 });
