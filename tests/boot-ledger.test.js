@@ -127,13 +127,20 @@ test('LEDGER boots on cloud data and mirrors console writes to the API', { skip:
   });
 });
 
-test('a 401 on /state shows the server unlock, then the live book', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
-  const savedPin = process.env.LEDGER_UNLOCK_PIN;
-  // Fixture for this boot only. It is not a production secret and is not read from the page.
-  const fixture = '919191';
-  process.env.LEDGER_UNLOCK_PIN = fixture;
+test('a 401 on /state shows Admin sign-in, then the live book', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+  const savedLogins = process.env.LEDGER_STAFF_TEST_LOGINS;
+  // TEST-ONLY credential the in-memory GoTrue double accepts. Not a staff password.
+  const fixturePassword = 'test-only-staff';
+  process.env.LEDGER_STAFF_TEST_LOGINS = JSON.stringify({
+    'craig@ecoloan.co.za': { password: fixturePassword, name: 'Craig Haynes' }
+  });
   try {
   await withMockApi(async api => {
+    const row = api.fake.find('employees', 'e1');
+    row.email = 'craig@ecoloan.co.za';
+    row.name = 'Craig Haynes';
+    row.role = 'admin';
+    row.active = true;
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
     try {
       await page.addInitScript(() => {
@@ -145,32 +152,27 @@ test('a 401 on /state shows the server unlock, then the live book', { skip: pw ?
         } catch (e) {}
       });
       await page.goto(api.origin + '/ledger/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => /LEDGER LOCKED/.test(document.body.innerText) && /Enter the 6-digit ledger passcode/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => /Sign in with your staff email and password/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       const locked = await bodyText(page);
-      assert.match(locked, /LEDGER LOCKED/);
-      assert.equal(/PROTOTYPE CODE/.test(locked), false, 'the lock screen does not show a passcode hint');
-      assert.equal(/LOANED OUT/.test(locked) && !/LEDGER LOCKED/.test(locked), false, 'a saved unlock flag does not skip the staff session');
+      assert.match(locked, /ADMIN/);
+      assert.doesNotMatch(locked, /PROTOTYPE CODE/);
+      assert.doesNotMatch(locked, /246810/);
+      assert.equal(/LOANED OUT/.test(locked) && !/Sign in with your staff email and password/.test(locked), false, 'a saved unlock flag does not skip the staff session');
+      const titles = await page.evaluate(() => [...document.querySelectorAll('[title]')].map(el => el.getAttribute('title')));
+      assert.ok(titles.includes('Admin'));
+      assert.equal(titles.includes('Ledger'), false);
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 401), 'anonymous /state is 401');
 
-      const box = page.getByPlaceholder('••••••');
-      await box.fill('000000');
+      await page.getByPlaceholder('Email').fill('craig@ecoloan.co.za');
+      await page.getByPlaceholder('Password').fill(fixturePassword);
       await page.waitForFunction(() => {
-        const el = document.querySelector('input[placeholder="••••••"]');
-        return !!(el && el.value && el.value.length === 6);
+        const email = document.querySelector('input[placeholder="Email"]');
+        const pass = document.querySelector('input[placeholder="Password"]');
+        return !!(email && email.value === 'craig@ecoloan.co.za' && pass && pass.value);
       }, null, { timeout: 5000 });
-      await clickText(page, 'UNLOCK');
-      await pageWaitFor(page, () => /INCORRECT PASSCODE/.test(document.body.innerText), null, { timeoutMs: 8000 });
-      assert.equal(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), false, 'a rejected unlock does not load the book');
-
-      await box.fill(fixture);
-      await page.waitForFunction((n) => {
-        const el = document.querySelector('input[placeholder="••••••"]');
-        return !!(el && el.value && el.value.length === n);
-      }, fixture.length, { timeout: 5000 });
-      await clickText(page, 'UNLOCK');
-      await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
-      assert.ok(api.requests.some(r => r.method === 'POST' && r.url.startsWith('/api/ledger/unlock') && r.status === 200), 'unlock is accepted by the server');
-      assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after unlock, /state is 200');
+      await clickText(page, 'SIGN IN');
+      await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText) && /Craig Haynes/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after sign-in, /state is 200');
       const anon = await fetch(api.origin + '/api/ledger/state');
       assert.equal(anon.status, 401, 'a request without the staff cookie stays 401');
       assert.deepEqual(pageErrors.filter(e => !isKnownPageError(e)), []);
@@ -179,6 +181,6 @@ test('a 401 on /state shows the server unlock, then the live book', { skip: pw ?
     }
   });
   } finally {
-    if (savedPin == null) delete process.env.LEDGER_UNLOCK_PIN; else process.env.LEDGER_UNLOCK_PIN = savedPin;
+    if (savedLogins == null) delete process.env.LEDGER_STAFF_TEST_LOGINS; else process.env.LEDGER_STAFF_TEST_LOGINS = savedLogins;
   }
 });

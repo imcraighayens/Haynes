@@ -705,25 +705,26 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
     </sc-if>
 
     <sc-if value="{{ isLedgerLocked }}" hint-placeholder-val="{{ false }}">
-      <div style="height:100%;display:flex;align-items:center;justify-content:center" data-screen-label="Ledger passcode">
-        <div style="{{ pcBoxStyle }}">
+      <div style="height:100%;display:flex;align-items:center;justify-content:center" data-screen-label="Admin sign-in">
+        <div style="{{ staffBoxStyle }}">
           <div style="width:38px;height:38px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><div style="width:10px;height:10px;background:var(--acc);border-radius:2px;transform:rotate(45deg)"></div></div>
-          <div style="font:700 16px 'Plus Jakarta Sans',sans-serif;text-align:center">LEDGER LOCKED</div>
-          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Enter the 6-digit ledger passcode.<br>Cancelling returns to the dashboard — no bypass.</div>
-          <input value="{{ pc }}" sc-camel-on-change="{{ pcChange }}" placeholder="••••••" sc-camel-max-length="6" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;font:600 22px 'Plus Jakarta Sans',sans-serif;color:var(--ink);text-align:center;letter-spacing:.5em">
-          <sc-if value="{{ pcError }}" hint-placeholder-val="{{ false }}"><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--red);text-align:center;margin-top:10px;letter-spacing:.08em">INCORRECT PASSCODE</div></sc-if>
+          <div style="font:700 16px 'Plus Jakarta Sans',sans-serif;text-align:center">ADMIN</div>
+          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Sign in with your staff email and password.<br>Cancelling returns to the dashboard.</div>
+          <input value="{{ staffEmail }}" sc-camel-on-change="{{ staffEmailChange }}" placeholder="Email" autocomplete="email" autocapitalize="none" spellcheck="false" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+          <input type="password" value="{{ staffPass }}" sc-camel-on-change="{{ staffPassChange }}" placeholder="Password" autocomplete="current-password" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;margin-top:10px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+          <sc-if value="{{ staffError }}" hint-placeholder-val="{{ false }}"><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--red);text-align:center;margin-top:10px;letter-spacing:.08em">SIGN-IN FAILED</div></sc-if>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <div sc-camel-on-click="{{ pcCancel }}" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--line2);font-size:12.5px;font-weight:600;color:var(--mut);text-align:center;cursor:pointer" style-hover="color:var(--ink)">CANCEL</div>
-            <div sc-camel-on-click="{{ pcSubmit }}" style="flex:1;padding:10px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);text-align:center;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">UNLOCK</div>
+            <div sc-camel-on-click="{{ staffCancel }}" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--line2);font-size:12.5px;font-weight:600;color:var(--mut);text-align:center;cursor:pointer" style-hover="color:var(--ink)">CANCEL</div>
+            <div sc-camel-on-click="{{ staffSubmit }}" style="flex:1;padding:10px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);text-align:center;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">SIGN IN</div>
         </div>
       </div>
     </div>
     </sc-if>
 
     <sc-if value="{{ isLedgerOpen }}" hint-placeholder-val="{{ false }}">
-      <div style="padding:10px clamp(16px,2.6vw,34px) 28px;animation:fadeUp .25s ease" data-screen-label="Ledger">
+      <div style="padding:10px clamp(16px,2.6vw,34px) 28px;animation:fadeUp .25s ease" data-screen-label="Admin">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
-          <div style="font:700 21px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">LEDGER <span style="color:var(--dim);font-weight:500;font-size:13px;letter-spacing:.08em;margin-left:8px">ADMINISTRATION · UNLOCKED</span></div>
+          <div style="font:700 21px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">ADMIN <span style="color:var(--dim);font-weight:500;font-size:13px;letter-spacing:.08em;margin-left:8px">SIGNED IN</span></div>
           <div sc-camel-on-click="{{ lockLedger }}" style="padding:8px 15px;border-radius:10px;border:1px solid var(--line2);font-size:12.5px;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap" style-hover="color:var(--ink)">LOCK</div>
       </div>
         <sc-if value="{{ true }}" hint-placeholder-val="{{ true }}">
@@ -2497,7 +2498,7 @@ class Component extends DCLogic {
       theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'dark'; }catch(e){ return 'dark'; } })(), route:'dashboard', filter:'all', q:'',
       menuId:null, modal:null, modalId:null, modalStack:[], dueBriefDay:null, dueBriefAuto:false, delPin:'', delPinErr:false, toast:null, attentionOpen:true, attended:{}, smsOpen:false, smsText:'',
       calMonth:8, calYear:2026, calSelected:23, cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
-      ledgerUnlocked:false, pc:'', pcError:false, showResetDemo:false, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
+      ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
       clients: clients.map((c,i)=>({...c, contract:{no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
       loans, logbook, petty, contractVault:[], txnSeq:1041,
       sigInk:false, sigFull:false, sigPen:'', sigTarget:null, revealed:false,
@@ -2522,9 +2523,19 @@ class Component extends DCLogic {
     try{ const org = JSON.parse(localStorage.getItem('evoltOrg')||'null'); if(org && org.name){ this._org = org; if(org.admin) this.state.prof = {...this.state.prof, name:org.admin, email:org.email||this.state.prof.email}; } }catch(e){}
     try{ const sv = JSON.parse(localStorage.getItem('evoltConsoleV4')||'null'); if(sv && sv.clients && sv.loans){ const th=this.state.theme; Object.assign(this.state, sv); this.state.theme=th; } }catch(e){}
     // GET /api/ledger/state 401 means there is no staff cookie yet. A saved
-    // ledgerUnlocked flag does not load the book. The passcode is checked by
-    // POST /api/ledger/unlock, which mints the httpOnly staff cookie.
-    try{ const gate=window.__ledger; if(gate&&gate.needsUnlock){ this.state.route='ledger'; this.state.ledgerUnlocked=false; this.state.pc=''; this.state.pcError=false; } }catch(e){}
+    // ledgerUnlocked flag does not load the book. Show Admin sign-in until
+    // Supabase login mints the cookie. A named session replaces the demo profile.
+    // POST /api/ledger/unlock stays server-only; this screen does not send a passcode.
+    try{
+      const gate=window.__ledger;
+      if(gate&&gate.needsUnlock){
+        this.state.route='ledger'; this.state.ledgerUnlocked=false;
+        this.state.staffEmail=''; this.state.staffPass=''; this.state.staffError=false;
+      } else if(gate&&gate.staff&&gate.staff.displayName){
+        this.state.prof=this.signedInProf();
+        this.state.ledgerUnlocked=true;
+      }
+    }catch(e){}
     this.state.showResetDemo=false; this.state.aiConfigured=false;
     this.state.ai={provider:'',connected:false};
     this.state.twilio={configured:false, mins:Number(this.state.twilio&&this.state.twilio.mins)||0, sms:Number(this.state.twilio&&this.state.twilio.sms)||0};
@@ -2665,6 +2676,13 @@ class Component extends DCLogic {
       this.setState(p=>({twilio:{configured:!!(j&&j.configured), mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}}));
     },()=>{ this.setState(p=>({twilio:{configured:false, mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}})); });
   }
+  signedInProf(actor){
+    var staff=null;
+    try{ staff=window.__ledger&&window.__ledger.staff; }catch(e){}
+    if(staff&&staff.displayName) return {name:String(staff.displayName), email:staff.email||(this.state.prof&&this.state.prof.email)||'', role:'Administrator'};
+    if(actor) return {name:actor.name, email:actor.email, role:'Administrator'};
+    return this.state.prof;
+  }
   initDb(){
     import((window.__resources&&window.__resources.ldbStandalone)||new URL('./ledjaa-db.js', location.href).href).then(m=>{
       this.ldb = m.db; this.ldbMod = m;
@@ -2677,10 +2695,10 @@ class Component extends DCLogic {
         this.setState({
           clients: s.clients.map((c,i)=>({...c, contract: keep[c.id] || {no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
           loans: s.loans.map(l=>({...l, ret:(l.ret==null?35:l.ret)})), employees: s.employees, dbReady:true,
-          prof: actor ? {name:actor.name, email:actor.email, role:'Administrator'} : this.state.prof
+          prof: this.signedInProf(actor)
         });
         setTimeout(()=>this.maybeBrief(), 350);
-      } else this.setState({dbReady:true, prof: actor ? {name:actor.name, email:actor.email, role:'Administrator'} : this.state.prof});
+      } else this.setState({dbReady:true, prof: this.signedInProf(actor)});
     }).catch(e=>{ console.warn('Shared data layer unavailable:', e); this.setState({dbReady:false, dbError:true}); });
   }
   // Uploaded CSV figures are authoritative. Restore principal + instalment from the seed (the CSV) wherever they drifted.
@@ -3115,27 +3133,64 @@ class Component extends DCLogic {
   qkPush(app, status){ const a=this.qkApp(); if(!app||!app.extId||!a||!a.on||!a.actions||!a.url) return;
     const base=String(a.path||'/applications').split('?')[0];
     this.q1Req(a,'PATCH',base.replace(/\/+$/,'')+'/'+encodeURIComponent(app.extId),{status}).then(()=>this.toast('Quik1 updated: '+app.name+' '+status)).catch(e=>this.toast('Quik1 not updated: '+e.message)); }
+  async botFromLedger(q, hist){
+    let key='';
+    try{ const c=JSON.parse(localStorage.getItem('ledjaa.supabase')||'null'); if(c&&c.key) key=String(c.key); }catch(e){}
+    const apps=this.q1Apps().filter(a=>a&&a.on).map(a=>({name:String(a.name||'').slice(0,80), actions:!!a.actions, path:String(a.path||'').slice(0,180)}));
+    let appsNote='';
+    try{ appsNote=String(await this.q1Context()||'').replace(/\b\d{13}\b/g,'[id]').slice(0,4000); }catch(e){ appsNote=''; }
+    const body={message:q, page:String((this.state&&this.state.route)||''), history:hist.slice(-8).map(m=>({role:m.role==='user'?'user':'bot', text:String(m.text||'').slice(0,1500)})), data:String(this.botContext()||'').slice(0,100000), apps:apps, appsNote:appsNote};
+    const headers={'Content-Type':'application/json','Accept':'application/json'};
+    if(key){ headers.Authorization='Bearer '+key; headers.apikey=key; }
+    const r=await fetch('/api/q1-assistant',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)});
+    const tx=await r.text();
+    let j=null; try{ j=tx?JSON.parse(tx):null; }catch(e){ j=null; }
+    if(!r.ok){ const err=new Error((j&&j.error)||('HTTP '+r.status)); err.status=r.status; throw err; }
+    let reply=String((j&&(j.reply||j.text))||'').replace(/\{\{|\}\}/g,'').trim();
+    if(!reply){ const err=new Error('empty reply'); err.status=502; throw err; }
+    const call=j&&j.call, action=j&&j.action;
+    if(call&&call.app&&call.path) reply+='\nAPICALL: '+JSON.stringify({app:call.app, method:call.method||'POST', path:call.path, body:call.body||{}, label:call.label||('Run on '+call.app)});
+    else if(action&&action.go) reply+='\nACTION: '+JSON.stringify({go:action.go, label:action.label||'Open'});
+    return reply;
+  }
   async botAsk(text){
     const q=String(text||'').trim(); if(!q) return;
     const hist=[...this.botHist(), {role:'user', text:q, at:Date.now()}];
     this.botSaveHist(hist); this.setState({botDraft:'', botThinking:true});
-    const convo = hist.slice(-10).map(m=>(m.role==='user'?'User: ':'Q1: ')+m.text).join('\n');
-    const prompt = 'You are Q1, the built-in assistant for LEDGER, a South African micro-lending console run by Ecoloans. Be brief, warm and practical: 1–4 short sentences or a tight list. Plain text only: no Markdown, no asterisks, no headings; use • for list items. Use rand as "R 1 234.56".\n'+
-      'RULES: Answer only from the DATA below. Loan figures are the uploaded CSV values and are authoritative: quote them exactly, never recalculate, round, estimate or invent amounts. If something is not in the data, say so. You cannot change LEDGER records yourself; tell the user where to do it.\n'+
-      'CONNECTED APPS: data from linked apps may appear below. Use it to answer questions about those apps and say which app a fact came from. If an app marked (actions allowed) should do something, end your reply with ONE line exactly like: APICALL: {"app":"<app name>","method":"POST","path":"/path","body":{},"label":"<button text>"}. The user must approve it before it runs.\n'+
-      'If a screen would help, end your reply with ONE line exactly like: ACTION: {"go":"<target>","label":"<button text>"} where target is one of: dashboard, loans, clients, applications, employees, logbook, ledger, settings, notifications, bank, expenses, newloan, filter:duetoday, filter:overdue, filter:paid, filter:issued. Otherwise omit it.\n\nDATA:\n'+this.botContext()+(await this.q1Context())+'\n\nCONVERSATION:\n'+convo+'\nQ1:';
     let out='';
     try{
-      out = String(await this.callAI('', [], prompt)||'').trim();
+      out=await this.botFromLedger(q, hist);
+      this._botServer=true; this._botAuth=false; this._botFallback=null;
     }catch(e){
-      console.warn('Q1 AI error');
-      out = 'Not configured';
+      const why=String((e&&e.message)||e||'');
+      console.warn('Q1 assistant:', why);
+      this._botServer=false; this._botAuth=!!(e&&e.status===401);
+      const hasBuiltIn=!!(window.claude&&window.claude.complete);
+      if(e&&e.status===401){
+        out='Sign in under Admin, then ask me again. I read the live book once you are signed in.';
+      } else {
+        const convo=hist.slice(-10).map(m=>(m.role==='user'?'User: ':'Q1: ')+m.text).join('\n');
+        const prompt='You are Q1, the built-in assistant for LEDGER, a South African micro-lending console run by Ecoloans. Be brief, warm and practical: 1–4 short sentences or a tight list. Plain text only: no Markdown, no asterisks, no headings; use • for list items. Use rand as "R 1 234.56".\n'+
+          'RULES: Answer only from the DATA below. Loan figures are the uploaded CSV values and are authoritative: quote them exactly, never recalculate, round, estimate or invent amounts. If something is not in the data, say so. You cannot change LEDGER records yourself; tell the user where to do it.\n'+
+          'CONNECTED APPS: data from linked apps may appear below. Use it to answer questions about those apps and say which app a fact came from. If an app marked (actions allowed) should do something, end your reply with ONE line exactly like: APICALL: {"app":"<app name>","method":"POST","path":"/path","body":{},"label":"<button text>"}. The user must approve it before it runs.\n'+
+          'If a screen would help, end your reply with ONE line exactly like: ACTION: {"go":"<target>","label":"<button text>"} where target is one of: dashboard, loans, clients, applications, employees, logbook, ledger, settings, notifications, bank, expenses, newloan, filter:duetoday, filter:overdue, filter:paid, filter:issued. Otherwise omit it.\n\nDATA:\n'+this.botContext()+(await this.q1Context())+'\n\nCONVERSATION:\n'+convo+'\nQ1:';
+        try{
+          out=String(await this.callAI('', [], prompt)||'').trim();
+        }catch(e2){
+          if(hasBuiltIn){
+            try{ out=String(await window.claude.complete(prompt)||'').trim(); this._botFallback=why; }
+            catch(e3){ out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.'; }
+          } else {
+            out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.';
+          }
+        }
+      }
     }
     let act=null; const mc=out.match(/APICALL:\s*(\{[^\n]*\})\s*$/);
     if(mc){ try{ const c=JSON.parse(mc[1]); act={go:'apicall', call:c, label:c.label||('Run on '+c.app)}; }catch(e){} out=out.slice(0,mc.index).trim(); }
     const m=act?null:out.match(/ACTION:\s*(\{[^\n]*\})\s*$/);
     if(m){ try{ act=JSON.parse(m[1]); }catch(e){} out=out.slice(0,m.index).trim(); }
-    out = out.replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
+    out = out.replace(/\{\{|\}\}/g,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
     this.botSaveHist([...this.botHist(), {role:'bot', text:out||'…', act, at:Date.now()}]);
     this.setState({botThinking:false});
   }
@@ -4008,7 +4063,7 @@ class Component extends DCLogic {
     const st = this.roleScope(this.state), fmt = this.fmt.bind(this);
     const orgName = this.props.orgName ?? (this._org && this._org.name) ?? 'Ecoloans';
     const mono = "font:500 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;";
-    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','LEDGER','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
+    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','ADMIN','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
     const appNewCount = st.applications.filter(a=>a.status==='new').length;
     const notif = this.notifItems();
     const notifFlagged = notif.filter(n=>n.flagged).length;
@@ -4497,7 +4552,7 @@ class Component extends DCLogic {
           paneClose: ()=>{ if(on) this.setState({admPane:null}); },
           paneStop: e=>{ if(on && e && e.stopPropagation) e.stopPropagation(); }
         }; })(),
-      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); window.location.href='./eVolt Landing.dc.html'; },
+      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); var sync=window.__ledger; var done=()=>{ try{ window.location.reload(); }catch(err){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(done, done); else done(); },
       prof: st.prof, profChange:(e)=>this.setState({prof:{...st.prof,[e.target.name]:e.target.value}}),
       saveProfile:()=>this.toast('Profile saved'), changePassword:()=>this.toast('Password reset link sent to '+st.prof.email),
       ...(()=>{
@@ -4711,12 +4766,20 @@ class Component extends DCLogic {
       logRows: (()=>{ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); const from=st.lgFrom||'', to=st.lgTo||'';
         return st.logbook.filter(g=>{ if(!from&&!to) return true; const p=this.slParse(String(g.date||'').split('·')[0].trim().toLowerCase().replace(/\b[a-z]/g,m=>m.toUpperCase())); if(!p) return false; const d=iso(p); return (!from||d>=from)&&(!to||d<=to); }); })().map(g=>({...g, amountFmt: g.amount ? fmt(g.amount) : '—',
         typeStyle:this.cssObj("font:500 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(g.type==='LOAN ISSUED'?'var(--blue)':g.type==='LOAN DELETED'?'var(--red)':g.type==='PII UNMASKED'?'var(--amber)':g.type==='LOAN EDITED'?'var(--amber)':'var(--mut)'))})),
-      pcBoxStyle:this.cssObj('width:340px;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;padding:30px 28px;box-shadow:var(--modalShadow);'+(st.pcError?'animation:shake .3s ease':'')),
-      pc: st.pc, pcError: st.pcError,
-      pcChange:(e)=>this.setState({pc:e.target.value.replace(/\D/g,'').slice(0,6), pcError:false}),
-      pcSubmit:()=>{ var pin=st.pc; var sync=window.__ledger; if(!pin||!sync||typeof sync.unlock!=='function'){ this.setState({ledgerUnlocked:false,pcError:true,pc:''}); return; } sync.unlock(pin).then(()=>{ this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); }, ()=>{ this.setState({ledgerUnlocked:false,route:'ledger',pc:'',pcError:true}); }); },
-      pcCancel:()=>this.setState({route:'dashboard',pc:'',pcError:false}),
-      lockLedger:()=>this.setState({ledgerUnlocked:false,route:'dashboard'}),
+      staffBoxStyle:this.cssObj('width:360px;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;padding:30px 28px;box-shadow:var(--modalShadow);'+(st.staffError?'animation:shake .3s ease':'')),
+      staffEmail: st.staffEmail||'', staffPass: st.staffPass||'', staffError: !!st.staffError,
+      staffEmailChange:(e)=>this.setState({staffEmail:e.target.value, staffError:false}),
+      staffPassChange:(e)=>this.setState({staffPass:e.target.value, staffError:false}),
+      staffSubmit:()=>{
+        var email=String(st.staffEmail||'').trim(), pass=String(st.staffPass||''), sync=window.__ledger;
+        if(!email||!pass||!sync||typeof sync.login!=='function'){ this.setState({staffError:true, staffPass:''}); return; }
+        sync.login(email, pass).then((res)=>{
+          var name=res&&res.staff&&res.staff.displayName;
+          this.setState(p=>({ledgerUnlocked:true, staffEmail:'', staffPass:'', staffError:false, prof: name?{...p.prof, name:String(name), email:(res.staff.email||p.prof.email)}:p.prof}));
+        }, ()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffPass:'', staffError:true}); });
+      },
+      staffCancel:()=>this.setState({route:'dashboard', staffEmail:'', staffPass:'', staffError:false}),
+      lockLedger:()=>{ var sync=window.__ledger; var go=()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffEmail:'', staffPass:'', staffError:false}); try{ window.location.reload(); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),
       ledgerRows: ledgerMonths.map(([month,issued,paid,start,end])=>({month,issued,paid,startFmt:fmt(start),endFmt:fmt(end), open:()=>this.setState({modal:'month', monthKey:month, modalStack:[]}),
         changeFmt:(end>=start?'+':'−')+fmt(Math.abs(end-start)).slice(2), changeStyle:this.cssObj('color:'+(end>=start?'var(--green)':'var(--red)'))})),
@@ -5522,8 +5585,8 @@ class Component extends DCLogic {
             bubble:this.cssObj('max-width:86%;padding:9px 13px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;'+(me?'border-radius:14px 14px 4px 14px;background:#FDD10D;color:#0B0620':(m.brief&&m.alert)?'border-radius:14px 14px 14px 4px;background:rgba(255,69,58,.16);border:1px solid var(--red);box-shadow:0 0 0 3px rgba(255,69,58,.12);color:var(--ink)':'border-radius:14px 14px 14px 4px;background:var(--panel2);border:1px solid var(--line);color:var(--ink)')) }; });
         return {
           botOpen: open, botMsgs: msgs, botThinking: !!st.botThinking, botDraft: st.botDraft||'',
-          botStatus: st.aiConfigured ? 'CONNECTED' : 'NOT CONFIGURED',
-          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(st.aiConfigured?'#22E07A':'#FF4D5E')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(st.aiConfigured?'#22E07A':'#FF4D5E')),
+          botStatus: this._botServer===false ? (this._botAuth ? 'SIGN IN TO ASK Q1' : 'RECONNECTING') : 'CONNECTED · LEDGER',
+          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(this._botServer===false?'#FFB020':'#22E07A')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(this._botServer===false?'#FFB020':'#22E07A')),
           botToggle: ()=>this.setState({botOpen:!open}),
           q1On: !open && !st.modal,
           onAskQ1: t=>{ this.setState({botOpen:true}); this.botAsk(t); },

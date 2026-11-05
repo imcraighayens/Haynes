@@ -1,5 +1,5 @@
 // The two host-root bugs: quik1.app serves Quik1 HTML at "/" , and a 401 from
-// GET /api/ledger/state must surface the existing Ledger passcode.
+// GET /api/ledger/state must surface the staff Admin sign-in.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -21,12 +21,16 @@ test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in cop
   assert.match(quik, /Use your first four digits to sign in\. That is the first four digits of your ID number\./);
 });
 
-test('ledger asks for a server-checked passcode when /state is 401', () => {
+test('ledger asks for staff sign-in when /state is 401', () => {
   assert.match(ledgerHtml, /var basePath = '\/ledger\/';/);
   assert.match(ledgerHtml, /gate&&gate\.needsUnlock/);
-  assert.match(ledgerHtml, /sync\.unlock\(pin\)/);
+  assert.match(ledgerHtml, /typeof sync\.login!=='function'/);
+  assert.match(ledgerHtml, /Sign in with your staff email and password/);
   assert.doesNotMatch(ledgerHtml, /PROTOTYPE CODE/);
   assert.doesNotMatch(ledgerHtml, /pc\s*===/);
   assert.match(sync, /L\.needsUnlock = !!\(e && e\.status === 401\)/);
   assert.match(sync, /needsUnlock: false/);
+  assert.match(sync, /L\.login = login/);
+  assert.match(sync, /api\('POST', '\/unlock'/);
+  assert.match(sync, /api\('POST', '\/login'/);
 });

@@ -2824,7 +2824,8 @@ input,button,textarea{font-family:inherit}
         'Instalment: '+this.money(term?L.total/term:0),
         'Next debit date: '+DUE,
         'Credit limit: '+this.money(LIMIT),
-        'Interest paid toward next growth tier: '+this.money(s.interestPaid||0)+' of '+this.money(s.baseAmount||0)
+        'Interest paid toward next growth tier: '+this.money(s.interestPaid||0)+' of '+this.money(s.baseAmount||0),
+        'Flat charge: '+pct+' of the amount drawn'
       ].join('\n');
     }
     quickAsk(q){
@@ -2887,29 +2888,37 @@ input,button,textarea{font-family:inherit}
       this.setState(st=>({aiChat:[...st.aiChat,{from:'me',text:q}],aiDraft:'',aiTyping:true,aiThinkIdx:0}));
       const t0=Date.now(), minWait=2600+Math.min(1600,q.length*35)+Math.random()*900;
       clearInterval(this._thinkI); this._thinkI=setInterval(()=>this.setState(st=>({aiThinkIdx:(st.aiThinkIdx||0)+1})),1300);
-      let history=this.state.aiChat.slice(-8).map(m=>({role:m.from==='me'?'user':'assistant',content:m.text}));
-      while(history.length&&history[0].role!=='user') history.shift();
-      const system='You are Q1, the in-app assistant for Quik1, a South African short-term lender. '
-        +'Answer in at most three short sentences, plain and factual, no lists, no emoji. Use rands as "R 1 350". '
-        +'Quik1 charges ONE flat '+((this.props.interestRate ?? 35))+'% of the amount drawn — no monthly fees, no initiation fee, no penalty for settling early. '
-        +'Only use the account facts below; if something is not covered, say the Help chat will pick it up.\n\n'
-        +this.accountBrief();
-      const settle=(txt)=>{
+      const settle=(txt, go)=>{
         clearTimeout(this._aiT);
         const wait=Math.max(0,minWait-(Date.now()-t0));
-        this._aiT=setTimeout(()=>{ clearInterval(this._thinkI); this.setState(st=>({aiTyping:false,aiChat:[...st.aiChat,{from:'bot',text:txt}]})); if(this.state.aiVoiceOn!==false) this.speakQ1(txt); },wait);
+        const safe=String(txt||'').replace(/\{\{|\}\}/g,'').trim()||this.localAnswer(q);
+        this._aiT=setTimeout(()=>{ clearInterval(this._thinkI); this.setState(st=>({aiTyping:false,aiChat:[...st.aiChat,{from:'bot',text:safe}]})); if(this.state.aiVoiceOn!==false) this.speakQ1(safe); if(go) this.go(go); },wait);
       };
-      const canClaude=typeof window!=='undefined'&&window.claude&&window.claude.complete;
-      if(!canClaude){
-        clearTimeout(this._aiT);
-        settle(this.localAnswer(q));
-        return;
-      }
-      let done=false;
-      this._aiT=setTimeout(()=>{ if(!done){ done=true; settle(this.localAnswer(q)); } },12000);
-      window.claude.complete({system,messages:[...history,{role:'user',content:q}],max_tokens:400})
-        .then(r=>{ if(done) return; done=true; settle((r||'').trim()||this.localAnswer(q)); })
-        .catch(()=>{ if(done) return; done=true; settle(this.localAnswer(q)); });
+      const body={message:q, brief:this.accountBrief(), screen:this.state.screen, applicationId:this.state.linkId||''};
+      const finishLocal=()=>settle(this.localAnswer(q));
+      fetch('/api/quik1/q1',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)})
+        .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(j=>{
+          const txt=String((j&&(j.reply||j.text))||'').trim();
+          if(!txt) throw new Error('empty');
+          settle(txt, j&&j.go);
+        })
+        .catch(()=>{
+          const canClaude=typeof window!=='undefined'&&window.claude&&window.claude.complete;
+          if(!canClaude){ finishLocal(); return; }
+          let history=this.state.aiChat.slice(-8).map(m=>({role:m.from==='me'?'user':'assistant',content:m.text}));
+          while(history.length&&history[0].role!=='user') history.shift();
+          const system='You are Q1, the in-app assistant for Quik1, a South African short-term lender. '
+            +'Answer in at most three short sentences, plain and factual, no lists, no emoji. Use rands as "R 1 350". '
+            +'Quik1 charges ONE flat '+((this.props.interestRate ?? 35))+'% of the amount drawn — no monthly fees, no initiation fee, no penalty for settling early. '
+            +'Only use the account facts below; if something is not covered, say the Help chat will pick it up.\n\n'
+            +this.accountBrief();
+          let done=false;
+          const giveUp=setTimeout(()=>{ if(!done){ done=true; finishLocal(); } },8000);
+          window.claude.complete({system,messages:[...history,{role:'user',content:q}],max_tokens:400})
+            .then(r=>{ if(done) return; done=true; clearTimeout(giveUp); settle((r||'').trim()||this.localAnswer(q)); })
+            .catch(()=>{ if(done) return; done=true; clearTimeout(giveUp); finishLocal(); });
+        });
     }
     async downloadStatement(d){
       let logo=null;
@@ -4617,7 +4626,7 @@ input,button,textarea{font-family:inherit}
         chatScrollRef:this._chatScroll,
         aiOpen:s.aiOpen||s.closing==='ai',
         aiTyping:s.aiTyping,
-        aiStatus:s.aiListening?'Listening…':s.aiTyping?'Thinking…':s.aiSpeaking?'Speaking…':'Online · powered by Claude',
+        aiStatus:s.aiListening?'Listening…':s.aiTyping?'Thinking…':s.aiSpeaking?'Speaking…':'Online',
         aiThinkText:['Q1 is thinking…','Checking your account…','Crunching the numbers…','Almost there…'][Math.min(3,s.aiThinkIdx||0)],
         aiScrimAnim:s.closing==='ai'?'q-fade .28s cubic-bezier(.33,1,.68,1) both':'q-up .32s cubic-bezier(.33,1,.68,1)',
         aiCardAnim:s.closing==='ai'?'q-down .3s cubic-bezier(.33,1,.68,1) both':'q-up .44s cubic-bezier(.22,1,.36,1)',

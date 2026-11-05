@@ -3,7 +3,8 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader } from './_lib/auth.js';
+import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
+import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
@@ -353,6 +354,32 @@ async function postLock(req, res) {
   json(res, 200, { ok: true }, req);
 }
 
+async function postLogin(req, res) {
+  // Same-origin only. Supabase Auth checks the password; we mint the existing staff cookie.
+  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
+  requireEnv(['LEDGER_KEY']);
+  const body = await readBody(req, 4 * 1024);
+  const result = await signInStaff(body && body.email, body && body.password);
+  if (!result.ok) {
+    if (result.status === 503) throw new HttpError(503, 'Server not configured');
+    throw new HttpError(401, 'Unauthorized');
+  }
+  const { token, exp } = mintStaffSession(Date.now(), result.staff);
+  res.setHeader('Set-Cookie', staffCookieHeader(token, exp));
+  json(res, 200, {
+    ok: true,
+    expires_at: new Date(exp).toISOString(),
+    staff: { email: result.staff.email, displayName: result.staff.displayName }
+  }, req);
+}
+
+async function getSession(req, res) {
+  requireEnv(['LEDGER_KEY']);
+  await requireStaff(req);
+  const staff = staffIdentity(req);
+  json(res, 200, { ok: true, staff: staff ? { email: staff.email, displayName: staff.displayName } : null }, req);
+}
+
 async function getAvailable(req, res, clientId) {
   if (!clientId) throw new HttpError(400, 'client id required');
   const client = await selectOne('clients', { select: 'id,ref,deleted_at', id: eq(clientId) });
@@ -375,7 +402,15 @@ export default wrap('ledger', async (req, res) => {
   const parts = pathParts(req, 'ledger');
   const [head, ...rest] = parts;
 
-  // Unlock/lock are same-origin PIN gates — no Bearer required (they mint/clear the staff cookie).
+  // Login/unlock/lock mint or clear the staff cookie. Bearer is not required to call them.
+  if (head === 'login' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postLogin(req, res);
+  }
+  if (head === 'session' && rest.length === 0) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return getSession(req, res);
+  }
   if (head === 'unlock' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postUnlock(req, res);
@@ -386,7 +421,7 @@ export default wrap('ledger', async (req, res) => {
   }
 
   requireEnv(ENV);
-  requireStaff(req);
+  await requireStaff(req);
   if (head === 'state' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getState(req, res);

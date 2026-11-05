@@ -12,18 +12,25 @@ const FIXTURE_PIN = 'fixture-manager-pin';
 const FIXTURE_PIN_HASH = createHash('sha256').update(FIXTURE_PIN, 'utf8').digest('hex');
 
 describe('shipped ledger HTML', () => {
-  const lockStart = html.indexOf('data-screen-label="Ledger passcode"');
-  const lockEnd = html.indexOf('data-screen-label="Ledger"');
-  const lock = html.slice(lockStart, lockEnd);
-
-  test('lock screen has no passcode hint and unlock goes to the server', () => {
-    assert.ok(lockStart > 0 && lockEnd > lockStart);
-    assert.equal(lock.includes('PROTOTYPE CODE'), false);
-    assert.equal(/\d{6}/.test(lock), false);
-    assert.match(html, /sync\.unlock\(pin\)/);
+  test('lock screen has no passcode hint; staff sign in and unlock stays on the server', () => {
+    const signInStart = html.indexOf('data-screen-label="Admin sign-in"');
+    const signInEnd = html.indexOf('data-screen-label="Admin"');
+    const signIn = html.slice(signInStart, signInEnd);
+    assert.ok(signInStart > 0 && signInEnd > signInStart);
+    assert.equal(signIn.includes('PROTOTYPE CODE'), false);
+    assert.equal(/\d{6}/.test(signIn), false);
+    assert.match(signIn, /Sign in with your staff email and password/);
+    assert.match(html, /sync\.login\(email, pass\)/);
     assert.doesNotMatch(html, /pc\s*===/);
     assert.doesNotMatch(html, /===\s*['"]\d{4,8}['"]/);
     assert.doesNotMatch(html, /!==\s*['"]\d+['"]/);
+    const api = fs.readFileSync(new URL('../api/ledger.js', import.meta.url), 'utf8');
+    const sync = fs.readFileSync(new URL('../ledger/ledger-sync.js', import.meta.url), 'utf8');
+    assert.match(api, /head === 'unlock'/);
+    assert.match(api, /verifyUnlockPin/);
+    assert.match(api, /head === 'login'/);
+    assert.match(sync, /api\('POST', '\/unlock'/);
+    assert.match(sync, /L\.unlock = unlock/);
   });
 
   test('reset demo is gated and destructive actions call the server', () => {

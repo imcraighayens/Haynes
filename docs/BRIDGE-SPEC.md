@@ -176,7 +176,17 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
   constant-time compare of the Bearer token (also accept `apikey` header) against `LEDGER_KEY`;
   `_lib/validate.js`: column whitelists per table + status maps; `_lib/ratelimit.js`:
   best-effort in-memory per-IP limiter for public routes (e.g. 30 req/min).
-* Staff (`/api/ledger/*`, Bearer LEDGER_KEY):
+  Named staff sign-in is Supabase Auth on the same project: `POST /api/ledger/login`
+  `{email, password}` calls GoTrue `POST /auth/v1/token?grant_type=password` with the
+  service-role key (server only). The session is minted only when `public.employees` has
+  an active row for that email (case-insensitive), the same predicate as
+  `auth_signup_allowlist` on `auth.users`. Confirmed admin: `craig@ecoloan.co.za`.
+  A further staff member is another active employee row; sign-up stays closed without one.
+  Success mints the httpOnly `ledger_staff` cookie (v2 claims carry email and display name).
+  `GET /api/ledger/session` returns `{staff}` or `{staff:null}` for a machine Bearer.
+  `POST /api/ledger/lock` clears the cookie. A rejected password and a non-employee are both
+  401 `{error:"Unauthorized"}`. No local password table. `LEDGER_KEY` remains machine-only.
+* Staff (`/api/ledger/*`, Bearer LEDGER_KEY or the staff cookie):
   * `GET state` → `{clients, loans, employees, applications (newest 500), audit_log (newest 1000),
     petty_cash, bank_tx (newest 500), expenses, settings|null, ledger_book:{updated_at}|null, server_time}`
     (include `deleted_at` rows; client filters). Unlimited tables are paged through PostgREST's
@@ -195,6 +205,20 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     The book is a **write-only backup**: a GET that projects `payload` returns it without
     `clients/loans/employees/applications`, so the console's own "Stored book is missing records"
     guard stops sbPull from restoring a stale snapshot over the live tables (sbPush still works).
+* Staff Q1 chat (`POST /api/q1-assistant`, Bearer LEDGER_KEY or the same-origin unlock cookie).
+  This is not `/api/q1` (that route stays the Quik1 applications list). Body
+  `{message, page?, history?, data?, apps?, appsNote?}`. `data` is the console's
+  book block; live `clients` / `loans` / `applications` / `employees` / `expenses` /
+  `settings.bank_opening_balance` fill gaps when Supabase is configured. Response
+  `{reply, action:{go,label}|null, call:{app,method,path,body,label}|null, connected:true}`.
+  `call` is only a proposed Quik1 PATCH the existing chat still confirms before it runs.
+  No Claude and no `AI_GATEWAY_API_KEY`. Optional `Q1_WEBHOOK_URL` receives
+  `{source, at, page, message}` (scrubbed; chat works if it is unset or the POST fails).
+  Does not insert into `q1_requests` (that table remains the customer request inbox).
+* Borrower Q1 (`POST /api/quik1/q1`, no auth, same public rate limit). Body
+  `{message, brief, screen?, applicationId?}`. Answers from the brief already on screen.
+  A safe `applicationId` may add that one application's status. Response `{reply, go|null, connected:true}`.
+  No `QUIK1_Q1_URL`, no PIN, no production-auth flag.
 * Q1 integration (`/api/q1/*`, Bearer LEDGER_KEY) — shaped for `qkMap`/`qkPush`:
   * `GET applications?status=new` → JSON array of `applications` rows where `source='quik1'`
     (default status filter `new`; `status=all` for everything) each augmented with

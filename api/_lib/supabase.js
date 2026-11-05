@@ -113,6 +113,29 @@ export async function upsert(table, rows, onConflict = 'id', { ignoreDuplicates 
   return Array.isArray(data) ? data : [];
 }
 
+// Same project URL and service-role headers as the table client. Used for GoTrue
+// (POST /auth/v1/token). The key never leaves the server. Callers must not forward `data`.
+export async function staffFetch(path, { method = 'POST', body, timeoutMs = 8000 } = {}) {
+  const { url, key } = env();
+  const target = url + (String(path).charAt(0) === '/' ? path : '/' + path);
+  const headers = {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    Accept: 'application/json',
+    ...(body !== undefined ? { 'Content-Type': 'application/json' } : {})
+  };
+  const res = await fetch(target, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  const text = typeof res.text === 'function' ? await res.text() : '';
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch { data = null; } }
+  return { ok: !!res.ok, status: res.status, data };
+}
+
 // match: { col: value } → `col=eq.value` filters. Returns the updated rows.
 export async function update(table, match, patch) {
   if (!match || !Object.keys(match).length) throw new HttpError(400, 'update needs a match');

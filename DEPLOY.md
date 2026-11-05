@@ -37,16 +37,26 @@ openssl rand -hex 32
 Add all three to **Production** (and Preview if you want preview deployments to work).
 Changing a value later: Vercel → Project → Settings → Environment Variables → edit → **Redeploy**.
 
+Staff Admin sign-in is Supabase Auth on that same project, not `LEDGER_KEY`. The Admin
+screen asks for email and password (`POST /api/ledger/login`). The server checks them with
+GoTrue, then allows the session only when `public.employees` has an active row for that email
+(the same rule that keeps sign-up closed). The confirmed admin is `craig@ecoloan.co.za`. A
+second staff member is added by inserting another active employee row — there is no second
+address until then. Do not give staff `LEDGER_KEY` to paste into the sign-in form. The
+Settings connect field is still the machine secret for the bridge.
+
 Optional server-only values. Leave them unset until you are ready. None of them belong in the
 browser, in git, or in the staff UI.
 
 | Name | What it does |
 | --- | --- |
-| `LEDGER_UNLOCK_PIN` | Staff unlock secret for `POST /api/ledger/unlock`. Mints the httpOnly staff cookie. `LEDGER_KEY` stays the machine Connect secret. |
+| `LEDGER_UNLOCK_PIN` | Legacy server PIN for `POST /api/ledger/unlock`. Mints the same httpOnly staff cookie. The Admin screen does not send it and does not show a passcode. |
 | `LEDGER_MANAGER_PIN` | Required before a loan delete or a full book replace. Plain text, or `sha256:` plus the hex digest. |
 | `LEDGER_ALLOW_DEMO_RESET` | Set to `true` only on a non-production host to show Reset demo data. Production hosts and `NODE_ENV=production` keep it hidden. |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Document reader and Q1. If neither is set, staff see "Not configured". |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Document reader. Q1 chat answers from the book without these. If neither is set, the reader shows "Not configured". |
+| `LEDGER_AI_PROVIDER` | Optional when both reader keys are set: `anthropic` or `openai`. |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
+| `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
