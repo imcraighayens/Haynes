@@ -141,20 +141,20 @@
     if (typeof W.AbortController === 'function') { ctl = new W.AbortController(); init.signal = ctl.signal; t = setTimeout(function () { try { ctl.abort(); } catch (e) {} }, timeout); }
     return Promise.resolve().then(function () { return W.fetch(url, init); }).then(function (r) {
       return Promise.resolve(r.status === 204 ? '' : r.text()).then(function (txt) {
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + String(txt).slice(0, 140));
+        if (!r.ok) { var err = new Error('HTTP ' + r.status + ' ' + String(txt).slice(0, 140)); err.status = r.status; throw err; }
         if (!txt) return null; try { return JSON.parse(txt); } catch (e) { throw new Error('Bad JSON from ' + p); }
       });
     }).finally(function () { if (t) clearTimeout(t); });
   }
 
-  var L = { cfg: cfg, save: save, api: api, state: null, error: null, booted: null };
+  var L = { cfg: cfg, save: save, api: api, state: null, error: null, booted: null, needsUnlock: false };
 
   function fetchState() {
     return new Promise(function (resolve) {
       var done = false;
       var t = setTimeout(function () { if (done) return; done = true; L.error = 'state fetch timed out after ' + STATE_TIMEOUT_MS + 'ms'; info(L.error); resolve(null); }, STATE_TIMEOUT_MS);
-      api('GET', '/state', null, { timeoutMs: STATE_TIMEOUT_MS }).then(function (j) { if (done) return; done = true; clearTimeout(t); resolve(j && typeof j === 'object' ? j : null); },
-        function (e) { if (done) return; done = true; clearTimeout(t); L.error = String((e && e.message) || e); info('state fetch failed — local only:', L.error); resolve(null); });
+      api('GET', '/state', null, { timeoutMs: STATE_TIMEOUT_MS }).then(function (j) { if (done) return; done = true; clearTimeout(t); L.needsUnlock = false; resolve(j && typeof j === 'object' ? j : null); },
+        function (e) { if (done) return; done = true; clearTimeout(t); L.error = String((e && e.message) || e); L.needsUnlock = !!(e && e.status === 401); info('state fetch failed — local only:', L.error); resolve(null); });
     });
   }
 
