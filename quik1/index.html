@@ -1308,7 +1308,7 @@ input,button,textarea{font-family:inherit}
             </div>
           <div style="flex:1;min-height:0;overflow-y:auto;padding:4px 22px 128px">
           <p style="margin:0;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:rgba(var(--q-fg),.5)">Application {{ reference }}</p>
-          <h2 style="margin:10px 0 0;font-size:28px;font-weight:700;letter-spacing:-.035em;line-height:1.05;color:var(--q-ink)">Paying out<br>now<span style="color:var(--q-accent)">.</span></h2>
+          <h2 style="margin:10px 0 0;font-size:28px;font-weight:700;letter-spacing:-.035em;line-height:1.05;color:var(--q-ink)">{{ trackerHead }}<br>{{ trackerHead2 }}<span style="color:var(--q-accent)">.</span></h2>
           <div style="margin-top:18px">
             <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
               <span style="font-size:12.5px;color:rgba(var(--q-fg),.62)">{{ trackerStepLabel }}</span>
@@ -1998,7 +1998,11 @@ input,button,textarea{font-family:inherit}
         <sc-if value="{{ isKyc }}">
           <div style="flex:1;min-height:0;overflow-y:auto;padding:10px 24px {{ flowPadBottom }};animation:{{ pageAnim }}">
             <h2 style="margin:0;font-size:28px;font-weight:700;letter-spacing:-.035em;line-height:1.05;color:#0B0620">Prove it's<br>you<span style="color:#FDD10D">.</span></h2>
-            <p style="margin:12px 0 22px;font-size:15px;line-height:1.5;color:#6B6675">One capture, about fifteen seconds.</p>
+            <p style="margin:12px 0 22px;font-size:15px;line-height:1.5;color:#6B6675">Your name and mobile number so the team can find the application. This does not create a login.</p>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+              <input value="{{ applyName }}" sc-camel-on-change="{{ onApplyName }}" placeholder="Full name" style="width:100%;box-sizing:border-box;border:1.5px solid rgba(11,6,32,.14);border-radius:16px;padding:14px 16px;font-size:16px;color:#0B0620;background:#FFFFFF">
+              <input value="{{ applyPhone }}" sc-camel-on-change="{{ onApplyPhone }}" inputmode="tel" placeholder="Mobile number" style="width:100%;box-sizing:border-box;border:1.5px solid rgba(11,6,32,.14);border-radius:16px;padding:14px 16px;font-size:16px;color:#0B0620;background:#FFFFFF">
+            </div>
             <div style="display:flex;flex-direction:column;gap:14px">
               <sc-for list="{{ kycRows }}" as="k" hint-placeholder-count="2">
                 <button sc-camel-on-click="{{ k.onClick }}" style="text-align:left;border:1.5px solid {{ k.border }};background:{{ k.bg }};border-radius:22px;padding:15px;cursor:pointer;display:flex;gap:14px;align-items:center">
@@ -2882,7 +2886,7 @@ input,button,textarea{font-family:inherit}
           E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
           E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
     }
-    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
   
     _cards=React.createRef();
     _aiScroll=React.createRef();
@@ -2917,7 +2921,7 @@ input,button,textarea{font-family:inherit}
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
       fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
-        .then(j=>{ if(j&&j.identified===true&&!this.state.inviteCode) this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); })
+        .then(j=>{ if(j&&j.identified===true&&!this.state.inviteCode){ this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); this.startBookPoll(); } })
         .catch(()=>{});
     }
     borrowerApi(path){
@@ -2949,14 +2953,338 @@ input,button,textarea{font-family:inherit}
             next_debit:nextDebit, loans
           }
         },
-        profile:{name,idnum:'',email:'',mobile:'',bank},
-        customer:true, activeLoan, baseAmount:credit, interestPaid:0, graduated:false
+        profile:{name,idnum:'',email:'',mobile:'',bank,ref:identified?String((payload.profile&&payload.profile.ref)||''):''},
+        customer:true, activeLoan, baseAmount:credit, interestPaid:0, graduated:false,
+        bookStatements:Array.isArray(payload.statements)?payload.statements:[],
+        bookApplications:Array.isArray(payload.applications)?payload.applications:[],
+        bookMessages:Array.isArray(payload.messages)?payload.messages:[],
+        chat:(Array.isArray(payload.messages)?payload.messages:[]).map(m=>({from:m.from==='you'?'me':'them',text:String(m.body||'')})),
+        aiChat:[{from:'bot',text:name?('Hi '+name.split(' ')[0]+'. Ask me about your ledger balance, dates or limit.'):'Ask me about your ledger balance, dates or limit.'}]
       };
+    }
+    fmtIso(iso){
+      if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return '—';
+      const p=String(iso).split('-').map(Number);
+      return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+    }
+    fmtShort(iso){
+      if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return '';
+      const p=String(iso).split('-').map(Number);
+      return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'});
+    }
+    bookDueDates(){
+      const acct=this.state.ledgerAccount&&this.state.ledgerAccount.account;
+      const loans=acct&&Array.isArray(acct.loans)?acct.loans:[];
+      const out=[];
+      loans.forEach(l=>{
+        if(!l||l.status==='settled') return;
+        (Array.isArray(l.schedule)?l.schedule:[]).forEach(iso=>{
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return;
+          const p=String(iso).split('-').map(Number);
+          out.push(new Date(p[0],p[1]-1,p[2]));
+        });
+      });
+      return out.sort((a,b)=>a-b);
+    }
+    paintSteps(steps){
+      return steps.map((t,i,arr)=>({
+        title:t.title, meta:t.meta, who:t.who, admin:t.admin,
+        tick:t.state==='done'?1:0,
+        dotBg:t.state==='todo'?'rgba(var(--q-fg),.10)':YEL,
+        dotBorder:t.state==='todo'?'rgba(var(--q-fg),.22)':YEL,
+        anim:t.state==='active'?'q-pulse 1.4s ease-in-out infinite':'none',
+        lineBg:i===arr.length-1?'transparent':(t.state==='done'?YEL:'rgba(var(--q-fg),.18)'),
+        lineH:i===arr.length-1?0:28,
+        titleColor:t.state==='todo'?ON_GLASS:'#FFFFFF',
+        whoBg:t.who==='You'?'rgba(253,209,13,.18)':'rgba(255,255,255,.08)',
+        whoInk:t.who==='You'?YEL:'rgba(255,255,255,.6)'
+      }));
+    }
+    trackerFrom(app){
+      const status=String((app&&(app.verdict||app.status))||'new').toLowerCase();
+      const approved=/approv/.test(status), declined=/declin/.test(status);
+      const waiting=!approved&&!declined;
+      const ref=(app&&app.ref)||'';
+      const steps=[
+        {title:'Request received',who:'You',meta:ref||'Sent',admin:'It is in the Ledger applications inbox.',state:'done'},
+        {title:'With the team',who:'Ledger',meta:waiting?'Waiting on a person':'Reviewed',admin:'Staff approve or decline it in Ledger. Nothing is paid out from the phone.',state:waiting?'active':'done'},
+        {title:approved?'Approved':declined?'Declined':'Decision',who:'Ledger',meta:approved?'Approved':declined?'Declined':'Not decided yet',admin:'This is a status only. No money moves.',state:waiting?'todo':'done'}
+      ];
+      const done=steps.filter(t=>t.state==='done').length;
+      return {
+        reference:ref||'—',
+        trackerHead:approved?'Approved':declined?'Declined':'With the team',
+        trackerHead2:approved?'status':declined?'status':waiting?'now':'',
+        trackerStepLabel:steps.find(t=>t.state==='active')?steps.find(t=>t.state==='active').title:(approved?'Approved':'Declined'),
+        trackerPct:Math.round(done/steps.length*100),
+        trackerNext:waiting?'The status updates here when Ledger decides.':'No money has moved. Your loan officer updates the book.',
+        timeline:this.paintSteps(steps),
+        trkPct:Math.round(done/steps.length*100),
+        trkNow:waiting?'Next: with the team':'Decision recorded'
+      };
+    }
+    bookScreen(){
+      const s=this.state;
+      const acct=(s.ledgerAccount&&s.ledgerAccount.account)||{};
+      const loans=Array.isArray(acct.loans)?acct.loans:[];
+      const open=loans.filter(l=>l&&l.status==='open');
+      const settled=loans.filter(l=>l&&l.status!=='open');
+      const credit=Number(acct.credit_limit)||0;
+      const owed=Number(acct.outstanding_principal)||0;
+      const available=Number(acct.available)||0;
+      const due=typeof acct.next_due==='string'?acct.next_due:'';
+      const dueLabel=due?this.fmtIso(due):'Not scheduled';
+      const focus=open[0]||null;
+      const dates=focus&&Array.isArray(focus.schedule)?focus.schedule:[];
+      const inst=focus?(Number(focus.instalment)||Number(focus.outstanding_principal)||0):0;
+      const name=(s.profile&&s.profile.name)||'';
+      const bank=(s.profile&&s.profile.bank)||'';
+      const ref=(s.profile&&s.profile.ref)||'';
+      const money=n=>s.hideAmounts?'R ••••':this.money(n);
+      const statements=Array.isArray(s.bookStatements)?s.bookStatements:[];
+      const apps=Array.isArray(s.bookApplications)?s.bookApplications:[];
+      const latest=apps[0]||null;
+      const track=latest?this.trackerFrom(latest):this.trackerFrom(null);
+      const field=(label,value,note,first)=>({label,value:value||'—',note:note||'',sep:first?'transparent':'rgba(var(--q-fg),.07)',editable:false,readOnly:true,ink:'var(--q-ink)',cursor:'default',onChange:()=>{}});
+      const docIcon='M6 3h8l4 4v14H6V3ZM14 3v4h4M9.2 13h5.6M9.2 16.4h3.4';
+      return Object.assign({
+        limitLabel:money(credit),
+        availableLabel:money(available),
+        availableNote:'of '+money(credit)+' on the ledger',
+        drawnCopy:open.length?(money(owed)+' principal still open'):'nothing open',
+        loanStatusLabel:open.length?'Open':'Settled',
+        loanStatusNote:open.length?('Next due '+dueLabel):'Nothing owing',
+        loanIntro:open.length?'Open loans from your ledger. Figures are principal still out, not a new charge.':'No open loan. Settled principal is back in available credit.',
+        loanRows:(focus?[
+          ['Reference',focus.ref||'—'],
+          ['Principal',money(focus.principal)],
+          ['Still open',money(focus.outstanding_principal)],
+          ['Purpose',focus.purpose||'—'],
+          ['Instalment on file',money(inst)],
+          ['Next due',dueLabel]
+        ]:[
+          ['Limit',money(credit)],
+          ['Available',money(available)],
+          ['Open loans','0']
+        ]).map(([k,v])=>({label:k,value:v})),
+        schedule:dates.map((iso,i)=>({
+          n:String(i+1), date:this.fmtIso(iso),
+          status:'Due '+(i+1)+' of '+dates.length,
+          amount:money(inst), bg:GLASS, dot:'rgba(255,255,255,.16)'
+        })),
+        scheduleLine:focus?(dates.length+' due date'+(dates.length===1?'':'s')+' on '+ (focus.ref||'this loan') +'. The next is '+dueLabel+'.'):'Nothing outstanding.',
+        scheduleIntro:focus?'Dates come from the ledger schedule. Marking a date here does not collect money.':'Nothing outstanding on the ledger.',
+        dueMonth:due?new Date(due.slice(0,4),Number(due.slice(5,7))-1,Number(due.slice(8,10))).toLocaleDateString('en-ZA',{month:'short'}):'—',
+        dueDay:due?due.slice(8,10):'—',
+        dueDateLabel:dueLabel,
+        debitDateLabel:money(inst)+' on '+dueLabel,
+        dueOnCopy:focus?(money(inst)+' is the instalment on file. It comes off '+ (bank||'the bank on your ledger') +' only when Ledger records it.'):'Nothing to collect.',
+        nextPaymentNote:focus?('Next due '+dueLabel):'Nothing due',
+        loanSheetRef:focus?('Reference '+(focus.ref||'—')+' · '+dueLabel):'No open loan',
+        loanSheetRows:focus?[
+          {label:'Principal',value:money(focus.principal)},
+          {label:'Still open',value:money(focus.outstanding_principal)},
+          {label:'Purpose',value:focus.purpose||'—'},
+          {label:'Next due',value:dueLabel}
+        ].map(r=>({...r,fg:'#FFFFFF',alert:false,bd:'rgba(255,255,255,.10)',bg:'transparent',labelInk:'rgba(255,255,255,.62)',cursor:'default',role:'',onClick:()=>{}})):[],
+        loanSheetNote:'A withdrawal request goes to the Ledger inbox. Approving it there does not pay money from this phone.',
+        topUpNote:'You can request up to '+money(available)+'. The team approves it in Ledger. No money moves from this screen.',
+        amountSub:'Up to '+money(available)+'. The request waits in Ledger until someone approves or declines it.',
+        sliderMax:Math.max(0,available),
+        sliderMaxLabel:money(Math.max(0,available)),
+        statementList:statements.map(st=>({
+          period:st.ref||'Loan',
+          range:st.status==='settled'?'Settled on the ledger':'Open on the ledger',
+          onDownload:()=>this.setState({sentNote:'Statements stay on the ledger. This phone does not download a bank file.'}),
+          meta:[{label:'Loan',value:st.ref||'—'},{label:'Status',value:st.status||'—'}],
+          txns:(st.lines||[]).map(line=>({
+            date:this.fmtShort(line.date), title:line.label, type:line.kind==='due'?'Due':'Status',
+            typeBg:'rgba(253,209,13,.16)', typeInk:'var(--q-accent)',
+            amount:money(line.amount), ink:'var(--q-ink)', balance:''
+          })),
+          rows:[]
+        })),
+        noStatements:statements.length===0,
+        noBills:loans.length===0,
+        billLoans:loans.map(b=>({
+          amount:money(b.principal), date:b.taken_at?this.fmtIso(b.taken_at):'—',
+          meta:(b.ref||'Loan')+' · '+(b.purpose||'Ledger'),
+          status:b.status==='settled'?'Settled':'Open',
+          settled:b.status==='settled',
+          border:b.status==='settled'?'rgba(255,255,255,.12)':'rgba(253,209,13,.34)',
+          pillBg:b.status==='settled'?'rgba(255,255,255,.10)':'rgba(253,209,13,.18)',
+          pillInk:b.status==='settled'?'rgba(255,255,255,.6)':YEL,
+          rows:[
+            {label:'Still open',value:money(b.outstanding_principal)},
+            {label:'Next due',value:b.due_date?this.fmtIso(b.due_date):'—'}
+          ],
+          onContract:()=>this.setState({sentNote:(b.ref||'This loan')+' is on the ledger. The phone does not issue a new agreement.'}),
+          onLetter:()=>this.setState({sentNote:'A paid-up letter is issued from Ledger, not from this phone.'})
+        })),
+        profileFields:[
+          field('Full name',name,'From your ledger client.',true),
+          field('Bank',bank,'Ask your loan officer to change this on the ledger.'),
+          field('Client reference',ref,'Staff use this reference. It is not a PIN.')
+        ],
+        profileName:name||'Your name',
+        profileMobile:'',
+        onSaveProfile:()=>this.setState({sentNote:'Your name and bank are read from the ledger.'}),
+        onBkSave:()=>this.setState({sentNote:'Bank details are changed in Ledger, not from this phone.'}),
+        documentsIntro:loans.length?'Loans on your ledger. Files you upload with an application stay in a private store for the team.':'Nothing on file yet.',
+        documents:loans.map(l=>({
+          name:l.ref||'Loan', ok:true, checking:false, canReplace:false, canView:false, canUpload:false,
+          icon:docIcon, meta:(l.status==='settled'?'Settled':'Open')+' · '+money(l.outstanding_principal),
+          metaColor:'rgba(var(--q-fg),.6)', btnLabel:'', btnBg:'rgba(var(--q-fg),.08)', btnFg:'var(--q-ink)',
+          bg:GLASS, border:'transparent', iconBg:'#FFFFFF', onPick:()=>{}, onView:()=>{}
+        })),
+        chat:(()=>{
+          const rows=Array.isArray(s.bookMessages)?s.bookMessages:[];
+          const mapped=rows.map(m=>({
+            text:String(m.body||''), align:m.from==='you'?'flex-end':'flex-start',
+            bg:m.from==='you'?YEL:'rgba(var(--q-fg),.08)', fg:m.from==='you'?INK:'var(--q-ink)'
+          }));
+          return mapped.length?mapped:[{text:'Send a message and the team will reply here. Nothing on this screen moves money.',align:'flex-start',bg:'rgba(var(--q-fg),.08)',fg:'var(--q-ink)'}];
+        })(),
+        onSend:()=>{
+          const text=String(this.state.draft||'').trim();
+          if(!text) return;
+          this.setState({draft:''});
+          fetch(this.borrowerApi('/messages'),{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({body:text})})
+            .then(r=>{ if(!r.ok) throw new Error('no'); return this.refreshBook(); })
+            .catch(()=>this.setState({sentNote:'Could not send that. Try again.'}));
+        },
+        onSettle:()=>{
+          const text='Please record a settlement on my account. This message does not move money.';
+          fetch(this.borrowerApi('/messages'),{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({body:text})})
+            .then(()=>{ this.setState({sentNote:'Settlement request sent to Ledger. Your loan stays open until staff update it.'}); this.refreshBook(); })
+            .catch(()=>this.setState({sentNote:'Could not send that. Try again.'}));
+        },
+        showGrowth:false,
+        growthCopy:'Available credit is the ledger limit minus principal still open. Settled loans put that principal back.',
+        tierNote:open.length?'Principal still open':'Nothing open',
+        ccCards:[{
+          name:'Ledger', limit:money(credit), term:'As on the book', rate:'Principal', fee:'No card from this phone', last:ref||'—',
+          bg:'linear-gradient(135deg,#2A2D35 0%,#0E0F12 70%)', ink:'#FFFFFF', glow:'#FDD10D',
+          note:'Available credit is the ledger limit minus principal still open.', extra:[],
+          status:'On the book', ring:'#FDD10D', scale:1, pick:()=>{}
+        }],
+        ccSelName:'Ledger',
+        ccSelFee:'No card is issued here',
+        ccSelFeatures:[
+          {t:'Credit limit',d:money(credit)},
+          {t:'Still open',d:money(owed)},
+          {t:'Available',d:money(available)},
+          {t:'Next due',d:dueLabel}
+        ],
+        ccSelNote:'Your limit is on the ledger. This screen does not issue a card.',
+        ccCta:'Request from your available credit',
+        onCcCta:()=>this.setState({topUpMode:!!open.length,withdrawMode:true},()=>this.go('amount')),
+        statTiles:[
+          {hasIcon:true,hasRing:false,path:'M12 3.6 19.4 6.4v5c0 4.1-3 7.3-7.4 9-4.4-1.7-7.4-4.9-7.4-9v-5L12 3.6Z',value:String(open.length),label:'Open'},
+          {hasIcon:true,hasRing:false,path:'M13.4 2.8 5.6 13.6h5.2l-1.2 7.6 8-11.2h-5.4l1.2-7.2Z',value:money(owed),label:'Owed'},
+          {hasIcon:false,hasRing:true,ring:(credit?Math.round((owed/credit)*100):0)+'%',value:String(settled.length),label:'Settled'}
+        ],
+        usedPct:credit?Math.max(2,Math.round((owed/credit)*100)):2,
+        manageStats:[
+          {label:'You owe',value:money(owed)},
+          {label:'Available',value:money(available)},
+          {label:'Next due',value:due?dueLabel:'—'}
+        ]
+      }, latest?track:{
+        reference:'—', trackerHead:'No request yet', trackerHead2:'',
+        trackerStepLabel:'Nothing in the inbox', trackerPct:0,
+        trackerNext:'A withdrawal request shows up here, then in Ledger.',
+        timeline:this.paintSteps([{title:'No request yet',who:'You',meta:'Ledger',admin:'Ask for a withdrawal from Home.',state:'todo'}]),
+        trkNow:'No request yet', trkPct:0
+      });
+    }
+    refreshBook(){
+      return fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{ if(j&&j.identified===true) this.setState(this.homeFromBook(j)); })
+        .catch(()=>{});
+    }
+    startBookPoll(){
+      clearInterval(this._bookPoll);
+      this._bookPoll=setInterval(()=>{ if(this.state.bookMode) this.refreshBook(); },8000);
+    }
+    watchApplication(id){
+      clearInterval(this._appPoll);
+      const tick=()=>{
+        fetch(this.borrowerApi('/applications/'+encodeURIComponent(id)),{headers:{accept:'application/json'}})
+          .then(r=>r.ok?r.json():null)
+          .then(j=>{
+            if(!j) return;
+            this.setState(st=>({trackApp:{id, ref:st.trackRef||'', status:j.status, verdict:j.decision&&j.decision.verdict}}));
+          }).catch(()=>{});
+      };
+      tick();
+      this._appPoll=setInterval(tick,8000);
+    }
+    readUpload(file){
+      return new Promise(resolve=>{
+        if(!file) return resolve(null);
+        const reader=new FileReader();
+        reader.onload=()=>{
+          const raw=String(reader.result||'');
+          const cut=raw.indexOf(',');
+          resolve({name:String(file.name||'document').slice(0,80), contentType:file.type||'application/pdf', data:cut>=0?raw.slice(cut+1):raw});
+        };
+        reader.onerror=()=>resolve(null);
+        reader.readAsDataURL(file);
+      });
+    }
+    submitWithdrawal(){
+      const st=this.state;
+      const purpose=st.purpose==='Other'?(st.purposeOther||'').trim():(st.purpose||'');
+      const amount=st.amount;
+      if(!purpose){ this.setState({purposeError:'Say what the money is for.',screen:'purpose'}); return; }
+      this.setState({screen:'tracker',purposeError:''});
+      fetch(this.borrowerApi('/withdrawals'),{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({amount,purpose})})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          if(!r.ok){ this.setState({sentNote:String((j&&j.error)||'Could not send that request.').slice(0,160), screen:'amount'}); return; }
+          this.setState({sentNote:'Request '+((j&&j.ref)||'')+' is in the Ledger inbox. No money has moved.', trackRef:j&&j.ref});
+          this.refreshBook();
+        })
+        .catch(()=>this.setState({sentNote:'Could not reach Ledger. Try again.', screen:'amount'}));
+    }
+    submitPublicApplication(){
+      const st=this.state;
+      const name=String(st.applyName||'').trim();
+      const phone=String(st.applyPhone||'').replace(/[^\d+\s()-]/g,'');
+      const digits=phone.replace(/\D/g,'');
+      if(name.length<3||digits.length<9){
+        this.setState({kycError:'Enter your name and mobile number. This does not create a login.', screen:'kyc'});
+        return;
+      }
+      const purpose=st.purpose==='Other'?(st.purposeOther||'').trim():(st.purpose||'Personal');
+      const body={
+        name, phone, amount:st.amount, purpose:purpose||'Personal',
+        income:this.num(st.income)||this.num(st.estIncome),
+        term:this.activeTerm()
+      };
+      this.setState({kycError:'',screen:'tracker',customer:false});
+      fetch(this.borrowerApi('/applications'),{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify(body)})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          if(!r.ok||!j||!j.id){ this.setState({kycError:String((j&&j.error)||'Could not send the application.').slice(0,160), screen:'kyc', customer:false}); return; }
+          const id=j.id;
+          this.setState({trackRef:j.ref||'', trackApp:{id, ref:j.ref||'', status:'Needs decision'}, customer:false, linkId:id});
+          const files=[this._docFile, this._proofFile].filter(Boolean).slice(0,5);
+          const uploads=files.map(file=>this.readUpload(file).then(doc=>{
+            if(!doc||!doc.data) return null;
+            return fetch(this.borrowerApi('/documents'),{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({applicationId:id, name:doc.name, contentType:doc.contentType, data:doc.data})});
+          }));
+          return Promise.all(uploads).then(()=>{ this.watchApplication(id); });
+        })
+        .catch(()=>this.setState({kycError:'Could not reach Ledger. Try again.', screen:'kyc', customer:false}));
     }
     openLedgerHome(){
       this.setState({otp:'',pinBusy:true});
       const apply=payload=>{
         this.setState(Object.assign({pinBusy:false,authing:false,screen:'home',customer:true,otp:'',pinNote:'',pinPhase:'sign',pinFirst:''}, this.homeFromBook(payload)));
+        if(payload&&payload.identified===true) this.startBookPoll();
       };
       fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
@@ -3342,23 +3670,8 @@ input,button,textarea{font-family:inherit}
       },900+n*550));
     }
     submitApplication(){
-      this.setState(st=>{
-        this.runDecision();
-        let linkId=st.linkId;
-        if(window.Quik1Link){
-          const c=this.calc();
-          linkId=window.Quik1Link.submitApplication({
-            name:st.fullName||((st.profile&&st.profile.name)||''),
-            phone:st.phone?('0'+String(st.phone).replace(/\s/g,'')):'082 441 0912',
-            amount:st.amount,
-            term:(this.activeTerm()||1)+' mo',
-            purpose:st.purpose==='Other'?st.purposeOther:st.purpose,
-            income:Number(String(st.income||st.estIncome||'').replace(/\D/g,''))||0,
-            surplus:(Number(String(st.estIncome||'').replace(/\D/g,''))||0)-(Number(String(st.estExpenses||'').replace(/\D/g,''))||0)
-          });
-        }
-        return {kycError:'',screen:'deciding',linkId,linkDecision:null};
-      });
+      if(this.state.bookMode){ this.submitWithdrawal(); return; }
+      this.submitPublicApplication();
     }
     adminCap(){
       const d=this.state.linkDecision;
@@ -3488,6 +3801,8 @@ input,button,textarea{font-family:inherit}
       { const hideX=!!s.calPay&&s.screen==='schedule'; v.panelCloseOp=hideX?0:1; v.panelClosePe=hideX?'none':'auto'; }
       { const modal=!!s.loanSheet||!!s.infoKey||(!!s.manageOpen&&s.screen==='home')||!!v.lockTipOn||!!v.showToast||!!v.showDocError||!!v.showUpgrade||!!s.letter||!!s.agreement||!!s.mandatePop||(!!s.calPay&&s.screen==='schedule');
         if(modal){ v.showDock=false; v.showQ1=false; v.botBubbleOn=false; } }
+      if(s.bookMode&&s.customer) Object.assign(v, this.bookScreen());
+      else if(s.trackApp) Object.assign(v, this.trackerFrom(s.trackApp));
       return v;
     }
     _rv(){
@@ -3502,7 +3817,7 @@ input,button,textarea{font-family:inherit}
       const navLight=this.props.lightNavBar ?? false;
       const topUp=s.customer&&!!s.activeLoan;
       const hasLoan=!!s.activeLoan;
-      const wLocked=hasLoan&&!((this.props.demoWithdrawUnlocked ?? true)||!!s.repayOk);
+      const wLocked=s.bookMode?(this.headroom(Object.assign({},s,{withdrawMode:true}))<1):(hasLoan&&!((this.props.demoWithdrawUnlocked ?? true)||!!s.repayOk));
       const lockedByGrowth=s.customer&&hasLoan&&!this.grown(s);
       const blockLabel=lockedByGrowth?'Locked':'Maxed';
       const blockLong=lockedByGrowth?'Unlocks as you grow':'Limit fully drawn';
@@ -3544,7 +3859,7 @@ input,button,textarea{font-family:inherit}
         eligibility:()=>this.setState(st=>{
           if(!st.purpose) return {purposeError:'Choose what the money is for.'};
           if(st.purpose==='Other'&&!st.purposeOther.trim()) return {purposeError:'Tell us what the money is for.'};
-          if(st.customer){ this.runDecision(); return {purposeError:'',screen:'deciding'}; }
+          if(st.customer){ this.submitWithdrawal(); return {purposeError:'',screen:'tracker'}; }
           return {purposeError:'',screen:'eligibility'};
         }),
         docs:()=>this.setState(st=>{
@@ -3560,6 +3875,8 @@ input,button,textarea{font-family:inherit}
         }),
         kyc:()=>this.setState(st=>st.docChecks.every(d=>d.state==='ok')?{docsError:'',screen:'kyc'}:{docsError:'Your statement must pass verification.'}),
         accept:()=>this.setState(st=>{
+          if(st.bookMode){ this.submitWithdrawal(); return {screen:'tracker'}; }
+          if(!st.customer){ this.submitPublicApplication(); return {}; }
           if(!st.customer){
             if(!st.docChecks.every(d=>d.state==='ok')) return {offerError:'Your bank statement must pass verification before payout.'};
             if(!st.proof) return {offerError:'Upload your proof of income before payout.'};
@@ -3806,9 +4123,9 @@ input,button,textarea{font-family:inherit}
         tipInk:(s.homeLight ?? (this.props.whiteBackground ?? false))&&s.customer?'#0B0620':'#FFFFFF',
         tipLink:(s.homeLight ?? (this.props.whiteBackground ?? false))&&s.customer?'#0000FE':'#8FA0FF',
         backGlass:((s.homeLight ?? (this.props.whiteBackground ?? false))&&!!s.customer)||(!s.customer&&!['login','signup','signupPending'].includes(s.screen))?'linear-gradient(180deg,rgba(253,209,13,.34) 0%,rgba(253,209,13,.22) 100%)':'linear-gradient(180deg,rgba(253,209,13,.22) 0%,rgba(253,209,13,.10) 100%)',
-        ...(()=>{ const TODAY=new Date(2026,7,20), term=Math.max(1,(s.activeLoan&&s.activeLoan.term)||1), has=!!s.activeLoan;
+        ...(()=>{ const book=!!s.bookMode; const TODAY=book?(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());})():new Date(2026,7,20), term=Math.max(1,(s.activeLoan&&s.activeLoan.term)||1), has=!!s.activeLoan;
           const L0=this.loan(), inst=has?(L0.monthly||L0.total):0;
-          const dues=has?Array.from({length:term},(_,i)=>new Date(DUE_DATE.getFullYear(),DUE_DATE.getMonth()+i,DUE_DATE.getDate())):[];
+          const dues=book?this.bookDueDates():(has?Array.from({length:term},(_,i)=>new Date(DUE_DATE.getFullYear(),DUE_DATE.getMonth()+i,DUE_DATE.getDate())):[]);
           const off=s.calOff||0, base=new Date(TODAY.getFullYear(),TODAY.getMonth()+off,1);
           const same=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
           const sel=s.calSel?new Date(s.calSel):(dues[0]||TODAY);
@@ -4097,8 +4414,11 @@ input,button,textarea{font-family:inherit}
         onLogout:()=>{
           try{ localStorage.removeItem(this._key); }catch(e){}
           fetch(this.borrowerApi('/logout'),{method:'POST',credentials:'same-origin'}).catch(()=>{});
+          clearInterval(this._bookPoll); clearInterval(this._appPoll);
           this.dismiss('panel',{menuOpen:false,screen:'login',loginMode:'pin',otpMode:true,loginIntro:false,otp:'',
             customer:false,activeLoan:null,bookMode:false,ledgerAccount:null,pinPhase:'sign',pinFirst:'',pinNote:'',
+            bookStatements:[],bookApplications:[],bookMessages:[],trackApp:null,
+            chat:[{from:'them',text:'Sign in with the PIN from your loan officer to message the team.'}],
             profile:{name:'',idnum:'',email:'',mobile:'',bank:''}}); },
         menuItems:[
           ['loan','My loan'],['amount','New loan'],['schedule','Repayments'],
@@ -4200,7 +4520,7 @@ input,button,textarea{font-family:inherit}
         proofBorderStyle:'solid',
         proofIconBg:s.proof?'#FFFFFF':YEL,
         onPickProof:()=>this._proof.current&&this._proof.current.click(),
-        onProofChosen:e=>{ const fl=e.target.files&&e.target.files[0]; if(!fl) return; this.setState({proof:fl.name,proofError:''}); },
+        onProofChosen:e=>{ const fl=e.target.files&&e.target.files[0]; if(!fl) return; this._proofFile=fl; this.setState({proof:fl.name,proofError:''}); },
         incomeLabel:sme?'Average monthly turnover':'Monthly income after deductions',
         income:s.income, incomeError:s.incomeError,
         onIncome:e=>this.setState({income:e.target.value,incomeError:''}),
@@ -4242,6 +4562,7 @@ input,button,textarea{font-family:inherit}
             onDocsChosen:e=>{
               const f=(e.target.files||[])[0];
               if(!f) return;
+              this._docFile=f;
               this.setState({docChecks:[{state:'checking',file:f.name}],docsError:'',docError:null});
               setTimeout(()=>{
                 const v=this.checkBundleFile(f.name);
@@ -4271,6 +4592,8 @@ input,button,textarea{font-family:inherit}
           };
         }),
         onDocChosen:e=>{
+          const picked=e.target.files&&e.target.files[0];
+          if(picked) this._docFile=picked;
           const fl=e.target.files&&e.target.files[0]; if(!fl) return;
           const i=this._docIndex||0, name=fl.name;
           this.setState(st=>{
@@ -4310,8 +4633,12 @@ input,button,textarea{font-family:inherit}
             onClick:()=>this.setState(st=>({kyc:st.kyc.includes(k.key)?st.kyc.filter(x=>x!==k.key):[...st.kyc,k.key],kycError:''}))};
         }),
         kycError:s.kycError,
+        applyName:s.applyName||'',
+        applyPhone:s.applyPhone||'',
+        onApplyName:e=>this.setState({applyName:e.target.value,kycError:''}),
+        onApplyPhone:e=>this.setState({applyPhone:e.target.value,kycError:''}),
         canSkipId:!s.kyc.includes('id'),
-        onSkipId:()=>{ this.runDecision(); this.setState({kycError:'',screen:'deciding'}); },
+        onSkipId:()=>this.submitPublicApplication(),
         onSubmit:()=>this.submitApplication(),
   
         decisionSteps:['Bank statement read','We checked you can afford it','Offer prepared'].map((label,i)=>({
@@ -4368,7 +4695,9 @@ input,button,textarea{font-family:inherit}
         termsTick:s.terms?1:0, termsBg:s.terms?YEL:'transparent', termsBorder:s.terms?YEL:'rgba(11,6,32,.24)',
         offerError:s.offerError,
   
-        reference:'QK-84213',
+        reference:s.trackRef||'QK-84213',
+        trackerHead:'Paying out',
+        trackerHead2:'now',
         timeline:[
           {title:'Application received',who:'You',meta:'Today · reference QK-84213',
            admin:'Logged and queued for assessment.',state:'done'},
@@ -4641,7 +4970,7 @@ input,button,textarea{font-family:inherit}
             agRows:[
               ['Credit provider','Ecoloans (Pty) Ltd'],
               ['Trading as','Quik1'],
-              ['NCR registration','NCRCP registered credit provider'],
+              ['NCR registration','[placeholder]'],
               ['Agreement type','Small credit agreement · s 8(4)(f) NCA'],
               ['Agreement number',g.ref||'—'],
               ['Agreement date',g.date||'Today'],

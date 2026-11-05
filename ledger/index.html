@@ -1070,6 +1070,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
     </div>
     </sc-if>
 
+    <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px clamp(16px,2.6vw,34px) 24px;animation:fadeUp .25s ease;height:100%;box-sizing:border-box;overflow:auto" data-screen-label="Quik1 messages">
+        <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:8px">QUIK1 MESSAGES</div>
+        <div style="font-size:12.5px;color:var(--mut);margin-bottom:18px;max-width:640px">Messages from signed-in clients. A reply shows on their phone. Nothing here sends a debit order or a payout.</div>
+        <sc-if value="{{ q1ThreadsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 0;font-size:13px;color:var(--dim)">No messages yet.</div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:760px">
+          <sc-for list="{{ q1Threads }}" as="t" hint-placeholder-count="1">
+            <div style="border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--panel)">
+              <div style="font:700 14px 'Plus Jakarta Sans',sans-serif">{{ t.name }} <span style="font-weight:500;color:var(--dim)">{{ t.ref }}</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+                <sc-for list="{{ t.lines }}" as="m" hint-placeholder-count="2">
+                  <div style="font-size:13px;line-height:1.45"><span style="font:600 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:var(--dim)">{{ m.who }}</span><div style="margin-top:2px">{{ m.body }}</div></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <input value="{{ t.draft }}" sc-camel-on-change="{{ t.onDraft }}" placeholder="Reply" style="flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif">
+                <div sc-camel-on-click="{{ t.send }}" style="padding:10px 16px;border-radius:10px;background:var(--acc);color:var(--accInk);font:700 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer">Reply</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ isNewLoan }}" hint-placeholder-val="{{ false }}">
       <div style="padding:14px clamp(16px,2.6vw,34px) 24px;animation:fadeUp .25s ease;max-width:860px" data-screen-label="Issue loan">
         <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:24px"><div sc-camel-on-click="{{ goLoans }}" style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);cursor:pointer;letter-spacing:.08em" style-hover="color:var(--ink)">← LOANS</div><div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">ISSUE LOAN</div><div style="flex:1"></div><div sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:8px;padding:9px 15px;border-radius:12px;border:1px solid var(--line2);background:var(--panel);cursor:pointer;font:600 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--ink);white-space:nowrap" style-hover="border-color:var(--accText);color:var(--accText)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>BULK UPLOAD</div></div>
@@ -2902,7 +2926,20 @@ class Component extends DCLogic {
   reelTo(n){ const L=this.state.reelList||[]; if(!L[n]) return;
     this.setState({reel:L[n], reelIdx:n, reelPlay:false}, ()=>{ const el=this._reelStrip; if(!el) return; const th=el.querySelectorAll('[title]')[n]; if(!th) return;
       el.scrollTo({left: th.offsetLeft - (el.clientWidth - th.offsetWidth)/2, behavior:'smooth'}); }); }
+  pullQuik1Feed(){
+    this.staffApi('GET','/quik1-feed').then(j=>{
+      if(!j) return;
+      const incoming=Array.isArray(j.applications)?j.applications:[];
+      this.setState(p=>{
+        const by={};
+        (p.applications||[]).forEach(a=>{ if(a&&a.id) by[a.id]=a; });
+        incoming.forEach(a=>{ if(a&&a.id) by[a.id]=Object.assign({}, by[a.id]||{}, a); });
+        return {applications:Object.values(by), q1Threads:Array.isArray(j.threads)?j.threads:[]};
+      });
+    },()=>{});
+  }
   componentDidMount(){ this.refreshServerFeatures(); setTimeout(()=>this.loadReel(),300); setTimeout(()=>this.qkSync(),2500); this._qkT=setInterval(()=>{ if(!document.hidden) this.qkSync(); },60000);
+    setTimeout(()=>this.pullQuik1Feed(),1500); this._q1Feed=setInterval(()=>{ if(!document.hidden) this.pullQuik1Feed(); },15000);
     this._reelAuto = setInterval(()=>{ const st=this.state, L=st.reelList||[];
       if(st.reelPlay || this._reelHover || L.length<2 || document.hidden || st.route!=='dashboard') return;
       if(this._reelPause && Date.now()-this._reelPause < 12000) return;
@@ -2955,7 +2992,7 @@ class Component extends DCLogic {
       el.style.top = Math.round(r.top + dy) + 'px';
     }
   }
-  componentWillUnmount(){ clearInterval(this._qkT); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
+  componentWillUnmount(){ clearInterval(this._qkT); clearInterval(this._q1Feed); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
   newsFeeds(){ const SA=/south africa|\bsa\b|\brand\b|\bzar\b|\bjse\b|sarb|reserve bank|kganyago|godongwana|treasury|eskom|transnet|sars|stats ?sa|johannesburg|cape town|durban|petrol|diesel|fuel price|dmre|opec|brent/i; return [
     {src:'BusinessTech', url:'https://businesstech.co.za/news/finance/feed/', cat:'markets', sa:true},
     {src:'BusinessTech Banking', url:'https://businesstech.co.za/news/banking/feed/', cat:'markets', sa:true},
@@ -3672,7 +3709,7 @@ class Component extends DCLogic {
     });
   }
   navIcon(r, active){
-    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'] };
+    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'], messages:['M5 6.5h14v9H10l-4 3.5v-3.5H5Z'] };
     const paths = (P[r]||[]).map((d,i)=>React.createElement('path',{key:i,d}));
     return React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round',style:{flex:'none',color: active?'var(--accText)':'var(--mut)'}}, paths);
   }
@@ -4120,7 +4157,7 @@ class Component extends DCLogic {
     const st = this.roleScope(this.state), fmt = this.fmt.bind(this);
     const orgName = this.props.orgName ?? (this._org && this._org.name) ?? 'Ecoloans';
     const mono = "font:500 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;";
-    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','ADMIN','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
+    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['messages','MESSAGES','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','ADMIN','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
     const appNewCount = st.applications.filter(a=>a.status==='new').length;
     const notif = this.notifItems();
     const notifFlagged = notif.filter(n=>n.flagged).length;
@@ -4746,12 +4783,16 @@ class Component extends DCLogic {
             docs:av.docs,
             approveLabel: existing?('Approve → issue loan to '+existing.name.split(' ')[0]):'Approve → onboard client',
             approve:()=>{ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'approved'}:x), appViewId:null}));
+              const ext=av.extId||String(av.id||'').replace(/^qk_/,'');
+              if(ext) this.staffApi('POST','/quik1-applications/'+encodeURIComponent(ext),{status:'approved',amount:av.amount}).catch(()=>{});
               this.apiEmit('application.approved', av); this.qkPush(av,'approved');
               this.logAdd({ref:existing?existing.ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION APPROVED', date:this.todayStamp(), by:st.prof.name, comment:(av.extId?'Quik1 app application · ':'Mobile-app application · ')+verdict[0]+' · installment '+fmt(install)});
               if(existing){ this.setState({nf:{...st.nf, client:existing.id, amount:String(av.amount), purpose:av.purpose, term:av.term+'m'}}); this.nav('newloan'); this.toast('Application approved — issue loan to '+av.name); }
               else { const parts=av.name.trim().split(' '); this.setState({route:'addclient',wizStep:1,acOfficer:null,docs:[],docExtracted:false,docProcessing:false, ac:{firstName:parts[0]||'', lastName:parts.slice(1).join(' '), idNumber:av.idNumber, contact:av.phone, email:av.email, employer:av.employer, jobTitle:av.jobTitle, bank:av.bank, netSalary:String(av.income)}}); this.toast('Application approved — complete onboarding for '+av.name); } },
             requestInfo:()=>{ this.smsVia(av.name, 'APP-'+av.id.toUpperCase(), 'Requested additional documents for mobile application', av.phone).then(ok=>{ if(ok) this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'reviewing'}:x)})); }); },
             decline:()=>{ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'declined'}:x), appViewId:null}));
+              const ext=av.extId||String(av.id||'').replace(/^qk_/,'');
+              if(ext) this.staffApi('POST','/quik1-applications/'+encodeURIComponent(ext),{status:'declined',amount:av.amount}).catch(()=>{});
               this.apiEmit('application.declined', av); this.qkPush(av,'declined');
               this.logAdd({ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION DECLINED', date:this.todayStamp(), by:st.prof.name, comment:'Mobile-app application declined'});
               this.toast('Application from '+av.name+' declined — logged'); } };
@@ -4762,7 +4803,24 @@ class Component extends DCLogic {
           qkTitle: !qOn?'Link the Quik1 loan app so Q1 brings new applications here':this._qkErr?('Last sync failed: '+this._qkErr):'Q1 checks Quik1 every minute. Click to check now.',
           qkSyncNow: ()=>this.qkSync(true),
           appFilters, appRows, appEmpty: appRows.length===0,
-          appDetailOn: !!av, appD: appD||{}, appClose:()=>this.setState({appViewId:null}) };
+          appDetailOn: !!av, appD: appD||{}, appClose:()=>this.setState({appViewId:null}),
+          isMessages: st.route==='messages',
+          q1ThreadsEmpty: !(st.q1Threads||[]).length,
+          q1Threads: (st.q1Threads||[]).map(t=>{
+            const drafts=st.q1Drafts||{};
+            return { name:t.name||'Client', ref:t.ref||'', lines:(t.lines||[]).map(m=>({who:m.who||'', body:m.body||''})),
+              draft:drafts[t.clientId]||'',
+              onDraft:e=>this.setState(p=>({q1Drafts:{...(p.q1Drafts||{}),[t.clientId]:e.target.value}})),
+              send:()=>{
+                const text=String((this.state.q1Drafts||{})[t.clientId]||'').trim();
+                if(!text) return;
+                this.staffApi('POST','/quik1-messages',{clientId:t.clientId, body:text}).then(()=>{
+                  this.setState(p=>{ const next={...(p.q1Drafts||{})}; next[t.clientId]=''; return {q1Drafts:next}; });
+                  this.pullQuik1Feed();
+                  this.toast('Reply saved on the client thread');
+                },()=>this.toast('Could not send the reply'));
+              } };
+          }) };
       })(),
       isLedgerLocked: st.route==='ledger' && !st.ledgerUnlocked, isLedgerOpen: st.route==='ledger' && st.ledgerUnlocked,
       goLogbook:()=>this.nav('logbook'), goPetty:()=>this.nav('petty'), goNewLoan:()=>this.nav('newloan'), goLoans:()=>this.nav('loans'),

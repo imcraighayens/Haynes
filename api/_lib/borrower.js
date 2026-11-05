@@ -6,7 +6,7 @@ import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, eq } from './supabase.js';
 import { isSafeId } from './validate.js';
 import { hashPin, verifyPin, isPin } from './pin.js';
-import { accountFromLoans, publicProfile, unidentified } from './quik1-book.js';
+import { borrowerBook } from './borrower-book.js';
 import { staffIdentity } from './auth.js';
 import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef,
@@ -312,32 +312,5 @@ export async function logoutBorrower(req) {
 }
 
 export async function borrowerHome(req) {
-  const sess = readSession(req);
-  if (!sess) return unidentified();
-  const session = await selectOne('q1_sessions', {
-    select: 'id,borrower_id,client_id,expires_at,revoked_at',
-    id: eq(sess.sid)
-  });
-  if (!session || session.revoked_at) return unidentified();
-  if (session.borrower_id !== sess.bid || session.client_id !== sess.cid) return unidentified();
-  if (new Date(session.expires_at).getTime() <= Date.now()) return unidentified();
-  const borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id',
-    id: eq(sess.bid)
-  });
-  if (!borrower || borrower.client_id !== sess.cid) return unidentified();
-  const client = await selectOne('clients', {
-    select: 'id,ref,name,bank,deleted_at',
-    id: eq(borrower.client_id)
-  });
-  if (!client || client.deleted_at) return unidentified();
-  const loans = await select('loans', {
-    select: 'id,ref,principal,status,schedule,instalment_amount,issued_on,deleted_at,client_id',
-    client_id: eq(client.id)
-  });
-  return {
-    identified: true,
-    profile: publicProfile(client),
-    account: accountFromLoans(loans)
-  };
+  return borrowerBook(req);
 }

@@ -31,6 +31,40 @@ function scheduleDates(loan) {
   return raw.map(isoDate).filter(Boolean);
 }
 
+function instalmentOf(loan) {
+  const n = Number(loan && loan.instalment_amount);
+  return Number.isFinite(n) && n > 0 ? roundMoney(n) : 0;
+}
+
+function paidDatesOf(loan) {
+  const raw = loan && loan.paid_dates;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(isoDate).filter(Boolean);
+}
+
+// Status lines only. A "marked paid" row is a ledger flag, not a collection.
+export function statementsFromLoans(loans) {
+  const rows = (Array.isArray(loans) ? loans : []).filter(l => l && !l.deleted_at);
+  return rows.map(loan => {
+    const principal = principalOf(loan);
+    const instalment = instalmentOf(loan);
+    const lines = [];
+    const issued = isoDate(loan.issued_on);
+    if (issued) lines.push({ date: issued, label: 'Loan recorded', kind: 'status', amount: principal });
+    for (const date of scheduleDates(loan)) {
+      lines.push({ date, label: 'Instalment due', kind: 'due', amount: instalment || principal });
+    }
+    for (const date of paidDatesOf(loan)) {
+      lines.push({ date, label: 'Marked paid on the ledger', kind: 'status', amount: 0 });
+    }
+    return {
+      ref: loan.ref || '',
+      status: isSettledStatus(loan.status) ? 'settled' : 'open',
+      lines
+    };
+  });
+}
+
 export function emptyAccount() {
   return {
     credit_limit: 0,
@@ -62,13 +96,20 @@ export function accountFromLoans(loans) {
       const inst = Number(loan.instalment_amount);
       nextDebit = Number.isFinite(inst) && inst > 0 ? roundMoney(inst) : outP;
     }
+    const paidDates = paidDatesOf(loan);
     view.push({
+      id: String(loan.id || ''),
       ref: loan.ref || '',
       principal,
       status: settled ? 'settled' : 'open',
       taken_at: isoDate(loan.issued_on) || null,
       due_date: due || null,
-      outstanding_principal: outP
+      outstanding_principal: outP,
+      purpose: String(loan.purpose || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120),
+      instalment: instalmentOf(loan),
+      schedule: scheduleDates(loan),
+      instalments_paid: Math.max(0, parseInt(loan.instalments_paid, 10) || 0),
+      paid_dates: paidDates
     });
   }
 

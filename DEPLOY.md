@@ -85,6 +85,13 @@ Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SE
 (32 or more characters) on Vercel before a client can choose a PIN. Leave it unset and the
 invite link can still be created, but redeeming it answers "Server not configured".
 
+Then paste and run `supabase/migrations/20261106_quik1_borrower_app.sql`. That file adds the
+support-message table and a private `q1-documents` storage bucket. Do not apply it from the
+app. Withdrawals, new applications, and replies are status records only: they do not call
+NuPay or a bank. Optional `QUIK1_DOC_MAX_BYTES` caps an upload (default about 1.5 MB). The
+same `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`, and `QUIK1_SESSION_SECRET`
+already used by the bridge are enough. No new secret is required.
+
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.
 

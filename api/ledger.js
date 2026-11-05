@@ -9,6 +9,7 @@ import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.j
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
 import { createInvite, revokeInvite, listInvites } from './_lib/borrower.js';
+import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -471,6 +472,28 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'quik1-invites' && rest.length === 2 && rest[1] === 'revoke') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return json(res, 200, await revokeInvite(rest[0]), req);
+  }
+  if (head === 'quik1-feed' && rest.length === 0) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, await staffFeed(), req);
+  }
+  if (head === 'quik1-applications' && rest.length === 1) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, 8192);
+    return json(res, 200, await decideApplication(rest[0], body && body.status, body && body.amount), req);
+  }
+  if (head === 'quik1-messages' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, 8192);
+    const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
+    return json(res, 201, await postStaffReply(clientId, body), req);
+  }
+  if (head === 'quik1-documents' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, 8192);
+    const applicationId = body && typeof body.applicationId === 'string' ? body.applicationId : '';
+    const path = body && typeof body.path === 'string' ? body.path : '';
+    return json(res, 200, await signStaffDocument(applicationId, path), req);
   }
   if (head === 'rest' && rest[0] === 'v1' && rest[1] === 'ledger_book' && rest.length === 2) {
     if (req.method === 'GET' || req.method === 'HEAD') return bookGet(req, res);

@@ -16,8 +16,13 @@ import {
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 import { redeemInvite, loginBorrower, logoutBorrower, borrowerHome } from './_lib/borrower.js';
+import {
+  borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
+  createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument
+} from './_lib/borrower-book.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const DOC_BODY_CAP = 2 * 1024 * 1024;
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
 const AUTO_NOTE = 'Auto-approved by Quik1 bridge';
 const DEFAULT_REVIEWER = 'applications@ecoloans.co.za';
@@ -271,7 +276,30 @@ export default wrap('quik1', async (req, res) => {
 
   if (head === 'applications') {
     if (!id && method === 'POST') return postApplication(req, res, await readBody(req, PUBLIC_BODY_CAP));
+    if (!id && method === 'GET') return json(res, 200, await borrowerApplications(req), req);
     if (id && method === 'GET') return getApplication(req, res, id);
+  } else if (head === 'withdrawals') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return json(res, 201, await createWithdrawal(req, await readBody(req, PUBLIC_BODY_CAP)), req);
+  } else if (head === 'documents') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return json(res, 201, await attachDocument(req, await readBody(req, DOC_BODY_CAP)), req);
+  } else if (head === 'loans') {
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    if (!id) return json(res, 200, await borrowerLoans(req), req);
+    if (rest.length) throw new HttpError(404, 'Not found');
+    return json(res, 200, await borrowerLoan(req, id), req);
+  } else if (head === 'statements') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, await borrowerStatements(req), req);
+  } else if (head === 'messages') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method === 'GET' || method === 'HEAD') return json(res, 200, await borrowerMessages(req), req);
+    if (method === 'POST') return json(res, 201, await postBorrowerMessage(req, await readBody(req, PUBLIC_BODY_CAP)), req);
+    throw new HttpError(405, 'Method not allowed');
   } else if (head === 'signups') {
     if (!id && method === 'POST') return postSignup(req, res, await readBody(req, PUBLIC_BODY_CAP));
     if (id && method === 'GET') return getSignup(req, res, id);
