@@ -1390,7 +1390,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
                 <sc-if value="{{ loginOtpStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <div style="display:flex;gap:10px">
               <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="4">
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
@@ -2451,10 +2451,10 @@ input,button,textarea{font-family:inherit}
   class Component extends DCLogic {
     state={infoKey:'',loanSheet:false,
       splashMs:0, splashDone:false, amountInput:null, toastSeen:false,
-      screen:'login', loginMode:'new', authing:false, customer:false, activeLoan:null,
+      screen:'login', loginMode:'pin', authing:false, customer:false, activeLoan:null,
       pageOut:false, closing:'', panelPhase:'', menuIcon:0, payoutAt:0,
     employment:'', estIncome:'', estExpenses:'', payMethod:'', hideAmounts:false, cardIdx:0, alertsOpen:false, mandateSigned:false, desktopView:false, agTicked:false, closedLoans:[], letter:null, sentNote:'', agreement:null, agreementLast:null,
-      baseAmount:0, interestPaid:0, graduated:false, approvedAmount:null, upgradeTo:null, amountError:'', otpMode:false, phone:'', phoneError:'', otp:'', menuOpen:false,
+      baseAmount:0, interestPaid:0, graduated:false, approvedAmount:null, upgradeTo:null, amountError:'', otpMode:true, loginIntro:false, phone:'', phoneError:'', otp:'', menuOpen:false,
       linkId:null, linkDecision:null,
       borrower:'', amount:2500, term:3, purpose:'', purposeError:'',
       income:'', incomeError:'', tenure:'', consent:[], consentError:'',
@@ -2602,7 +2602,7 @@ input,button,textarea{font-family:inherit}
         suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
         suConsents:[tog('credit','I agree that Quik1 can check my credit record and whether I can afford this loan.'),tog('terms','I accept the Terms and Privacy Policy (POPIA).')],
         suCta:step<3?'Continue':'Submit for approval',
-        onSuBack:()=>step>1?this.setState(st=>({su:{...st.su,step:step-1},suTried:false,suError:''})):this.setState({screen:'login',suTried:false}),
+        onSuBack:()=>step>1?this.setState(st=>({su:{...st.su,step:step-1},suTried:false,suError:''})):this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false,suTried:false}),
         onSuNext:()=>{
           if(stepKeys.some(k=>errs[k])) return this.setState({suTried:true,suError:''});
           if(step<3) return this.setState(st=>({su:{...st.su,step:step+1},suTried:false}));
@@ -2622,7 +2622,7 @@ input,button,textarea{font-family:inherit}
         suTimeline:tl.map((t,i)=>({...t,bg:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):'transparent',bd:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):t.cur?'#FDD10D':'rgba(255,255,255,.25)',tick:t.done?1:0,ink:t.done||t.cur?'#FFFFFF':'rgba(255,255,255,.55)',line:i<2?'rgba(255,255,255,.07)':'transparent'})),
         suDoneCta:ok?'Sign in':no?'Back to start':'Back to start',
         suDoneBg:ok?'#FDD10D':'transparent', suDoneInk:ok?'#0B0620':'#FFFFFF', suDoneBorder:ok?'0':'1.5px solid rgba(255,255,255,.22)',
-        onSuDone:()=>this.setState({screen:'login',loginIntro:false,loginMode:ok?'return':'new',otpMode:false})
+        onSuDone:()=>this.setState({screen:'login',loginIntro:false,loginMode:'pin',otpMode:true,otp:''})
       };
     }
     botFace(){
@@ -2851,7 +2851,7 @@ input,button,textarea{font-family:inherit}
         kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
         who:'Pick if this loan is for you or for your business.',
         signup:'Sign up takes 3 short steps: your details, your work and pay, then a 4-digit PIN. Tap Back any time to change something.',
-        login:'Choose how to sign in at the bottom: Face ID, your PIN, or your ID number. New here? Tap Sign up.'};
+        login:'Use your first four digits to sign in. That is the first four digits of your ID number.'};
       const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
       const last=st.aiChat[st.aiChat.length-1];
       const add=!(last&&last.from==='bot'&&last.text===txt);
@@ -3031,7 +3031,7 @@ input,button,textarea{font-family:inherit}
         Object.assign(v,{menuIsGrid:view==='grid',menuIsList:view==='list',menuViewX:view==='list'?'34px':'0px',
           menuGridInk:view==='grid'?'#0B0620':'rgba(var(--q-fg),.6)',menuListInk:view==='list'?'#0B0620':'rgba(var(--q-fg),.6)',
           onMenuGrid:()=>setV('grid'),onMenuList:()=>setV('list'),gridIconInk:'var(--q-accent)'}); }
-      { const onAuth=!!s.splashDone&&(s.screen==='login'||s.screen==='signup')&&!s.authing;
+      { const onAuth=false;
         v.showAuthDock=onAuth;
         if(onAuth){
           const cur=s.screen==='signup'?'signup':s.loginMode==='return'?'face':s.loginMode==='pin'?'pin':s.loginMode==='id'?'id':'signup';
@@ -3163,7 +3163,7 @@ input,button,textarea{font-family:inherit}
           const fl=st.customer?RE_FLOW:NEW_FLOW, i=fl.indexOf(st.screen);
           if(i>0) return {screen:fl[i-1]};
           if(st.customer) return {screen:'home',withdrawMode:false};
-          return {screen:'login',otpMode:false,otp:''};
+          return {screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false};
         }),
         amount:()=>this.setState(st=>{
           const cap=Math.max(500,this.headroom(st));
@@ -3271,8 +3271,8 @@ input,button,textarea{font-family:inherit}
             :(s.loginMode!=='new')?['Good to see you again','Look at your phone to log in, or use your PIN.']:[null,null];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
-        onIntroSignup:()=>this.setState({screen:'signup',su:Object.assign({step:1,name:'',idnum:'',phone:'',email:'',employment:'Permanent',employer:'',income:'',payday:'25th',pin:'',pin2:'',credit:false,terms:false},this.state.su&&this.state.su.step?this.state.su:{}),suError:'',suTried:false}),
-        onIntroLogin:()=>this.setState({loginIntro:false,loginMode:'id',liError:''}),
+        onIntroSignup:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onIntroLogin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         loginIdStep:s.screen==='login'&&s.loginMode==='id',
         liPhone:s.liPhone||'', liId:s.liId||'', liError:s.liError||'',
         liPhoneBd:(s.liError&&(s.liPhone||'').length!==9)?'rgba(255,138,122,.6)':'rgba(255,255,255,.10)',
@@ -3361,7 +3361,7 @@ input,button,textarea{font-family:inherit}
           };
         })(),
         onStartEstimate:()=>this.setState({screen:'estimate',employment:'',estIncome:'',estExpenses:''}),
-        onLeaveEstimate:()=>this.setState({screen:'login'}),
+        onLeaveEstimate:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onEstimateCta:()=>{
           const e=this.estimate();
           const amt=e.eligible?Math.max(500,e.amount):1000;
@@ -3507,12 +3507,12 @@ input,button,textarea{font-family:inherit}
             onLockTipRepay:()=>{ this.setState({lockTipOff:true}); nav.schedule(); }}; })(), stepPct:((stepIdx+1)/flow.length)*100,
         nav,
   
-        loginReturnStep:s.screen==='login'&&s.loginMode==='return',
-        onReturning:()=>this.setState({loginMode:'return'}),
-        onOtherNumber:()=>this.setState({loginMode:'new',otpMode:false,otp:'',loginIntro:false}),
-        onUsePin:()=>this.setState({loginMode:'pin',otpMode:true,otp:''}),
-        otpTitle:s.loginMode==='pin'?'Enter your 4-digit PIN':'Enter the 4-digit code',
-        otpSub:s.loginMode==='pin'?'Signing in to your saved account':('Sent to +27 '+(s.phone||'82 000 0000')),
+        loginReturnStep:false,
+        onReturning:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        otpTitle:'Enter your 4-digit PIN',
+        otpSub:'Use your first four digits to sign in. That is the first four digits of your ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
           const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
           return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
@@ -3749,7 +3749,7 @@ input,button,textarea{font-family:inherit}
         onCloseMenu:()=>{ clearTimeout(this._panelT); this.dismiss('panel',{menuOpen:false,panelPhase:'',screen:SHEETS.includes(s.screen)?'home':s.screen}); },
         stopClick:e=>e.stopPropagation(),
         onLogout:()=>{ try{ localStorage.removeItem(this._key); }catch(e){}
-          this.dismiss('panel',{menuOpen:false,screen:'login',loginMode:'return',otpMode:false,otp:'',
+          this.dismiss('panel',{menuOpen:false,screen:'login',loginMode:'pin',otpMode:true,loginIntro:false,otp:'',
             customer:false,activeLoan:null,employment:'',estIncome:'',estExpenses:'',payMethod:''}); },
         menuItems:[
           ['loan','My loan'],['amount','New loan'],['schedule','Repayments'],
@@ -3798,7 +3798,7 @@ input,button,textarea{font-family:inherit}
             this.setState(st=>{
               const next=(st.otp+k).slice(0,4);
               if(next.length===4){
-                const pin=st.loginMode==='pin';
+                const pin=st.loginMode==='pin'||st.screen==='login'||st.screen==='signup'||st.screen==='signupPending';
                 setTimeout(()=>this.setState(pin?Object.assign({screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth()):{screen:'who'}),320);
               }
               return {otp:next};
@@ -4663,6 +4663,19 @@ input,button,textarea{font-family:inherit}
         onQuickStripOpen:()=>{ clearTimeout(this._qrT); this.setState({quickReply:'',quickOpen:false,aiOpen:true}); },
         onQuickClose:()=>this.setState({quickOpen:false,aiDraft:''}),
   
+        isLogin:['login','signup','signupPending'].includes(s.screen),
+        isSignup:false,
+        isSignupPending:false,
+        loginPhoneStep:false,
+        loginIntroStep:false,
+        loginIdStep:false,
+        loginReturnStep:false,
+        loginOtpStep:['login','signup','signupPending'].includes(s.screen),
+        loginStepHeadOn:['login','signup','signupPending'].includes(s.screen),
+        loginHead:'Enter your PIN',
+        loginSub:'Use your first four digits to sign in. That is the first four digits of your ID number.',
+        loginHeadJustify:'flex-end',
+
         jumpList:jump.map(([k,label])=>{
           const on=s.screen===k;
           return {label,
