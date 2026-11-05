@@ -37,6 +37,17 @@ openssl rand -hex 32
 Add all three to **Production** (and Preview if you want preview deployments to work).
 Changing a value later: Vercel → Project → Settings → Environment Variables → edit → **Redeploy**.
 
+Optional server-only values. Leave them unset until you are ready. None of them belong in the
+browser, in git, or in the staff UI.
+
+| Name | What it does |
+| --- | --- |
+| `LEDGER_UNLOCK_PIN` | Staff unlock secret for `POST /api/ledger/unlock`. Mints the httpOnly staff cookie. `LEDGER_KEY` stays the machine Connect secret. |
+| `LEDGER_MANAGER_PIN` | Required before a loan delete or a full book replace. Plain text, or `sha256:` plus the hex digest. |
+| `LEDGER_ALLOW_DEMO_RESET` | Set to `true` only on a non-production host to show Reset demo data. Production hosts and `NODE_ENV=production` keep it hidden. |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Document reader and Q1. If neither is set, staff see "Not configured". |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
+
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
 `QUIK1_RATE_LIMIT`.

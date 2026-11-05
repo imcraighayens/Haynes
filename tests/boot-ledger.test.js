@@ -127,8 +127,11 @@ test('LEDGER boots on cloud data and mirrors console writes to the API', { skip:
   });
 });
 
-test('a 401 on /state shows the existing Ledger unlock, then the live book', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+test('a 401 on /state shows the server unlock, then the live book', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
   const savedPin = process.env.LEDGER_UNLOCK_PIN;
+  // Fixture for this boot only. It is not a production secret and is not read from the page.
+  const fixture = '919191';
+  process.env.LEDGER_UNLOCK_PIN = fixture;
   try {
   await withMockApi(async api => {
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
@@ -145,23 +148,28 @@ test('a 401 on /state shows the existing Ledger unlock, then the live book', { s
       await pageWaitFor(page, () => /LEDGER LOCKED/.test(document.body.innerText) && /Enter the 6-digit ledger passcode/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       const locked = await bodyText(page);
       assert.match(locked, /LEDGER LOCKED/);
-      assert.equal(/LOANED OUT/.test(locked) && !/LEDGER LOCKED/.test(locked), false, 'a saved prototype unlock does not skip the staff session');
+      assert.equal(/PROTOTYPE CODE/.test(locked), false, 'the lock screen does not show a passcode hint');
+      assert.equal(/LOANED OUT/.test(locked) && !/LEDGER LOCKED/.test(locked), false, 'a saved unlock flag does not skip the staff session');
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 401), 'anonymous /state is 401');
 
-      const shown = await page.evaluate(() => {
-        const m = document.body.innerText.match(/PROTOTYPE CODE:\s*([0-9]+)/);
-        return m ? m[1] : '';
-      });
-      assert.equal(shown.length > 0, true, 'the existing prototype unlock code is on the lock screen');
-      process.env.LEDGER_UNLOCK_PIN = shown;
       const box = page.getByPlaceholder('••••••');
-      await box.fill(shown);
+      await box.fill('000000');
+      await page.waitForFunction(() => {
+        const el = document.querySelector('input[placeholder="••••••"]');
+        return !!(el && el.value && el.value.length === 6);
+      }, null, { timeout: 5000 });
+      await clickText(page, 'UNLOCK');
+      await pageWaitFor(page, () => /INCORRECT PASSCODE/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      assert.equal(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), false, 'a rejected unlock does not load the book');
+
+      await box.fill(fixture);
       await page.waitForFunction((n) => {
         const el = document.querySelector('input[placeholder="••••••"]');
         return !!(el && el.value && el.value.length === n);
-      }, shown.length, { timeout: 5000 });
+      }, fixture.length, { timeout: 5000 });
       await clickText(page, 'UNLOCK');
       await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      assert.ok(api.requests.some(r => r.method === 'POST' && r.url.startsWith('/api/ledger/unlock') && r.status === 200), 'unlock is accepted by the server');
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after unlock, /state is 200');
       const anon = await fetch(api.origin + '/api/ledger/state');
       assert.equal(anon.status, 401, 'a request without the staff cookie stays 401');

@@ -21,10 +21,12 @@ test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in cop
   assert.match(quik, /Use your first four digits to sign in\. That is the first four digits of your ID number\./);
 });
 
-test('ledger asks for the existing passcode when /state is 401', () => {
+test('ledger asks for a server-checked passcode when /state is 401', () => {
   assert.match(ledgerHtml, /var basePath = '\/ledger\/';/);
   assert.match(ledgerHtml, /gate&&gate\.needsUnlock/);
-  assert.match(ledgerHtml, /sync&&sync\.needsUnlock&&typeof sync\.unlock==='function'/);
+  assert.match(ledgerHtml, /sync\.unlock\(pin\)/);
+  assert.doesNotMatch(ledgerHtml, /PROTOTYPE CODE/);
+  assert.doesNotMatch(ledgerHtml, /pc\s*===/);
   assert.match(sync, /L\.needsUnlock = !!\(e && e\.status === 401\)/);
   assert.match(sync, /needsUnlock: false/);
 });
