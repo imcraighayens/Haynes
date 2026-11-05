@@ -8,7 +8,7 @@ import path from 'node:path';
 const KEY = 'ledger-test-key-0123456789abcdef';
 process.env.LEDGER_KEY = KEY;
 
-const { requireStaff, safeEqual, bearerToken } = await import('../../api/_lib/auth.js');
+const { requireStaff, safeEqual, bearerToken, mintStaffSession, verifyStaffSession, isSameOrigin, staffCookieHeader, STAFF_COOKIE, verifyUnlockPin } = await import('../../api/_lib/auth.js');
 const { createLimiter, clientIp } = await import('../../api/_lib/ratelimit.js');
 const V = await import('../../api/_lib/validate.js');
 const { HttpError, readBody, pathParts, json } = await import('../../api/_lib/http.js');
@@ -171,4 +171,33 @@ test('http.pathParts: Vercel query array, single string, or URL fallback', () =>
   assert.deepEqual(pathParts({ query: {}, url: '/api/ledger?path=rest/v1/ledger_book&id=eq.main' }, 'ledger'), ['rest', 'v1', 'ledger_book']);
   assert.deepEqual(pathParts({ url: '/api/ledger/rest/v1/ledger_book?id=eq.main' }, 'ledger'), ['rest', 'v1', 'ledger_book']);
 });
+
+test('http json: ALLOWED_ORIGIN accepts a comma-separated list of exact origins', () => {
+  const saved = process.env.ALLOWED_ORIGIN;
+  process.env.ALLOWED_ORIGIN = 'https://a.example, https://b.example';
+  try {
+    const ok = fakeRes();
+    json(ok, 200, { ok: 1 }, { headers: { origin: 'https://b.example' } });
+    assert.equal(ok.headers['access-control-allow-origin'], 'https://b.example');
+    const no = fakeRes();
+    json(no, 200, { ok: 1 }, { headers: { origin: 'https://c.example' } });
+    assert.equal(no.headers['access-control-allow-origin'], undefined);
+  } finally {
+    if (saved == null) delete process.env.ALLOWED_ORIGIN; else process.env.ALLOWED_ORIGIN = saved;
+  }
+});
+});
+
+test('auth: same-origin staff cookie satisfies requireStaff; cross-site cookie does not', () => {
+  process.env.LEDGER_KEY = process.env.LEDGER_KEY || 'test-ledger-key-for-unit-tests-32b';
+  const { token, exp } = mintStaffSession();
+  assert.equal(verifyStaffSession(token), true);
+  const cookie = staffCookieHeader(token, exp);
+  assert.ok(cookie.includes(STAFF_COOKIE + '='));
+  const same = { headers: { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'same-origin' } };
+  assert.equal(requireStaff(same), true);
+  const cross = { headers: { origin: 'https://evil.example', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'cross-site' } };
+  assert.throws(() => requireStaff(cross), e => e.status === 401);
+  assert.equal(isSameOrigin(same), true);
+  assert.equal(isSameOrigin(cross), false);
 });

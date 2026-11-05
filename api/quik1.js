@@ -3,10 +3,11 @@
 //   POST /api/quik1/applications        GET /api/quik1/applications/:id
 //   POST /api/quik1/signups             GET /api/quik1/signups/:id
 //   POST /api/quik1/requests            GET /api/quik1/repayments/:key
+//   GET  /api/quik1/available/:applicationId   available = credit_limit − outstanding principal
 import { randomBytes } from 'node:crypto';
 import { wrap, json, readBody, pathParts, requireEnv, HttpError, PUBLIC_BODY_CAP } from './_lib/http.js';
 import { publicLimiter, clientIp } from './_lib/ratelimit.js';
-import { selectOne, count, upsert, eq } from './_lib/supabase.js';
+import { select, selectOne, count, upsert, eq } from './_lib/supabase.js';
 import {
   wellFormedClientId, isSafeId, cleanText, cleanPhone, cleanEmail, parseAmount, parseTerm, num, toMs,
   quik1StatusLabel
@@ -172,6 +173,39 @@ async function getRepayment(req, res, key) {
   json(res, 200, row ? { ok: !!row.ok, by: row.by || 'Admin', at: toMs(row.at) } : null, req);
 }
 
+
+const OPEN_LOAN = new Set(['issued', 'overdue']);
+const CREDIT_LIMIT = Math.max(500, parseInt(process.env.QUIK1_CREDIT_LIMIT, 10) || 8000);
+
+// Read-own by unguessable application id. No PIN / id_number lookup — live PIN verification stays off.
+async function getAvailableForApplication(req, res, applicationId) {
+  if (!isSafeId(applicationId)) throw new HttpError(400, 'bad id');
+  const app = await selectOne('applications', { select: 'id,client_id,status,amount,source', id: eq(applicationId), source: eq('quik1') });
+  if (!app) throw new HttpError(404, 'Application not found');
+  let outstanding = 0, open = 0, nextDue = null;
+  if (app.client_id) {
+    const loans = await select('loans', { select: 'principal,status,schedule,deleted_at,client_id', client_id: eq(app.client_id) });
+    for (const l of loans || []) {
+      if (!l || l.deleted_at) continue;
+      if (!OPEN_LOAN.has(String(l.status || '').toLowerCase())) continue;
+      open += 1;
+      outstanding += Number(l.principal) || 0;
+      const d = Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null;
+      if (d && (!nextDue || d < nextDue)) nextDue = d;
+    }
+  }
+  json(res, 200, {
+    application_id: app.id,
+    credit_limit: CREDIT_LIMIT,
+    outstanding_principal: outstanding,
+    available: Math.max(0, CREDIT_LIMIT - outstanding),
+    open_loans: open,
+    next_due: nextDue,
+    // repaid original principal returns to available when loans leave issued/overdue (paid|settled_early).
+    server_time: new Date().toISOString()
+  }, req);
+}
+
 export default wrap('quik1', async (req, res) => {
   requireEnv(ENV);
   const rl = publicLimiter.check(clientIp(req));
@@ -193,6 +227,8 @@ export default wrap('quik1', async (req, res) => {
     if (!id && method === 'POST') return postRequest(req, res, await readBody(req, PUBLIC_BODY_CAP));
   } else if (head === 'repayments') {
     if (id && method === 'GET') return getRepayment(req, res, id);
+  } else if (head === 'available') {
+    if (id && method === 'GET') return getAvailableForApplication(req, res, id);
   } else {
     throw new HttpError(404, 'Not found');
   }

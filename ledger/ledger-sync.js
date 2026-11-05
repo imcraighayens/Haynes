@@ -134,7 +134,8 @@
     var c = cfg(), base = String(c.url || '').replace(/\/+$/, ''), p = String(path || ''), url = base + (p.charAt(0) === '/' ? p : '/' + p);
     var headers = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
     if (c.key) { headers['Authorization'] = 'Bearer ' + c.key; headers['apikey'] = c.key; }
-    var init = { method: method || 'GET', headers: headers };
+    // credentials:include so the same-origin staff cookie from POST /unlock is sent; Bearer still preferred when set.
+    var init = { method: method || 'GET', headers: headers, credentials: 'include' };
     if (body !== undefined && body !== null) init.body = JSON.stringify(body);
     var ctl = null, t = null, timeout = (opts && opts.timeoutMs) || 20000;
     if (typeof W.AbortController === 'function') { ctl = new W.AbortController(); init.signal = ctl.signal; t = setTimeout(function () { try { ctl.abort(); } catch (e) {} }, timeout); }
@@ -195,7 +196,7 @@
   function retryable(r) { return r.retryable === true || (r.retryable == null && /unreachable|Internal error/i.test(String(r.error || ''))); }
   function flush() {
     if (flushing || !pending.length) return Promise.resolve();
-    if (!cfg().key) return Promise.resolve(); // keep the queue until the console is connected
+    // Bearer key OR same-origin staff cookie (minted by unlock) can flush; 401 keeps the queue.
     flushing = true;
     var batch = pending.splice(0, MAX_BATCH);
     inflight = batch; persistQueue();
@@ -394,15 +395,53 @@
   }
 
   // ---- boot ------------------------------------------------------------------------------------
+  function applyBootState(st) {
+    try {
+      if (st) {
+        var ops = applyState(st);
+        info('seeded from cloud', (st.audit_log || []).length, 'audit rows;', ops.length, 'local op(s) re-queued');
+        return ops;
+      }
+      snapshotLocal();
+    } catch (e) {
+      L.error = 'seed failed: ' + String((e && e.message) || e);
+      info(L.error);
+      try { snapshotLocal(); } catch (e2) {}
+    }
+    return [];
+  }
+
+  // Prototype unlock PIN → same-origin httpOnly staff cookie (server holds LEDGER_KEY). Never stores the Connect secret in localStorage.
+  function unlock(pin) {
+    return api('POST', '/unlock', { pin: String(pin || '') }, { timeoutMs: 8000 }).then(function () {
+      return fetchState().then(function (st) {
+        applyBootState(st);
+        if (st && st.clients) {
+          try {
+            // Soft-reload so the console constructor re-reads evoltConsoleV4 seeded above.
+            if (W.location && typeof W.location.reload === 'function') W.location.reload();
+          } catch (e) {}
+        }
+        return st;
+      });
+    });
+  }
+  function lock() {
+    return api('POST', '/lock', {}, { timeoutMs: 5000 }).catch(function () { return null; });
+  }
+
+  L.unlock = unlock;
+  L.lock = lock;
+
   function boot() {
     var c = seedCfg();
     restoreQueue();
     if (c.key) { try { seedQ1Apps(c.key); } catch (e) { info('q1.apps seed failed', e); } }
-    else L.error = 'no key configured — local only';
-    L.state = c.key ? fetchState() : Promise.resolve(null);
+    // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after unlock.
+    L.state = fetchState();
     L.booted = L.state.then(function (st) {
-      try { if (st) { var ops = applyState(st); info('seeded from cloud', (st.audit_log || []).length, 'audit rows;', ops.length, 'local op(s) re-queued'); } else snapshotLocal(); }
-      catch (e) { L.error = 'seed failed: ' + String((e && e.message) || e); info(L.error); try { snapshotLocal(); } catch (e2) {} }
+      if (!st && !c.key) L.error = L.error || 'no staff session — unlock Ledger or Connect under Settings';
+      applyBootState(st);
       hookStorage();
       return injectRuntime();
     }).then(function () { if (pending.length) scheduleFlush(0); });
