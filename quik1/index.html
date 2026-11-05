@@ -429,10 +429,10 @@ input,button,textarea{font-family:inherit}
 
       <button sc-camel-on-click="{{ onEditProfile }}" style="text-align:left;display:flex;align-items:center;gap:12px;padding:0 0 22px;border:0;border-bottom:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;color:#FFFFFF">
         <span style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:#FDD10D;display:grid;place-items:center;overflow:hidden;font-size:15px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
         </span>
         <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:500">Thandi Mokoena</span>
+          <span style="display:block;font-size:15px;font-weight:500">{{ hdrName }}</span>
           <span style="display:block;font-size:12px;color:#FDD10D">Edit profile</span>
         </span>
       </button>
@@ -600,7 +600,7 @@ input,button,textarea{font-family:inherit}
           </sc-if>
           <sc-if value="{{ showDrawerHead }}"><div style="flex:0 0 auto;padding:{{ drawerHeadTop }} 22px 12px 22px;display:flex;align-items:center;gap:10px">
             <span style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;overflow:hidden;background:#FDD10D;display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-              <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+              <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
             </span>
             <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="flex:0 0 auto;width:88px;height:auto;display:block;margin-right:auto">
             <button sc-camel-on-click="{{ onOpenAlerts }}" aria-label="Notifications" style="position:relative;flex:0 0 auto;width:53px;height:53px;border-radius:50%;border:1px solid rgba(var(--q-fg),.16);background:#1A1A1A;display:grid;place-items:center;cursor:pointer">
@@ -636,7 +636,7 @@ input,button,textarea{font-family:inherit}
   
             <button sc-camel-on-click="{{ onEditProfile }}" style="flex:0 0 auto;text-align:left;display:flex;align-items:center;gap:12px;padding:14px 0 0;border:0;border-top:1px solid rgba(var(--q-fg),.16);background:transparent;cursor:pointer;color:var(--q-ink)">
               <span style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:#FDD10D;display:grid;place-items:center;overflow:hidden;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
               </span>
               <span style="flex:1;min-width:0;font-size:22px;font-weight:500;letter-spacing:-.03em">Profile</span>
               <span style="flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:1px solid rgba(var(--q-fg),.18);background:rgba(var(--q-fg),.08);display:grid;place-items:center;animation:q-profile-pulse 2.8s cubic-bezier(.4,0,.2,1) infinite;transition:background .3s cubic-bezier(.33,1,.68,1)">
@@ -1126,7 +1126,7 @@ input,button,textarea{font-family:inherit}
 
             <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--q-card);border:1px solid rgba(var(--q-fg),.14);box-shadow:0 10px 24px -14px rgba(0,0,0,.45)">
               <button sc-camel-on-click="{{ onPickPhoto }}" aria-label="Change photo" style="position:relative;flex:0 0 auto;width:64px;height:64px;padding:0;border:0;border-radius:50%;background:#FDD10D;background-image:{{ photoCss }};background-size:cover;background-position:center;display:grid;place-items:center;cursor:pointer;font-size:22px;font-weight:700;color:#0B0620">
-                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
                 <span style="position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;background:var(--q-ink);border:2px solid #FDD10D;display:grid;place-items:center">
                   <svg sc-camel-view-box="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:var(--q-accent);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M4.5 8.5h3l1.5-2h6l1.5 2h3v10h-15ZM12 16a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z"></path></svg>
                 </span>
@@ -1539,6 +1539,15 @@ input,button,textarea{font-family:inherit}
 
                 <sc-if value="{{ loginOtpStep }}">
           <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+            <sc-if value="{{ pinNote }}">
+              <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
+            </sc-if>
+            <sc-if value="{{ showAccountRef }}">
+              <label style="display:flex;flex-direction:column;gap:7px">
+                <span style="font-size:13px;color:rgba(255,255,255,.6)">Account reference</span>
+                <input value="{{ accountRefInput }}" sc-camel-on-change="{{ onAccountRef }}" autocomplete="off" spellcheck="false" placeholder="From your invite" style="height:52px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:15px">
+              </label>
+            </sc-if>
             <div style="display:flex;gap:10px">
               <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="4">
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
@@ -1677,7 +1686,7 @@ input,button,textarea{font-family:inherit}
       <div style="flex:0 0 auto;position:relative;z-index:30;padding:calc(34px + env(safe-area-inset-top)) 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
       <div style="display:flex;align-items:center;gap:10px">
           <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;background:#FDD10D;box-shadow:{{ hdrFloat }},0 0 0 2px rgba(255,255,255,.12);transform:translateY(-3px);display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-            <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+            <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
           </span>
           <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;margin-left:2px"><span style="font-size:16px;font-weight:500;letter-spacing:-.02em;color:{{ hdrInk }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ hdrGreeting }}</span><span style="font-size:13px;color:{{ hdrMute }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ hdrName }}</span></span>
           <button sc-camel-on-click="{{ onToggleTheme }}" aria-label="{{ themeLabel }}" style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:1px solid {{ hdrBtnBd }};background:{{ hdrBtnBg }};box-shadow:{{ hdrFloat }};transform:translateY(-3px);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:grid;place-items:center;cursor:pointer;transition:background .3s cubic-bezier(.33,1,.68,1)">
@@ -2669,11 +2678,12 @@ input,button,textarea{font-family:inherit}
       docs:0, docsError:'', docChecks:[{state:'idle'}], docError:null, kyc:[], kycError:'',
       decisionTick:0, terms:false, offerError:'',
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
-      profile:{name:'Thandi Mokoena',idnum:'9204125 084 083',email:'thandi.m@gmail.com',mobile:'+27 82 431 9077',bank:'Capitec · ···· 4471'},
+      profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
+      bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false,
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
-      aiChat:[{from:'bot',text:'Hi Thandi. I am Q1, the Quik1 assistant. Ask me about your balance, dates or limit.'}],
+      aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
-        {from:'them',text:'Hi Thandi — Sipho here. How can I help?'},
+        {from:'them',text:'Hi — how can we help?'},
         {from:'me',text:'Can I pay off early without a penalty?'},
         {from:'them',text:'Yes. The 35% charge is fixed when the loan is granted, so paying sooner never costs you more. Tap Settle the loan on the Repayments tab to pay it off today.'}
       ]
@@ -2764,6 +2774,7 @@ input,button,textarea{font-family:inherit}
         const d=s.decisions[id];
         if(d && (!this.state.linkDecision || this.state.linkDecision.at!==d.at)) this.setState({linkDecision:d});
       });
+      this.prepareBorrowerAuth();
     }
     signupVals(){
       const s=this.state, u=s.su||{step:1}, step=u.step||1, tried=!!s.suTried;
@@ -2878,27 +2889,157 @@ input,button,textarea{font-family:inherit}
     _chatScroll=React.createRef();
     _key='quik1.account.v1';
     restore(){
+      try{ localStorage.removeItem(this._key); }catch(e){}
+    }
+    persist(){
+      // The old key cached a profile and loans on the phone. That copy is not a session.
+      try{ localStorage.removeItem(this._key); }catch(e){}
       try{
-        const raw=localStorage.getItem(this._key);
-        if(!raw) return;
-        const a=JSON.parse(raw);
-        if(!a||typeof a!=='object') return;
-        const keep={};
-        ['activeLoan','baseAmount','interestPaid','graduated','profile','approved'].forEach(k=>{
-          if(a[k]!==undefined) keep[k]=a[k];
-        });
-        if(Object.keys(keep).length) this.setState(keep);
+        const ref=this.state.deviceRef||'';
+        if(!/^qb_[0-9a-f]{32}$/.test(ref)) localStorage.removeItem('quik1.device.v1');
+        else localStorage.setItem('quik1.device.v1', JSON.stringify({ accountRef: ref }));
       }catch(e){}
     }
-    persist(patch){
+    prepareBorrowerAuth(){
+      this.restore();
+      let ref='';
       try{
-        const s=Object.assign({},this.state,patch||{});
-        localStorage.setItem(this._key,JSON.stringify({
-          customer:s.customer, activeLoan:s.activeLoan, baseAmount:s.baseAmount,
-          interestPaid:s.interestPaid, graduated:s.graduated, profile:s.profile,
-          approved:s.approved, savedAt:Date.now()
-        }));
+        const raw=localStorage.getItem('quik1.device.v1');
+        const a=raw?JSON.parse(raw):null;
+        if(a&&typeof a.accountRef==='string'&&/^qb_[0-9a-f]{32}$/.test(a.accountRef)) ref=a.accountRef;
       }catch(e){}
+      let code='';
+      try{
+        const m=/^#invite=([0-9a-f]{64})$/.exec(String(location.hash||''));
+        if(m) code=m[1];
+      }catch(e){}
+      if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
+      else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
+      fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{ if(j&&j.identified===true&&!this.state.inviteCode) this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); })
+        .catch(()=>{});
+    }
+    borrowerApi(path){
+      const base=(typeof window!=='undefined'&&window.QUIK1_API)||(((typeof location!=='undefined'&&location.origin)||'')+'/api/quik1');
+      return String(base).replace(/\/+$/,'')+path;
+    }
+    homeFromBook(payload){
+      const identified=!!(payload&&payload.identified===true);
+      const acct=payload&&payload.account&&typeof payload.account==='object'?payload.account:{};
+      const num=n=>{ const x=Number(n); return Number.isFinite(x)?x:0; };
+      const credit=num(acct.credit_limit), owed=num(acct.outstanding_principal), available=num(acct.available), nextDebit=num(acct.next_debit);
+      const name=identified?String((payload.profile&&payload.profile.name)||'').trim():'';
+      const bank=identified?String((payload.profile&&payload.profile.bank)||'').trim():'';
+      const loans=Array.isArray(acct.loans)?acct.loans:[];
+      const activeLoan=identified&&owed>0?{
+        a:owed, total:owed, term:1, monthly:nextDebit>0?nextDebit:owed,
+        draws:loans.filter(l=>num(l.outstanding_principal)>0).map(l=>({
+          a:num(l.principal), total:num(l.outstanding_principal), date:l.taken_at||'', ref:l.ref||'', term:1, rate:0
+        }))
+      }:null;
+      return {
+        bookMode:true,
+        ledgerAccount:{
+          identified,
+          profile:{name,bank},
+          account:{
+            credit_limit:credit, outstanding_principal:owed, available,
+            next_due:typeof acct.next_due==='string'?acct.next_due:null,
+            next_debit:nextDebit, loans
+          }
+        },
+        profile:{name,idnum:'',email:'',mobile:'',bank},
+        customer:true, activeLoan, baseAmount:credit, interestPaid:0, graduated:false
+      };
+    }
+    openLedgerHome(){
+      this.setState({otp:'',pinBusy:true});
+      const apply=payload=>{
+        this.setState(Object.assign({pinBusy:false,authing:false,screen:'home',customer:true,otp:'',pinNote:'',pinPhase:'sign',pinFirst:''}, this.homeFromBook(payload)));
+      };
+      fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>apply(j))
+        .catch(()=>apply(null));
+    }
+    submitBorrowerPin(pin){
+      if(this.state.pinBusy) return;
+      if(!/^\d{4}$/.test(pin)) return;
+      const st=this.state;
+      if(st.inviteCode){
+        if(st.pinPhase!=='confirm'){
+          this.setState({pinFirst:pin, pinPhase:'confirm', otp:'', pinNote:''});
+          return;
+        }
+        if(pin!==st.pinFirst){
+          this.setState({pinFirst:'', pinPhase:'choose', otp:'', pinNote:'Those did not match. Choose the PIN again.'});
+          return;
+        }
+        this.finishBorrower('/invites/redeem', {code:st.inviteCode, pin:pin, pinConfirm:st.pinFirst});
+        return;
+      }
+      const ref=st.deviceRef||String(st.accountRefInput||'').trim();
+      if(!/^qb_[0-9a-f]{32}$/.test(ref)){
+        this.setState({otp:'', pinNote:'This phone is not linked yet. Open the invite from your loan officer, or enter the account reference.'});
+        return;
+      }
+      this.finishBorrower('/login', {accountRef:ref, pin:pin});
+    }
+    finishBorrower(path, body){
+      this.setState({pinBusy:true, pinNote:''});
+      fetch(this.borrowerApi(path),{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify(body)})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          if(r.status===423){
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinNote:'This account is locked. Ask your loan officer for a new invite.'});
+            return;
+          }
+          if(!r.ok){
+            const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:this.state.inviteCode?'choose':'sign', pinNote:msg});
+            return;
+          }
+          const accountRef=j&&typeof j.accountRef==='string'?j.accountRef:'';
+          if(/^qb_[0-9a-f]{32}$/.test(accountRef)){
+            try{ localStorage.setItem('quik1.device.v1', JSON.stringify({accountRef:accountRef})); }catch(e){}
+            this.setState({deviceRef:accountRef});
+          }
+          try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
+          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', otp:''});
+          this.openLedgerHome();
+        })
+        .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
+    }
+    bookDueDate(){
+      const iso=this.state.ledgerAccount&&this.state.ledgerAccount.account&&this.state.ledgerAccount.account.next_due;
+      if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+      const p=iso.split('-').map(Number);
+      return new Date(p[0], p[1]-1, p[2]);
+    }
+    debitDayCount(){
+      if(this.state.bookMode){
+        const d=this.bookDueDate();
+        if(!d) return null;
+        const now=new Date();
+        const a=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+        const b=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+        return Math.ceil((b-a)/86400000);
+      }
+      return Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000));
+    }
+    debitWhenLabel(){
+      const n=this.debitDayCount();
+      if(n==null) return 'Not scheduled';
+      if(n<=0) return 'Today';
+      return 'In '+n+(n===1?' day':' days');
+    }
+    debitSideLabel(){
+      if(this.state.bookMode){
+        const d=this.bookDueDate();
+        return d?d.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}):'—';
+      }
+      return DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'});
     }
     num(v){ return parseInt(String(v).replace(/\D/g,'')||'0',10); }
     estimate(){
@@ -2940,6 +3081,11 @@ input,button,textarea{font-family:inherit}
     // The earned base is the most PRINCIPAL a customer may have outstanding.
     headroom(st){
       const s=st||this.state;
+      if(s.bookMode){
+        const acct=s.ledgerAccount&&s.ledgerAccount.account;
+        const n=acct?Number(acct.available):0;
+        return Number.isFinite(n)&&n>0?n:0;
+      }
       if(!s.customer) return LIMIT;
       if(s.withdrawMode&&((this.props.demoWithdrawUnlocked ?? true)||s.repayOk)) return Math.max(0,Math.floor((LIMIT-((s.activeLoan&&s.activeLoan.total)||0))/100)*100);
       const base=Math.min(LIMIT,Math.max(500,s.baseAmount||500));
@@ -3007,8 +3153,8 @@ input,button,textarea{font-family:inherit}
         'Amount drawn: '+this.money(L.a),
         'Term: '+term+(term===1?' month':' months'),
         'Instalment: '+this.money(term?L.total/term:0),
-        'Next debit date: '+DUE,
-        'Credit limit: '+this.money(LIMIT),
+        'Next debit date: '+(s.bookMode?(this.debitSideLabel()==='—'?'Not scheduled':this.debitSideLabel()):DUE),
+        'Credit limit: '+this.money(s.bookMode?(s.baseAmount||0):LIMIT),
         'Interest paid toward next growth tier: '+this.money(s.interestPaid||0)+' of '+this.money(s.baseAmount||0),
         'Flat charge: '+pct+' of the amount drawn'
       ].join('\n');
@@ -3060,7 +3206,7 @@ input,button,textarea{font-family:inherit}
         kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
         who:'Pick if this loan is for you or for your business.',
         signup:'Sign up takes 3 short steps: your details, your work and pay, then a 4-digit PIN. Tap Back any time to change something.',
-        login:'Use your first four digits to sign in. That is the first four digits of your ID number.'};
+        login:'Enter the 4-digit PIN you chose. It is not your ID number.'};
       const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
       const last=st.aiChat[st.aiChat.length-1];
       const add=!(last&&last.from==='bot'&&last.text===txt);
@@ -3202,7 +3348,7 @@ input,button,textarea{font-family:inherit}
         if(window.Quik1Link){
           const c=this.calc();
           linkId=window.Quik1Link.submitApplication({
-            name:st.fullName||'Thandi Mokoena',
+            name:st.fullName||((st.profile&&st.profile.name)||''),
             phone:st.phone?('0'+String(st.phone).replace(/\s/g,'')):'082 441 0912',
             amount:st.amount,
             term:(this.activeTerm()||1)+' mo',
@@ -3268,7 +3414,7 @@ input,button,textarea{font-family:inherit}
         const settled=(s.closedLoans||[]).length, onTime=!!s.mandateSigned||!!s.activeLoan;
         const n=Math.max(1,Math.min(5,1+(onTime?1:0)+Math.min(2,settled)+(pct>=50?1:0)));
         const names=['','Getting started','Building','Good','Great','Top performer'];
-        const fn=((s.profile&&s.profile.name)||'Thandi').split(' ')[0].toUpperCase();
+        const fn=((s.profile&&s.profile.name)||'').split(' ')[0].toUpperCase();
         const refs=s.referrals||0;
         Object.assign(v,{
           stars:[1,2,3,4,5].map(i=>({fill:i<=n?'#FDD10D':'transparent',stroke:i<=n?'#FDD10D':'rgba(255,255,255,.25)',glow:i<=n?'drop-shadow(0 0 6px rgba(253,209,13,.45))':'none'})),
@@ -3302,7 +3448,7 @@ input,button,textarea{font-family:inherit}
         const opts=[['savings','Quik1 Save','Earn interest on money you put aside'],['credit','Second credit line','A separate account for planned spending'],['business','Business account','For sole traders and small businesses']];
         Object.assign(v,{
           isAccounts:s.screen==='accounts',
-          acName:(s.profile&&s.profile.name)||'Thandi Mokoena',
+          acName:(s.profile&&s.profile.name)||'',
           acCardNo:rv?('5274 0912 '+idd.slice(-8,-4).padStart(4,'0')+' '+last4):('•••• •••• •••• '+last4),
           acFrozen:fz, acCardFilter:fz?'grayscale(1) brightness(.75)':'none',
           acCardBg:'radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.45) 0%,rgba(255,255,255,0) 50%),linear-gradient(150deg,#FFE766 0%,#FDD10D 45%,#E8A800 100%)',
@@ -3519,8 +3665,7 @@ input,button,textarea{font-family:inherit}
           if(!su&&s.liPhone===demo.phone&&s.liId!==demo.id) return toast('Details do not match','That ID number is not linked to this mobile number.');
           if(!su&&s.liPhone!==demo.phone) return toast('No account found','We could not find an account for +27 '+s.liPhone+'. Tap Sign up to create one.');
           clearTimeout(this._liT);
-          this.setState({authing:true,phone:s.liPhone,liToast:null});
-          setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),900);
+          this.setState({authing:false, liToast:{title:'Use your PIN', body:'Sign in with the PIN you chose, or open the invite from your loan officer.'}});
         },
         loginHeadJustify:(s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?'center':'flex-end',
         loginOtpStep:s.screen==='login'&&(s.loginMode==='new'||s.loginMode==='pin')&&s.otpMode,
@@ -3734,7 +3879,7 @@ input,button,textarea{font-family:inherit}
         onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         otpTitle:'Enter your 4-digit PIN',
-        otpSub:'Use your first four digits to sign in. That is the first four digits of your ID number.',
+        otpSub:'Enter the 4-digit PIN you chose. It is not your ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
           const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
           return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
@@ -3747,31 +3892,9 @@ input,button,textarea{font-family:inherit}
               E('path',{...sp,strokeWidth:2.4,strokeDasharray:24,d:'m7.5 12.4 3 3 6-6.4',style:{animation:on?'q-draw .5s cubic-bezier(.33,1,.68,1) .1s both':'none'}})));
         })(),
         biometricLabel:s.authing?'Scanning your face…':s.faceErr?'Face not recognised. Try again':'Sign in with Face ID',
-        onBiometric:async()=>{
+        onBiometric:()=>{
           if(s.authing) return;
-          this.setState({authing:true,faceErr:false});
-          const done=()=>setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),400);
-          const fail=()=>this.setState({authing:false,faceErr:true});
-          const pk=window.PublicKeyCredential, KEY='quik1_faceid_cred';
-          const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))), unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-          const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
-          try{
-            if(!pk||!window.isSecureContext||!(await pk.isUserVerifyingPlatformAuthenticatorAvailable())) throw {name:'Unsupported'};
-            const saved=localStorage.getItem(KEY);
-            if(saved){
-              await navigator.credentials.get({publicKey:{challenge:rnd(32),timeout:60000,userVerification:'required',
-                allowCredentials:[{type:'public-key',id:unb64(saved),transports:['internal']}]}});
-            } else {
-              const cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),timeout:60000,
-                rp:{name:'Quik1'},user:{id:rnd(16),name:'+27'+(s.phone||'customer'),displayName:'Quik1 customer'},
-                pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-                authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'}}});
-              localStorage.setItem(KEY,b64(cred.rawId));
-            }
-            done();
-          }catch(e){
-            setTimeout(done,1400); // demo bypass: any failure still signs in
-          }
+          this.setState({authing:false, faceErr:true, pinNote:'Use the PIN you chose. This phone does not sign in with a face scan.'});
         },
         showToast:!!s.sentNote||(s.screen==='amount'&&!s.toastSeen&&!unlocked&&!s.withdrawMode&&!(s.customer&&!canTopUp)),
         toastIcon:s.sentNote?'M5 12.5 10 17.5 19 7.5':'M12 8.4v6.4M12 17.4v.2M12 3.8 3.4 19.2h17.2L12 3.8Z',
@@ -3881,6 +4004,7 @@ input,button,textarea{font-family:inherit}
         fileRef:this._file,
         splashVideoRef:this._splashVid, loginVideoRef:this._loginVid,
         photo:s.photo, hasPhoto:!!s.photo, noPhoto:!s.photo,
+        avatarLetters:((n)=>{ const p=String(n||'').trim().split(/\s+/).filter(Boolean); if(!p.length) return ''; return ((p[0][0]||'')+(p[1]?p[1][0]:'')).toUpperCase(); })(s.profile&&s.profile.name),
         photoCss:s.photo?('url("'+s.photo+'")'):'none',
         photoLabel:s.photo?'Change photo':'Add a photo',
         onPickPhoto:()=>this._file.current&&this._file.current.click(),
@@ -3970,9 +4094,12 @@ input,button,textarea{font-family:inherit}
         menuRandSpin:s.menuIcon===5?'0deg':'90deg',
         onCloseMenu:()=>{ clearTimeout(this._panelT); this.dismiss('panel',{menuOpen:false,panelPhase:'',screen:SHEETS.includes(s.screen)?'home':s.screen}); },
         stopClick:e=>e.stopPropagation(),
-        onLogout:()=>{ try{ localStorage.removeItem(this._key); }catch(e){}
+        onLogout:()=>{
+          try{ localStorage.removeItem(this._key); }catch(e){}
+          fetch(this.borrowerApi('/logout'),{method:'POST',credentials:'same-origin'}).catch(()=>{});
           this.dismiss('panel',{menuOpen:false,screen:'login',loginMode:'pin',otpMode:true,loginIntro:false,otp:'',
-            customer:false,activeLoan:null,employment:'',estIncome:'',estExpenses:'',payMethod:''}); },
+            customer:false,activeLoan:null,bookMode:false,ledgerAccount:null,pinPhase:'sign',pinFirst:'',pinNote:'',
+            profile:{name:'',idnum:'',email:'',mobile:'',bank:''}}); },
         menuItems:[
           ['loan','My loan'],['amount','New loan'],['schedule','Repayments'],
           ['documents','Documents'],
@@ -4019,10 +4146,7 @@ input,button,textarea{font-family:inherit}
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
               const next=(st.otp+k).slice(0,4);
-              if(next.length===4){
-                const pin=st.loginMode==='pin'||st.screen==='login'||st.screen==='signup'||st.screen==='signupPending';
-                setTimeout(()=>this.setState(pin?Object.assign({screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth()):{screen:'who'}),320);
-              }
+              if(next.length===4) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -4411,23 +4535,25 @@ input,button,textarea{font-family:inherit}
         topUpBg:canTopUp?'#FDD10D':'#0B0620', topUpInk:canTopUp?'#0B0620':'#FFFFFF',
         onTopUp:()=>nav.amount(),
         hdrGreeting:(hr=>hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')(new Date().getHours()),
-        hdrName:(s.profile&&s.profile.name)||'Thandi Mokoena',
-        heroMeta:hasLoan?(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return 'Debit in '+n+(n===1?' day':' days'); })():'No loan open',
-        debitDaysShort:(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })(),
+        hdrName:(s.profile&&s.profile.name)||(s.bookMode?'Not linked':''),
+        heroMeta:s.bookMode?(!s.ledgerAccount||!s.ledgerAccount.identified?'Not linked':(hasLoan?(this.debitDayCount()==null?'No debit date on file':this.debitWhenLabel()):'No loan open')):(hasLoan?'Debit in '+this.debitDayCount()+(this.debitDayCount()===1?' day':' days'):'No loan open'),
+        debitDaysShort:this.debitWhenLabel(),
         debitAmount:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
-        debitShortDate:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}).replace('/','/'),
+        debitShortDate:this.debitSideLabel(),
         credCards:(()=>{
           const front=s.credFront||'available';
           const growthPctVal=Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100));
-          const tierNoteVal=Math.round(this.rate()*100)+'% interest';
-          const avW=this.headroom({...s,withdrawMode:true}); const owedW=hasLoan?((s.activeLoan&&s.activeLoan.total)||L.total||0):0; const owedPct=Math.round(Math.min(100,(owedW/(LIMIT||8000))*100)); const lim=LIMIT||8000, avPct=Math.round(Math.min(100,Math.max(0,(avW/lim)*100)));
-          const debitDays=(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })();
-          const name=(s.profile&&s.profile.name)||'Thandi Mokoena';
+          const tierNoteVal=s.bookMode?(hasLoan?'Principal only':'Nothing to collect'):(Math.round(this.rate()*100)+'% interest');
+          const bookLim=s.bookMode?Math.max(0,Number(s.ledgerAccount&&s.ledgerAccount.account&&s.ledgerAccount.account.credit_limit)||0):(LIMIT||8000);
+          const avW=this.headroom({...s,withdrawMode:true}); const owedW=hasLoan?((s.activeLoan&&s.activeLoan.total)||L.total||0):0; const owedPct=bookLim?Math.round(Math.min(100,(owedW/bookLim)*100)):0; const lim=bookLim||1, avPct=Math.round(Math.min(100,Math.max(0,(avW/lim)*100)));
+          const debitDays=this.debitWhenLabel();
+          const dueSide=this.debitSideLabel();
+          const name=(s.profile&&s.profile.name)||(s.bookMode?'Not linked':'');
           const cards=[
             {k:'debit',tabLabel:'Next debit',tabValue:debitDays,line:name,big:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
-              side:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}),pct:growthPctVal,note:tierNoteVal,act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()},
+              side:dueSide,pct:growthPctVal,note:tierNoteVal,act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()},
             {k:'available',tabLabel:'You owe',tabValue:s.hideAmounts?'R ••••':this.money(owedW),line:'Owed to Quik1',big:s.hideAmounts?'R ••••':this.money(owedW),
-              side:hasLoan?'Due '+DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}):'Nothing owed',pct:owedPct,note:hasLoan?'Tap to manage your loan.':'Tap to apply for a loan.',act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()}
+              side:hasLoan?(dueSide==='—'?'No date on file':'Due '+dueSide):'Nothing owed',pct:owedPct,note:hasLoan?'Principal still out.':'Nothing owed.',act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()}
           ];
           cards.forEach(c=>{ if(s.hideAmounts){ c.cents=''; return; } const amt=c.k==='debit'?(hasLoan?(L.monthly||L.total):0):owedW; const p=this.moneyParts(amt); c.big=p[0]; c.cents=p[1]; });
           return cards.map(c=>{ const f=c.k===front;
@@ -4894,8 +5020,16 @@ input,button,textarea{font-family:inherit}
         loginReturnStep:false,
         loginOtpStep:['login','signup','signupPending'].includes(s.screen),
         loginStepHeadOn:['login','signup','signupPending'].includes(s.screen),
-        loginHead:'Enter your PIN',
-        loginSub:'Use your first four digits to sign in. That is the first four digits of your ID number.',
+        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':'Enter your PIN',
+        loginSub:s.pinPhase==='choose'
+          ?'Choose a 4-digit PIN, then enter it again. It is not taken from an ID number.'
+          :s.pinPhase==='confirm'
+          ?'Enter that PIN again. It is not taken from an ID number.'
+          :'Enter the 4-digit PIN you chose. It is not your ID number.',
+        pinNote:s.pinNote||'',
+        showAccountRef:!s.inviteCode&&!s.deviceRef,
+        accountRefInput:s.accountRefInput||'',
+        onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',
 
         jumpList:jump.map(([k,label])=>{

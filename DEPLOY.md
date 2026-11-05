@@ -57,6 +57,10 @@ browser, in git, or in the staff UI.
 | `LEDGER_AI_PROVIDER` | Optional when both reader keys are set: `anthropic` or `openai`. |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
 | `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
+| `QUIK1_SESSION_SECRET` | Required for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. |
+| `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
+| `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
+| `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -74,6 +78,12 @@ Supabase dashboard → **SQL Editor → New query**, paste the whole file
 `supabase/migrations/20261029_quik1_bridge.sql` from the repo, **Run**. It is additive and
 idempotent (safe to run twice): two columns on `applications`, four new tables, staff-only RLS.
 Nothing existing is altered.
+
+Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
+adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
+Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SESSION_SECRET`
+(32 or more characters) on Vercel before a client can choose a PIN. Leave it unset and the
+invite link can still be created, but redeeming it answers "Server not configured".
 
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.
