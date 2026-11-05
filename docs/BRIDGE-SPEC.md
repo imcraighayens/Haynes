@@ -204,8 +204,9 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     decision: {verdict, amount: amount, by:'Ecoloans', note:'', at: now}`; returns the row.
 * Public marketing ingest (`/api/ecoloans/applications`, no auth, own rate bucket, JSON only, 16 KB body cap):
   * `POST` → insert `applications` with `source:'ecoloan_web'`, `status:'new'`, `id:'ew_'+12 hex`,
-    `ref:'EW-'+(1085+count)`. Required `name` and `phone` (`aName` / `aCell` accepted). Optional
-    amount (1–50000; the live column is NOT NULL), term, purpose/why, income or a take-home band,
+    `ref:'EW-'+(1085+count)`. Required `name`, `phone` (`aName` / `aCell`), and `amount` (1–50000,
+    `aAmt` accepted; missing amount is 400). Optional term, purpose/why, income (a number is
+    `net_income`; a take-home band is stored on `meta.takeHome` and `net_income` defaults to 0),
     employer, bank, province (on `meta`), `loanType` `personal|business` (on `meta.raw`), id number,
     docs names. A well-formed client id that already exists returns `200 {id, ref, status}` from the
     stored row. Caps: `ECOLOANS_HOURLY_CAP` / `ECOLOANS_PHONE_DAILY_CAP`, counted on `source=ecoloan_web`.

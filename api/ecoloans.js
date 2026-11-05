@@ -50,8 +50,8 @@ function loanTypeOf(body) {
   return s === 'personal' || s === 'business' ? s : '';
 }
 
-// Numeric income wins. A marketing-site band ("R5 000 to R10 000", "Under R5 000") is not a
-// salary figure — callers keep it on meta.takeHome instead of coercing it to 0.
+// Numeric income wins. A marketing-site band ("R5 000 to R10 000", "Under R5 000") stays on
+// meta.takeHome. null here means "no number"; the column write uses 0 because net_income is NOT NULL.
 function numericIncome(v) {
   if (!present(v)) return null;
   const stripped = String(v).replace(/[R\s,]/g, '');
@@ -99,7 +99,7 @@ function docsOf(v) {
 
 function amountOf(body) {
   const raw = first(body.amount, body.aAmt);
-  if (raw == null) return null;
+  if (raw == null) throw new HttpError(400, 'amount is required');
   return parseAmount(raw);
 }
 
@@ -139,7 +139,7 @@ async function postApplication(req, res, body) {
     amount,
     term_months: parseTerm(first(body.term, body.term_months, body.aterm)),
     purpose: cleanText(first(body.purpose, body.why, body.awhy), 120) || 'Personal',
-    net_income: netIncomeOf(body),
+    net_income: netIncomeOf(body) ?? 0,
     employer: employerName || employment || null,
     bank: cleanText(first(body.bank, body.aBank), 80) || null,
     source: SOURCE,

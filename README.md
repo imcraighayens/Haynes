@@ -153,13 +153,14 @@ Content-Type: application/json
 `201` `{ "id": "ew_…", "ref": "EW-…", "status": "new" }`. A retry that sends the same well-formed
 `ew_` + 12 hex id gets `200` with the stored `id`, `ref` and `status`.
 
-Required: `name`, `phone`. The live form's `aName` and `aCell` are accepted as those two fields.
-Optional aliases from the same form: `aEmail`, `aAmt`, `aterm` / `term_months`, `why` / `awhy`,
-`income` / `net_income` / `takeHome` / `aTake` (a pay band is kept as text, a plain number is
-`net_income`), `employer` / `employment` / `aEmp`, `bank` / `aBank`, `province` / `aProv`,
-`loanType` / `type` / `atype` (`personal` or `business`, stored on `meta.raw`), `idNumber`,
-`docs` (names only, up to 5). Send `amount` between 1 and 50000. The live `applications.amount`
-column is NOT NULL, so a payload without an amount is written as null and Postgres rejects the insert.
+Required: `name`, `phone`, and `amount` (1–50000). The live form's `aName`, `aCell`, and `aAmt`
+are accepted as those fields. A missing amount is `400` `amount is required`.
+Income is optional. Send a number in `income` or `net_income` when you have one. A pay band
+such as `takeHome` / `aTake` (`R5 000 to R10 000`) is stored on `meta.takeHome`, and `net_income`
+defaults to `0`.
+Other optional fields: `aEmail`, `aterm` / `term_months`, `why` / `awhy`, `employer` / `employment`
+/ `aEmp`, `bank` / `aBank`, `province` / `aProv`, `loanType` / `type` / `atype` (`personal` or
+`business`, stored on `meta.raw`), `idNumber`, `docs` (names only, up to 5).
 
 The row is `source: "ecoloan_web"`, `status: "new"`. Nothing on this route approves it.
 Staff see the row on `GET /api/ledger/state` (newest 500 applications, every source). The Q1
