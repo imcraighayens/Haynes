@@ -24,7 +24,8 @@ const FAKE_SUPABASE_URL = 'http://fake-postgrest.local';
 const TYPES = {
   html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', woff2: 'font/woff2', woff: 'font/woff',
-  png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', txt: 'text/plain; charset=utf-8'
+  png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', txt: 'text/plain; charset=utf-8',
+  webmanifest: 'application/manifest+json', mp4: 'video/mp4'
 };
 const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js' };
 

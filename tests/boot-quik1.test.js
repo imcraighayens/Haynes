@@ -79,11 +79,18 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
 // quik1.app serves this HTML at "/" (address bar stays /) while the files live in /quik1/.
 function startRootHost() {
   const dir = path.resolve(new URL('../quik1/', import.meta.url).pathname);
-  const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp' };
+  const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp', mp4: 'video/mp4', webmanifest: 'application/manifest+json' };
   const server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split('?')[0]);
     // Production quik1.app keeps the address bar at "/" and only has files under /quik1/.
     // A request for /script.js must 404 here, or the test would hide a bad base URL.
+    // The installable app aliases its manifest and service worker to the site root on quik1.app.
+    if (urlPath === '/sw.js' || urlPath === '/manifest.webmanifest') {
+      const name = urlPath.slice(1);
+      const ext = name.split('.').pop().toLowerCase();
+      res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
+      return fs.createReadStream(path.join(dir, name)).pipe(res);
+    }
     if (urlPath === '/' || urlPath === '/index.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, 'index.html')).pipe(res);
@@ -116,9 +123,13 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
     assert.equal(/\{\{/.test(text), false, 'no raw template markers');
     assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');
     assert.equal(pageErrors.filter(e => !isKnownPageError(e)).length, 0);
-    const assets = requested.filter(u => /\.(js|png|woff2|webp)(\?|$)/.test(u));
+    const assets = requested.filter(u => /\.(js|png|woff2|webp|mp4)(\?|$)/.test(u));
     assert.ok(assets.length > 0, 'the page requested scripts and images');
-    assert.ok(assets.every(u => new URL(u).pathname.startsWith('/quik1/')), 'scripts, fonts and images load from /quik1/');
+    const rootShell = new Set(['/sw.js']);
+    assert.ok(assets.every(u => {
+      const p = new URL(u).pathname;
+      return p.startsWith('/quik1/') || rootShell.has(p);
+    }), 'scripts, fonts, images and the splash video load from /quik1/');
     const real404 = notFound.filter(u => !u.includes('.image-slots.state.json'));
     assert.deepEqual(real404, [], 'no 404s for scripts, fonts or images');
   } finally {

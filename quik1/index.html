@@ -4,7 +4,32 @@
 <script>window.__resources={"https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0620">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quik1">
+<link rel="apple-touch-icon" href="/quik1/apple-touch-icon.png">
+<script>
+/* Manifest scope follows the URL the page was opened at. quik1.app serves this
+   HTML at /; the same file is also /quik1/. Relative start_url/scope in the
+   manifest resolve against whichever of those URLs loaded it. */
+(function () {
+  var path = location.pathname || '/';
+  var atRoot = path === '/' || path === '/index.html';
+  var href = atRoot ? '/manifest.webmanifest' : '/quik1/manifest.webmanifest';
+  document.write('<link rel="manifest" href="' + href + '">');
+})();
+</script>
+<style>
+  html, body { height: 100dvh !important; min-height: 100dvh; }
+  #dc-root, #dc-root > .sc-host { min-height: 100%; }
+  #quik1-ios-hint { position: fixed; z-index: 80; left: 16px; right: 16px; top: calc(12px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: #0B0620; color: #fff; border: 1px solid rgba(253,209,13,.55); box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 500 14px/1.4 Ubuntu, sans-serif; }
+  #quik1-ios-hint[hidden] { display: none; }
+  #quik1-ios-hint p { margin: 0; flex: 1; }
+  #quik1-ios-hint button { flex: 0 0 auto; border: 0; border-radius: 999px; background: #FDD10D; color: #0B0620; font: 700 13px/1 Ubuntu, sans-serif; padding: 8px 12px; cursor: pointer; }
+</style>
 <script>
 /* This file lives in /quik1/. quik1.app rewrites "/" onto it while the
    address bar stays /, so relative scripts, fonts and images 404 at the
@@ -299,11 +324,11 @@ input,button,textarea{font-family:inherit}
 </style>
 </helmet>
 
-<div style="min-height:100vh;display:flex;background:#2B303B">
+<div style="min-height:100dvh;display:flex;background:#2B303B">
 
   <!-- ── Desktop sidebar ───────────────────────────────────────── -->
   <sc-if value="{{ showSidebar }}">
-    <div style="flex:0 0 288px;background:#000000;color:#FFFFFF;padding:38px 26px 26px;display:flex;flex-direction:column;gap:26px;position:sticky;top:0;height:100vh">
+    <div style="flex:0 0 288px;background:#000000;color:#FFFFFF;padding:38px 26px 26px;display:flex;flex-direction:column;gap:26px;position:sticky;top:0;height:100dvh">
       <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:132px;height:auto;display:block">
 
       <button sc-camel-on-click="{{ onEditProfile }}" style="text-align:left;display:flex;align-items:center;gap:12px;padding:0 0 22px;border:0;border-bottom:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;color:#FFFFFF">
@@ -342,7 +367,7 @@ input,button,textarea{font-family:inherit}
     <!-- ── Splash ────────────────────────────────────────────── -->
     <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
       <div style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:0 34px;overflow:hidden">
-        <video poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9"></video>
+        <video src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
         <div style="position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="position:relative;z-index:1;width:168px;height:auto;display:block">
         <div style="position:relative;z-index:1;display:flex;gap:5px">
@@ -1304,10 +1329,10 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Login ─────────────────────────────────────────────── -->
     <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
-      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;display:flex;flex-direction:column;gap:22px;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;padding:0 26px 46px;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <video poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none"></video>
+      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;display:flex;flex-direction:column;gap:22px;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;padding:0 26px calc(46px + env(safe-area-inset-bottom));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <video src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:34px">
+        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + env(safe-area-inset-top))">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
@@ -1549,7 +1574,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── App bar ───────────────────────────────────────────── -->
     <sc-if value="{{ showAppBar }}">
-      <div style="flex:0 0 auto;position:relative;z-index:30;padding:34px 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
+      <div style="flex:0 0 auto;position:relative;z-index:30;padding:calc(34px + env(safe-area-inset-top)) 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
       <div style="display:flex;align-items:center;gap:10px">
           <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;background:#FDD10D;box-shadow:{{ hdrFloat }},0 0 0 2px rgba(255,255,255,.12);transform:translateY(-3px);display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
             <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
@@ -2272,7 +2297,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ botBubbleOn }}">
-        <button sc-camel-on-click="{{ onBotBubble }}" style="position:absolute;right:18px;bottom:110px;z-index:16;max-width:230px;display:flex;align-items:center;gap:10px;padding:11px 14px 11px 16px;border-radius:20px 20px 6px 20px;border:0;background:{{ bubBg }};box-shadow:{{ bubShadow }};cursor:pointer;text-align:left;color:{{ bubInk }};animation:q-bubble .45s cubic-bezier(.34,1.56,.64,1) both;transform-origin:100% 100%">
+        <button sc-camel-on-click="{{ onBotBubble }}" style="position:absolute;right:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:16;max-width:230px;display:flex;align-items:center;gap:10px;padding:11px 14px 11px 16px;border-radius:20px 20px 6px 20px;border:0;background:{{ bubBg }};box-shadow:{{ bubShadow }};cursor:pointer;text-align:left;color:{{ bubInk }};animation:q-bubble .45s cubic-bezier(.34,1.56,.64,1) both;transform-origin:100% 100%">
           <span style="font-size:13.5px;line-height:1.4;text-wrap:pretty">{{ botBubbleText }}</span>
           <span sc-camel-on-click="{{ onBotBubbleClose }}" aria-label="Dismiss" style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:{{ bubChip }};display:grid;place-items:center">
             <svg sc-camel-view-box="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:{{ bubMute }};stroke-width:3;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
@@ -2284,7 +2309,7 @@ input,button,textarea{font-family:inherit}
 
       <sc-if value="{{ gridOpen }}">
         <div sc-camel-on-click="{{ onCloseGrid }}" style="position:absolute;inset:0;z-index:42;background:{{ gridScrim }};backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:q-fade .3s cubic-bezier(.33,1,.68,1) reverse both">
-          <div sc-camel-on-click="{{ stopGrid }}" style="position:absolute;left:12px;right:12px;bottom:112px;max-height:calc(100% - 150px);overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:14px 12px 12px;background:{{ gridSheetBg }};border:1px solid {{ gridBd }};box-shadow:{{ gridShadow }};animation:q-up .38s cubic-bezier(.22,1,.36,1)">
+          <div sc-camel-on-click="{{ stopGrid }}" style="position:absolute;left:12px;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));max-height:calc(100% - 150px - env(safe-area-inset-bottom));overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:14px 12px 12px;background:{{ gridSheetBg }};border:1px solid {{ gridBd }};box-shadow:{{ gridShadow }};animation:q-up .38s cubic-bezier(.22,1,.36,1)">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 4px 10px">
               <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:{{ gridMute }}">Menu</p>
               <div style="position:relative;display:flex;padding:3px;border-radius:999px;background:rgba(var(--q-fg),.07);border:1px solid rgba(var(--q-fg),.08)">
@@ -2348,8 +2373,8 @@ input,button,textarea{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{ showAuthDock }}">
-        <p style="position:absolute;left:24px;right:24px;bottom:22px;z-index:45;margin:0;text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
-        <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:72px;z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
+        <p style="position:absolute;left:24px;right:24px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:45;margin:0;text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
+        <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ authDockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
               <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:22px;height:22px;stroke:{{ d.ink }};fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s ease"><path d="{{ d.path }}"></path></svg>
@@ -2359,12 +2384,12 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showDock }}">
-        <button sc-camel-on-click="{{ onDockExpand }}" aria-label="Open menu bar" style="position:absolute;left:18px;bottom:40px;z-index:46;width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:{{ dockMiniOp }};pointer-events:{{ dockMiniPe }};transform:scale({{ dockMiniS }}) rotate({{ dockMiniR }});transition:opacity .3s ease,transform .5s cubic-bezier(.34,1.56,.64,1)" style-active="transform:scale(.92)">
+        <button sc-camel-on-click="{{ onDockExpand }}" aria-label="Open menu bar" style="position:absolute;left:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:46;width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:{{ dockMiniOp }};pointer-events:{{ dockMiniPe }};transform:scale({{ dockMiniS }}) rotate({{ dockMiniR }});transition:opacity .3s ease,transform .5s cubic-bezier(.34,1.56,.64,1)" style-active="transform:scale(.92)">
           <span style="width:48px;height:48px;border-radius:50%;background:#FDD10D;display:grid;place-items:center">
             <svg sc-camel-view-box="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#0B0620;stroke-width:2;stroke-linejoin:round"><path d="M5 5h5.5v5.5H5ZM13.5 5H19v5.5h-5.5ZM5 13.5h5.5V19H5ZM13.5 13.5H19V19h-5.5Z"></path></svg>
           </span>
         </button>
-        <div style="position:absolute;left:18px;bottom:40px;z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px;opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 50%;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
+        <div style="position:absolute;left:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px;opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 50%;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
           <sc-for list="{{ dockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
               <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:22px;height:22px;stroke:{{ d.ink }};fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s ease"><path d="{{ d.path }}"></path></svg>
@@ -2422,7 +2447,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ quickStripOn }}">
-        <div style="position:absolute;right:18px;left:18px;bottom:110px;z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
+        <div style="position:absolute;right:18px;left:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
           <div style="pointer-events:auto;max-width:100%;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:16px;border:1px solid rgba(40,60,255,.45);background:rgba(12,16,58,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 14px 30px -10px rgba(0,0,0,.5);animation:q-up .3s cubic-bezier(.22,1,.36,1)">
             <span style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#0000FE;box-shadow:0 0 12px rgba(40,60,255,.7);display:grid;place-items:center;font-size:10px;font-weight:700;color:#FFFFFF">Q1</span>
             <button sc-camel-on-click="{{ onQuickStripOpen }}" style="flex:1;min-width:0;border:0;padding:0;background:transparent;text-align:left;cursor:pointer;font-size:13.5px;line-height:1.4;color:#FFFFFF;opacity:{{ quickStripOp }}">{{ quickStripText }}</button>
@@ -2433,7 +2458,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showQ1 }}">
-        <div style="position:absolute;right:18px;bottom:40px;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);animation:q-float 4.2s ease-in-out infinite;transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
+        <div style="position:absolute;right:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);animation:q-float 4.2s ease-in-out infinite;transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
           <sc-if value="{{ quickOpen }}">
             <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
           </sc-if>
@@ -2452,7 +2477,57 @@ input,button,textarea{font-family:inherit}
   </div>
   
   </x-dc>
-  <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+<div id="quik1-ios-hint" hidden>
+  <p>Tap Share, then Add to Home Screen to open Quik1 full screen</p>
+  <button type="button" id="quik1-ios-hint-dismiss">Not now</button>
+</div>
+<script>
+(function () {
+  var HINT_KEY = 'quik1.iosHintDismissed';
+  function standalone() {
+    try {
+      return navigator.standalone === true
+        || window.matchMedia('(display-mode: standalone)').matches
+        || window.matchMedia('(display-mode: fullscreen)').matches;
+    } catch (e) { return false; }
+  }
+  function iosSafari() {
+    var ua = navigator.userAgent || '';
+    var iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var other = /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\//.test(ua);
+    return iOS && !other && /Safari/.test(ua) && !standalone();
+  }
+  function dismissed() {
+    try { return localStorage.getItem(HINT_KEY) === '1'; } catch (e) { return false; }
+  }
+  var el = document.getElementById('quik1-ios-hint');
+  var btn = document.getElementById('quik1-ios-hint-dismiss');
+  function sync() {
+    if (!el) return;
+    var onLogin = /Enter your PIN/.test((document.body && document.body.innerText) || '');
+    el.hidden = !(iosSafari() && !dismissed() && onLogin);
+  }
+  if (btn) btn.addEventListener('click', function () {
+    try { localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
+    if (el) el.hidden = true;
+  });
+  if (el && iosSafari() && !dismissed()) {
+    sync();
+    var obs = new MutationObserver(sync);
+    obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      var path = location.pathname || '/';
+      var atRoot = path === '/' || path === '/index.html';
+      var inQuik = atRoot || path === '/quik1' || path.indexOf('/quik1/') === 0;
+      if (!inQuik) return;
+      navigator.serviceWorker.register(atRoot ? '/sw.js' : '/quik1/sw.js', { scope: atRoot ? '/' : '/quik1/' }).catch(function () {});
+    });
+  }
+})();
+</script>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
   const SALARY_DAY=25;
   const DUE_DATE=(()=>{
     const now=new Date(2026,7,20);
@@ -3429,7 +3504,7 @@ input,button,textarea{font-family:inherit}
           this.dismiss('panel',{screen:'home',panelPhase:''});
         },
         showFlowCta:stepIdx>=0&&s.screen!=='who'&&!(s.screen==='amount'&&s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500)),
-        ctaBottom:(onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px',
+        ctaBottom:(onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'calc(112px + env(safe-area-inset-bottom))':'calc(20px + env(safe-area-inset-bottom))',
         ctaLabel:ctaLabel, ctaHint:ctaValid?'':ctaHint,
         ctaAction:ctaValid?ctaAction:()=>{},
         ctaBg:ctaValid?'#FDD10D':'rgba(255,255,255,.66)',
@@ -3438,9 +3513,9 @@ input,button,textarea{font-family:inherit}
         ctaDisc:ctaValid?INK:'rgba(11,6,32,.08)',
         ctaArrow:ctaValid?YEL:'rgba(11,6,32,.35)',
         ctaCursor:ctaValid?'pointer':'not-allowed',
-        flowPadBottom:onTabScreen?'220px':'128px',
-        wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'34px',
-        panelTop:hdrOn?'96px':'0px', showDrawerHead:!hdrOn,
+        flowPadBottom:onTabScreen?'calc(220px + env(safe-area-inset-bottom))':'calc(128px + env(safe-area-inset-bottom))',
+        wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'calc(34px + env(safe-area-inset-top))',
+        panelTop:hdrOn?'calc(96px + env(safe-area-inset-top))':'0px', showDrawerHead:!hdrOn,
         hdrMenuOn:pOpen?0:1, hdrCloseOn:(pOpen&&!SHEETS.includes(s.screen))?1:0, hdrBackOn:(pOpen&&SHEETS.includes(s.screen)&&s.closing!=='panel')?1:0,
         hdrMenuLabel:!pOpen?'Menu':SHEETS.includes(s.screen)?'Back to menu':'Close',
         onHeaderMenu:()=>{ if(!pOpen) return this.setState({menuOpen:true}); if(!SHEETS.includes(s.screen)) return this.dismiss('panel',{menuOpen:false}); return this.switchPanel('home',true); }, showTabBar:onTabScreen,
@@ -3500,7 +3575,7 @@ input,button,textarea{font-family:inherit}
         onStepHelp:()=>{ this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); this.openGuide(); },
         stepTipOp:s.stepTipFade?0:1,
         onStepTipClose:e=>{ e&&e.stopPropagation&&e.stopPropagation(); this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); },
-        stepTipBottom:'calc('+((onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px')+' + 70px)',
+        stepTipBottom:'calc('+((onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px')+' + 70px + env(safe-area-inset-bottom))',
         ...(()=>{ const inc=parseInt(String(s.income||'').replace(/\D/g,'')||'0',10);
           const done={Pay:inc>=3000,Job:!!s.tenure,Proof:!!s.proof,Ok:(s.consent||[]).length>=2};
           const first=['Pay','Job','Proof','Ok'].find(k=>!done[k]);
@@ -3674,7 +3749,7 @@ input,button,textarea{font-family:inherit}
         ],
         showAiFab:false,
         fabPad:'178px',
-        aiBottom:onTabScreen?'112px':'22px',
+        aiBottom:onTabScreen?'calc(112px + env(safe-area-inset-bottom))':'calc(22px + env(safe-area-inset-bottom))',
         aiBusy:s.docChecks.some(d=>d.state==='checking'),
         aiIdle:!s.docChecks.some(d=>d.state==='checking'),
         botFace:this.botFace(),

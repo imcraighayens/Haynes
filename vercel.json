@@ -10,7 +10,11 @@
     { "source": "/api/ledger/:path*", "destination": "/api/ledger?path=:path*" },
     { "source": "/api/q1/:path*", "destination": "/api/q1?path=:path*" },
     { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" },
-    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" }
+    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" },
+    { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
+    { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
+    { "source": "/sw.js", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/sw.js" },
+    { "source": "/sw.js", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/sw.js" }
   ],
   "headers": [
     {
@@ -50,6 +54,24 @@
       "source": "/(ledger|quik1)/(.*)\\.(woff2|png|webp)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/quik1/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/quik1/manifest.webmanifest",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" }
       ]
     }
   ]
