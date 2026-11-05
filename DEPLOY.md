@@ -37,6 +37,14 @@ openssl rand -hex 32
 Add all three to **Production** (and Preview if you want preview deployments to work).
 Changing a value later: Vercel → Project → Settings → Environment Variables → edit → **Redeploy**.
 
+Staff Admin sign-in is Supabase Auth on that same project, not `LEDGER_KEY`. The Admin
+screen asks for email and password. The server checks them with GoTrue, then allows the
+session only when `public.employees` has an active row for that email (the same rule that
+keeps sign-up closed). The confirmed admin is `craig@ecoloan.co.za`. A second staff member
+is added by inserting another active employee row — there is no second address until then.
+Do not give staff `LEDGER_KEY` to paste into the sign-in form. The Settings connect field
+is still the machine secret for the bridge.
+
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
 `QUIK1_RATE_LIMIT`.

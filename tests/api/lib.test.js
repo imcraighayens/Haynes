@@ -17,11 +17,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 describe('lib', () => {
 beforeEach(() => { process.env.LEDGER_KEY = KEY; });
-test('auth: Bearer or apikey header must equal LEDGER_KEY; mismatch is 401', () => {
-  assert.equal(requireStaff({ headers: { authorization: 'Bearer ' + process.env.LEDGER_KEY } }), true);
-  assert.equal(requireStaff({ headers: { apikey: process.env.LEDGER_KEY } }), true);
+test('auth: Bearer or apikey header must equal LEDGER_KEY; mismatch is 401', async () => {
+  assert.equal(await requireStaff({ headers: { authorization: 'Bearer ' + process.env.LEDGER_KEY } }), true);
+  assert.equal(await requireStaff({ headers: { apikey: process.env.LEDGER_KEY } }), true);
   for (const headers of [{}, { authorization: 'Bearer nope' }, { authorization: 'Bearer ledger-test-key-0123456789abcdeX' }, { authorization: 'Basic abc' }, { apikey: '' }]) {
-    assert.throws(() => requireStaff({ headers }), e => e instanceof HttpError && e.status === 401);
+    await assert.rejects(() => requireStaff({ headers }), e => e instanceof HttpError && e.status === 401);
   }
   assert.equal(bearerToken({ headers: { authorization: 'bearer   abc  ' } }), 'abc');
 });
@@ -36,9 +36,9 @@ test('auth: compare is constant-time (timingSafeEqual over digests) and tolerate
   assert.equal(safeEqual(undefined, 'x'), false);
 });
 
-test('auth: missing LEDGER_KEY is a 503, never a pass', () => {
+test('auth: missing LEDGER_KEY is a 503, never a pass', async () => {
   const saved = process.env.LEDGER_KEY; delete process.env.LEDGER_KEY;
-  try { assert.throws(() => requireStaff({ headers: { authorization: 'Bearer ' } }), e => e.status === 503); }
+  try { await assert.rejects(() => requireStaff({ headers: { authorization: 'Bearer ' } }), e => e.status === 503); }
   finally { process.env.LEDGER_KEY = saved; }
 });
 
@@ -188,16 +188,16 @@ test('http json: ALLOWED_ORIGIN accepts a comma-separated list of exact origins'
 });
 });
 
-test('auth: same-origin staff cookie satisfies requireStaff; cross-site cookie does not', () => {
+test('auth: same-origin staff cookie satisfies requireStaff; cross-site cookie does not', async () => {
   process.env.LEDGER_KEY = process.env.LEDGER_KEY || 'test-ledger-key-for-unit-tests-32b';
   const { token, exp } = mintStaffSession();
   assert.equal(verifyStaffSession(token), true);
   const cookie = staffCookieHeader(token, exp);
   assert.ok(cookie.includes(STAFF_COOKIE + '='));
   const same = { headers: { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'same-origin' } };
-  assert.equal(requireStaff(same), true);
+  assert.equal(await requireStaff(same), true);
   const cross = { headers: { origin: 'https://evil.example', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'cross-site' } };
-  assert.throws(() => requireStaff(cross), e => e.status === 401);
+  await assert.rejects(() => requireStaff(cross), e => e.status === 401);
   assert.equal(isSameOrigin(same), true);
   assert.equal(isSameOrigin(cross), false);
 });

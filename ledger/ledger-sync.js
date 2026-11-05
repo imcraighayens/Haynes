@@ -134,7 +134,7 @@
     var c = cfg(), base = String(c.url || '').replace(/\/+$/, ''), p = String(path || ''), url = base + (p.charAt(0) === '/' ? p : '/' + p);
     var headers = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
     if (c.key) { headers['Authorization'] = 'Bearer ' + c.key; headers['apikey'] = c.key; }
-    // credentials:include so the same-origin staff cookie from POST /unlock is sent; Bearer still preferred when set.
+    // credentials:include so the same-origin staff cookie from POST /login is sent; Bearer still preferred when set.
     var init = { method: method || 'GET', headers: headers, credentials: 'include' };
     if (body !== undefined && body !== null) init.body = JSON.stringify(body);
     var ctl = null, t = null, timeout = (opts && opts.timeoutMs) || 20000;
@@ -147,7 +147,7 @@
     }).finally(function () { if (t) clearTimeout(t); });
   }
 
-  var L = { cfg: cfg, save: save, api: api, state: null, error: null, booted: null, needsUnlock: false };
+  var L = { cfg: cfg, save: save, api: api, state: null, error: null, booted: null, needsUnlock: false, staff: null };
 
   function fetchState() {
     return new Promise(function (resolve) {
@@ -411,9 +411,12 @@
     return [];
   }
 
-  // Prototype unlock PIN → same-origin httpOnly staff cookie (server holds LEDGER_KEY). Never stores the Connect secret in localStorage.
-  function unlock(pin) {
-    return api('POST', '/unlock', { pin: String(pin || '') }, { timeoutMs: 8000 }).then(function () {
+  // Supabase email + password → same-origin httpOnly staff cookie. The browser never holds LEDGER_KEY.
+  function login(email, password) {
+    return api('POST', '/login', { email: String(email || ''), password: String(password || '') }, { timeoutMs: 20000 }).then(function (res) {
+      if (res && res.staff && res.staff.displayName) {
+        L.staff = { email: String(res.staff.email || ''), displayName: String(res.staff.displayName) };
+      }
       return fetchState().then(function (st) {
         applyBootState(st);
         if (st && st.clients) {
@@ -422,15 +425,21 @@
             if (W.location && typeof W.location.reload === 'function') W.location.reload();
           } catch (e) {}
         }
-        return st;
+        return res || { ok: true };
       });
     });
+  }
+  function fetchStaff() {
+    return api('GET', '/session', null, { timeoutMs: 8000 }).then(function (j) {
+      var s = j && j.staff;
+      L.staff = (s && s.displayName) ? { email: String(s.email || ''), displayName: String(s.displayName) } : null;
+    }, function () { L.staff = null; });
   }
   function lock() {
     return api('POST', '/lock', {}, { timeoutMs: 5000 }).catch(function () { return null; });
   }
 
-  L.unlock = unlock;
+  L.login = login;
   L.lock = lock;
 
   function boot() {
@@ -440,10 +449,13 @@
     // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after unlock.
     L.state = fetchState();
     L.booted = L.state.then(function (st) {
-      if (!st && !c.key) L.error = L.error || 'no staff session — unlock Ledger or Connect under Settings';
+      if (!st && !c.key) L.error = L.error || 'no staff session — sign in under Admin, or Connect under Settings';
       applyBootState(st);
-      hookStorage();
-      return injectRuntime();
+      var who = st ? fetchStaff() : Promise.resolve();
+      return who.then(function () {
+        hookStorage();
+        return injectRuntime();
+      });
     }).then(function () { if (pending.length) scheduleFlush(0); });
     try { W.addEventListener && W.addEventListener('online', function () { if (pending.length) scheduleFlush(0); }); } catch (e) {}
   }
