@@ -4,6 +4,9 @@
 // quik1 application for LEDGER → LEDGER's Q1 route approves it → the phone sees the decision.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import { LEDGER_KEY, BOOT_TIMEOUT_MS, loadPlaywright, launchBrowser, withMockApi, pageWaitFor, isKnownPageError } from './_boot-helpers.js';
 
 const pw = loadPlaywright();
@@ -71,4 +74,55 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
       await browser.close();
     }
   });
+});
+
+// quik1.app serves this HTML at "/" (address bar stays /) while the files live in /quik1/.
+function startRootHost() {
+  const dir = path.resolve(new URL('../quik1/', import.meta.url).pathname);
+  const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', woff2: 'font/woff2', png: 'image/png', webp: 'image/webp' };
+  const server = http.createServer((req, res) => {
+    const urlPath = decodeURIComponent(req.url.split('?')[0]);
+    // Production quik1.app keeps the address bar at "/" and only has files under /quik1/.
+    // A request for /script.js must 404 here, or the test would hide a bad base URL.
+    if (urlPath === '/' || urlPath === '/index.html') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return fs.createReadStream(path.join(dir, 'index.html')).pipe(res);
+    }
+    if (!urlPath.startsWith('/quik1/')) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('not found: ' + urlPath); }
+    let rel = urlPath.slice('/quik1/'.length);
+    if (rel === '' || rel === 'index.html') rel = 'index.html';
+    const file = path.resolve(dir, rel);
+    if (file !== dir && !file.startsWith(dir + path.sep)) { res.writeHead(403); return res.end('forbidden'); }
+    if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('not found: ' + urlPath); }
+    const ext = file.split('.').pop().toLowerCase();
+    res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
+    fs.createReadStream(file).pipe(res);
+  });
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve({ server, origin: 'http://127.0.0.1:' + server.address().port }));
+  });
+}
+
+test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+  const host = await startRootHost();
+  const { browser, page, pageErrors, notFound } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
+  const requested = [];
+  page.on('request', r => requested.push(r.url()));
+  try {
+    await page.goto(host.origin + '/', { waitUntil: 'load' });
+    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && /Use your first four digits to sign in/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+    const text = await page.evaluate(() => document.body.innerText);
+    assert.equal(/\{\{/.test(text), false, 'no raw template markers');
+    assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');
+    assert.equal(pageErrors.filter(e => !isKnownPageError(e)).length, 0);
+    const assets = requested.filter(u => /\.(js|png|woff2|webp)(\?|$)/.test(u));
+    assert.ok(assets.length > 0, 'the page requested scripts and images');
+    assert.ok(assets.every(u => new URL(u).pathname.startsWith('/quik1/')), 'scripts, fonts and images load from /quik1/');
+    const real404 = notFound.filter(u => !u.includes('.image-slots.state.json'));
+    assert.deepEqual(real404, [], 'no 404s for scripts, fonts or images');
+  } finally {
+    await browser.close();
+    await new Promise(r => host.server.close(r));
+  }
 });

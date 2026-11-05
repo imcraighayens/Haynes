@@ -72,6 +72,7 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key or st
   assert.equal(calls[0].init.credentials, 'include');
   assert.match(String(calls[0].url), /\/state$/);
   assert.equal(await L.state, null);
+  assert.equal(L.needsUnlock, false, 'an empty 200 is not an auth challenge');
   assert.match(L.error, /no staff session|no key|HTTP 401|Unauthorized/i);
   assert.equal(head.children.length, 1);
   assert.equal(head.children[0].src, 'c53b361c-bb83-4c37-90f5-7116b8407f79.js');
@@ -80,6 +81,26 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key or st
   // constructor keeps its built-in demo book (c1 'EC-032'…, l1 'ECL-094'…) and dbPush would
   // insert all of it into the live tables the moment a key is pasted.
   assert.deepEqual(read('evoltConsoleV4'), { clients: [], loans: [], logbook: [], petty: [], employees: [], applications: [] });
+});
+
+test('a 401 from /state asks for the prototype unlock; other failures do not', async () => {
+  const denied = await boot({ stateStatus: 401, state: { error: 'Unauthorized' } });
+  assert.equal(denied.L.needsUnlock, true);
+  assert.match(denied.L.error, /HTTP 401/);
+  assert.equal(await denied.L.state, null);
+  assert.equal(denied.head.children.length, 1, 'the console still boots so the existing passcode can render');
+
+  const staleKey = await boot({ local: { 'ledjaa.supabase': { url: ORIGIN + '/api/ledger', key: 'stale-key' } }, stateStatus: 401, state: { error: 'Unauthorized' } });
+  assert.equal(staleKey.L.needsUnlock, true, 'a rejected stored key is still no staff session');
+  assert.equal(staleKey.calls[0].init.headers.Authorization, 'Bearer stale-key');
+
+  const down = await boot({ stateStatus: 503, state: { error: 'Server not configured' } });
+  assert.equal(down.L.needsUnlock, false);
+  assert.match(down.L.error, /HTTP 503/);
+
+  const ok = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: STATE });
+  assert.equal(ok.L.needsUnlock, false);
+  assert.ok(await ok.L.state);
 });
 
 test('a no-state boot fills only the missing book lists and keeps whatever the browser already held', async () => {

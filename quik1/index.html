@@ -1,9 +1,32 @@
 <!DOCTYPE html>
 <html><head>
+<base href="/quik1/">
 <script>window.__resources={"https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* This file lives in /quik1/. quik1.app rewrites "/" onto it while the
+   address bar stays /, so relative scripts, fonts and images 404 at the
+   site root and the runtime never compiles. Assets always live at /quik1/. */
+(function () {
+  var basePath = '/quik1/';
+  if (!document.querySelector('base')) {
+    var base = document.createElement('base');
+    base.href = basePath;
+    document.head.appendChild(base);
+  }
+  var res = window.__resources;
+  if (res) {
+    for (var key in res) {
+      if (!Object.prototype.hasOwnProperty.call(res, key)) continue;
+      var val = res[key];
+      if (typeof val === 'string' && val.charAt(0) === '.') res[key] = basePath + val.replace(/^\.\//, '');
+    }
+  }
+})();
+</script>
+<style>x-dc{display:none!important}</style>
 <script src="96aed023-8540-4384-bdbc-3bc317708b87.js"></script>
 </head>
 <body>

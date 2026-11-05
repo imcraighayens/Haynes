@@ -2535,6 +2535,10 @@ class Component extends DCLogic {
     };
     try{ const org = JSON.parse(localStorage.getItem('evoltOrg')||'null'); if(org && org.name){ this._org = org; if(org.admin) this.state.prof = {...this.state.prof, name:org.admin, email:org.email||this.state.prof.email}; } }catch(e){}
     try{ const sv = JSON.parse(localStorage.getItem('evoltConsoleV4')||'null'); if(sv && sv.clients && sv.loans){ const th=this.state.theme; Object.assign(this.state, sv); this.state.theme=th; } }catch(e){}
+    // GET /api/ledger/state 401 means there is no staff cookie yet. A saved
+    // ledgerUnlocked flag is only the local prototype latch — it does not
+    // load the book. Show the existing passcode until unlock mints the cookie.
+    try{ const gate=window.__ledger; if(gate&&gate.needsUnlock){ this.state.route='ledger'; this.state.ledgerUnlocked=false; this.state.pc=''; this.state.pcError=false; } }catch(e){}
     const _mock={apps:{a1:1,a2:1,a3:1,a4:1,a5:1},emp:{e2:1,e3:1,e4:1},cli:{c12:1,c13:1}};
     this.state.applications=(this.state.applications||[]).filter(a=>!_mock.apps[a.id]);
     this.state.employees=(this.state.employees||[]).filter(e=>!_mock.emp[e.id]);
@@ -4747,7 +4751,7 @@ class Component extends DCLogic {
       pcBoxStyle:this.cssObj('width:340px;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;padding:30px 28px;box-shadow:var(--modalShadow);'+(st.pcError?'animation:shake .3s ease':'')),
       pc: st.pc, pcError: st.pcError,
       pcChange:(e)=>this.setState({pc:e.target.value.replace(/\D/g,'').slice(0,6), pcError:false}),
-      pcSubmit:()=>{ if(st.pc==='246810'){ var pin=st.pc; this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); try{ if(window.__ledger&&typeof window.__ledger.unlock==='function'){ window.__ledger.unlock(pin).catch(function(e){ try{ console.info('[ledger-sync] unlock session', e&&e.message); }catch(x){} }); } }catch(e){} } else this.setState({pcError:true,pc:''}); },
+      pcSubmit:()=>{ if(st.pc==='246810'){ var pin=st.pc; var sync=window.__ledger; if(sync&&sync.needsUnlock&&typeof sync.unlock==='function'){ sync.unlock(pin).then(()=>{ this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); }, (e)=>{ this.setState({ledgerUnlocked:false,route:'ledger',pc:'',pcError:true}); try{ console.info('[ledger-sync] unlock session', e&&e.message); }catch(x){} }); return; } this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); try{ if(sync&&typeof sync.unlock==='function'){ sync.unlock(pin).catch(function(e){ try{ console.info('[ledger-sync] unlock session', e&&e.message); }catch(x){} }); } }catch(e){} } else this.setState({pcError:true,pc:''}); },
       pcCancel:()=>this.setState({route:'dashboard',pc:'',pcError:false}),
       lockLedger:()=>this.setState({ledgerUnlocked:false,route:'dashboard'}),
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),

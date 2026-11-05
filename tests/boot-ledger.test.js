@@ -126,3 +126,51 @@ test('LEDGER boots on cloud data and mirrors console writes to the API', { skip:
     }
   });
 });
+
+test('a 401 on /state shows the existing Ledger unlock, then the live book', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+  const savedPin = process.env.LEDGER_UNLOCK_PIN;
+  try {
+  await withMockApi(async api => {
+    const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
+    try {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('evoltConsoleV4', JSON.stringify({
+            clients: [], loans: [], logbook: [], petty: [], employees: [], applications: [],
+            ledgerUnlocked: true, route: 'dashboard'
+          }));
+        } catch (e) {}
+      });
+      await page.goto(api.origin + '/ledger/', { waitUntil: 'load' });
+      await pageWaitFor(page, () => /LEDGER LOCKED/.test(document.body.innerText) && /Enter the 6-digit ledger passcode/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      const locked = await bodyText(page);
+      assert.match(locked, /LEDGER LOCKED/);
+      assert.equal(/LOANED OUT/.test(locked) && !/LEDGER LOCKED/.test(locked), false, 'a saved prototype unlock does not skip the staff session');
+      assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 401), 'anonymous /state is 401');
+
+      const shown = await page.evaluate(() => {
+        const m = document.body.innerText.match(/PROTOTYPE CODE:\s*([0-9]+)/);
+        return m ? m[1] : '';
+      });
+      assert.equal(shown.length > 0, true, 'the existing prototype unlock code is on the lock screen');
+      process.env.LEDGER_UNLOCK_PIN = shown;
+      const box = page.getByPlaceholder('••••••');
+      await box.fill(shown);
+      await page.waitForFunction((n) => {
+        const el = document.querySelector('input[placeholder="••••••"]');
+        return !!(el && el.value && el.value.length === n);
+      }, shown.length, { timeout: 5000 });
+      await clickText(page, 'UNLOCK');
+      await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after unlock, /state is 200');
+      const anon = await fetch(api.origin + '/api/ledger/state');
+      assert.equal(anon.status, 401, 'a request without the staff cookie stays 401');
+      assert.deepEqual(pageErrors.filter(e => !isKnownPageError(e)), []);
+    } finally {
+      await browser.close();
+    }
+  });
+  } finally {
+    if (savedPin == null) delete process.env.LEDGER_UNLOCK_PIN; else process.env.LEDGER_UNLOCK_PIN = savedPin;
+  }
+});

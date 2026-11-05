@@ -40,11 +40,13 @@ const types = {
 // kept inside `dir`.
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split('?')[0]);
-  // Ledger pins <base href="/ledger/"> so it still boots when the host serves this
-  // file at "/" or "/ledger". The boot server only has the app folder, so alias that prefix.
+  // Ledger pins <base href="/ledger/"> and Quik1 pins <base href="/quik1/"> so each
+  // still boots when a host serves this file at "/". The boot server only has the
+  // app folder, so alias that prefix back into the folder.
+  const mount = path.basename(dir);
   let rel = urlPath === '/' ? fileArg : urlPath.replace(/^\/+/, '');
-  if (rel === 'ledger') rel = fileArg;
-  else if (rel.startsWith('ledger/')) rel = rel.slice('ledger/'.length) || fileArg;
+  if (rel === mount) rel = fileArg;
+  else if (rel.startsWith(mount + '/')) rel = rel.slice(mount.length + 1) || fileArg;
   const file = path.resolve(dir, rel);
   if (!file.startsWith(dir + path.sep) && file !== dir) { res.writeHead(403); return res.end('forbidden'); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('not found: ' + urlPath); }
@@ -76,7 +78,7 @@ server.listen(0, '127.0.0.1', async () => {
       errText: (document.getElementById('__bundler_err') || {}).textContent || ''
     }));
     await page.screenshot({ path: outArg, fullPage: false });
-    if (info.hasErr || info.bodyChars === 0) failed = true;
+    if (info.hasErr || info.bodyChars === 0 || /\{\{/.test(info.text)) failed = true;
     console.log(JSON.stringify({ ok: !failed, screenshot: path.resolve(outArg), info, logs: logs.slice(0, 15) }, null, 1));
   } catch (e) {
     failed = true;
