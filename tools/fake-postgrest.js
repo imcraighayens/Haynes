@@ -31,7 +31,7 @@ export function createFakePostgrest(seed = {}) {
     const filters = [];
     for (const [k, v] of sp.entries()) {
       if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
-      const m = /^(eq|neq|is|gt|gte|lt|lte)\.(.*)$/s.exec(v);
+      const m = /^(eq|neq|is|gt|gte|lt|lte|ilike)\.(.*)$/s.exec(v);
       if (!m) throw httpError(400, 'PGRST100', `unsupported filter ${k}=${v}`);
       filters.push({ col: k, op: m[1], val: m[2] });
     }
@@ -48,6 +48,14 @@ export function createFakePostgrest(seed = {}) {
         case 'gte': return cmp(a, f.val) >= 0;
         case 'lt': return cmp(a, f.val) < 0;
         case 'lte': return cmp(a, f.val) <= 0;
+        case 'ilike': {
+          if (a == null) return false;
+          const cell = String(a).toLowerCase();
+          const pat = String(f.val).toLowerCase();
+          if (!pat.includes('%') && !pat.includes('_')) return cell === pat;
+          const re = new RegExp('^' + pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$');
+          return re.test(cell);
+        }
         default: return false;
       }
     });
@@ -93,6 +101,25 @@ export function createFakePostgrest(seed = {}) {
     const method = String(init.method || 'GET').toUpperCase();
     const headers = lowerHeaders(init.headers);
     const prefer = headers.prefer || '';
+    // Test double for GoTrue's password grant. Production never uses this process;
+    // the real handler calls SUPABASE_URL/auth/v1/token. Directory comes from the
+    // test-only env the boot harness sets. The password is not written to `log`.
+    if (u.pathname === '/auth/v1/token' && method === 'POST') {
+      let body = null;
+      try { body = init.body == null ? null : (typeof init.body === 'string' ? JSON.parse(init.body) : init.body); } catch { body = null; }
+      let directory = {};
+      try { directory = JSON.parse(process.env.LEDGER_STAFF_TEST_LOGINS || '{}'); } catch { directory = {}; }
+      const email = String((body && body.email) || '').trim().toLowerCase();
+      const row = directory && typeof directory === 'object' ? directory[email] : null;
+      const password = body && body.password != null ? String(body.password) : '';
+      if (!row || password !== String(row.password || '')) {
+        return respond(400, { error: 'invalid_grant', error_description: 'Invalid login credentials' });
+      }
+      return respond(200, {
+        access_token: 'test-access-token', token_type: 'bearer', expires_in: 3600, refresh_token: 'test-refresh-token',
+        user: { id: 'user-' + email, email, user_metadata: { full_name: String(row.name || '') } }
+      });
+    }
     const m = /^\/rest\/v1\/([^/]+)\/?$/.exec(u.pathname);
     try {
       if (!m) throw httpError(404, 'PGRST000', 'not a rest/v1 path');

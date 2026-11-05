@@ -60,7 +60,7 @@ async function patchApplication(req, res, id) {
 
 export default wrap('q1', async (req, res) => {
   requireEnv(ENV);
-  requireStaff(req);
+  await requireStaff(req);
   const [head, id, ...rest] = pathParts(req, 'q1');
   if (head !== 'applications' || rest.length) throw new HttpError(404, 'Not found');
   if (!id) {

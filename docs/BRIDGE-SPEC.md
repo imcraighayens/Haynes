@@ -176,7 +176,17 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
   constant-time compare of the Bearer token (also accept `apikey` header) against `LEDGER_KEY`;
   `_lib/validate.js`: column whitelists per table + status maps; `_lib/ratelimit.js`:
   best-effort in-memory per-IP limiter for public routes (e.g. 30 req/min).
-* Staff (`/api/ledger/*`, Bearer LEDGER_KEY):
+  Named staff sign-in is Supabase Auth on the same project: `POST /api/ledger/login`
+  `{email, password}` calls GoTrue `POST /auth/v1/token?grant_type=password` with the
+  service-role key (server only). The session is minted only when `public.employees` has
+  an active row for that email (case-insensitive), the same predicate as
+  `auth_signup_allowlist` on `auth.users`. Confirmed admin: `craig@ecoloan.co.za`.
+  A further staff member is another active employee row; sign-up stays closed without one.
+  Success mints the httpOnly `ledger_staff` cookie (v2 claims carry email and display name).
+  `GET /api/ledger/session` returns `{staff}` or `{staff:null}` for a machine Bearer.
+  `POST /api/ledger/lock` clears the cookie. A rejected password and a non-employee are both
+  401 `{error:"Unauthorized"}`. No local password table. `LEDGER_KEY` remains machine-only.
+* Staff (`/api/ledger/*`, Bearer LEDGER_KEY or the staff cookie):
   * `GET state` → `{clients, loans, employees, applications (newest 500), audit_log (newest 1000),
     petty_cash, bank_tx (newest 500), expenses, settings|null, ledger_book:{updated_at}|null, server_time}`
     (include `deleted_at` rows; client filters). Unlimited tables are paged through PostgREST's
