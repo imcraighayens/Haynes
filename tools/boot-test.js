@@ -32,7 +32,8 @@ const waitMs = Number(process.env.BOOT_WAIT_MS) || 6000;
 const types = {
   html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8', json: 'application/json', woff2: 'font/woff2', woff: 'font/woff',
-  png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon'
+  png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon',
+  webmanifest: 'application/manifest+json', mp4: 'video/mp4'
 };
 
 // Mirrors how Vercel serves the folder: "/" -> the index file, anything else -> the file itself.
