@@ -97,7 +97,7 @@ test('POST applications: site fields land on applications as source ecoloan_web,
   assert.equal(row.amount, 10000);
   assert.equal(row.term_months, 3);
   assert.equal(row.purpose, 'School fees');
-  assert.equal(row.net_income, null, 'a take-home band is not coerced into a salary');
+  assert.equal(row.net_income, 0, 'a pay band stays on meta.takeHome; the NOT NULL column is 0');
   assert.equal(row.employer, 'Sibanye');
   assert.equal(row.bank, 'Capitec');
   assert.equal(row.source, 'ecoloan_web');
@@ -160,33 +160,47 @@ test('POST applications: ids that are not ew_ + 12 hex are replaced; ap_ ids are
   }
 });
 
-test('POST applications: name and phone are required; amount bounds match Quik1 when present; omitted amount is null', async () => {
+test('POST applications: name, phone and amount are required; a pay band stores net_income 0', async () => {
   for (const amount of [0, -5, 50001, 'abc']) {
     const res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '0821234567', amount } });
     assert.equal(res.statusCode, 400, 'amount ' + amount);
     assert.match(res.json().error, /amount/);
   }
+  let res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '0821234567' } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.json().error, 'amount is required');
+  res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '0821234567', amount: '' } });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.json().error, 'amount is required');
   assert.equal((await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '0821234567', amount: 50000 } })).statusCode, 201);
   assert.equal((await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '0821234567', amount: '2 500' } })).statusCode, 201);
-  let res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '' } });
+  res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '' } });
   assert.equal(res.statusCode, 400); assert.match(res.json().error, /phone/);
   res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi', phone: '12' } });
   assert.equal(res.statusCode, 400);
-  res = await call({ method: 'POST', path: ['applications'], body: { name: '   ', aCell: '0821234567' } });
+  res = await call({ method: 'POST', path: ['applications'], body: { name: '   ', aCell: '0821234567', amount: 1000 } });
   assert.equal(res.statusCode, 400); assert.match(res.json().error, /name/);
   assert.equal(calls.filter(c => c.method === 'POST').length, 2, 'invalid payloads never reach the database');
 
   stubDb({ total: 0 });
-  res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi Mokoena', aCell: '0821234567' } });
+  res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi Mokoena', phone: '0821234567', amount: 2500 } });
   assert.equal(res.statusCode, 201, res.body);
-  const row = inserted();
+  let row = inserted();
   assert.equal(res.json().ref, 'EW-1085');
-  assert.equal(row.amount, null);
+  assert.equal(row.amount, 2500);
+  assert.equal(row.net_income, 0, 'name+phone+amount alone must not send null net_income');
   assert.equal(row.term_months, 1);
   assert.equal(row.purpose, 'Personal');
-  assert.equal(row.net_income, null);
-  assert.equal(row.phone, '0821234567');
   assert.equal(row.meta.takeHome, undefined);
+
+  stubDb({ total: 0 });
+  res = await call({ method: 'POST', path: ['applications'], body: { name: 'Thandi Mokoena', aCell: '0821234567', aAmt: 1000, aTake: 'R5 000 to R10 000' } });
+  assert.equal(res.statusCode, 201, res.body);
+  row = inserted();
+  assert.equal(row.amount, 1000);
+  assert.equal(row.net_income, 0);
+  assert.equal(row.meta.takeHome, 'R5 000 to R10 000');
+  assert.equal(row.phone, '0821234567');
   assert.deepEqual(row.meta.raw, {});
 });
 

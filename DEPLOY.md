@@ -81,10 +81,12 @@ from the same key; if the key field there is empty, paste `LEDGER_KEY` again and
 ## 7. Marketing site applications
 
 The public ingest is `POST https://<project>.vercel.app/api/ecoloans/applications` with
-`Content-Type: application/json`. No `LEDGER_KEY`. Required JSON: `name`, `phone` (the live
-form can send `aName` and `aCell`). Send `amount` (1–50000), `term`, `purpose` / `why`,
-`loanType` (`personal` or `business`), and whatever else the form collected (`email`,
-`employer`, `bank`, `province`, `takeHome`, `docs` names). The response is
+`Content-Type: application/json`. No `LEDGER_KEY`. Required JSON: `name`, `phone`, and `amount`
+(1–50000). The live form can send `aName`, `aCell`, and `aAmt`. Income is optional: a number
+is stored on `net_income`; a pay band such as `takeHome` (`R5 000 to R10 000`) is stored on
+`meta.takeHome` and `net_income` defaults to `0`. Also accepted: `term`, `purpose` / `why`,
+`loanType` (`personal` or `business`), `email`, `employer`, `bank`, `province`, `docs` names.
+The response is
 `{ "id": "ew_…", "ref": "EW-…", "status": "new" }`.
 
 Browsers may call it from these exact origins:
