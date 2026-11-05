@@ -206,7 +206,17 @@ copy is the source of truth and wins on the next load.
   (`localStorage['ledjaa.supabase'].key`). Every `/api/ledger/*` and `/api/q1/*` call sends it
   as `Authorization: Bearer …`; the server compares it in constant time. Rotate it by changing
   the Vercel env var and pasting the new value in Settings.
-* **Public routes are insert-only.** `/api/quik1/*` has no auth, is rate-limited per IP,
+* **Quik1 borrowers sign in with a PIN they choose.** Staff create a single-use invite
+  from a client row (`POST /api/ledger/quik1-invites`). The client opens the link, enters a
+  4-digit PIN twice, and the server stores only a salted scrypt hash. Returning visits send
+  the account reference saved on the phone plus that PIN. Five failures lock the account
+  until staff issue a new invite. `GET /api/quik1/me` returns that client's name, bank, ref,
+  and loan totals only when the httpOnly session is valid. With no session the response is
+  an empty profile and zero balances. The PIN is not derived from an ID number, and these
+  routes never look one up. `QUIK1_SESSION_SECRET` (32+ characters) must be set or redeem
+  and sign-in answer 503.
+* **Public application routes are insert-only.** `/api/quik1/applications`, signups, requests,
+  and repayments have no auth, are rate-limited per IP,
   caps bodies at 16 KB, whitelists every field, and can only insert a new row or
   read one row by its unguessable id. It cannot list, update or delete anything.
   `/api/ecoloans/applications` is the same idea for the marketing site: its own per-IP bucket
