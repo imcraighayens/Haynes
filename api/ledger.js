@@ -10,7 +10,7 @@ import { COLUMNS, pick, requireId } from './_lib/validate.js';
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
 const BANK_TX_LIMIT = 500;
-// applications is fed by the public Quik1 route, so its size is not under staff control: the
+// applications is fed by the public Quik1 and EcoLoans routes, so its size is not under staff control: the
 // console only works the newest ones, and an unbounded list would let junk submissions bloat
 // (and eventually break) the boot snapshot.
 const APPLICATIONS_LIMIT = 500;

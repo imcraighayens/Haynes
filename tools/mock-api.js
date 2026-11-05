@@ -26,7 +26,7 @@ const TYPES = {
   css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', woff2: 'font/woff2', woff: 'font/woff',
   png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', txt: 'text/plain; charset=utf-8'
 };
-const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js' };
+const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js' };
 
 export function loadFixture(file) {
   const p = path.resolve(ROOT, file || 'tests/fixtures/state.json');

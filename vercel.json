@@ -8,7 +8,8 @@
   "rewrites": [
     { "source": "/api/ledger/:path*", "destination": "/api/ledger?path=:path*" },
     { "source": "/api/q1/:path*", "destination": "/api/q1?path=:path*" },
-    { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" }
+    { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" },
+    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" }
   ],
   "headers": [
     {

@@ -11,7 +11,7 @@ process.env.LEDGER_KEY = KEY;
 const { requireStaff, safeEqual, bearerToken } = await import('../../api/_lib/auth.js');
 const { createLimiter, clientIp } = await import('../../api/_lib/ratelimit.js');
 const V = await import('../../api/_lib/validate.js');
-const { HttpError, readBody, pathParts } = await import('../../api/_lib/http.js');
+const { HttpError, readBody, pathParts, json } = await import('../../api/_lib/http.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -116,6 +116,50 @@ test('http.readBody: parsed objects, strings, streams, and the size cap', async 
   const { Readable } = await import('node:stream');
   const stream = Readable.from([Buffer.from('{"s":'), Buffer.from('true}')]);
   assert.deepEqual(await readBody(stream), { s: true });
+});
+
+function fakeRes() {
+  return { statusCode: 0, headers: {}, body: '', setHeader(k, v) { this.headers[k.toLowerCase()] = v; }, end(s) { this.body = s == null ? '' : s; } };
+}
+
+test('http json: ALLOWED_ORIGIN stays a single exact origin when the request has no allowlist', () => {
+  const saved = process.env.ALLOWED_ORIGIN;
+  process.env.ALLOWED_ORIGIN = 'https://staff.example';
+  try {
+    const ok = fakeRes();
+    json(ok, 200, { ok: 1 }, { headers: { origin: 'https://staff.example' } });
+    assert.equal(ok.headers['access-control-allow-origin'], 'https://staff.example');
+    assert.equal(ok.headers['access-control-allow-methods'], 'GET,POST,PATCH,OPTIONS');
+    assert.equal(ok.headers['access-control-allow-headers'], 'Authorization, Content-Type, apikey, Prefer');
+    const other = fakeRes();
+    json(other, 200, { ok: 1 }, { headers: { origin: 'https://ecoloan.co.za' } });
+    assert.equal(other.headers['access-control-allow-origin'], undefined);
+    const star = fakeRes();
+    process.env.ALLOWED_ORIGIN = '*';
+    json(star, 200, { ok: 1 }, { headers: { origin: 'https://anywhere.example' } });
+    assert.equal(star.headers['access-control-allow-origin'], '*');
+  } finally {
+    if (saved == null) delete process.env.ALLOWED_ORIGIN; else process.env.ALLOWED_ORIGIN = saved;
+  }
+});
+
+test('http json: a route allowlist is the only CORS policy for that response', () => {
+  const saved = process.env.ALLOWED_ORIGIN;
+  process.env.ALLOWED_ORIGIN = '*';
+  try {
+    const yes = fakeRes();
+    json(yes, 204, undefined, { headers: { origin: 'https://www.ecoloans.co.za' }, corsAllowlist: ['https://www.ecoloans.co.za'], corsAllowMethods: 'POST, OPTIONS', corsAllowHeaders: 'Content-Type' });
+    assert.equal(yes.statusCode, 204);
+    assert.equal(yes.headers['access-control-allow-origin'], 'https://www.ecoloans.co.za');
+    assert.equal(yes.headers['access-control-allow-methods'], 'POST, OPTIONS');
+    assert.equal(yes.headers['access-control-allow-headers'], 'Content-Type');
+    const no = fakeRes();
+    json(no, 204, undefined, { headers: { origin: 'https://evil.example' }, corsAllowlist: ['https://www.ecoloans.co.za'] });
+    assert.equal(no.headers['access-control-allow-origin'], undefined);
+    assert.equal(no.headers['vary'], 'Origin');
+  } finally {
+    if (saved == null) delete process.env.ALLOWED_ORIGIN; else process.env.ALLOWED_ORIGIN = saved;
+  }
 });
 
 test('http.pathParts: Vercel query array, single string, or URL fallback', () => {

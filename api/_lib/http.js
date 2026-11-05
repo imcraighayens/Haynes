@@ -17,6 +17,21 @@ function baseHeaders(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Opt-in per response. A route sets `req.corsAllowlist` to an array of exact origins
+  // (the EcoLoans marketing ingest). That list is the only CORS policy for the response,
+  // so the global single-value ALLOWED_ORIGIN — including `*` — stays on its own path
+  // for Quik1 and staff routes, which never set the list.
+  if (req && Array.isArray(req.corsAllowlist)) {
+    res.setHeader('Vary', 'Origin');
+    const origin = header(req, 'origin');
+    if (origin && req.corsAllowlist.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', req.corsAllowMethods || 'GET,POST,PATCH,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', req.corsAllowHeaders || 'Content-Type');
+      res.setHeader('Access-Control-Max-Age', '600');
+    }
+    return;
+  }
   const allowed = process.env.ALLOWED_ORIGIN;
   if (allowed) {
     // Same-origin deployments never need CORS; ALLOWED_ORIGIN is for a split front-end host.
