@@ -205,6 +205,20 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     The book is a **write-only backup**: a GET that projects `payload` returns it without
     `clients/loans/employees/applications`, so the console's own "Stored book is missing records"
     guard stops sbPull from restoring a stale snapshot over the live tables (sbPush still works).
+* Staff Q1 chat (`POST /api/q1-assistant`, Bearer LEDGER_KEY or the same-origin unlock cookie).
+  This is not `/api/q1` (that route stays the Quik1 applications list). Body
+  `{message, page?, history?, data?, apps?, appsNote?}`. `data` is the console's
+  book block; live `clients` / `loans` / `applications` / `employees` / `expenses` /
+  `settings.bank_opening_balance` fill gaps when Supabase is configured. Response
+  `{reply, action:{go,label}|null, call:{app,method,path,body,label}|null, connected:true}`.
+  `call` is only a proposed Quik1 PATCH the existing chat still confirms before it runs.
+  No Claude and no `AI_GATEWAY_API_KEY`. Optional `Q1_WEBHOOK_URL` receives
+  `{source, at, page, message}` (scrubbed; chat works if it is unset or the POST fails).
+  Does not insert into `q1_requests` (that table remains the customer request inbox).
+* Borrower Q1 (`POST /api/quik1/q1`, no auth, same public rate limit). Body
+  `{message, brief, screen?, applicationId?}`. Answers from the brief already on screen.
+  A safe `applicationId` may add that one application's status. Response `{reply, go|null, connected:true}`.
+  No `QUIK1_Q1_URL`, no PIN, no production-auth flag.
 * Q1 integration (`/api/q1/*`, Bearer LEDGER_KEY) — shaped for `qkMap`/`qkPush`:
   * `GET applications?status=new` → JSON array of `applications` rows where `source='quik1'`
     (default status filter `new`; `status=all` for everything) each augmented with
