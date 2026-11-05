@@ -40,7 +40,11 @@ const types = {
 // kept inside `dir`.
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split('?')[0]);
-  const rel = urlPath === '/' ? fileArg : urlPath.replace(/^\/+/, '');
+  // Ledger pins <base href="/ledger/"> so it still boots when the host serves this
+  // file at "/" or "/ledger". The boot server only has the app folder, so alias that prefix.
+  let rel = urlPath === '/' ? fileArg : urlPath.replace(/^\/+/, '');
+  if (rel === 'ledger') rel = fileArg;
+  else if (rel.startsWith('ledger/')) rel = rel.slice('ledger/'.length) || fileArg;
   const file = path.resolve(dir, rel);
   if (!file.startsWith(dir + path.sep) && file !== dir) { res.writeHead(403); return res.end('forbidden'); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('not found: ' + urlPath); }

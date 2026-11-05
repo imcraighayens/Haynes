@@ -4,7 +4,30 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
+<script>
+/* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
+   "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
+   resolve outside /ledger/, the runtime never boots, and the uncompiled call
+   dialog stays on screen with {{ ccName }} and a Cancel button that does nothing.
+   Assets always live at /ledger/, so pin the base there before any relative URL. */
+(function () {
+  var basePath = '/ledger/';
+  if (!document.querySelector('base')) {
+    var base = document.createElement('base');
+    base.href = basePath;
+    document.head.appendChild(base);
+  }
+  var res = window.__resources;
+  if (res) {
+    for (var key in res) {
+      if (!Object.prototype.hasOwnProperty.call(res, key)) continue;
+      var val = res[key];
+      if (typeof val === 'string' && val.charAt(0) === '.') res[key] = basePath + val.replace(/^\.\//, '');
+    }
+  }
+})();
+</script>
+<style>x-dc{display:none!important}</style>
 <script src="./ledger-sync.js"></script>
 </head>
 <body>
@@ -3947,7 +3970,11 @@ class Component extends DCLogic {
   }
   startCall(name, phone, ref){
     if(this.state.call){ this.toast('A call is already in progress'); return; }
-    this.setState({callConfirm:{name, phone, ref}});
+    name = (name==null ? '' : String(name)).trim();
+    if(!name || name==='—'){ this.toast('Select a client before calling'); return; }
+    phone = (phone==null ? '' : String(phone)).trim();
+    ref = (ref==null ? '' : String(ref)).trim();
+    this.setState({callConfirm:{name:name, phone:phone, ref:ref}});
   }
   doCall(name, phone, ref){
     if(!this.state.twilio.connected){ this.toast('Connect Twilio in Settings first'); return; }
@@ -5070,8 +5097,8 @@ class Component extends DCLogic {
         this.setState(p=>({employees:[...p.employees,{id:'e'+Date.now(),name:p.ae.name,email:p.ae.email,role:p.ae.role||'Loan officer',book:0,added:this.todayLabel(),status:'INVITED'}], ae:{name:'',email:'',contact:'',role:''}, modal:null}));
         this.toast('Invite sent — they set their own password'); },
       toastOn: !!st.toast, toastMsg: st.toast,
-      ccOn: !!st.callConfirm, ccName: st.callConfirm ? st.callConfirm.name : '', ccPhone: st.callConfirm ? ((st.callConfirm.phone && st.callConfirm.phone!=='—') ? st.callConfirm.phone : 'No number on file') : '', ccRef: st.callConfirm ? (st.callConfirm.ref||'') : '',
-      ccCancel: ()=>this.setState({callConfirm:null}),
+      ccOn: !!(st.callConfirm && st.callConfirm.name), ccName: (st.callConfirm && st.callConfirm.name) ? String(st.callConfirm.name) : '', ccPhone: (st.callConfirm && st.callConfirm.name) ? ((st.callConfirm.phone && st.callConfirm.phone!=='—') ? String(st.callConfirm.phone) : 'No number on file') : '', ccRef: (st.callConfirm && st.callConfirm.ref) ? String(st.callConfirm.ref) : '',
+      ccCancel: (e)=>{ if(e&&e.preventDefault) e.preventDefault(); if(e&&e.stopPropagation) e.stopPropagation(); this.setState({callConfirm:null}); },
       ccGo: ()=>{ const c=st.callConfirm; if(!c) return; if(!c.phone || c.phone==='—'){ this.setState({callConfirm:null}); return this.toast('No phone number on file for '+c.name); } this.setState({callConfirm:null}); this.doCall(c.name, c.phone, c.ref); },
       modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(), modalWidth: st.modal==='history'?'880px':st.modal==='contractdoc'||st.modal==='settlement'?'720px':st.modal==='clienthub'?'min(1280px, calc(100vw - 32px))':st.modal==='bulkloan'?'780px':st.modal==='duebrief'?'620px':'640px',
       ...(()=>{ const dp=st.datePick; if(!dp) return { datePickOn:false, dpCells:[], dpYears:[] };
