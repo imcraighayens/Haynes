@@ -48,6 +48,7 @@ api/                    Vercel Node functions, ESM, zero dependencies
   ledger.js              staff routes       (Bearer LEDGER_KEY)
   q1.js                  LEDGER's Q1 panel  (Bearer LEDGER_KEY)
   quik1.js               customer routes    (no auth; insert-only + read-own-by-id)
+  ecoloans.js            marketing-site ingest (no auth; POST applications, source ecoloan_web)
 supabase/migrations/    20261029_quik1_bridge.sql — additive only
 tests/  tools/  docs/   unit + boot tests, boot-test runner, the spec (not deployed)
 vercel.json             redirects, security headers, cache rules
@@ -120,6 +121,65 @@ Sign-ups (`POST /api/quik1/signups`) and service requests (`POST /api/quik1/requ
 same POST-then-poll pattern into `q1_signups` / `q1_requests`; repayment confirmations are read
 from `q1_repayments` under the customer's own key (`app:<applicationId>`).
 
+### EcoLoans marketing site
+
+`https://ecoloan.co.za` (and the `ecoloans.co.za` spelling, with or without `www`) can submit a
+loan application straight into the same `applications` table. The route is public: no
+`LEDGER_KEY`. It has its own hourly, per-phone and per-IP caps, and its own CORS allowlist.
+
+```
+POST https://<project>.vercel.app/api/ecoloans/applications
+Content-Type: application/json
+```
+
+```json
+{
+  "name": "Thandi Mokoena",
+  "phone": "082 123 4567",
+  "email": "thandi@example.co.za",
+  "amount": 10000,
+  "term": 3,
+  "purpose": "School fees",
+  "takeHome": "R10 000 to R20 000",
+  "employer": "Sibanye",
+  "bank": "Capitec",
+  "province": "North West",
+  "loanType": "personal",
+  "submittedAt": "2026-11-05T08:00:00.000Z",
+  "docs": ["South African ID", "Latest 3 payslips"]
+}
+```
+
+`201` `{ "id": "ew_…", "ref": "EW-…", "status": "new" }`. A retry that sends the same well-formed
+`ew_` + 12 hex id gets `200` with the stored `id`, `ref` and `status`.
+
+Required: `name`, `phone`. The live form's `aName` and `aCell` are accepted as those two fields.
+Optional aliases from the same form: `aEmail`, `aAmt`, `aterm` / `term_months`, `why` / `awhy`,
+`income` / `net_income` / `takeHome` / `aTake` (a pay band is kept as text, a plain number is
+`net_income`), `employer` / `employment` / `aEmp`, `bank` / `aBank`, `province` / `aProv`,
+`loanType` / `type` / `atype` (`personal` or `business`, stored on `meta.raw`), `idNumber`,
+`docs` (names only, up to 5). Send `amount` between 1 and 50000. The live `applications.amount`
+column is NOT NULL, so a payload without an amount is written as null and Postgres rejects the insert.
+
+The row is `source: "ecoloan_web"`, `status: "new"`. Nothing on this route approves it.
+Staff see the row on `GET /api/ledger/state` (newest 500 applications, every source). The Q1
+connected-apps panel lists `source: "quik1"`.
+
+Browsers on these exact origins pass CORS (preflight `OPTIONS` and the `POST`):
+
+- `https://ecoloan.co.za`
+- `https://www.ecoloan.co.za`
+- `https://ecoloans.co.za`
+- `https://www.ecoloans.co.za`
+
+```js
+await fetch('https://<project>.vercel.app/api/ecoloans/applications', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, phone, amount, term, purpose, loanType })
+});
+```
+
 ## Where data lives
 
 | Data | Table | Written by |
@@ -145,9 +205,13 @@ copy is the source of truth and wins on the next load.
   (`localStorage['ledjaa.supabase'].key`). Every `/api/ledger/*` and `/api/q1/*` call sends it
   as `Authorization: Bearer …`; the server compares it in constant time. Rotate it by changing
   the Vercel env var and pasting the new value in Settings.
-* **Public routes are insert-only.** `/api/quik1/*` has no auth, is rate-limited per IP
-  (~30 req/min), caps bodies at 16 KB, whitelists every field, and can only insert a new row or
+* **Public routes are insert-only.** `/api/quik1/*` has no auth, is rate-limited per IP,
+  caps bodies at 16 KB, whitelists every field, and can only insert a new row or
   read one row by its unguessable id. It cannot list, update or delete anything.
+  `/api/ecoloans/applications` is the same idea for the marketing site: its own per-IP bucket
+  (`ECOLOANS_RATE_LIMIT`, default 30/min), its own database caps (`ECOLOANS_HOURLY_CAP` 60/hour,
+  `ECOLOANS_PHONE_DAILY_CAP` 3/phone/day, counted on `source = ecoloan_web`), and a four-origin
+  CORS allowlist. `ALLOWED_ORIGIN` still applies only to Quik1 and staff routes.
 * **The server never deletes.** Rows are retired with `deleted_at`; `audit_log` is never
   updated; the Postgres triggers that enforce this stay in place.
 * Responses are `Cache-Control: no-store`; nothing logs names, ID numbers or bank details.

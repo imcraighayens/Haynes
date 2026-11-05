@@ -165,9 +165,10 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
 
 * Runtime: Vercel Node 22 (`engines.node` = `22.x` in package.json), ESM (`"type":"module"`), zero npm dependencies (use global `fetch`).
   Each file `export default async function handler(req, res)`. Catch-all routes:
-  `api/ledger.js`, `api/q1.js`, `api/quik1.js` (vercel.json rewrites `/api/<area>/*` to `/api/<area>?path=*`).
+  `api/ledger.js`, `api/q1.js`, `api/quik1.js`, `api/ecoloans.js` (vercel.json rewrites `/api/<area>/*` to `/api/<area>?path=*`).
 * Env: `SUPABASE_URL` (`https://rcektqecduuzqqmcsgat.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY`,
-  `LEDGER_KEY` (long random secret shared with the console). Optional `ALLOWED_ORIGIN`.
+  `LEDGER_KEY` (long random secret shared with the console). Optional `ALLOWED_ORIGIN` (Quik1 and staff only).
+  Optional EcoLoans caps: `ECOLOANS_HOURLY_CAP` (60), `ECOLOANS_PHONE_DAILY_CAP` (3), `ECOLOANS_RATE_LIMIT` (30).
   Missing env → 503 with a plain message, never a stack trace.
 * `_lib/supabase.js`: PostgREST helper (`select(table, query)`, `upsert(table, rows, onConflict)`,
   `update(table, match, patch)`, `insert`) sending `apikey`/`Authorization` service headers,
@@ -201,6 +202,16 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
   * `PATCH applications/:id` body `{status}` (`approved|declined|reviewing|new`) → update row:
     `status, decided_at (now for approved/declined), decided_by:'ledger',
     decision: {verdict, amount: amount, by:'Ecoloans', note:'', at: now}`; returns the row.
+* Public marketing ingest (`/api/ecoloans/applications`, no auth, own rate bucket, JSON only, 16 KB body cap):
+  * `POST` → insert `applications` with `source:'ecoloan_web'`, `status:'new'`, `id:'ew_'+12 hex`,
+    `ref:'EW-'+(1085+count)`. Required `name` and `phone` (`aName` / `aCell` accepted). Optional
+    amount (1–50000; the live column is NOT NULL), term, purpose/why, income or a take-home band,
+    employer, bank, province (on `meta`), `loanType` `personal|business` (on `meta.raw`), id number,
+    docs names. A well-formed client id that already exists returns `200 {id, ref, status}` from the
+    stored row. Caps: `ECOLOANS_HOURLY_CAP` / `ECOLOANS_PHONE_DAILY_CAP`, counted on `source=ecoloan_web`.
+  * CORS allowlist (exact): `https://ecoloan.co.za`, `https://www.ecoloan.co.za`,
+    `https://ecoloans.co.za`, `https://www.ecoloans.co.za`. `OPTIONS` included. `ALLOWED_ORIGIN` is
+    unchanged and is not the policy for this route.
 * Public customer routes (`/api/quik1/*`, no auth, rate-limited, JSON only, 16 KB body cap):
   * `POST applications` body = Quik1Link app record → insert `applications` row:
     `id:'ap_'+random(12 hex), ref:'AP-'+(1085+count)` (use count query), `name, phone, email?,

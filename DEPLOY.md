@@ -37,6 +37,16 @@ openssl rand -hex 32
 Add all three to **Production** (and Preview if you want preview deployments to work).
 Changing a value later: Vercel → Project → Settings → Environment Variables → edit → **Redeploy**.
 
+Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
+to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
+`QUIK1_RATE_LIMIT`.
+
+| Name | Default | What it caps |
+| --- | --- | --- |
+| `ECOLOANS_HOURLY_CAP` | 60 | new `source = ecoloan_web` applications in the last hour |
+| `ECOLOANS_PHONE_DAILY_CAP` | 3 | applications from the same phone in 24 hours |
+| `ECOLOANS_RATE_LIMIT` | 30 | requests per minute per IP on this route |
+
 ## 3. Apply the database migration (once)
 
 Supabase dashboard → **SQL Editor → New query**, paste the whole file
@@ -68,13 +78,32 @@ from the same key; if the key field there is empty, paste `LEDGER_KEY` again and
 3. Within a minute the application appears in LEDGER's Q1 panel. Approve or decline it.
 4. The phone shows the verdict within a few seconds.
 
-## 7. Custom domain (later)
+## 7. Marketing site applications
+
+The public ingest is `POST https://<project>.vercel.app/api/ecoloans/applications` with
+`Content-Type: application/json`. No `LEDGER_KEY`. Required JSON: `name`, `phone` (the live
+form can send `aName` and `aCell`). Send `amount` (1–50000), `term`, `purpose` / `why`,
+`loanType` (`personal` or `business`), and whatever else the form collected (`email`,
+`employer`, `bank`, `province`, `takeHome`, `docs` names). The response is
+`{ "id": "ew_…", "ref": "EW-…", "status": "new" }`.
+
+Browsers may call it from these exact origins:
+
+* `https://ecoloan.co.za`
+* `https://www.ecoloan.co.za`
+* `https://ecoloans.co.za`
+* `https://www.ecoloans.co.za`
+
+The row is stored in `applications` with `source = ecoloan_web` and waits for a staff decision.
+Details and a copy-paste `fetch` are in the README section **EcoLoans marketing site**.
+
+## 8. Custom domain (later)
 
 Vercel → Project → **Settings → Domains → Add** (`app.ecoloans.co.za`, for example) and set the
 CNAME it shows at your DNS provider. Nothing in the repo changes: the apps call `/api/…` on
 whatever origin they are served from.
 
-## 8. Rollback
+## 9. Rollback
 
 Vercel → Project → **Deployments** → pick the previous good deployment → **⋯ → Promote to
 Production**. Instant, no rebuild. The database is unaffected (the migration only adds).
@@ -83,7 +112,7 @@ Production**. Instant, no rebuild. The database is unaffected (the migration onl
 
 The old Netlify site is no longer used by anything. Netlify → Site → **Site configuration →
 Danger zone → Delete this site**. If a domain was pointed at Netlify, move its DNS record to
-Vercel (step 7) first.
+Vercel (step 8) first.
 
 ## Day-to-day
 
