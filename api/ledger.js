@@ -6,6 +6,7 @@ import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, S
 import { requireStaff, isSameOrigin, verifyUnlockPin, mintStaffSession, staffCookieHeader } from './_lib/auth.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
+import { accountFromLoans } from './_lib/quik1-book.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -217,20 +218,17 @@ async function bookPost(req, res) {
 }
 
 
-const OPEN_LOAN = new Set(['issued', 'overdue']);
 const CLOSED_LOAN = new Set(['paid', 'settled_early']);
-const DEFAULT_CREDIT_LIMIT = Math.max(500, parseInt(process.env.QUIK1_CREDIT_LIMIT, 10) || 8000);
-
-function creditLimit() { return DEFAULT_CREDIT_LIMIT; }
-
-function outstandingPrincipal(loans) {
-  return (loans || []).filter(l => l && !l.deleted_at && OPEN_LOAN.has(String(l.status || '').toLowerCase()))
-    .reduce((s, l) => s + (Number(l.principal) || 0), 0);
-}
 
 function availableOf(loans) {
-  const outstanding = outstandingPrincipal(loans);
-  return { credit_limit: creditLimit(), outstanding_principal: outstanding, available: Math.max(0, creditLimit() - outstanding) };
+  const acct = accountFromLoans(loans);
+  return {
+    credit_limit: acct.credit_limit,
+    outstanding_principal: acct.outstanding_principal,
+    available: acct.available,
+    next_due: acct.next_due,
+    open_loans: acct.loans.filter(l => l.outstanding_principal > 0).length
+  };
 }
 
 async function pushRepaymentFlags(ops) {
@@ -282,16 +280,17 @@ async function getAvailable(req, res, clientId) {
   if (!clientId) throw new HttpError(400, 'client id required');
   const client = await selectOne('clients', { select: 'id,ref,deleted_at', id: eq(clientId) });
   if (!client || client.deleted_at) throw new HttpError(404, 'Client not found');
-  const loans = await select('loans', { select: 'id,ref,client_id,application_id,principal,status,schedule,deleted_at', client_id: eq(clientId) });
-  const open = (loans || []).filter(l => l && !l.deleted_at && OPEN_LOAN.has(String(l.status || '').toLowerCase()));
+  const loans = await select('loans', { select: 'id,ref,client_id,application_id,principal,status,schedule,instalment_amount,issued_on,deleted_at', client_id: eq(clientId) });
   const bal = availableOf(loans);
   // Counts + money only — no names, ID numbers, or account numbers.
   json(res, 200, {
     client_id: client.id,
     ref: client.ref || null,
-    open_loans: open.length,
-    ...bal,
-    next_due: open.map(l => Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null).filter(Boolean).sort()[0] || null,
+    open_loans: bal.open_loans,
+    credit_limit: bal.credit_limit,
+    outstanding_principal: bal.outstanding_principal,
+    available: bal.available,
+    next_due: bal.next_due,
     server_time: new Date().toISOString()
   }, req);
 }

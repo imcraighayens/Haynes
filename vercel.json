@@ -10,7 +10,11 @@
     { "source": "/api/ledger/:path*", "destination": "/api/ledger?path=:path*" },
     { "source": "/api/q1/:path*", "destination": "/api/q1?path=:path*" },
     { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" },
-    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" }
+    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" },
+    { "source": "/:path((?!api/|api$|quik1/|quik1$|ledger/|ledger$).*)", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/:path*" },
+    { "source": "/:path((?!api/|api$|quik1/|quik1$|ledger/|ledger$).*)", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/:path*" },
+    { "source": "/:path((?!api/|api$|quik1/|quik1$|ledger/|ledger$).*)", "has": [{ "type": "host", "value": "quik1ledger.com" }], "destination": "/ledger/:path*" },
+    { "source": "/:path((?!api/|api$|quik1/|quik1$|ledger/|ledger$).*)", "has": [{ "type": "host", "value": "www.quik1ledger.com" }], "destination": "/ledger/:path*" }
   ],
   "headers": [
     {
