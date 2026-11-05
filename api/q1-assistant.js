@@ -88,7 +88,9 @@ export async function loadLiveBook() {
 export default wrap('q1-assistant', async (req, res) => {
   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
   requireEnv(['LEDGER_KEY']);
-  requireStaff(req);
+  // #15 made requireStaff async (active-employee check). A bare call would
+  // let unauthenticated and cross-site requests answer before the 401 lands.
+  await requireStaff(req);
   const body = await readBody(req, BODY_CAP);
   const message = cleanText(body.message ?? body.text, 2000);
   if (!message) throw new HttpError(400, 'message is required');
