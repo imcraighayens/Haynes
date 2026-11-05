@@ -138,14 +138,54 @@ export function staffCookieHeader(token, exp, { clear = false } = {}) {
 }
 
 export function unlockPinExpected() {
-  // Legacy server-only PIN for POST /unlock. The staff UI does not send it. Empty disables it.
+  // Server-only PIN for POST /unlock. The Admin screen signs in with email and password
+  // and does not send this. Empty disables the unlock session (Bearer LEDGER_KEY still works).
+  // The value is never rendered in the staff UI.
   return String(process.env.LEDGER_UNLOCK_PIN || '').trim();
 }
 
 export function verifyUnlockPin(pin) {
   const expected = unlockPinExpected();
   if (!expected) throw new HttpError(503, 'Unlock PIN not configured');
-  if (!safeEqual(String(pin || ''), expected)) throw new HttpError(401, 'Unauthorized');
+  if (!safeEqual(String(pin || '').slice(0, 128), expected)) throw new HttpError(401, 'Unauthorized');
+  return true;
+}
+
+const PRODUCTION_HOSTS = new Set(['quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app']);
+
+export function requestHostname(req) {
+  return requestHost(req).replace(/:\d+$/, '');
+}
+
+// Demo reset stays off unless an operator explicitly opts in, and never on a production host
+// or when NODE_ENV=production. The flag is not a secret; it only reveals a non-production control.
+export function demoResetAllowed(req) {
+  const flag = String(process.env.LEDGER_ALLOW_DEMO_RESET || '').trim().toLowerCase();
+  if (flag !== 'true' && flag !== '1') return false;
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') return false;
+  if (PRODUCTION_HOSTS.has(requestHostname(req))) return false;
+  return true;
+}
+
+// LEDGER_MANAGER_PIN is a server env secret. Prefix sha256: stores only the hex digest.
+// The submitted value is never echoed and is never compared in the browser.
+export function verifyManagerPin(pin) {
+  const stored = String(process.env.LEDGER_MANAGER_PIN || '').trim();
+  if (!stored) throw new HttpError(503, 'Manager PIN not configured');
+  const given = String(pin ?? '').slice(0, 128);
+  let ok = false;
+  if (stored.startsWith('sha256:')) {
+    const expectHex = stored.slice('sha256:'.length).trim().toLowerCase();
+    const gotHex = createHash('sha256').update(given, 'utf8').digest('hex');
+    try {
+      ok = /^[a-f0-9]{64}$/.test(expectHex) && timingSafeEqual(Buffer.from(expectHex, 'hex'), Buffer.from(gotHex, 'hex'));
+    } catch {
+      ok = false;
+    }
+  } else {
+    ok = safeEqual(given, stored);
+  }
+  if (!ok) throw new HttpError(401, 'Unauthorized');
   return true;
 }
 

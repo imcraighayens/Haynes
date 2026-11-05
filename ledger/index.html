@@ -1207,7 +1207,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
     <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
       <div sc-camel-on-click="{{ paneClose }}" style="{{ paneWrap }}"><div sc-camel-on-click="{{ paneStop }}" style="{{ paneCard }}"><div sc-camel-on-click="{{ paneClose }}" style="{{ paneX }}" style-hover="color:var(--ink)">✕</div>
       <div style="padding:14px clamp(16px,2.6vw,34px) 24px;animation:fadeUp .25s ease;max-width:1180px" data-screen-label="Settings">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px"><div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">SETTINGS</div><div style="display:flex;align-items:center;gap:14px"><div style="display:flex;align-items:center;gap:7px;font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--green)"><div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>{{ saveState }}</div><div sc-camel-on-click="{{ resetDemo }}" style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;color:var(--red);border:1px solid var(--line2);border-radius:10px;padding:6px 12px;cursor:pointer" style-hover="border-color:var(--red)">RESET DEMO DATA</div></div></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px"><div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">SETTINGS</div><div style="display:flex;align-items:center;gap:14px"><div style="display:flex;align-items:center;gap:7px;font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--green)"><div style="width:7px;height:7px;border-radius:50%;background:var(--green)"></div>{{ saveState }}</div><sc-if value="{{ showResetDemo }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ resetDemo }}" style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;color:var(--red);border:1px solid var(--line2);border-radius:10px;padding:6px 12px;cursor:pointer" style-hover="border-color:var(--red)">RESET DEMO DATA</div></sc-if></div></div>
         <div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start">
         <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
         <div style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:18px;padding:18px 20px;transition:box-shadow .22s ease, transform .22s ease" style-hover="transform:translateY(-5px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
@@ -1274,12 +1274,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;padding:18px 20px;margin-bottom:16px;transition:box-shadow .22s ease, transform .22s ease" style-hover="transform:translateY(-5px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em">TWILIO VOICE &amp; SMS</div><div style="{{ twBadgeStyle }}">{{ twBadge }}</div></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0 14px"><div style="display:flex;align-items:center;gap:12px"><div style="width:38px;height:38px;border-radius:14px;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--red)"><svg width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5a7 7 0 0 1 4 4"></path><path d="M15 1.5A10.5 10.5 0 0 1 22.5 9"></path><path d="M21 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 4.2 2 2 0 0 1 3.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L7.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2z"></path></svg></div><div><div style="font-size:13px;font-weight:600">Twilio</div><div style="font-size:11.5px;color:var(--mut);margin-top:2px">Programmable Voice &amp; Messaging</div></div></div><div sc-camel-on-click="{{ toggleTwilio }}" style="{{ twBtnStyle }}">{{ twBtnLabel }}</div></div>
+          <div style="font-size:11.5px;color:var(--mut);line-height:1.6;margin-bottom:14px">Voice and SMS use the server configuration. {{ twStatusNote }}</div>
           <div style="border-top:1px solid var(--line);padding-top:14px">
-            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;font-size:12.5px">
-              <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--dim)">Account SID</span><span style="font:400 11.5px 'Plus Jakarta Sans',sans-serif">{{ twSid }}</span></div>
-              <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--dim)">Sender number</span><span style="font:400 11.5px 'Plus Jakarta Sans',sans-serif">{{ twFrom }}</span></div>
-          </div>
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
               <div style="border:1px solid var(--line);border-radius:14px;padding:10px 12px"><div style="font:600 16px 'Plus Jakarta Sans',sans-serif">{{ twMins }}</div><div style="font-size:11px;color:var(--mut);margin-top:3px">Voice minutes · Jul</div></div>
               <div style="border:1px solid var(--line);border-radius:14px;padding:10px 12px"><div style="font:600 16px 'Plus Jakarta Sans',sans-serif">{{ twSmsCount }}</div><div style="font-size:11px;color:var(--mut);margin-top:3px">SMS sent · Jul</div></div>
@@ -1292,17 +1288,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;padding:18px 20px;margin-bottom:16px;transition:box-shadow .22s ease, transform .22s ease" style-hover="transform:translateY(-5px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em">AI DOCUMENT READER</div><div style="{{ aiBadgeStyle }}">{{ aiBadge }}</div></div>
-          <div style="font-size:11.5px;color:var(--mut);line-height:1.6;margin-bottom:14px">Reads uploaded IDs, payslips &amp; bank statements to autofill client onboarding. <b style="color:var(--ink);font-weight:600">PDFs are read on-device automatically — no key needed.</b> Connect Claude or OpenAI to also read photos &amp; scanned images.</div>
-          <div style="display:flex;gap:9px;margin-bottom:13px">
-            <div sc-camel-on-click="{{ aiPickClaude }}" style="{{ aiClaudeStyle }}">Claude (Anthropic)</div>
-            <div sc-camel-on-click="{{ aiPickOpenai }}" style="{{ aiOpenaiStyle }}">OpenAI</div>
-        </div>
-          <div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">{{ aiKeyLabel }}</div>
-          <input type="password" value="{{ aiKey }}" sc-camel-on-change="{{ aiKeyChange }}" placeholder="{{ aiKeyPlaceholder }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:12px">
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <div sc-camel-on-click="{{ aiSave }}" style="{{ aiSaveStyle }}">{{ aiSaveLabel }}</div>
-            <div style="font:400 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);flex:1;min-width:180px">{{ aiHostNote }}</div>
-        </div>
+          <div style="font-size:11.5px;color:var(--mut);line-height:1.6;margin-bottom:14px">Reads uploaded IDs, payslips and bank statements to autofill client onboarding. PDFs are read on this device. Photos and scans use the server configuration.</div>
+          <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ aiStatusNote }}</div>
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;padding:18px 20px;margin-bottom:16px;transition:box-shadow .22s ease, transform .22s ease" style-hover="transform:translateY(-5px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em">CLOUD STORAGE</div><div style="{{ sbBadgeStyle }}">{{ sbBadge }}</div></div>
@@ -2511,7 +2498,7 @@ class Component extends DCLogic {
       theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'dark'; }catch(e){ return 'dark'; } })(), route:'dashboard', filter:'all', q:'',
       menuId:null, modal:null, modalId:null, modalStack:[], dueBriefDay:null, dueBriefAuto:false, delPin:'', delPinErr:false, toast:null, attentionOpen:true, attended:{}, smsOpen:false, smsText:'',
       calMonth:8, calYear:2026, calSelected:23, cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
-      ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, applications, appViewId:null, appFilter:'all', led:null,
+      ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
       clients: clients.map((c,i)=>({...c, contract:{no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
       loans, logbook, petty, contractVault:[], txnSeq:1041,
       sigInk:false, sigFull:false, sigPen:'', sigTarget:null, revealed:false,
@@ -2521,8 +2508,8 @@ class Component extends DCLogic {
           'The client authorises a debit-order mandate on the account provided.',
           'On default, the agreed collections process applies.',
           'This agreement is signed once and reused for every subsequent advance.' ] }, prof:{name:'Craig Moatshe',email:'craig@ecoloans.co.za',role:'Administrator'}, cloud:{connected:true},
-      ai:(()=>{ try{ return JSON.parse(localStorage.getItem('evoltAI'))||{provider:'claude',key:'',connected:false}; }catch(e){ return {provider:'claude',key:'',connected:false}; } })(),
-      twilio:{connected:true, sid:'AC••••••••••••7f2e', from:'+27 87 550 1234', mins:0, sms:0}, call:null,
+      ai:{provider:'',connected:false},
+      twilio:{configured:false, mins:0, sms:0}, call:null,
       employees:[
         {id:'e1',name:'Craig Moatshe',email:'craig@ecoloans.co.za',role:'Admin',book:0,added:'01 Nov 2025',status:'ACTIVE'},
         {id:'e2',name:'Poppy Sithole',email:'poppy@ecoloans.co.za',role:'Loan Officer',book:0,added:'14 Nov 2025',status:'ACTIVE'}
@@ -2538,6 +2525,7 @@ class Component extends DCLogic {
     // GET /api/ledger/state 401 means there is no staff cookie yet. A saved
     // ledgerUnlocked flag does not load the book. Show Admin sign-in until
     // Supabase login mints the cookie. A named session replaces the demo profile.
+    // POST /api/ledger/unlock stays server-only; this screen does not send a passcode.
     try{
       const gate=window.__ledger;
       if(gate&&gate.needsUnlock){
@@ -2548,6 +2536,10 @@ class Component extends DCLogic {
         this.state.ledgerUnlocked=true;
       }
     }catch(e){}
+    this.state.showResetDemo=false; this.state.aiConfigured=false;
+    this.state.ai={provider:'',connected:false};
+    this.state.twilio={configured:false, mins:Number(this.state.twilio&&this.state.twilio.mins)||0, sms:Number(this.state.twilio&&this.state.twilio.sms)||0};
+    try{ localStorage.removeItem('evoltAI'); }catch(e){}
     const _mock={apps:{a1:1,a2:1,a3:1,a4:1,a5:1},emp:{e2:1,e3:1,e4:1},cli:{c12:1,c13:1}};
     this.state.applications=(this.state.applications||[]).filter(a=>!_mock.apps[a.id]);
     this.state.employees=(this.state.employees||[]).filter(e=>!_mock.emp[e.id]);
@@ -2557,7 +2549,7 @@ class Component extends DCLogic {
     clearTimeout(this._sv);
     this._sv = setTimeout(()=>{ this.dbPush(); const s=this.state; const payload = {
       clients:s.clients, loans:s.loans, logbook:s.logbook, petty:s.petty, contractVault:s.contractVault, txnSeq:s.txnSeq,
-      employees:s.employees, prof:s.prof, twilio:s.twilio, cloud:s.cloud, attended:s.attended, theme:s.theme, ctpl:s.ctpl,
+      employees:s.employees, prof:s.prof, twilio:{mins:(s.twilio&&s.twilio.mins)||0, sms:(s.twilio&&s.twilio.sms)||0}, cloud:s.cloud, attended:s.attended, theme:s.theme, ctpl:s.ctpl,
       applications:s.applications, loanSeq:s.loanSeq, clientSeq:s.clientSeq };
       try{ const str=JSON.stringify(payload); localStorage.setItem('evoltConsoleV4', str); this._savedBytes=str.length; }
       catch(e){ // quota hit — retry without heavy signature blobs so records still persist
@@ -2659,7 +2651,31 @@ class Component extends DCLogic {
     clearTimeout(this._sbT);
     this._sbT = setTimeout(()=>this.sbPush(true), 2500);
   }
-  resetDemo(){ try{ localStorage.setItem('evoltConsoleV4','null'); }catch(e){} location.reload(); }
+  demoResetAllowed(){
+    let host='';
+    try{ host=String(location.hostname||'').toLowerCase(); }catch(e){}
+    if(host==='quik1ledger.com'||host==='www.quik1ledger.com'||host==='ecoloans-six.vercel.app') return false;
+    return this._demoResetAllowed===true;
+  }
+  resetDemo(){ if(!this.demoResetAllowed()) return; try{ localStorage.setItem('evoltConsoleV4','null'); }catch(e){} location.reload(); }
+  staffApi(method, path, body){
+    const sync=window.__ledger;
+    if(!sync||typeof sync.api!=='function') return Promise.reject(Object.assign(new Error('Not configured'),{status:503}));
+    return sync.api(method, path, body);
+  }
+  refreshServerFeatures(){
+    this._demoResetAllowed=false;
+    this.staffApi('GET','/features',null).then(j=>{
+      this._demoResetAllowed=!!(j&&j.demoReset);
+      this.setState({showResetDemo:this.demoResetAllowed()});
+    },()=>{ this._demoResetAllowed=false; this.setState({showResetDemo:false}); });
+    this.staffApi('GET','/ai',null).then(j=>{
+      this.setState({aiConfigured:!!(j&&j.configured)});
+    },()=>{ this.setState({aiConfigured:false}); });
+    this.staffApi('GET','/twilio',null).then(j=>{
+      this.setState(p=>({twilio:{configured:!!(j&&j.configured), mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}}));
+    },()=>{ this.setState(p=>({twilio:{configured:false, mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}})); });
+  }
   signedInProf(actor){
     var staff=null;
     try{ staff=window.__ledger&&window.__ledger.staff; }catch(e){}
@@ -2829,7 +2845,7 @@ class Component extends DCLogic {
   reelTo(n){ const L=this.state.reelList||[]; if(!L[n]) return;
     this.setState({reel:L[n], reelIdx:n, reelPlay:false}, ()=>{ const el=this._reelStrip; if(!el) return; const th=el.querySelectorAll('[title]')[n]; if(!th) return;
       el.scrollTo({left: th.offsetLeft - (el.clientWidth - th.offsetWidth)/2, behavior:'smooth'}); }); }
-  componentDidMount(){ setTimeout(()=>this.loadReel(),300); setTimeout(()=>this.qkSync(),2500); this._qkT=setInterval(()=>{ if(!document.hidden) this.qkSync(); },60000);
+  componentDidMount(){ this.refreshServerFeatures(); setTimeout(()=>this.loadReel(),300); setTimeout(()=>this.qkSync(),2500); this._qkT=setInterval(()=>{ if(!document.hidden) this.qkSync(); },60000);
     this._reelAuto = setInterval(()=>{ const st=this.state, L=st.reelList||[];
       if(st.reelPlay || this._reelHover || L.length<2 || document.hidden || st.route!=='dashboard') return;
       if(this._reelPause && Date.now()-this._reelPause < 12000) return;
@@ -3149,26 +3165,25 @@ class Component extends DCLogic {
       const why=String((e&&e.message)||e||'');
       console.warn('Q1 assistant:', why);
       this._botServer=false; this._botAuth=!!(e&&e.status===401);
-      const ai=this.state.ai||{};
-      const useKey=!!(ai.connected&&ai.key);
       const hasBuiltIn=!!(window.claude&&window.claude.complete);
       if(e&&e.status===401){
-        out='Unlock Ledger with the passcode on this screen, then ask me again. I read the live book once you are signed in.';
-      } else if(useKey||hasBuiltIn){
+        out='Sign in under Admin, then ask me again. I read the live book once you are signed in.';
+      } else {
         const convo=hist.slice(-10).map(m=>(m.role==='user'?'User: ':'Q1: ')+m.text).join('\n');
         const prompt='You are Q1, the built-in assistant for LEDGER, a South African micro-lending console run by Ecoloans. Be brief, warm and practical: 1–4 short sentences or a tight list. Plain text only: no Markdown, no asterisks, no headings; use • for list items. Use rand as "R 1 234.56".\n'+
           'RULES: Answer only from the DATA below. Loan figures are the uploaded CSV values and are authoritative: quote them exactly, never recalculate, round, estimate or invent amounts. If something is not in the data, say so. You cannot change LEDGER records yourself; tell the user where to do it.\n'+
           'CONNECTED APPS: data from linked apps may appear below. Use it to answer questions about those apps and say which app a fact came from. If an app marked (actions allowed) should do something, end your reply with ONE line exactly like: APICALL: {"app":"<app name>","method":"POST","path":"/path","body":{},"label":"<button text>"}. The user must approve it before it runs.\n'+
           'If a screen would help, end your reply with ONE line exactly like: ACTION: {"go":"<target>","label":"<button text>"} where target is one of: dashboard, loans, clients, applications, employees, logbook, ledger, settings, notifications, bank, expenses, newloan, filter:duetoday, filter:overdue, filter:paid, filter:issued. Otherwise omit it.\n\nDATA:\n'+this.botContext()+(await this.q1Context())+'\n\nCONVERSATION:\n'+convo+'\nQ1:';
         try{
-          out=useKey?String(await this.callAI({provider:ai.provider||'claude', key:ai.key}, '', [], prompt)||'').trim()
-                    :String(await window.claude.complete(prompt)||'').trim();
-          if(!useKey) this._botFallback=why;
+          out=String(await this.callAI('', [], prompt)||'').trim();
         }catch(e2){
-          out='Sorry, I couldn\'t get an answer just now. '+why.slice(0,160);
+          if(hasBuiltIn){
+            try{ out=String(await window.claude.complete(prompt)||'').trim(); this._botFallback=why; }
+            catch(e3){ out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.'; }
+          } else {
+            out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.';
+          }
         }
-      } else {
-        out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.';
       }
     }
     let act=null; const mc=out.match(/APICALL:\s*(\{[^\n]*\})\s*$/);
@@ -3670,27 +3685,11 @@ class Component extends DCLogic {
     if(/Permanent/i.test(t)) out.employmentType = 'Permanent';
     return out;
   }
-  async callAI(cfg, docText, imageBlocks, prompt){
-    const userText = (docText ? ('DOCUMENT TEXT (extracted on-device):\n'+docText+'\n\n') : '') + prompt;
-    if(cfg.host){
-      const content = [...imageBlocks, {type:'text', text:userText}];
-      return await window.claude.complete({ model:'claude-haiku-4-5', max_tokens:1024, messages:[{role:'user', content}] });
-    }
-    if(cfg.provider==='openai'){
-      const content = [{type:'text', text:userText}];
-      for(const b of imageBlocks){ if(b.type==='image') content.push({type:'image_url', image_url:{url:'data:'+b.source.media_type+';base64,'+b.source.data}}); }
-      const res = await fetch('https://api.openai.com/v1/chat/completions', { method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},
-        body: JSON.stringify({ model:'gpt-4o-mini', max_tokens:1024, messages:[{role:'user', content}] }) });
-      if(!res.ok){ let msg=''; try{ const j=await res.json(); msg=(j.error&&j.error.message)||''; }catch(e){} throw new Error('OpenAI '+res.status+(msg?' — '+msg:'')); }
-      const j = await res.json(); return j.choices && j.choices[0] && j.choices[0].message.content;
-    }
-    const content = [...imageBlocks, {type:'text', text:userText}];
-    const res = await fetch('https://api.anthropic.com/v1/messages', { method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':cfg.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({ model:'claude-haiku-4-5', max_tokens:1024, messages:[{role:'user', content}] }) });
-    if(!res.ok){ let msg=''; try{ const j=await res.json(); msg=(j.error&&j.error.message)||''; }catch(e){} throw new Error('Anthropic '+res.status+(msg?' — '+msg:'')); }
-    const j = await res.json(); return j.content && j.content.map(c=>c.text||'').join('');
+  async callAI(docText, imageBlocks, prompt){
+    const images = (imageBlocks||[]).filter(b=>b&&b.source&&b.source.data).map(b=>({ type:b.type, media_type:b.source.media_type, data:b.source.data }));
+    const res = await this.staffApi('POST', '/ai', { prompt: prompt||'', docText: docText||'', images });
+    if(!res || typeof res.text !== 'string') throw new Error('Not configured');
+    return res.text;
   }
   async analyzeDocs(files){
     const keys = ['firstName','lastName','gender','marital','email','contact','dob','idNumber','address','city','province','postal','dependents','employmentType','payFreq','grossSalary','netSalary','employer','jobTitle','employerContact','jobDuration','bank','branchCode','accountNumber','accountType','accountDuration'];
@@ -3706,16 +3705,11 @@ class Component extends DCLogic {
     }
     const docText = textChunks.join('\n\n');
     if(!docText && !imageBlocks.length) return {__error:'no-file'};
-    const ai = this.state.ai || {};
-    const hasKey = !!(ai.connected && ai.key && ai.key.trim());
-    const hasHost = !!(window.claude && window.claude.complete);
-    if(hasKey || hasHost){
-      try{
-        const raw = await this.callAI({ provider: hasKey?ai.provider:'claude', key: hasKey?ai.key.trim():null, host: !hasKey && hasHost }, docText, imageBlocks, prompt);
-        const m = String(raw||'').match(/\{[\s\S]*\}/);
-        if(m){ const parsed = JSON.parse(m[0]); const clean={}; for(const k of keys) if(parsed[k]!=null && String(parsed[k]).trim()!=='') clean[k]=String(parsed[k]).trim(); if(Object.keys(clean).length) return clean; }
-      }catch(e){ console.warn('AI read failed, trying on-device fallback:', e); }
-    }
+    try{
+      const raw = await this.callAI(docText, imageBlocks, prompt);
+      const m = String(raw||'').match(/\{[\s\S]*\}/);
+      if(m){ const parsed = JSON.parse(m[0]); const clean={}; for(const k of keys) if(parsed[k]!=null && String(parsed[k]).trim()!=='') clean[k]=String(parsed[k]).trim(); if(Object.keys(clean).length) return clean; }
+    }catch(e){ console.warn('AI read failed, trying on-device fallback'); }
     if(docText){ const local = this.localExtract(docText); if(Object.keys(local).length) return {...local, __local:true}; }
     return {__error: (imageBlocks.length && !docText) ? 'no-ai' : 'empty'};
   }
@@ -4021,12 +4015,14 @@ class Component extends DCLogic {
     this.setState({callConfirm:{name:name, phone:phone, ref:ref}});
   }
   doCall(name, phone, ref){
-    if(!this.state.twilio.connected){ this.toast('Connect Twilio in Settings first'); return; }
     if(this.state.call){ this.toast('A call is already in progress'); return; }
-    clearInterval(this._callT);
-    this.setState({call:{name, phone:phone||'—', ref:ref||'—', sec:0, status:'CONNECTING'}});
-    this._callT = setInterval(()=>{ const c=this.state.call; if(!c) return clearInterval(this._callT);
-      this.setState({call:{...c, sec:c.sec+1, status:c.sec>=1?'IN CALL':'CONNECTING'}}); }, 1000);
+    this.staffApi('POST', '/twilio', { action:'call', to: phone||'' }).then(()=>{
+      if(this.state.call){ this.toast('A call is already in progress'); return; }
+      clearInterval(this._callT);
+      this.setState({call:{name, phone:phone||'—', ref:ref||'—', sec:0, status:'CONNECTING'}});
+      this._callT = setInterval(()=>{ const c=this.state.call; if(!c) return clearInterval(this._callT);
+        this.setState({call:{...c, sec:c.sec+1, status:c.sec>=1?'IN CALL':'CONNECTING'}}); }, 1000);
+    }, ()=>{ this.toast('Not configured'); });
   }
   endCall(){
     const c=this.state.call; if(!c) return;
@@ -4036,12 +4032,15 @@ class Component extends DCLogic {
     this.setState(p=>({call:null, twilio:{...p.twilio, mins:p.twilio.mins+Math.max(1,Math.ceil(c.sec/60))}}));
     this.toast('Call ended · '+dur);
   }
-  smsVia(name, ref, comment){
-    if(!this.state.twilio.connected){ this.toast('Connect Twilio in Settings first'); return false; }
-    this.logAdd({ref:ref||'—', customer:name, amount:0, type:'SMS (TWILIO)', date:this.todayStamp(), by:this.state.prof.name, comment:comment||'SMS sent via Twilio'});
-    this.setState(p=>({twilio:{...p.twilio, sms:p.twilio.sms+1}}));
-    this.toast('SMS sent via Twilio · delivery confirmed');
-    return true;
+  smsVia(name, ref, comment, phone){
+    const found = ((this.state.clients||[]).find(c=>c&&c.name===name)||{}).phone;
+    const to = phone || found || '';
+    return this.staffApi('POST', '/twilio', { action:'sms', to, body: comment||'' }).then(()=>{
+      this.logAdd({ref:ref||'—', customer:name, amount:0, type:'SMS (TWILIO)', date:this.todayStamp(), by:this.state.prof.name, comment:comment||'SMS sent'});
+      this.setState(p=>({twilio:{configured:!!(p.twilio&&p.twilio.configured), mins:(p.twilio&&p.twilio.mins)||0, sms:((p.twilio&&p.twilio.sms)||0)+1}}));
+      this.toast('SMS sent');
+      return true;
+    }, ()=>{ this.toast('Not configured'); return false; });
   }
   isCsvLoan(l){ return !!l && l.retAmt!=null && !/^ECL-0\d/.test(l.ref||''); }
   dueAmt(l){ if(!l) return 0; if(this.isCsvLoan(l)) return l.amount||0; return Math.round((l.amount||0)*(1+((l.ret==null?35:l.ret))/100)*100)/100; }
@@ -4508,12 +4507,13 @@ class Component extends DCLogic {
       toggleTheme: ()=>this.setState({theme:st.theme==='dark'?'light':'dark'}, ()=>{ this.applyTheme(); try{ localStorage.setItem('ledjaa.theme.v3', this.state.theme); }catch(e){} }),
       orgName, orgInitial: orgName.charAt(0), orgLegal: this.props.orgLegalName ?? (this._org && this._org.legal) ?? (orgName+' Finance (Pty) Ltd'),
       resetDemo:()=>this.resetDemo(),
+      showResetDemo: this.demoResetAllowed(),
       saveState:'ALL CHANGES SAVED', dataClients: st.clients.length, dataLoans: st.loans.length, dataEmployees: st.employees.length,
-      exportData:()=>{ const payload={ clients:st.clients, loans:st.loans, logbook:st.logbook, petty:st.petty, contractVault:st.contractVault, employees:st.employees, prof:st.prof, twilio:st.twilio, cloud:st.cloud, ctpl:st.ctpl, org:this._org||null, exportedAt:new Date().toISOString(), version:'evolt-mvp-1' };
+      exportData:()=>{ const payload={ clients:st.clients, loans:st.loans, logbook:st.logbook, petty:st.petty, contractVault:st.contractVault, employees:st.employees, prof:st.prof, twilio:{mins:(st.twilio&&st.twilio.mins)||0, sms:(st.twilio&&st.twilio.sms)||0}, cloud:st.cloud, ctpl:st.ctpl, org:this._org||null, exportedAt:new Date().toISOString(), version:'evolt-mvp-1' };
         try{ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='ecoloans-data-'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); this.toast('Data exported — '+st.clients.length+' clients, '+st.loans.length+' loans'); }catch(e){ this.toast('Export failed'); } },
       importData:(e)=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const r=new FileReader();
         r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.clients||!d.loans) return this.toast('Not a valid Ecoloans data file');
-          this.setState(p=>({ clients:d.clients, loans:d.loans, logbook:d.logbook||p.logbook, petty:d.petty||p.petty, contractVault:d.contractVault||p.contractVault, employees:d.employees||p.employees, prof:d.prof||p.prof, twilio:d.twilio||p.twilio, cloud:d.cloud||p.cloud, ctpl:d.ctpl||p.ctpl }));
+          this.setState(p=>({ clients:d.clients, loans:d.loans, logbook:d.logbook||p.logbook, petty:d.petty||p.petty, contractVault:d.contractVault||p.contractVault, employees:d.employees||p.employees, prof:d.prof||p.prof, twilio:{configured:false, mins:(d.twilio&&d.twilio.mins)||0, sms:(d.twilio&&d.twilio.sms)||0}, cloud:d.cloud||p.cloud, ctpl:d.ctpl||p.ctpl }));
           this.toast('Data imported — '+d.clients.length+' clients, '+d.loans.length+' loans'); }catch(err){ this.toast('Could not read that file'); } };
         r.readAsText(f); e.target.value=''; },
       navItems, userName: st.prof.name,
@@ -4584,37 +4584,15 @@ class Component extends DCLogic {
       cloudBtnStyle: this.cssObj('padding:8px 16px;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;'+(st.cloud.connected?'border:1px solid var(--line2);color:var(--mut)':'background:var(--acc);color:var(--accInk)')),
       toggleCloud:()=>{ this.setState(p=>({cloud:{connected:!p.cloud.connected}})); this.toast(st.cloud.connected?'Cloud storage disconnected':'Cloud storage connected — vault synced'); },
       cloudSync:()=>this.toast(st.cloud.connected?'All documents & contracts synced':'Connect cloud storage first'),
-      twBadge: st.twilio.connected?'● CONNECTED':'○ DISCONNECTED',
-      ...(()=>{
-        const ai = st.ai || {provider:'claude',key:'',connected:false};
-        const hostAI = !!(window.claude && window.claude.complete);
-        const seg = on => this.cssObj('flex:1;text-align:center;padding:9px 12px;border-radius:12px;font:600 12px "Instrument Sans",sans-serif;cursor:pointer;'+(on?'background:var(--accSoft);color:var(--ink);box-shadow:inset 0 0 0 1px var(--acc)':'border:1px solid var(--line2);color:var(--mut)'));
-        return {
-          aiBadge: ai.connected ? ('● CONNECTED · '+(ai.provider==='openai'?'OPENAI':'CLAUDE')) : (hostAI?'● BUILT-IN CLAUDE':'○ ON-DEVICE PDF ONLY'),
-          aiBadgeStyle: this.cssObj("font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+((ai.connected||hostAI)?'var(--green)':'var(--dim)')),
-          aiKey: ai.key||'',
-          aiKeyLabel: ai.provider==='openai'?'OPENAI API KEY':'ANTHROPIC API KEY',
-          aiKeyPlaceholder: ai.provider==='openai'?'sk-…':'sk-ant-…',
-          aiClaudeStyle: seg(ai.provider!=='openai'),
-          aiOpenaiStyle: seg(ai.provider==='openai'),
-          aiPickClaude:()=>this.setState(p=>({ai:{...(p.ai||{}),provider:'claude'}})),
-          aiPickOpenai:()=>this.setState(p=>({ai:{...(p.ai||{}),provider:'openai'}})),
-          aiKeyChange:(e)=>this.setState(p=>({ai:{...(p.ai||{}),key:e.target.value}})),
-          aiSaveStyle: this.cssObj('padding:9px 18px;border-radius:12px;background:var(--acc);color:var(--accInk);font:700 12px "Instrument Sans",sans-serif;cursor:pointer;white-space:nowrap'),
-          aiSaveLabel: (ai.key&&ai.key.trim())?'Save & connect':'Clear key',
-          aiHostNote: hostAI ? 'Built-in Claude is active — a key is optional (use it to switch to your own account or OpenAI).' : 'A key is required to read photos & scanned images. PDFs work without one.',
-          aiSave:()=>{ const a=this.state.ai||{}; const key=(a.key||'').trim(); const connected=!!key; const next={provider:a.provider||'claude',key,connected};
-            this.setState({ai:next}); try{ localStorage.setItem('evoltAI', JSON.stringify(next)); }catch(e){}
-            this.toast(connected ? ('AI reader connected — '+(next.provider==='openai'?'OpenAI':'Claude')) : 'API key cleared — PDFs still read on-device'); }
-        };
-      })(),
-      twBadgeStyle: this.cssObj("font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(st.twilio.connected?'var(--green)':'var(--dim)')),
-      twSid: st.twilio.sid, twFrom: st.twilio.from, twMins: st.twilio.mins, twSmsCount: st.twilio.sms,
-      twBtnLabel: st.twilio.connected?'Disconnect':'Connect',
-      twBtnStyle: this.cssObj('padding:8px 16px;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;'+(st.twilio.connected?'border:1px solid var(--line2);color:var(--mut)':'background:var(--acc);color:var(--accInk)')),
-      toggleTwilio:()=>{ this.setState(p=>({twilio:{...p.twilio, connected:!p.twilio.connected}})); this.toast(st.twilio.connected?'Twilio disconnected':'Twilio connected — voice & SMS live'); },
-      twTestCall:()=>this.startCall(st.prof.name+' (test)', st.twilio.from, 'TEST'),
-      twTestSms:()=>this.smsVia(st.prof.name+' (test)', 'TEST', 'Twilio test message'),
+      twBadge: st.twilio.configured?'● CONNECTED':'○ NOT CONFIGURED',
+      aiBadge: st.aiConfigured ? '● CONNECTED' : '○ NOT CONFIGURED',
+      aiBadgeStyle: this.cssObj("font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(st.aiConfigured?'var(--green)':'var(--dim)')),
+      aiStatusNote: st.aiConfigured ? 'Document reader is configured.' : 'Not configured',
+      twBadgeStyle: this.cssObj("font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(st.twilio.configured?'var(--green)':'var(--dim)')),
+      twStatusNote: st.twilio.configured ? 'Ready.' : 'Not configured',
+      twMins: (st.twilio&&st.twilio.mins)||0, twSmsCount: (st.twilio&&st.twilio.sms)||0,
+      twTestCall:()=>this.staffApi('POST','/twilio',{action:'call'}).then(()=>this.toast('Call requested'), ()=>this.toast('Not configured')),
+      twTestSms:()=>this.staffApi('POST','/twilio',{action:'sms'}).then(()=>this.toast('SMS sent'), ()=>this.toast('Not configured')),
       callOn: !!st.call,
       callStatus: st.call?st.call.status:'', callName: st.call?st.call.name:'', callPhone: st.call?st.call.phone:'',
       callInitials: st.call?st.call.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase():'',
@@ -4715,7 +4693,7 @@ class Component extends DCLogic {
               this.logAdd({ref:existing?existing.ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION APPROVED', date:this.todayStamp(), by:st.prof.name, comment:(av.extId?'Quik1 app application · ':'Mobile-app application · ')+verdict[0]+' · installment '+fmt(install)});
               if(existing){ this.setState({nf:{...st.nf, client:existing.id, amount:String(av.amount), purpose:av.purpose, term:av.term+'m'}}); this.nav('newloan'); this.toast('Application approved — issue loan to '+av.name); }
               else { const parts=av.name.trim().split(' '); this.setState({route:'addclient',wizStep:1,acOfficer:null,docs:[],docExtracted:false,docProcessing:false, ac:{firstName:parts[0]||'', lastName:parts.slice(1).join(' '), idNumber:av.idNumber, contact:av.phone, email:av.email, employer:av.employer, jobTitle:av.jobTitle, bank:av.bank, netSalary:String(av.income)}}); this.toast('Application approved — complete onboarding for '+av.name); } },
-            requestInfo:()=>{ if(this.smsVia(av.name, 'APP-'+av.id.toUpperCase(), 'Requested additional documents for mobile application')){ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'reviewing'}:x)})); } },
+            requestInfo:()=>{ this.smsVia(av.name, 'APP-'+av.id.toUpperCase(), 'Requested additional documents for mobile application', av.phone).then(ok=>{ if(ok) this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'reviewing'}:x)})); }); },
             decline:()=>{ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'declined'}:x), appViewId:null}));
               this.apiEmit('application.declined', av); this.qkPush(av,'declined');
               this.logAdd({ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION DECLINED', date:this.todayStamp(), by:st.prof.name, comment:'Mobile-app application declined'});
@@ -4884,15 +4862,14 @@ class Component extends DCLogic {
       bulkPinNot: !st.bulkPinAsk,
       bulkPin: st.bulkPin||'',
       bulkPinErrMsg: st.bulkPinErr?'Incorrect PIN — the book was not replaced.':'',
-      bulkPinChange:(e)=>this.setState({bulkPin:e.target.value.replace(/\D/g,'').slice(0,4), bulkPinErr:false}),
+      bulkPinChange:(e)=>this.setState({bulkPin:String(e.target.value||'').slice(0,64), bulkPinErr:false}),
       bulkPinBoxStyle:this.cssObj("width:150px;box-sizing:border-box;text-align:center;letter-spacing:.5em;background:var(--panel);border:1px solid "+(st.bulkPinErr?'var(--red)':'var(--line2)')+";border-radius:12px;padding:12px 10px;font:600 18px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"),
       bulkModeCount: st.loans.length,
-      bulkChooseAmend:()=>this.setState({bulkStage:'review', bulkWipe:false, bulkPinAsk:false, bulkPin:'', bulkPinErr:false}),
-      bulkChooseReplace:()=>this.setState({bulkPinAsk:true, bulkPin:'', bulkPinErr:false}),
-      bulkPinCancel:()=>this.setState({bulkPinAsk:false, bulkPin:'', bulkPinErr:false}),
-      bulkPinConfirm:()=>{ if((st.bulkPin||'')!=='1244') return this.setState({bulkPinErr:true, bulkPin:''});
-        this.setState({bulkStage:'review', bulkWipe:true, bulkPinAsk:false, bulkPin:'', bulkPinErr:false});
-        this.toast('Replace mode authorised — the existing book will be cleared on import'); },
+      bulkChooseAmend:()=>{ this._mgrPin=''; this.setState({bulkStage:'review', bulkWipe:false, bulkPinAsk:false, bulkPin:'', bulkPinErr:false}); },
+      bulkChooseReplace:()=>{ this._mgrPin=''; this.setState({bulkPinAsk:true, bulkPin:'', bulkPinErr:false}); },
+      bulkPinCancel:()=>{ this._mgrPin=''; this.setState({bulkPinAsk:false, bulkPin:'', bulkPinErr:false}); },
+      bulkPinConfirm:()=>{ const pin=st.bulkPin||''; if(!pin) return this.setState({bulkPinErr:true, bulkPin:''});
+        this.staffApi('POST','/manager-pin',{pin}).then(()=>{ this._mgrPin=pin; this.setState({bulkStage:'review', bulkWipe:true, bulkPinAsk:false, bulkPin:'', bulkPinErr:false}); this.toast('Replace mode authorised — the existing book will be cleared on import'); }, ()=>{ this._mgrPin=''; this.setState({bulkPinErr:true, bulkPin:''}); }); },
       bulkModeBack:()=>this.setState({bulkStage:'input', bulkPinAsk:false, bulkPin:'', bulkPinErr:false}),
       bulkChange:(e)=>this.setState({bulkText:e.target.value, bulkFileName:''}),
       bulkClear:()=>this.setState({bulkText:'', bulkFileName:''}),
@@ -5020,10 +4997,20 @@ class Component extends DCLogic {
             if(st.bulkWipe){
               const cleared=st.loans.length;
               let s2=st.loanSeq; const fresh=ok.map(({r,v},i)=>({id:'l'+Date.now()+'-'+i, ref:'ECL-0'+(s2++), clientId:r.clientId, amount:v.amt, ret:35, status:'issued', issued:this.todayLabel(), due:r.due, purpose:r.purpose||'—', term:parseInt(r.term,10)||1}));
-              this.setState({ loans:fresh, loanSeq:s2, modal:null, bulkText:'', bulkFileName:'', bulkStage:'input', bulkDraft:[], bulkSkip:[], bulkWipe:false });
-              this.logAdd({ref:'BOOK-RESET', customer:'—', amount:0, type:'BOOK REPLACED', date:this.todayStamp(), by:st.prof.name, comment:cleared+' existing loan'+(cleared===1?'':'s')+' cleared and replaced by '+fresh.length+' uploaded row'+(fresh.length===1?'':'s')+(st.bulkFileName?' from '+st.bulkFileName:'')+' · clients and audit trail retained'});
-              fresh.forEach(l=>this.logAdd({ref:l.ref, customer:clientById(l.clientId).name, amount:l.amount, type:'LOAN ISSUED', date:this.todayStamp(), by:st.prof.name, comment:'Book replacement upload'+(st.bulkFileName?' ('+st.bulkFileName+')':'')+' · '+l.term+'-month term · due '+l.due}));
-              return this.toast('Book cleared — '+fresh.length+' loan'+(fresh.length===1?'':'s')+' now on the book');
+              const pin=this._mgrPin||'';
+              const rows=fresh.map(l=>({ id:l.id, ref:l.ref, client_id:l.clientId, principal:l.amount, return_rate_pct:l.ret, status:l.status, purpose:l.purpose, issued_on:this.dbIso(l.issued), schedule:l.due?[this.dbIso(l.due)||l.due]:[] }));
+              this.staffApi('POST','/destructive',{ action:'replace_book', pin, rows }).then(()=>{
+                this._mgrPin='';
+                this.setState({ loans:fresh, loanSeq:s2, modal:null, bulkText:'', bulkFileName:'', bulkStage:'input', bulkDraft:[], bulkSkip:[], bulkWipe:false });
+                this.logAdd({ref:'BOOK-RESET', customer:'—', amount:0, type:'BOOK REPLACED', date:this.todayStamp(), by:st.prof.name, comment:cleared+' existing loan'+(cleared===1?'':'s')+' cleared and replaced by '+fresh.length+' uploaded row'+(fresh.length===1?'':'s')+(st.bulkFileName?' from '+st.bulkFileName:'')+' · clients and audit trail retained'});
+                fresh.forEach(l=>this.logAdd({ref:l.ref, customer:clientById(l.clientId).name, amount:l.amount, type:'LOAN ISSUED', date:this.todayStamp(), by:st.prof.name, comment:'Book replacement upload'+(st.bulkFileName?' ('+st.bulkFileName+')':'')+' · '+l.term+'-month term · due '+l.due}));
+                this.toast('Book cleared — '+fresh.length+' loan'+(fresh.length===1?'':'s')+' now on the book');
+              }, (e)=>{
+                this._mgrPin='';
+                this.setState({ bulkWipe:false, bulkStage:'mode', bulkPinAsk:true, bulkPin:'', bulkPinErr:true });
+                this.toast(/not configured/i.test(String(e&&e.message||'')) ? 'Not configured' : 'Incorrect PIN — the book was not replaced.');
+              });
+              return;
             }
             const src=(st.bulkFileName?' ('+st.bulkFileName+')':'');
             let seq=st.loanSeq; const made=[], patch={}, close={}, logs=[];
@@ -5133,7 +5120,7 @@ class Component extends DCLogic {
         this.analyzeDocs(files).then(extracted=>{
           if(extracted && extracted.__error){
             this.setState({docProcessing:false});
-            this.toast(extracted.__error==='no-ai' ? 'Photos/scans need an AI reader — add a Claude or OpenAI key in Settings, or upload a PDF.' : 'Couldn\u2019t read those documents. Try clearer scans, a PDF, or enter the fields manually.');
+            this.toast(extracted.__error==='no-ai' ? 'Not configured' : 'Couldn\u2019t read those documents. Try clearer scans, a PDF, or enter the fields manually.');
             return;
           }
           const local = !!extracted.__local;
@@ -5838,16 +5825,19 @@ class Component extends DCLogic {
       toggleReveal: ()=>{ if(!st.revealed){ const c=st.clients.find(x=>x.id===st.modalId); if(c) this.logAdd({ref:c.ref, customer:c.name, amount:0, type:'PII UNMASKED', date:this.todayStamp(), by:'Craig Moatshe', comment:'Full ID / account / salary viewed in Client Info'}); }
         this.setState(p=>({revealed:!p.revealed})); },
       delPin: st.delPin||'',
-      delPinChange:(e)=>this.setState({delPin:e.target.value.replace(/\D/g,'').slice(0,4), delPinErr:false}),
+      delPinChange:(e)=>this.setState({delPin:String(e.target.value||'').slice(0,64), delPinErr:false}),
       delPinErrMsg: st.delPinErr?'Incorrect PIN — nothing was deleted.':'',
       delPinStyle: this.cssObj("width:150px;box-sizing:border-box;text-align:center;letter-spacing:.5em;background:var(--panel);border:1px solid "+(st.delPinErr?'var(--red)':'var(--line2)')+";border-radius:12px;padding:12px 10px;font:700 18px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"),
-      delBtnStyle: this.cssObj('flex:1;padding:12px;border-radius:12px;text-align:center;font-size:12.5px;font-weight:700;'+((st.delPin||'').length===4?'background:var(--red);color:#ffffff;cursor:pointer':'background:var(--panel2);color:var(--dim);cursor:not-allowed')),
+      delBtnStyle: this.cssObj('flex:1;padding:12px;border-radius:12px;text-align:center;font-size:12.5px;font-weight:700;'+((st.delPin||'').length?'background:var(--red);color:#ffffff;cursor:pointer':'background:var(--panel2);color:var(--dim);cursor:not-allowed')),
       confirmDelete:()=>{ if(!mLoanRaw) return;
-        if((st.delPin||'')!=='1244'){ return this.setState({delPinErr:true, delPin:''}); }
-        this.logAdd({ref:mLoanRaw.ref, customer:clientById(mLoanRaw.clientId).name, amount:mLoanRaw.amount, type:'DELETE AUTHORISED', date:this.todayStamp(), by:st.prof.name, comment:'Manager PIN accepted for '+mLoanRaw.ref});
-        this.setState(p=>({loans:p.loans.filter(l=>l.id!==mLoanRaw.id), modal:null, delPin:'', delPinErr:false}));
-        this.logAdd({ref:mLoanRaw.ref, customer:clientById(mLoanRaw.clientId).name, amount:mLoanRaw.amount, type:'LOAN DELETED', date:this.todayStamp(), by:'Craig Moatshe', comment:'Deleted via console'});
-        this.toast(mLoanRaw.ref+' deleted — logged'); }
+        const loan=mLoanRaw, pin=st.delPin||'', who=clientById(loan.clientId).name;
+        if(!pin) return this.setState({delPinErr:true, delPin:''});
+        this.staffApi('POST','/destructive',{ action:'delete_loan', id:loan.id, pin }).then(()=>{
+          this.logAdd({ref:loan.ref, customer:who, amount:loan.amount, type:'DELETE AUTHORISED', date:this.todayStamp(), by:st.prof.name, comment:'Manager PIN accepted for '+loan.ref});
+          this.setState(p=>({loans:p.loans.filter(l=>l.id!==loan.id), modal:null, delPin:'', delPinErr:false}));
+          this.logAdd({ref:loan.ref, customer:who, amount:loan.amount, type:'LOAN DELETED', date:this.todayStamp(), by:st.prof.name, comment:'Deleted via console'});
+          this.toast(loan.ref+' deleted — logged');
+        }, (e)=>{ this.setState({delPinErr:true, delPin:''}); this.toast(/not configured/i.test(String(e&&e.message||'')) ? 'Not configured' : 'Incorrect PIN — nothing was deleted.'); }); }
     };
   }
 }

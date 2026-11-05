@@ -3,10 +3,11 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff, isSameOrigin, verifyUnlockPin, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
+import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
 import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
+import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -77,6 +78,11 @@ async function applyOp(op) {
   if (!op || typeof op !== 'object') throw new HttpError(400, 'op must be an object');
   const table = String(op.table || '');
   const kind = String(op.op || '');
+  // Replacing the book is not a normal sync op. The PIN is required before any read or write.
+  if (table === 'loans' && kind === 'replace_book') {
+    verifyManagerPin(op.manager_pin);
+    return replaceLoans(op.rows);
+  }
   const rule = SYNC_RULES[table];
   if (!rule) throw new HttpError(400, `table ${table || '(none)'} is not syncable`);
   if (!rule.ops.includes(kind)) {
@@ -112,11 +118,36 @@ async function applyOp(op) {
   if (kind === 'soft_delete') {
     const id = requireId(op);
     if (!COLUMNS[table].includes('deleted_at')) throw new HttpError(400, `${table} has no deleted_at`);
-    // Only the tombstone — reasons live in the console's own audit trail.
+    // Deleting a loan is destructive. The manager PIN is checked here so a staff session
+    // alone cannot archive the book. The PIN is not written to the database.
+    if (table === 'loans') verifyManagerPin(op.manager_pin);
     const out = await update(table, { id }, { deleted_at: new Date().toISOString() });
     return out.length;
   }
   throw new HttpError(400, 'unknown op');
+}
+
+// Validate every incoming row before the first delete, so a bad payload cannot wipe the book.
+async function replaceLoans(rows) {
+  if (!Array.isArray(rows)) throw new HttpError(400, 'rows required');
+  if (rows.length > MAX_ROWS_PER_OP) throw new HttpError(400, 'too many rows');
+  const incoming = rows.map(r => {
+    const row = pick('loans', r);
+    requireId(row);
+    row.deleted_at = null;
+    return row;
+  });
+  const existing = await select('loans', { select: 'id,deleted_at' });
+  const now = new Date().toISOString();
+  let n = 0;
+  for (const row of existing) {
+    if (row && row.id && !row.deleted_at) {
+      await update('loans', { id: row.id }, { deleted_at: now });
+      n++;
+    }
+  }
+  if (incoming.length) await upsert('loans', incoming, 'id');
+  return n + incoming.length;
 }
 
 async function postSync(req, res) {
@@ -273,6 +304,50 @@ async function postUnlock(req, res) {
   json(res, 200, { ok: true, expires_at: new Date(exp).toISOString() }, req);
 }
 
+async function postManagerPin(req, res) {
+  const body = await readBody(req, 4 * 1024);
+  verifyManagerPin(body.pin);
+  json(res, 200, { ok: true }, req);
+}
+
+async function postDestructive(req, res) {
+  const body = await readBody(req, STAFF_BODY_CAP);
+  const action = String(body.action || '');
+  if (action === 'delete_loan') {
+    const count = await applyOp({ table: 'loans', op: 'soft_delete', id: body.id, manager_pin: body.pin });
+    json(res, 200, { ok: true, count }, req);
+    return;
+  }
+  if (action === 'replace_book') {
+    const count = await applyOp({ table: 'loans', op: 'replace_book', rows: body.rows, manager_pin: body.pin });
+    json(res, 200, { ok: true, count }, req);
+    return;
+  }
+  throw new HttpError(400, 'unknown action');
+}
+
+async function getAi(req, res) {
+  const status = aiStatus();
+  json(res, 200, { configured: status.configured, provider: status.configured ? status.provider : null }, req);
+}
+
+async function postAi(req, res) {
+  const body = await readBody(req, STAFF_BODY_CAP);
+  // Ignore any key, token, or provider secret the client tried to send.
+  const text = await completeAi({ prompt: body.prompt, docText: body.docText, images: body.images });
+  json(res, 200, { text }, req);
+}
+
+async function getTwilio(req, res) {
+  json(res, 200, { configured: twilioStatus().configured }, req);
+}
+
+async function postTwilio(req, res) {
+  const body = await readBody(req, 16 * 1024);
+  await sendTwilio({ action: body.action, to: body.to, body: body.body });
+  json(res, 200, { ok: true }, req);
+}
+
 async function postLock(req, res) {
   if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
   res.setHeader('Set-Cookie', staffCookieHeader('', 0, { clear: true }));
@@ -358,6 +433,28 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'available' && rest.length === 1) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getAvailable(req, res, rest[0]);
+  }
+  if (head === 'features' && rest.length === 0) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, { demoReset: demoResetAllowed(req) }, req);
+  }
+  if (head === 'manager-pin' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postManagerPin(req, res);
+  }
+  if (head === 'destructive' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postDestructive(req, res);
+  }
+  if (head === 'ai' && rest.length === 0) {
+    if (req.method === 'GET' || req.method === 'HEAD') return getAi(req, res);
+    if (req.method === 'POST') return postAi(req, res);
+    throw new HttpError(405, 'Method not allowed');
+  }
+  if (head === 'twilio' && rest.length === 0) {
+    if (req.method === 'GET' || req.method === 'HEAD') return getTwilio(req, res);
+    if (req.method === 'POST') return postTwilio(req, res);
+    throw new HttpError(405, 'Method not allowed');
   }
   if (head === 'rest' && rest[0] === 'v1' && rest[1] === 'ledger_book' && rest.length === 2) {
     if (req.method === 'GET' || req.method === 'HEAD') return bookGet(req, res);

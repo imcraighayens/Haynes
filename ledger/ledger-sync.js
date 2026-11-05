@@ -411,6 +411,20 @@
     return [];
   }
 
+  // Server-only PIN. POST /api/ledger/unlock mints the same cookie. The Admin screen does not send it.
+  function unlock(pin) {
+    return api('POST', '/unlock', { pin: String(pin || '') }, { timeoutMs: 8000 }).then(function () {
+      return fetchState().then(function (st) {
+        applyBootState(st);
+        if (st && st.clients) {
+          try {
+            if (W.location && typeof W.location.reload === 'function') W.location.reload();
+          } catch (e) {}
+        }
+        return st;
+      });
+    });
+  }
   // Supabase email + password → same-origin httpOnly staff cookie. The browser never holds LEDGER_KEY.
   function login(email, password) {
     return api('POST', '/login', { email: String(email || ''), password: String(password || '') }, { timeoutMs: 20000 }).then(function (res) {
@@ -439,6 +453,7 @@
     return api('POST', '/lock', {}, { timeoutMs: 5000 }).catch(function () { return null; });
   }
 
+  L.unlock = unlock;
   L.login = login;
   L.lock = lock;
 

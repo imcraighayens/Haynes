@@ -25,7 +25,12 @@ test('ledger asks for staff sign-in when /state is 401', () => {
   assert.match(ledgerHtml, /var basePath = '\/ledger\/';/);
   assert.match(ledgerHtml, /gate&&gate\.needsUnlock/);
   assert.match(ledgerHtml, /typeof sync\.login!=='function'/);
+  assert.match(ledgerHtml, /Sign in with your staff email and password/);
+  assert.doesNotMatch(ledgerHtml, /PROTOTYPE CODE/);
+  assert.doesNotMatch(ledgerHtml, /pc\s*===/);
   assert.match(sync, /L\.needsUnlock = !!\(e && e\.status === 401\)/);
   assert.match(sync, /needsUnlock: false/);
   assert.match(sync, /L\.login = login/);
+  assert.match(sync, /api\('POST', '\/unlock'/);
+  assert.match(sync, /api\('POST', '\/login'/);
 });

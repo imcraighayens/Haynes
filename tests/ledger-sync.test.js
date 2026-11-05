@@ -83,7 +83,7 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key or st
   assert.deepEqual(read('evoltConsoleV4'), { clients: [], loans: [], logbook: [], petty: [], employees: [], applications: [] });
 });
 
-test('a 401 from /state asks for the prototype unlock; other failures do not', async () => {
+test('a 401 from /state asks for the server unlock; other failures do not', async () => {
   const denied = await boot({ stateStatus: 401, state: { error: 'Unauthorized' } });
   assert.equal(denied.L.needsUnlock, true);
   assert.match(denied.L.error, /HTTP 401/);
