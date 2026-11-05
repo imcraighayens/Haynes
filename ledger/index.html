@@ -3101,41 +3101,65 @@ class Component extends DCLogic {
   qkPush(app, status){ const a=this.qkApp(); if(!app||!app.extId||!a||!a.on||!a.actions||!a.url) return;
     const base=String(a.path||'/applications').split('?')[0];
     this.q1Req(a,'PATCH',base.replace(/\/+$/,'')+'/'+encodeURIComponent(app.extId),{status}).then(()=>this.toast('Quik1 updated: '+app.name+' '+status)).catch(e=>this.toast('Quik1 not updated: '+e.message)); }
+  async botFromLedger(q, hist){
+    let key='';
+    try{ const c=JSON.parse(localStorage.getItem('ledjaa.supabase')||'null'); if(c&&c.key) key=String(c.key); }catch(e){}
+    const apps=this.q1Apps().filter(a=>a&&a.on).map(a=>({name:String(a.name||'').slice(0,80), actions:!!a.actions, path:String(a.path||'').slice(0,180)}));
+    let appsNote='';
+    try{ appsNote=String(await this.q1Context()||'').replace(/\b\d{13}\b/g,'[id]').slice(0,4000); }catch(e){ appsNote=''; }
+    const body={message:q, page:String((this.state&&this.state.route)||''), history:hist.slice(-8).map(m=>({role:m.role==='user'?'user':'bot', text:String(m.text||'').slice(0,1500)})), data:String(this.botContext()||'').slice(0,100000), apps:apps, appsNote:appsNote};
+    const headers={'Content-Type':'application/json','Accept':'application/json'};
+    if(key){ headers.Authorization='Bearer '+key; headers.apikey=key; }
+    const r=await fetch('/api/q1-assistant',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)});
+    const tx=await r.text();
+    let j=null; try{ j=tx?JSON.parse(tx):null; }catch(e){ j=null; }
+    if(!r.ok){ const err=new Error((j&&j.error)||('HTTP '+r.status)); err.status=r.status; throw err; }
+    let reply=String((j&&(j.reply||j.text))||'').replace(/\{\{|\}\}/g,'').trim();
+    if(!reply){ const err=new Error('empty reply'); err.status=502; throw err; }
+    const call=j&&j.call, action=j&&j.action;
+    if(call&&call.app&&call.path) reply+='\nAPICALL: '+JSON.stringify({app:call.app, method:call.method||'POST', path:call.path, body:call.body||{}, label:call.label||('Run on '+call.app)});
+    else if(action&&action.go) reply+='\nACTION: '+JSON.stringify({go:action.go, label:action.label||'Open'});
+    return reply;
+  }
   async botAsk(text){
     const q=String(text||'').trim(); if(!q) return;
     const hist=[...this.botHist(), {role:'user', text:q, at:Date.now()}];
     this.botSaveHist(hist); this.setState({botDraft:'', botThinking:true});
-    const ai = this.state.ai || {};
-    const useKey = !!(ai.connected && ai.key);
-    if(!useKey && !(window.claude && window.claude.complete)){
-      this.botSaveHist([...hist, {role:'bot', text:'I can\'t reach Claude from here yet. Add your key under Settings › AI Document Reader, then ask me again.', at:Date.now()}]);
-      return this.setState({botThinking:false});
-    }
-    const convo = hist.slice(-10).map(m=>(m.role==='user'?'User: ':'Q1: ')+m.text).join('\n');
-    const prompt = 'You are Q1, the built-in assistant for LEDGER, a South African micro-lending console run by Ecoloans. Be brief, warm and practical: 1–4 short sentences or a tight list. Plain text only: no Markdown, no asterisks, no headings; use • for list items. Use rand as "R 1 234.56".\n'+
-      'RULES: Answer only from the DATA below. Loan figures are the uploaded CSV values and are authoritative: quote them exactly, never recalculate, round, estimate or invent amounts. If something is not in the data, say so. You cannot change LEDGER records yourself; tell the user where to do it.\n'+
-      'CONNECTED APPS: data from linked apps may appear below. Use it to answer questions about those apps and say which app a fact came from. If an app marked (actions allowed) should do something, end your reply with ONE line exactly like: APICALL: {"app":"<app name>","method":"POST","path":"/path","body":{},"label":"<button text>"}. The user must approve it before it runs.\n'+
-      'If a screen would help, end your reply with ONE line exactly like: ACTION: {"go":"<target>","label":"<button text>"} where target is one of: dashboard, loans, clients, applications, employees, logbook, ledger, settings, notifications, bank, expenses, newloan, filter:duetoday, filter:overdue, filter:paid, filter:issued. Otherwise omit it.\n\nDATA:\n'+this.botContext()+(await this.q1Context())+'\n\nCONVERSATION:\n'+convo+'\nQ1:';
     let out='';
-    const hasBuiltIn = !!(window.claude && window.claude.complete);
     try{
-      out = useKey ? String(await this.callAI({provider:ai.provider||'claude', key:ai.key}, '', [], prompt)||'').trim()
-                   : String(await window.claude.complete(prompt)||'').trim();
+      out=await this.botFromLedger(q, hist);
+      this._botServer=true; this._botAuth=false; this._botFallback=null;
     }catch(e){
-      const why = String(e.message||e);
-      console.warn('Q1 AI error:', why);
-      if(useKey && hasBuiltIn){
-        try{ out = String(await window.claude.complete(prompt)||'').trim(); this._botFallback = why; }
-        catch(e2){ out = 'Sorry, I couldn\'t get an answer just now. Your key returned: '+why.slice(0,160); }
+      const why=String((e&&e.message)||e||'');
+      console.warn('Q1 assistant:', why);
+      this._botServer=false; this._botAuth=!!(e&&e.status===401);
+      const ai=this.state.ai||{};
+      const useKey=!!(ai.connected&&ai.key);
+      const hasBuiltIn=!!(window.claude&&window.claude.complete);
+      if(e&&e.status===401){
+        out='Unlock Ledger with the passcode on this screen, then ask me again. I read the live book once you are signed in.';
+      } else if(useKey||hasBuiltIn){
+        const convo=hist.slice(-10).map(m=>(m.role==='user'?'User: ':'Q1: ')+m.text).join('\n');
+        const prompt='You are Q1, the built-in assistant for LEDGER, a South African micro-lending console run by Ecoloans. Be brief, warm and practical: 1–4 short sentences or a tight list. Plain text only: no Markdown, no asterisks, no headings; use • for list items. Use rand as "R 1 234.56".\n'+
+          'RULES: Answer only from the DATA below. Loan figures are the uploaded CSV values and are authoritative: quote them exactly, never recalculate, round, estimate or invent amounts. If something is not in the data, say so. You cannot change LEDGER records yourself; tell the user where to do it.\n'+
+          'CONNECTED APPS: data from linked apps may appear below. Use it to answer questions about those apps and say which app a fact came from. If an app marked (actions allowed) should do something, end your reply with ONE line exactly like: APICALL: {"app":"<app name>","method":"POST","path":"/path","body":{},"label":"<button text>"}. The user must approve it before it runs.\n'+
+          'If a screen would help, end your reply with ONE line exactly like: ACTION: {"go":"<target>","label":"<button text>"} where target is one of: dashboard, loans, clients, applications, employees, logbook, ledger, settings, notifications, bank, expenses, newloan, filter:duetoday, filter:overdue, filter:paid, filter:issued. Otherwise omit it.\n\nDATA:\n'+this.botContext()+(await this.q1Context())+'\n\nCONVERSATION:\n'+convo+'\nQ1:';
+        try{
+          out=useKey?String(await this.callAI({provider:ai.provider||'claude', key:ai.key}, '', [], prompt)||'').trim()
+                    :String(await window.claude.complete(prompt)||'').trim();
+          if(!useKey) this._botFallback=why;
+        }catch(e2){
+          out='Sorry, I couldn\'t get an answer just now. '+why.slice(0,160);
+        }
       } else {
-        out = 'Sorry, I couldn\'t get an answer. '+(useKey?'Your key returned: ':'')+why.slice(0,160)+(useKey?'\nCheck the key and account credit under Settings › AI.':'');
+        out='Sorry, I couldn\'t reach the ledger assistant just now'+(why?' ('+why.slice(0,140)+')':'')+'. Ask me again in a moment.';
       }
     }
     let act=null; const mc=out.match(/APICALL:\s*(\{[^\n]*\})\s*$/);
     if(mc){ try{ const c=JSON.parse(mc[1]); act={go:'apicall', call:c, label:c.label||('Run on '+c.app)}; }catch(e){} out=out.slice(0,mc.index).trim(); }
     const m=act?null:out.match(/ACTION:\s*(\{[^\n]*\})\s*$/);
     if(m){ try{ act=JSON.parse(m[1]); }catch(e){} out=out.slice(0,m.index).trim(); }
-    out = out.replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
+    out = out.replace(/\{\{|\}\}/g,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
     this.botSaveHist([...this.botHist(), {role:'bot', text:out||'…', act, at:Date.now()}]);
     this.setState({botThinking:false});
   }
@@ -5550,8 +5574,8 @@ class Component extends DCLogic {
             bubble:this.cssObj('max-width:86%;padding:9px 13px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;'+(me?'border-radius:14px 14px 4px 14px;background:#FDD10D;color:#0B0620':(m.brief&&m.alert)?'border-radius:14px 14px 14px 4px;background:rgba(255,69,58,.16);border:1px solid var(--red);box-shadow:0 0 0 3px rgba(255,69,58,.12);color:var(--ink)':'border-radius:14px 14px 14px 4px;background:var(--panel2);border:1px solid var(--line);color:var(--ink)')) }; });
         return {
           botOpen: open, botMsgs: msgs, botThinking: !!st.botThinking, botDraft: st.botDraft||'',
-          botStatus: this._botFallback ? 'KEY ERROR · USING BUILT-IN CLAUDE' : (st.ai&&st.ai.connected&&st.ai.key) ? ('CONNECTED · YOUR '+(st.ai.provider==='openai'?'OPENAI':'CLAUDE')+' KEY') : (window.claude&&window.claude.complete) ? 'CONNECTED VIA BUILT-IN CLAUDE' : 'NOT CONNECTED — ADD KEY IN SETTINGS',
-          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(this._botFallback?'#FFB020':((st.ai&&st.ai.connected&&st.ai.key)||(window.claude&&window.claude.complete))?'#22E07A':'#FF4D5E')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(this._botFallback?'#FFB020':((st.ai&&st.ai.connected&&st.ai.key)||(window.claude&&window.claude.complete))?'#22E07A':'#FF4D5E')),
+          botStatus: this._botServer===false ? (this._botAuth ? 'SIGN IN TO ASK Q1' : 'RECONNECTING') : 'CONNECTED · LEDGER',
+          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(this._botServer===false?'#FFB020':'#22E07A')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(this._botServer===false?'#FFB020':'#22E07A')),
           botToggle: ()=>this.setState({botOpen:!open}),
           q1On: !open && !st.modal,
           onAskQ1: t=>{ this.setState({botOpen:true}); this.botAsk(t); },

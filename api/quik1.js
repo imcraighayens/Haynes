@@ -4,6 +4,7 @@
 //   POST /api/quik1/signups             GET /api/quik1/signups/:id
 //   POST /api/quik1/requests            GET /api/quik1/repayments/:key
 //   GET  /api/quik1/available/:applicationId   available = credit_limit − outstanding principal
+//   POST /api/quik1/q1                         borrower Ask Q1 (no PIN, no gateway key)
 import { randomBytes } from 'node:crypto';
 import { wrap, json, readBody, pathParts, requireEnv, HttpError, PUBLIC_BODY_CAP } from './_lib/http.js';
 import { publicLimiter, clientIp } from './_lib/ratelimit.js';
@@ -12,6 +13,8 @@ import {
   wellFormedClientId, isSafeId, cleanText, cleanPhone, cleanEmail, parseAmount, parseTerm, num, toMs,
   quik1StatusLabel
 } from './_lib/validate.js';
+import { answerBorrower, rand } from './_lib/q1-brain.js';
+import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
@@ -206,6 +209,28 @@ async function getAvailableForApplication(req, res, applicationId) {
   }, req);
 }
 
+// Borrower Ask Q1. Public like the other Quik1 routes: no PIN, no session secret.
+// Answers from the account brief the phone already shows. An optional application id
+// adds that one row's status. Never the staff book, never q1_requests.
+async function postBorrowerQ1(req, res) {
+  const body = await readBody(req, PUBLIC_BODY_CAP);
+  const message = cleanText(body.message ?? body.text, 500);
+  if (!message) throw new HttpError(400, 'message is required');
+  // Newlines stay: the brief is one "Label: value" per line.
+  const brief = String(body.brief == null ? '' : body.brief).replace(/\u0000/g, '').slice(0, 2000);
+  let extra = '';
+  const applicationId = cleanText(body.applicationId, 80);
+  if (isSafeId(applicationId)) {
+    try {
+      const row = await selectOne('applications', { select: 'id,status,amount,source', id: eq(applicationId), source: eq('quik1') });
+      if (row) extra = 'Application status: ' + quik1StatusLabel(row.status) + (row.amount != null ? ' for ' + rand(row.amount) : '');
+    } catch { /* the brief is enough */ }
+  }
+  const result = answerBorrower(message, brief, extra);
+  await notifyQ1Webhook({ source: 'quik1-q1', page: cleanText(body.screen, 40), message });
+  json(res, 200, { reply: result.reply, go: result.go, connected: true }, req);
+}
+
 export default wrap('quik1', async (req, res) => {
   requireEnv(ENV);
   const rl = publicLimiter.check(clientIp(req));
@@ -229,6 +254,10 @@ export default wrap('quik1', async (req, res) => {
     if (id && method === 'GET') return getRepayment(req, res, id);
   } else if (head === 'available') {
     if (id && method === 'GET') return getAvailableForApplication(req, res, id);
+  } else if (head === 'q1') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postBorrowerQ1(req, res);
   } else {
     throw new HttpError(404, 'Not found');
   }
