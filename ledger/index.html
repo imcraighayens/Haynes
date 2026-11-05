@@ -4747,7 +4747,7 @@ class Component extends DCLogic {
       pcBoxStyle:this.cssObj('width:340px;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;padding:30px 28px;box-shadow:var(--modalShadow);'+(st.pcError?'animation:shake .3s ease':'')),
       pc: st.pc, pcError: st.pcError,
       pcChange:(e)=>this.setState({pc:e.target.value.replace(/\D/g,'').slice(0,6), pcError:false}),
-      pcSubmit:()=>{ if(st.pc==='246810'){ this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); } else this.setState({pcError:true,pc:''}); },
+      pcSubmit:()=>{ if(st.pc==='246810'){ var pin=st.pc; this.setState({ledgerUnlocked:true,pc:'',pcError:false}); this.toast('Ledger unlocked — access logged'); try{ if(window.__ledger&&typeof window.__ledger.unlock==='function'){ window.__ledger.unlock(pin).catch(function(e){ try{ console.info('[ledger-sync] unlock session', e&&e.message); }catch(x){} }); } }catch(e){} } else this.setState({pcError:true,pc:''}); },
       pcCancel:()=>this.setState({route:'dashboard',pc:'',pcError:false}),
       lockLedger:()=>this.setState({ledgerUnlocked:false,route:'dashboard'}),
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),

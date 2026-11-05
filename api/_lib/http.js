@@ -32,12 +32,16 @@ function baseHeaders(req, res) {
     }
     return;
   }
-  const allowed = process.env.ALLOWED_ORIGIN;
-  if (allowed) {
+  const allowedRaw = process.env.ALLOWED_ORIGIN;
+  if (allowedRaw) {
     // Same-origin deployments never need CORS; ALLOWED_ORIGIN is for a split front-end host.
+    // Accept a single origin, `*`, or a comma-separated list of exact origins.
     const origin = header(req, 'origin');
-    if (allowed === '*' || (origin && origin === allowed)) {
-      res.setHeader('Access-Control-Allow-Origin', allowed === '*' ? '*' : origin);
+    const allowedList = String(allowedRaw).split(',').map(s => s.trim()).filter(Boolean);
+    const star = allowedList.includes('*');
+    const match = star || (origin && allowedList.includes(origin));
+    if (match) {
+      res.setHeader('Access-Control-Allow-Origin', star ? '*' : origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, apikey, Prefer');

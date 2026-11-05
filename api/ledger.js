@@ -3,7 +3,7 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff } from './_lib/auth.js';
+import { requireStaff, isSameOrigin, verifyUnlockPin, mintStaffSession, staffCookieHeader } from './_lib/auth.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 
@@ -138,6 +138,7 @@ async function postSync(req, res) {
       results.push({ ...base, count: 0, error: msg, retryable });
     }
   }
+  try { await pushRepaymentFlags(ops); } catch { /* never fail the staff sync on Quik1 flag write */ }
   json(res, 200, { ok: results.every(r => !r.error), results, server_time: new Date().toISOString() }, req);
 }
 
@@ -215,11 +216,102 @@ async function bookPost(req, res) {
   json(res, 201, minimal ? [] : out, req);
 }
 
+
+const OPEN_LOAN = new Set(['issued', 'overdue']);
+const CLOSED_LOAN = new Set(['paid', 'settled_early']);
+const DEFAULT_CREDIT_LIMIT = Math.max(500, parseInt(process.env.QUIK1_CREDIT_LIMIT, 10) || 8000);
+
+function creditLimit() { return DEFAULT_CREDIT_LIMIT; }
+
+function outstandingPrincipal(loans) {
+  return (loans || []).filter(l => l && !l.deleted_at && OPEN_LOAN.has(String(l.status || '').toLowerCase()))
+    .reduce((s, l) => s + (Number(l.principal) || 0), 0);
+}
+
+function availableOf(loans) {
+  const outstanding = outstandingPrincipal(loans);
+  return { credit_limit: creditLimit(), outstanding_principal: outstanding, available: Math.max(0, creditLimit() - outstanding) };
+}
+
+async function pushRepaymentFlags(ops) {
+  // Ledger → Quik1: when a loan lands paid/settled_early, flag q1_repayments under app:<application_id>
+  // so Quik1Link's repayment poll unlocks the next borrow. Interest / return_rate stay on the loan row.
+  const flags = [];
+  for (const op of ops || []) {
+    if (!op || op.table !== 'loans') continue;
+    const rows = Array.isArray(op.rows) ? op.rows : (op.row ? [op.row] : []);
+    if (op.op === 'update' && op.patch) {
+      const st = String(op.patch.status || '').toLowerCase();
+      if (CLOSED_LOAN.has(st) && op.id) {
+        const row = await selectOne('loans', { select: 'id,application_id,status,principal', id: eq(op.id) }).catch(() => null);
+        if (row && row.application_id) flags.push({ key: 'app:' + row.application_id, ok: true, by: 'Ledger', at: new Date().toISOString() });
+      }
+    }
+    for (const r of rows) {
+      const st = String((r && r.status) || '').toLowerCase();
+      if (CLOSED_LOAN.has(st) && r && r.application_id) {
+        flags.push({ key: 'app:' + r.application_id, ok: true, by: 'Ledger', at: new Date().toISOString() });
+      }
+    }
+  }
+  if (!flags.length) return;
+  // Dedup by key
+  const byKey = new Map();
+  flags.forEach(f => byKey.set(f.key, f));
+  try { await upsert('q1_repayments', [...byKey.values()], 'key', { returning: false }); } catch { /* table optional until migration */ }
+}
+
+async function postUnlock(req, res) {
+  // Same-origin only — never mint a staff cookie for a cross-site caller.
+  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
+  requireEnv(['LEDGER_KEY']);
+  const body = await readBody(req, 4 * 1024);
+  verifyUnlockPin(body.pin);
+  const { token, exp } = mintStaffSession();
+  res.setHeader('Set-Cookie', staffCookieHeader(token, exp));
+  json(res, 200, { ok: true, expires_at: new Date(exp).toISOString() }, req);
+}
+
+async function postLock(req, res) {
+  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
+  res.setHeader('Set-Cookie', staffCookieHeader('', 0, { clear: true }));
+  json(res, 200, { ok: true }, req);
+}
+
+async function getAvailable(req, res, clientId) {
+  if (!clientId) throw new HttpError(400, 'client id required');
+  const client = await selectOne('clients', { select: 'id,ref,deleted_at', id: eq(clientId) });
+  if (!client || client.deleted_at) throw new HttpError(404, 'Client not found');
+  const loans = await select('loans', { select: 'id,ref,client_id,application_id,principal,status,schedule,deleted_at', client_id: eq(clientId) });
+  const open = (loans || []).filter(l => l && !l.deleted_at && OPEN_LOAN.has(String(l.status || '').toLowerCase()));
+  const bal = availableOf(loans);
+  // Counts + money only — no names, ID numbers, or account numbers.
+  json(res, 200, {
+    client_id: client.id,
+    ref: client.ref || null,
+    open_loans: open.length,
+    ...bal,
+    next_due: open.map(l => Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null).filter(Boolean).sort()[0] || null,
+    server_time: new Date().toISOString()
+  }, req);
+}
+
 export default wrap('ledger', async (req, res) => {
-  requireEnv(ENV);
-  requireStaff(req);
   const parts = pathParts(req, 'ledger');
   const [head, ...rest] = parts;
+
+  // Unlock/lock are same-origin PIN gates — no Bearer required (they mint/clear the staff cookie).
+  if (head === 'unlock' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postUnlock(req, res);
+  }
+  if (head === 'lock' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postLock(req, res);
+  }
+
+  requireEnv(ENV);
+  requireStaff(req);
   if (head === 'state' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getState(req, res);
@@ -227,6 +319,10 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'sync' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postSync(req, res);
+  }
+  if (head === 'available' && rest.length === 1) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return getAvailable(req, res, rest[0]);
   }
   if (head === 'rest' && rest[0] === 'v1' && rest[1] === 'ledger_book' && rest.length === 2) {
     if (req.method === 'GET' || req.method === 'HEAD') return bookGet(req, res);

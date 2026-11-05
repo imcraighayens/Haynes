@@ -63,12 +63,16 @@ const STATE = {
   server_time: '2026-10-29T10:00:00Z',
 };
 
-test('seeds ledjaa.supabase when absent and boots local-only without a key', async () => {
+test('seeds ledjaa.supabase when absent and boots local-only without a key or staff cookie', async () => {
   const { read, calls, head, L } = await boot();
   assert.deepEqual(read('ledjaa.supabase'), { url: ORIGIN + '/api/ledger', key: '', table: 'ledger_book', bookId: 'main', connected: false });
-  assert.equal(calls.length, 0, 'no state fetch without a key');
+  // Always probes GET /state (Bearer key OR same-origin staff cookie). Without either, empty → null.
+  assert.equal(calls.length, 1, 'state fetch probed for staff cookie even without a key');
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(calls[0].init.credentials, 'include');
+  assert.match(String(calls[0].url), /\/state$/);
   assert.equal(await L.state, null);
-  assert.match(L.error, /no key/);
+  assert.match(L.error, /no staff session|no key|HTTP 401|Unauthorized/i);
   assert.equal(head.children.length, 1);
   assert.equal(head.children[0].src, 'c53b361c-bb83-4c37-90f5-7116b8407f79.js');
   assert.equal(read('q1.apps'), null, 'q1.apps untouched without a key');
