@@ -3,6 +3,7 @@
   "framework": null,
   "redirects": [
     { "source": "/", "destination": "/ledger/", "permanent": false },
+    { "source": "/ledger", "destination": "/ledger/", "permanent": false },
     { "source": "/app", "destination": "/quik1/", "permanent": false }
   ],
   "rewrites": [
