@@ -285,10 +285,10 @@ input,button,textarea{font-family:inherit}
 
       <button sc-camel-on-click="{{ onEditProfile }}" style="text-align:left;display:flex;align-items:center;gap:12px;padding:0 0 22px;border:0;border-bottom:1px solid rgba(255,255,255,.16);background:transparent;cursor:pointer;color:#FFFFFF">
         <span style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:#FDD10D;display:grid;place-items:center;overflow:hidden;font-size:15px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
         </span>
         <span style="flex:1;min-width:0">
-          <span style="display:block;font-size:15px;font-weight:500">Thandi Mokoena</span>
+          <span style="display:block;font-size:15px;font-weight:500">{{ hdrName }}</span>
           <span style="display:block;font-size:12px;color:#FDD10D">Edit profile</span>
         </span>
       </button>
@@ -454,7 +454,7 @@ input,button,textarea{font-family:inherit}
           </sc-if>
           <sc-if value="{{ showDrawerHead }}"><div style="flex:0 0 auto;padding:{{ drawerHeadTop }} 22px 12px 22px;display:flex;align-items:center;gap:10px">
             <span style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;overflow:hidden;background:#FDD10D;display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-              <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+              <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
             </span>
             <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="flex:0 0 auto;width:88px;height:auto;display:block;margin-right:auto">
             <button sc-camel-on-click="{{ onOpenAlerts }}" aria-label="Notifications" style="position:relative;flex:0 0 auto;width:53px;height:53px;border-radius:50%;border:1px solid rgba(var(--q-fg),.16);background:#1A1A1A;display:grid;place-items:center;cursor:pointer">
@@ -490,7 +490,7 @@ input,button,textarea{font-family:inherit}
   
             <button sc-camel-on-click="{{ onEditProfile }}" style="flex:0 0 auto;text-align:left;display:flex;align-items:center;gap:12px;padding:14px 0 0;border:0;border-top:1px solid rgba(var(--q-fg),.16);background:transparent;cursor:pointer;color:var(--q-ink)">
               <span style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:#FDD10D;display:grid;place-items:center;overflow:hidden;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
               </span>
               <span style="flex:1;min-width:0;font-size:22px;font-weight:500;letter-spacing:-.03em">Profile</span>
               <span style="flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:1px solid rgba(var(--q-fg),.18);background:rgba(var(--q-fg),.08);display:grid;place-items:center;animation:q-profile-pulse 2.8s cubic-bezier(.4,0,.2,1) infinite;transition:background .3s cubic-bezier(.33,1,.68,1)">
@@ -980,7 +980,7 @@ input,button,textarea{font-family:inherit}
 
             <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:24px;background:var(--q-card);border:1px solid rgba(var(--q-fg),.14);box-shadow:0 10px 24px -14px rgba(0,0,0,.45)">
               <button sc-camel-on-click="{{ onPickPhoto }}" aria-label="Change photo" style="position:relative;flex:0 0 auto;width:64px;height:64px;padding:0;border:0;border-radius:50%;background:#FDD10D;background-image:{{ photoCss }};background-size:cover;background-position:center;display:grid;place-items:center;cursor:pointer;font-size:22px;font-weight:700;color:#0B0620">
-                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+                <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
                 <span style="position:absolute;right:-2px;bottom:-2px;width:24px;height:24px;border-radius:50%;background:var(--q-ink);border:2px solid #FDD10D;display:grid;place-items:center">
                   <svg sc-camel-view-box="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:var(--q-accent);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round"><path d="M4.5 8.5h3l1.5-2h6l1.5 2h3v10h-15ZM12 16a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z"></path></svg>
                 </span>
@@ -1529,7 +1529,7 @@ input,button,textarea{font-family:inherit}
       <div style="flex:0 0 auto;position:relative;z-index:30;padding:34px 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
       <div style="display:flex;align-items:center;gap:10px">
           <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;background:#FDD10D;box-shadow:{{ hdrFloat }},0 0 0 2px rgba(255,255,255,.12);transform:translateY(-3px);display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
-            <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">TM</sc-if>
+            <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
           </span>
           <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;margin-left:2px"><span style="font-size:16px;font-weight:500;letter-spacing:-.02em;color:{{ hdrInk }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ hdrGreeting }}</span><span style="font-size:13px;color:{{ hdrMute }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ hdrName }}</span></span>
           <button sc-camel-on-click="{{ onToggleTheme }}" aria-label="{{ themeLabel }}" style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:1px solid {{ hdrBtnBd }};background:{{ hdrBtnBg }};box-shadow:{{ hdrFloat }};transform:translateY(-3px);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);display:grid;place-items:center;cursor:pointer;transition:background .3s cubic-bezier(.33,1,.68,1)">
@@ -2461,13 +2461,12 @@ input,button,textarea{font-family:inherit}
       docs:0, docsError:'', docChecks:[{state:'idle'}], docError:null, kyc:[], kycError:'',
       decisionTick:0, terms:false, offerError:'',
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
-      profile:{name:'Thandi Mokoena',idnum:'9204125 084 083',email:'thandi.m@gmail.com',mobile:'+27 82 431 9077',bank:'Capitec · ···· 4471'},
+      profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
+      bookMode:false, ledgerAccount:null,
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
-      aiChat:[{from:'bot',text:'Hi Thandi. I am Q1, the Quik1 assistant. Ask me about your balance, dates or limit.'}],
+      aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
-        {from:'them',text:'Hi Thandi — Sipho here. How can I help?'},
-        {from:'me',text:'Can I pay off early without a penalty?'},
-        {from:'them',text:'Yes. The 35% charge is fixed when the loan is granted, so paying sooner never costs you more. Tap Settle the loan on the Repayments tab to pay it off today.'}
+        {from:'them',text:'Hi — how can we help?'}
       ]
     };
   
@@ -2670,27 +2669,83 @@ input,button,textarea{font-family:inherit}
     _chatScroll=React.createRef();
     _key='quik1.account.v1';
     restore(){
-      try{
-        const raw=localStorage.getItem(this._key);
-        if(!raw) return;
-        const a=JSON.parse(raw);
-        if(!a||typeof a!=='object') return;
-        const keep={};
-        ['activeLoan','baseAmount','interestPaid','graduated','profile','approved'].forEach(k=>{
-          if(a[k]!==undefined) keep[k]=a[k];
-        });
-        if(Object.keys(keep).length) this.setState(keep);
-      }catch(e){}
+      try{ localStorage.removeItem(this._key); }catch(e){}
     }
-    persist(patch){
+    persist(){
+      try{ localStorage.removeItem(this._key); }catch(e){}
+    }
+    homeFromBook(payload){
+      const identified=!!(payload&&payload.identified===true);
+      const acct=payload&&payload.account&&typeof payload.account==='object'?payload.account:{};
+      const num=n=>{ const x=Number(n); return Number.isFinite(x)?x:0; };
+      const credit=num(acct.credit_limit), owed=num(acct.outstanding_principal), available=num(acct.available), nextDebit=num(acct.next_debit);
+      const name=identified?String((payload.profile&&payload.profile.name)||'').trim():'';
+      const bank=identified?String((payload.profile&&payload.profile.bank)||'').trim():'';
+      const loans=Array.isArray(acct.loans)?acct.loans:[];
+      const activeLoan=identified&&owed>0?{
+        a:owed, total:owed, term:1, monthly:nextDebit>0?nextDebit:owed,
+        draws:loans.filter(l=>num(l.outstanding_principal)>0).map(l=>({
+          a:num(l.principal), total:num(l.outstanding_principal), date:l.taken_at||'', ref:l.ref||'', term:1, rate:0
+        }))
+      }:null;
+      return {
+        bookMode:true,
+        ledgerAccount:{
+          identified,
+          profile:{name,bank},
+          account:{
+            credit_limit:credit, outstanding_principal:owed, available,
+            next_due:typeof acct.next_due==='string'?acct.next_due:null,
+            next_debit:nextDebit, loans
+          }
+        },
+        profile:{name,idnum:'',email:'',mobile:'',bank},
+        customer:true, activeLoan, baseAmount:credit, interestPaid:0, graduated:false
+      };
+    }
+    openLedgerHome(){
+      this.setState({otp:'',authing:true});
+      const base=(typeof window!=='undefined'&&window.QUIK1_API)||(((typeof location!=='undefined'&&location.origin)||'')+'/api/quik1');
+      const root=String(base).replace(/\/+$/,'');
+      const apply=payload=>{
+        this.setState(Object.assign({authing:false,screen:'home',customer:true,otp:''}, this.homeFromBook(payload)));
+      };
       try{
-        const s=Object.assign({},this.state,patch||{});
-        localStorage.setItem(this._key,JSON.stringify({
-          customer:s.customer, activeLoan:s.activeLoan, baseAmount:s.baseAmount,
-          interestPaid:s.interestPaid, graduated:s.graduated, profile:s.profile,
-          approved:s.approved, savedAt:Date.now()
-        }));
-      }catch(e){}
+        fetch(root+'/me',{credentials:'same-origin',headers:{accept:'application/json'}})
+          .then(r=>r.ok?r.json():null)
+          .then(j=>apply(j))
+          .catch(()=>apply(null));
+      }catch(e){ apply(null); }
+    }
+    bookDueDate(){
+      const iso=this.state.ledgerAccount&&this.state.ledgerAccount.account&&this.state.ledgerAccount.account.next_due;
+      if(!iso||!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+      const p=iso.split('-').map(Number);
+      return new Date(p[0],p[1]-1,p[2]);
+    }
+    debitDayCount(){
+      if(this.state.bookMode){
+        const d=this.bookDueDate();
+        if(!d) return null;
+        const now=new Date();
+        const a=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+        const b=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+        return Math.ceil((b-a)/86400000);
+      }
+      return Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000));
+    }
+    debitWhenLabel(){
+      const n=this.debitDayCount();
+      if(n==null) return 'Not scheduled';
+      if(n<=0) return 'Today';
+      return 'In '+n+(n===1?' day':' days');
+    }
+    debitSideLabel(){
+      if(this.state.bookMode){
+        const d=this.bookDueDate();
+        return d?d.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}):'—';
+      }
+      return DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'});
     }
     num(v){ return parseInt(String(v).replace(/\D/g,'')||'0',10); }
     estimate(){
@@ -2732,6 +2787,11 @@ input,button,textarea{font-family:inherit}
     // The earned base is the most PRINCIPAL a customer may have outstanding.
     headroom(st){
       const s=st||this.state;
+      if(s.bookMode){
+        const acct=s.ledgerAccount&&s.ledgerAccount.account;
+        const n=acct?Number(acct.available):0;
+        return Number.isFinite(n)&&n>0?n:0;
+      }
       if(!s.customer) return LIMIT;
       if(s.withdrawMode&&((this.props.demoWithdrawUnlocked ?? true)||s.repayOk)) return Math.max(0,Math.floor((LIMIT-((s.activeLoan&&s.activeLoan.total)||0))/100)*100);
       const base=Math.min(LIMIT,Math.max(500,s.baseAmount||500));
@@ -2739,8 +2799,6 @@ input,button,textarea{font-family:inherit}
       if(!this.grown(s)) return 0;
       return Math.max(0,Math.floor((base-s.activeLoan.a)/100)*100);
     }
-    seedLoan(){ const a=1000, t=a*(1+this.rate()); return {a,total:t,term:1,monthly:t,draws:[{a,total:t,date:'2 August',ref:'QK-84210',term:1,rate:this.rate()}]}; }
-    seedGrowth(){ const a=1000; return {baseAmount:a, interestPaid:a*this.rate()}; }
     loan(){
       const L=this.state.activeLoan;
       if(L) return L;
@@ -2862,31 +2920,23 @@ input,button,textarea{font-family:inherit}
       const q=(text||'').trim();
       if(!q) return;
       this.setState(st=>({aiChat:[...st.aiChat,{from:'me',text:q}],aiDraft:'',aiTyping:true,aiThinkIdx:0}));
-      const t0=Date.now(), minWait=2600+Math.min(1600,q.length*35)+Math.random()*900;
       clearInterval(this._thinkI); this._thinkI=setInterval(()=>this.setState(st=>({aiThinkIdx:(st.aiThinkIdx||0)+1})),1300);
-      let history=this.state.aiChat.slice(-8).map(m=>({role:m.from==='me'?'user':'assistant',content:m.text}));
-      while(history.length&&history[0].role!=='user') history.shift();
-      const system='You are Q1, the in-app assistant for Quik1, a South African short-term lender. '
-        +'Answer in at most three short sentences, plain and factual, no lists, no emoji. Use rands as "R 1 350". '
-        +'Quik1 charges ONE flat '+((this.props.interestRate ?? 35))+'% of the amount drawn — no monthly fees, no initiation fee, no penalty for settling early. '
-        +'Only use the account facts below; if something is not covered, say the Help chat will pick it up.\n\n'
-        +this.accountBrief();
       const settle=(txt)=>{
         clearTimeout(this._aiT);
-        const wait=Math.max(0,minWait-(Date.now()-t0));
-        this._aiT=setTimeout(()=>{ clearInterval(this._thinkI); this.setState(st=>({aiTyping:false,aiChat:[...st.aiChat,{from:'bot',text:txt}]})); if(this.state.aiVoiceOn!==false) this.speakQ1(txt); },wait);
+        clearInterval(this._thinkI);
+        this.setState(st=>({aiTyping:false,aiChat:[...st.aiChat,{from:'bot',text:txt}]}));
       };
-      const canClaude=typeof window!=='undefined'&&window.claude&&window.claude.complete;
-      if(!canClaude){
-        clearTimeout(this._aiT);
-        settle(this.localAnswer(q));
-        return;
-      }
-      let done=false;
-      this._aiT=setTimeout(()=>{ if(!done){ done=true; settle(this.localAnswer(q)); } },12000);
-      window.claude.complete({system,messages:[...history,{role:'user',content:q}],max_tokens:400})
-        .then(r=>{ if(done) return; done=true; settle((r||'').trim()||this.localAnswer(q)); })
-        .catch(()=>{ if(done) return; done=true; settle(this.localAnswer(q)); });
+      const offline='Q1 is not connected to the team service yet. Use Help and a person will pick this up between 08:00 and 18:00.';
+      const base=(typeof window!=='undefined'&&window.QUIK1_API)||(((typeof location!=='undefined'&&location.origin)||'')+'/api/quik1');
+      const root=String(base).replace(/\/+$/,'');
+      fetch(root+'/q1',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({message:q})})
+        .then(r=>r.json().then(j=>({ok:r.ok,j})).catch(()=>({ok:false,j:{}})))
+        .then(({ok,j})=>{
+          if(ok&&j&&j.reply) return settle(j.reply);
+          if(j&&j.error==='q1_not_configured') return settle(offline);
+          settle('Q1 could not reach the team service just now. Use Help and a person will pick this up.');
+        })
+        .catch(()=>settle(offline));
     }
     async downloadStatement(d){
       let logo=null;
@@ -2985,8 +3035,8 @@ input,button,textarea{font-family:inherit}
         if(window.Quik1Link){
           const c=this.calc();
           linkId=window.Quik1Link.submitApplication({
-            name:st.fullName||'Thandi Mokoena',
-            phone:st.phone?('0'+String(st.phone).replace(/\s/g,'')):'082 441 0912',
+            name:st.fullName||((st.profile&&st.profile.name)||''),
+            phone:st.phone?('0'+String(st.phone).replace(/\s/g,'')):'',
             amount:st.amount,
             term:(this.activeTerm()||1)+' mo',
             purpose:st.purpose==='Other'?st.purposeOther:st.purpose,
@@ -3051,7 +3101,7 @@ input,button,textarea{font-family:inherit}
         const settled=(s.closedLoans||[]).length, onTime=!!s.mandateSigned||!!s.activeLoan;
         const n=Math.max(1,Math.min(5,1+(onTime?1:0)+Math.min(2,settled)+(pct>=50?1:0)));
         const names=['','Getting started','Building','Good','Great','Top performer'];
-        const fn=((s.profile&&s.profile.name)||'Thandi').split(' ')[0].toUpperCase();
+        const fn=((s.profile&&s.profile.name)||'').split(' ')[0].toUpperCase();
         const refs=s.referrals||0;
         Object.assign(v,{
           stars:[1,2,3,4,5].map(i=>({fill:i<=n?'#FDD10D':'transparent',stroke:i<=n?'#FDD10D':'rgba(255,255,255,.25)',glow:i<=n?'drop-shadow(0 0 6px rgba(253,209,13,.45))':'none'})),
@@ -3080,12 +3130,12 @@ input,button,textarea{font-family:inherit}
           if(Array.isArray(v.purposes)) v.purposes=v.purposes.map(dk);
           if(Array.isArray(v.termOptions)) v.termOptions=v.termOptions.map(dk); } }
       { const fz=!!s.cardFrozen, rv=!!s.cardReveal, idd=String((s.profile&&s.profile.idnum)||'').replace(/\D/g,'');
-        const last4=(idd.slice(-4)||'4471');
+        const last4=idd.slice(-4);
         const sel=s.newAcct||'';
         const opts=[['savings','Quik1 Save','Earn interest on money you put aside'],['credit','Second credit line','A separate account for planned spending'],['business','Business account','For sole traders and small businesses']];
         Object.assign(v,{
           isAccounts:s.screen==='accounts',
-          acName:(s.profile&&s.profile.name)||'Thandi Mokoena',
+          acName:(s.profile&&s.profile.name)||'',
           acCardNo:rv?('5274 0912 '+idd.slice(-8,-4).padStart(4,'0')+' '+last4):('•••• •••• •••• '+last4),
           acFrozen:fz, acCardFilter:fz?'grayscale(1) brightness(.75)':'none',
           acCardBg:'radial-gradient(120% 90% at 0% 0%,rgba(255,255,255,.45) 0%,rgba(255,255,255,0) 50%),linear-gradient(150deg,#FFE766 0%,#FDD10D 45%,#E8A800 100%)',
@@ -3096,7 +3146,7 @@ input,button,textarea{font-family:inherit}
           ].map(c=>({...c,bg:c.on?'#FDD10D':'var(--q-tile)',bd:c.on?'#FDD10D':'rgba(var(--q-fg),.08)',ink:c.on?'#0B0620':'var(--q-ink)',icon:c.on?'#0B0620':'var(--q-accent)'})),
           acList:[
             {name:'Quik1 Credit',meta:'Q1-'+(idd.slice(-6)||'000000')+' · Limit '+this.money(LIMIT),status:fz?'Frozen':'Active',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3'},
-            {name:'Payout account',meta:(s.profile&&s.profile.bank)||'Capitec · ···· 4471',status:'Linked',path:'M4 10 12 4.6 20 10M5.6 10v7.4M10 10v7.4M14 10v7.4M18.4 10v7.4M4 19.4h16'},
+            {name:'Payout account',meta:(s.profile&&s.profile.bank)||'Not on file',status:(s.profile&&s.profile.bank)?'Linked':'Not linked',path:'M4 10 12 4.6 20 10M5.6 10v7.4M10 10v7.4M14 10v7.4M18.4 10v7.4M4 19.4h16'},
             ...((s.acctReqs||[]).map(r=>({name:r,meta:'Sent to applications@ecoloans.co.za',status:'Pending',path:'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z'})))
           ].map(a=>({...a,pillBg:a.status==='Active'||a.status==='Linked'?'rgba(253,209,13,.14)':'rgba(var(--q-fg),.08)',pillInk:a.status==='Active'||a.status==='Linked'?'var(--q-accent)':'rgba(var(--q-fg),.75)'})),
           acNewOpts:opts.map(([k,label,note])=>({label,note,bd:sel===k?'#FDD10D':'rgba(var(--q-fg),.12)',dot:sel===k?'#FDD10D':'transparent',go:()=>this.setState({newAcct:k})})),
@@ -3300,7 +3350,7 @@ input,button,textarea{font-family:inherit}
           if(!su&&s.liPhone!==demo.phone) return toast('No account found','We could not find an account for +27 '+s.liPhone+'. Tap Sign up to create one.');
           clearTimeout(this._liT);
           this.setState({authing:true,phone:s.liPhone,liToast:null});
-          setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),900);
+          this.openLedgerHome();
         },
         loginHeadJustify:(s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?'center':'flex-end',
         loginOtpStep:s.screen==='login'&&(s.loginMode==='new'||s.loginMode==='pin')&&s.otpMode,
@@ -3528,7 +3578,7 @@ input,button,textarea{font-family:inherit}
         onBiometric:async()=>{
           if(s.authing) return;
           this.setState({authing:true,faceErr:false});
-          const done=()=>setTimeout(()=>this.setState(Object.assign({authing:false,screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth())),400);
+          const done=()=>this.openLedgerHome();
           const fail=()=>this.setState({authing:false,faceErr:true});
           const pk=window.PublicKeyCredential, KEY='quik1_faceid_cred';
           const b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))), unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
@@ -3654,11 +3704,12 @@ input,button,textarea{font-family:inherit}
           this.verifyAll();
         },
         phoneDisplay:s.phone||'82 000 0000',
-        maskedPhone:'+27 •• ••• 9077',
+        maskedPhone:(s.profile&&s.profile.mobile)||'',
         onEditProfile:()=>this.switchPanel('profile',true),
         fileRef:this._file,
         splashVideoRef:this._splashVid, loginVideoRef:this._loginVid,
         photo:s.photo, hasPhoto:!!s.photo, noPhoto:!s.photo,
+        avatarLetters:((n)=>{ const p=String(n||'').trim().split(/\s+/).filter(Boolean); if(!p.length) return ''; return ((p[0][0]||'')+(p[1]?p[1][0]:'')).toUpperCase(); })(s.profile&&s.profile.name),
         photoCss:s.photo?('url("'+s.photo+'")'):'none',
         photoLabel:s.photo?'Change photo':'Add a photo',
         onPickPhoto:()=>this._file.current&&this._file.current.click(),
@@ -3685,8 +3736,8 @@ input,button,textarea{font-family:inherit}
         profileDirtyOn:!!s.profileDirty||!!s.profileSaved,
         profileMobile:(s.profile&&s.profile.mobile)||'',
         ...(()=>{ const BR={'Absa':'632005','Capitec':'470010','FNB':'250655','Nedbank':'198765','Standard Bank':'051001','TymeBank':'678910','Discovery Bank':'679000','African Bank':'430000','Investec':'580105'};
-          const pb=String((s.profile&&s.profile.bank)||'Capitec · ···· 4471');
-          const d=s.banking||{bank:Object.keys(BR).find(k=>pb.indexOf(k)===0)||'Capitec',holder:(s.profile&&s.profile.name)||'',acc:'',type:'Savings',masked:(pb.match(/(\d{4})\s*$/)||[])[1]||'4471'};
+          const pb=String((s.profile&&s.profile.bank)||(s.bookMode?'':''));
+          const d=s.banking||{bank:Object.keys(BR).find(k=>pb.indexOf(k)===0)||'',holder:(s.profile&&s.profile.name)||'',acc:'',type:'Savings',masked:(pb.match(/(\d{4})\s*$/)||[])[1]||''};
           const set=patch=>this.setState(st=>({banking:{...d,...(st.banking||{}),...patch},bkDirty:true,bkSaved:false}));
           const accDigits=String(d.acc||'').replace(/\D/g,'');
           const err=d.acc&&(accDigits.length<6||accDigits.length>13)?'Account numbers are 6 to 13 digits.':'';
@@ -3799,7 +3850,7 @@ input,button,textarea{font-family:inherit}
               const next=(st.otp+k).slice(0,4);
               if(next.length===4){
                 const pin=st.loginMode==='pin'||st.screen==='login'||st.screen==='signup'||st.screen==='signupPending';
-                setTimeout(()=>this.setState(pin?Object.assign({screen:'home',customer:true,activeLoan:this.seedLoan()},this.seedGrowth()):{screen:'who'}),320);
+                setTimeout(()=>this.openLedgerHome(),320);
               }
               return {otp:next};
             });
@@ -4189,23 +4240,25 @@ input,button,textarea{font-family:inherit}
         topUpBg:canTopUp?'#FDD10D':'#0B0620', topUpInk:canTopUp?'#0B0620':'#FFFFFF',
         onTopUp:()=>nav.amount(),
         hdrGreeting:(hr=>hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')(new Date().getHours()),
-        hdrName:(s.profile&&s.profile.name)||'Thandi Mokoena',
-        heroMeta:hasLoan?(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return 'Debit in '+n+(n===1?' day':' days'); })():'No loan open',
-        debitDaysShort:(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })(),
+        hdrName:(s.profile&&s.profile.name)||(s.bookMode?'Not linked':''),
+        heroMeta:!s.bookMode?(hasLoan?('Debit in '+this.debitDayCount()+(this.debitDayCount()===1?' day':' days')):(hasLoan?'No loan open':'No loan open')):(!(s.ledgerAccount&&s.ledgerAccount.identified)?'Not linked':hasLoan?(this.debitDayCount()==null?'No debit date on file':('Debit in '+Math.max(0,this.debitDayCount())+(this.debitDayCount()===1?' day':' days'))):'No loan open'),
+        debitDaysShort:this.debitWhenLabel(),
         debitAmount:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
-        debitShortDate:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}).replace('/','/'),
+        debitShortDate:this.debitSideLabel(),
         credCards:(()=>{
           const front=s.credFront||'available';
           const growthPctVal=Math.min(100,Math.round((this.growthPaid(s)/Math.max(1,this.growthTarget(s)))*100));
-          const tierNoteVal=Math.round(this.rate()*100)+'% interest';
-          const avW=this.headroom({...s,withdrawMode:true}); const owedW=hasLoan?((s.activeLoan&&s.activeLoan.total)||L.total||0):0; const owedPct=Math.round(Math.min(100,(owedW/(LIMIT||8000))*100)); const lim=LIMIT||8000, avPct=Math.round(Math.min(100,Math.max(0,(avW/lim)*100)));
-          const debitDays=(()=>{ const n=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)); return n===0?'Today':'In '+n+(n===1?' day':' days'); })();
-          const name=(s.profile&&s.profile.name)||'Thandi Mokoena';
+          const tierNoteVal=s.bookMode?(hasLoan?'Principal only':'Nothing to collect'):(Math.round(this.rate()*100)+'% interest');
+          const bookLim=s.bookMode?Math.max(0,Number(s.ledgerAccount&&s.ledgerAccount.account&&s.ledgerAccount.account.credit_limit)||0):(LIMIT||8000);
+          const avW=this.headroom({...s,withdrawMode:true}); const owedW=hasLoan?((s.activeLoan&&s.activeLoan.total)||L.total||0):0; const owedPct=bookLim?Math.round(Math.min(100,(owedW/bookLim)*100)):0; const lim=bookLim||1, avPct=Math.round(Math.min(100,Math.max(0,(avW/lim)*100)));
+          const debitDays=this.debitWhenLabel();
+          const dueSide=this.debitSideLabel();
+          const name=(s.profile&&s.profile.name)||(s.bookMode?'Quik1':'');
           const cards=[
             {k:'debit',tabLabel:'Next debit',tabValue:debitDays,line:name,big:!hasLoan?'R 0':s.hideAmounts?'R ••••':this.money(L.monthly||L.total),
-              side:DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}),pct:growthPctVal,note:tierNoteVal,act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()},
+              side:dueSide,pct:growthPctVal,note:tierNoteVal,act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()},
             {k:'available',tabLabel:'You owe',tabValue:s.hideAmounts?'R ••••':this.money(owedW),line:'Owed to Quik1',big:s.hideAmounts?'R ••••':this.money(owedW),
-              side:hasLoan?'Due '+DUE_DATE.toLocaleDateString('en-ZA',{day:'2-digit',month:'2-digit'}):'Nothing owed',pct:owedPct,note:hasLoan?'Tap to manage your loan.':'Tap to apply for a loan.',act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()}
+              side:hasLoan?(dueSide==='—'?'No date on file':'Due '+dueSide):'Nothing owed',pct:owedPct,note:hasLoan?'Principal still out.':'Nothing owed.',act:()=>hasLoan?this.setState({loanSheet:true}):nav.amount()}
           ];
           cards.forEach(c=>{ if(s.hideAmounts){ c.cents=''; return; } const amt=c.k==='debit'?(hasLoan?(L.monthly||L.total):0):owedW; const p=this.moneyParts(amt); c.big=p[0]; c.cents=p[1]; });
           return cards.map(c=>{ const f=c.k===front;

@@ -5,13 +5,16 @@
 //   POST /api/quik1/requests            GET /api/quik1/repayments/:key
 //   GET  /api/quik1/available/:applicationId   available = credit_limit − outstanding principal
 import { randomBytes } from 'node:crypto';
-import { wrap, json, readBody, pathParts, requireEnv, HttpError, PUBLIC_BODY_CAP } from './_lib/http.js';
+import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, PUBLIC_BODY_CAP } from './_lib/http.js';
 import { publicLimiter, clientIp } from './_lib/ratelimit.js';
 import { select, selectOne, count, upsert, eq } from './_lib/supabase.js';
+import { bearerToken, safeEqual } from './_lib/auth.js';
 import {
   wellFormedClientId, isSafeId, cleanText, cleanPhone, cleanEmail, parseAmount, parseTerm, num, toMs,
   quik1StatusLabel
 } from './_lib/validate.js';
+import { accountFromLoans, publicProfile, unidentified, validClientId } from './_lib/quik1-book.js';
+import { readSessionClientId } from './_lib/quik1-session.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
@@ -166,6 +169,120 @@ async function postRequest(req, res, body) {
 // Keys are scoped to one customer record (`app:<applicationId>`, written by staff); the bare
 // `app` the local original used would be one global flag shown to every customer, so it is
 // answered with null without touching the table.
+const LOAN_VIEW = 'id,ref,client_id,principal,status,schedule,instalment_amount,issued_on,deleted_at';
+const CLIENT_VIEW = 'id,ref,name,bank,deleted_at';
+
+function requireSync(req) {
+  const expected = process.env.QUIK1_LEDGER_SYNC_KEY;
+  const configured = typeof expected === 'string' && expected.length >= 32;
+  const token = bearerToken(req);
+  const ok = safeEqual(token || '\u0000', configured ? expected : '00000000000000000000000000000000');
+  // PIN login is a different switch and is not consulted here.
+  if (!configured || !ok) throw new HttpError(403, 'forbidden');
+}
+
+async function loadClientAccount(clientId) {
+  if (!validClientId(clientId)) return null;
+  const client = await selectOne('clients', { select: CLIENT_VIEW, id: eq(clientId) });
+  if (!client || client.deleted_at) return null;
+  const loans = await select('loans', { select: LOAN_VIEW, client_id: eq(clientId), order: 'created_at.asc,id.asc' });
+  return {
+    identified: true,
+    profile: publicProfile(client),
+    account: accountFromLoans(loans)
+  };
+}
+
+async function getMe(req, res) {
+  const clientId = readSessionClientId(req);
+  if (!clientId) { json(res, 200, unidentified(), req); return; }
+  requireEnv(ENV);
+  const view = await loadClientAccount(clientId);
+  json(res, 200, view || unidentified(), req);
+}
+
+// Production PIN checks against ID numbers are not implemented.
+// QUIK1_ALLOW_PRODUCTION_AUTH is intentionally ignored so an env flip cannot start them.
+async function postSession(req, res) {
+  await readBody(req, PUBLIC_BODY_CAP);
+  json(res, 200, { ok: true, identified: false, reason: 'pin_verification_disabled' }, req);
+}
+
+function q1Endpoint() {
+  const raw = process.env.QUIK1_Q1_URL;
+  if (!raw || typeof raw !== 'string') return '';
+  let url;
+  try { url = new URL(raw); } catch { return ''; }
+  if (url.protocol !== 'https:') return '';
+  return url.toString();
+}
+
+async function postQ1(req, res) {
+  const body = await readBody(req, PUBLIC_BODY_CAP);
+  const message = cleanText(body.message, 2000);
+  if (!message) throw new HttpError(400, 'message is required');
+  const endpoint = q1Endpoint();
+  if (!endpoint) throw new HttpError(503, 'q1_not_configured', { missing: 'QUIK1_Q1_URL' });
+
+  let account = null;
+  const clientId = readSessionClientId(req);
+  if (clientId) {
+    requireEnv(ENV);
+    const view = await loadClientAccount(clientId);
+    if (view) {
+      account = {
+        name: view.profile.name,
+        ref: view.profile.ref,
+        credit_limit: view.account.credit_limit,
+        outstanding_principal: view.account.outstanding_principal,
+        outstanding_interest: view.account.outstanding_interest,
+        total_owed: view.account.total_owed,
+        available: view.account.available,
+        next_due: view.account.next_due,
+        loans: view.account.loans.map(l => ({
+          ref: l.ref, principal: l.principal, status: l.status,
+          outstanding_principal: l.outstanding_principal, due_date: l.due_date
+        }))
+      };
+    }
+  }
+
+  const key = process.env.QUIK1_Q1_KEY;
+  const headers = { 'content-type': 'application/json', accept: 'application/json' };
+  if (typeof key === 'string' && key.length >= 16) headers.authorization = `Bearer ${key}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  let upstream;
+  try {
+    upstream = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message, account }),
+      signal: ctrl.signal
+    });
+  } catch {
+    throw new HttpError(502, 'q1_unavailable');
+  } finally {
+    clearTimeout(timer);
+  }
+  const text = typeof upstream.text === 'function' ? await upstream.text() : '';
+  let data = null;
+  if (text) { try { data = JSON.parse(text); } catch { data = null; } }
+  const reply = data && (cleanText(data.reply, 4000) || cleanText(data.text, 4000) || cleanText(data.message, 4000));
+  if (!upstream.ok || !reply) throw new HttpError(502, 'q1_unavailable');
+  json(res, 200, { reply }, req);
+}
+
+async function getLedgerAccount(req, res) {
+  requireSync(req);
+  requireEnv(ENV);
+  const id = searchParams(req).get('ledger_client_id') || '';
+  if (!validClientId(id)) throw new HttpError(400, 'ledger_client_id is required');
+  const view = await loadClientAccount(id);
+  if (!view) throw new HttpError(404, 'borrower not found');
+  json(res, 200, { ok: true, borrower: { ledger_client_id: id, name: view.profile.name, ref: view.profile.ref, status: 'active' }, account: view.account }, req);
+}
+
 async function getRepayment(req, res, key) {
   if (!isSafeId(key)) throw new HttpError(400, 'bad key');
   if (key.indexOf(':') < 0) { json(res, 200, null, req); return; }
@@ -174,34 +291,23 @@ async function getRepayment(req, res, key) {
 }
 
 
-const OPEN_LOAN = new Set(['issued', 'overdue']);
-const CREDIT_LIMIT = Math.max(500, parseInt(process.env.QUIK1_CREDIT_LIMIT, 10) || 8000);
-
 // Read-own by unguessable application id. No PIN / id_number lookup — live PIN verification stays off.
+// Limit stand-in is the largest historical principal on that client's book, not a fixed product cap.
 async function getAvailableForApplication(req, res, applicationId) {
   if (!isSafeId(applicationId)) throw new HttpError(400, 'bad id');
   const app = await selectOne('applications', { select: 'id,client_id,status,amount,source', id: eq(applicationId), source: eq('quik1') });
   if (!app) throw new HttpError(404, 'Application not found');
-  let outstanding = 0, open = 0, nextDue = null;
-  if (app.client_id) {
-    const loans = await select('loans', { select: 'principal,status,schedule,deleted_at,client_id', client_id: eq(app.client_id) });
-    for (const l of loans || []) {
-      if (!l || l.deleted_at) continue;
-      if (!OPEN_LOAN.has(String(l.status || '').toLowerCase())) continue;
-      open += 1;
-      outstanding += Number(l.principal) || 0;
-      const d = Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null;
-      if (d && (!nextDue || d < nextDue)) nextDue = d;
-    }
-  }
+  const loans = app.client_id
+    ? await select('loans', { select: LOAN_VIEW, client_id: eq(app.client_id) })
+    : [];
+  const account = accountFromLoans(loans);
   json(res, 200, {
     application_id: app.id,
-    credit_limit: CREDIT_LIMIT,
-    outstanding_principal: outstanding,
-    available: Math.max(0, CREDIT_LIMIT - outstanding),
-    open_loans: open,
-    next_due: nextDue,
-    // repaid original principal returns to available when loans leave issued/overdue (paid|settled_early).
+    credit_limit: account.credit_limit,
+    outstanding_principal: account.outstanding_principal,
+    available: account.available,
+    open_loans: account.loans.filter(l => l.outstanding_principal > 0).length,
+    next_due: account.next_due,
     server_time: new Date().toISOString()
   }, req);
 }
@@ -229,6 +335,14 @@ export default wrap('quik1', async (req, res) => {
     if (id && method === 'GET') return getRepayment(req, res, id);
   } else if (head === 'available') {
     if (id && method === 'GET') return getAvailableForApplication(req, res, id);
+  } else if (head === 'me') {
+    if (!id && method === 'GET') return getMe(req, res);
+  } else if (head === 'session') {
+    if (!id && method === 'POST') return postSession(req, res);
+  } else if (head === 'q1') {
+    if (!id && method === 'POST') return postQ1(req, res);
+  } else if (head === 'ledger') {
+    if (id === 'account' && method === 'GET') return getLedgerAccount(req, res);
   } else {
     throw new HttpError(404, 'Not found');
   }
