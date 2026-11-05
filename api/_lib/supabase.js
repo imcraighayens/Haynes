@@ -141,6 +141,12 @@ export async function update(table, match, patch) {
   if (!match || !Object.keys(match).length) throw new HttpError(400, 'update needs a match');
   const query = {};
   for (const [k, v] of Object.entries(match)) query[k] = eq(v);
+  return patchWhere(table, query, patch);
+}
+
+// query values are already PostgREST filters (`eq.id`, `is.null`, `gt.timestamp`).
+export async function patchWhere(table, query, patch) {
+  if (!query || !Object.keys(query).length) throw new HttpError(400, 'update needs a match');
   const { data } = await request('PATCH', table, query, { body: patch, prefer: 'return=representation' });
   return Array.isArray(data) ? data : [];
 }

@@ -15,6 +15,7 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
+import { redeemInvite, loginBorrower, logoutBorrower, borrowerHome } from './_lib/borrower.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
@@ -231,6 +232,32 @@ async function postBorrowerQ1(req, res) {
   json(res, 200, { reply: result.reply, go: result.go, connected: true }, req);
 }
 
+function setCookies(res, list) {
+  if (list && list.length) res.setHeader('Set-Cookie', list.length === 1 ? list[0] : list);
+}
+
+async function postRedeem(req, res) {
+  const out = await redeemInvite(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postBorrowerLogin(req, res) {
+  const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postBorrowerLogout(req, res) {
+  const out = await logoutBorrower(req);
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true }, req);
+}
+
+async function getMe(req, res) {
+  json(res, 200, await borrowerHome(req), req);
+}
+
 export default wrap('quik1', async (req, res) => {
   requireEnv(ENV);
   const rl = publicLimiter.check(clientIp(req));
@@ -258,6 +285,22 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerQ1(req, res);
+  } else if (head === 'invites') {
+    if (id !== 'redeem' || rest.length) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postRedeem(req, res);
+  } else if (head === 'login') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postBorrowerLogin(req, res);
+  } else if (head === 'logout') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postBorrowerLogout(req, res);
+  } else if (head === 'me') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return getMe(req, res);
   } else {
     throw new HttpError(404, 'Not found');
   }
