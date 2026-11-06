@@ -31,6 +31,13 @@ function scheduleDates(loan) {
   return raw.map(isoDate).filter(Boolean);
 }
 
+// The stored schedule is the remaining dates. instalments_paid is not an index
+// into that list: subtracting it again hides instalments that are still due.
+// An empty list stays empty. No date is invented for an overdue loan.
+export function remainingSchedule(loan) {
+  return scheduleDates(loan).slice().sort();
+}
+
 function instalmentOf(loan) {
   const n = Number(loan && loan.instalment_amount);
   return Number.isFinite(n) && n > 0 ? roundMoney(n) : 0;
@@ -51,7 +58,7 @@ export function statementsFromLoans(loans) {
     const lines = [];
     const issued = isoDate(loan.issued_on);
     if (issued) lines.push({ date: issued, label: 'Loan recorded', kind: 'status', amount: principal });
-    for (const date of scheduleDates(loan)) {
+    for (const date of remainingSchedule(loan)) {
       lines.push({ date, label: 'Instalment due', kind: 'due', amount: instalment || principal });
     }
     for (const date of paidDatesOf(loan)) {
@@ -90,7 +97,8 @@ export function accountFromLoans(loans) {
     const settled = isSettledStatus(loan.status);
     const outP = settled ? 0 : principal;
     outstanding = roundMoney(outstanding + outP);
-    const due = scheduleDates(loan).sort()[0] || '';
+    const dates = remainingSchedule(loan);
+    const due = dates[0] || '';
     if (!settled && due && (!nextDue || due < nextDue)) {
       nextDue = due;
       const inst = Number(loan.instalment_amount);
@@ -107,7 +115,7 @@ export function accountFromLoans(loans) {
       outstanding_principal: outP,
       purpose: String(loan.purpose || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120),
       instalment: instalmentOf(loan),
-      schedule: scheduleDates(loan),
+      schedule: dates,
       instalments_paid: Math.max(0, parseInt(loan.instalments_paid, 10) || 0),
       paid_dates: paidDates
     });

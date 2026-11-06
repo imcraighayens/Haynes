@@ -5,6 +5,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter } from '../../api/_lib/ratelimit.js';
+import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -36,7 +37,7 @@ const seed = {
   ],
   loans: [
     { id: 'l_a_paid', ref: 'ECL-900', client_id: CLIENT_A, principal: 2000, status: 'paid', schedule: ['2026-07-25'], instalment_amount: 2000, issued_on: '2026-06-25', paid_dates: ['2026-07-25'], deleted_at: null },
-    { id: LOAN_A, ref: REF_A, client_id: CLIENT_A, principal: 500, status: 'issued', schedule: ['2026-11-25', '2026-12-25'], instalment_amount: 250, purpose: 'Stock', issued_on: '2026-10-25', paid_dates: [], deleted_at: null },
+    { id: LOAN_A, ref: REF_A, client_id: CLIENT_A, principal: 500, status: 'issued', schedule: ['2026-12-25', '2026-11-25'], instalment_amount: 250, instalments_paid: 1, purpose: 'Stock', issued_on: '2026-10-25', paid_dates: [], deleted_at: null },
     { id: LOAN_B, ref: REF_B, client_id: CLIENT_B, principal: 900, status: 'issued', schedule: ['2026-11-25'], instalment_amount: 900, purpose: 'Fees', issued_on: '2026-10-01', deleted_at: null }
   ],
   applications: [],
@@ -101,6 +102,7 @@ describe('borrower book', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
     fake.reset();
+    process.env.QUIK1_BORROWER_PIN = '1';
     restore();
     restore = install(fake, URL);
   });
@@ -274,5 +276,78 @@ describe('borrower book', { concurrency: false }, () => {
     assert.equal(String(stored.meta.docs[0].path).includes('http'), false);
     assert.equal(fake.writes('storage', 'POST').length, 1);
     assert.equal(fake.db.q1_borrowers.length, before);
+  });
+
+  test('remaining schedule keeps every stored date and does not invent one', () => {
+    const open = accountFromLoans([{
+      id: 'l_sched', ref: 'ECL-1', principal: 1000, status: 'issued', deleted_at: null,
+      schedule: ['2026-12-25', '2026-11-25', '2027-01-25'], instalments_paid: 2, instalment_amount: 300
+    }]);
+    assert.deepEqual(open.loans[0].schedule, ['2026-11-25', '2026-12-25', '2027-01-25']);
+    assert.equal(open.next_due, '2026-11-25');
+    const overdue = accountFromLoans([{
+      id: 'l_over', ref: 'ECL-2', principal: 400, status: 'overdue', deleted_at: null,
+      schedule: [], instalments_paid: 4
+    }]);
+    assert.equal(overdue.next_due, null);
+    assert.deepEqual(overdue.loans[0].schedule, []);
+    const past = accountFromLoans([{
+      id: 'l_past', ref: 'ECL-3', principal: 400, status: 'overdue', deleted_at: null,
+      schedule: ['2026-01-15'], instalments_paid: 1
+    }]);
+    assert.deepEqual(past.loans[0].schedule, ['2026-01-15']);
+    assert.equal(past.next_due, '2026-01-15');
+  });
+
+  test('staff can view one client on a preview host, and production stays closed', async () => {
+    delete process.env.QUIK1_PREVIEW_VIEW_AS_CLIENT;
+    delete process.env.VERCEL_ENV;
+    const hidden = await call(quik1, {
+      method: 'GET', path: ['preview'], headers: { authorization: 'Bearer ' + STAFF }
+    });
+    assert.equal(hidden.statusCode, 404);
+
+    process.env.QUIK1_PREVIEW_VIEW_AS_CLIENT = '1';
+    process.env.VERCEL_ENV = 'production';
+    const prod = await call(quik1, {
+      method: 'GET', path: ['preview'],
+      headers: { authorization: 'Bearer ' + STAFF, host: 'quik1.app' }
+    });
+    assert.equal(prod.statusCode, 404);
+    delete process.env.VERCEL_ENV;
+
+    const anon = await call(quik1, {
+      method: 'GET', path: ['preview'], headers: { host: 'preview.example' }
+    });
+    assert.equal(anon.statusCode, 401);
+    assert.equal(JSON.stringify(anon.json()).includes('service-role'), false);
+
+    const list = await call(quik1, {
+      method: 'GET', path: ['preview'],
+      headers: { authorization: 'Bearer ' + STAFF, host: 'preview.example' }
+    });
+    assert.equal(list.statusCode, 200);
+    assert.equal(list.json().enabled, true);
+    assert.equal(list.json().clients.some(c => c.id === CLIENT_A && c.name === NAME_A), true);
+    assert.equal(JSON.stringify(list.json()).includes('service-role'), false);
+
+    const book = await call(quik1, {
+      method: 'GET', path: ['preview', CLIENT_A],
+      headers: { authorization: 'Bearer ' + STAFF, host: 'preview.example' }
+    });
+    assert.equal(book.statusCode, 200);
+    assert.equal(book.json().profile.name, NAME_A);
+    const loan = book.json().account.loans.find(l => l.ref === REF_A);
+    assert.deepEqual(loan.schedule, ['2026-11-25', '2026-12-25']);
+    assert.equal(book.json().account.next_due, '2026-11-25');
+    assert.equal(JSON.stringify(book.json()).includes(REF_B), false);
+    assert.equal(JSON.stringify(book.json()).includes(NAME_B), false);
+
+    const liveHost = await call(quik1, {
+      method: 'GET', path: ['preview', CLIENT_A],
+      headers: { authorization: 'Bearer ' + STAFF, host: 'quik1.app' }
+    });
+    assert.equal(liveHost.statusCode, 404);
+    delete process.env.QUIK1_PREVIEW_VIEW_AS_CLIENT;
   });
 });

@@ -18,8 +18,11 @@ import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 import { redeemInvite, loginBorrower, logoutBorrower, borrowerHome } from './_lib/borrower.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
-  createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument
+  createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument,
+  previewClients, previewBook
 } from './_lib/borrower-book.js';
+import { requireStaff } from './_lib/auth.js';
+import { previewViewAsAllowed } from './_lib/quik1-flags.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const DOC_BODY_CAP = 2 * 1024 * 1024;
@@ -325,6 +328,16 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerLogout(req, res);
+  } else if (head === 'preview') {
+    if (!previewViewAsAllowed(req)) throw new HttpError(404, 'Not found');
+    await requireStaff(req);
+    if (!id && (method === 'GET' || method === 'HEAD')) {
+      return json(res, 200, { enabled: true, clients: await previewClients() }, req);
+    }
+    if (id && !rest.length && (method === 'GET' || method === 'HEAD')) {
+      return json(res, 200, await previewBook(id), req);
+    }
+    throw new HttpError(405, 'Method not allowed');
   } else if (head === 'me') {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');

@@ -8,6 +8,7 @@ import { isSafeId } from './validate.js';
 import { hashPin, verifyPin, isPin } from './pin.js';
 import { borrowerBook } from './borrower-book.js';
 import { staffIdentity } from './auth.js';
+import { borrowerPinLive } from './quik1-flags.js';
 import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef,
   sessionCookie, deviceCookie, clearSessionCookie, requestIsSecure
@@ -222,6 +223,7 @@ export function authCookies(minted, accountRef, req) {
 }
 
 export async function redeemInvite(req, body) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   requireSessionSecret();
   const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
@@ -274,6 +276,7 @@ export async function redeemInvite(req, body) {
 }
 
 export async function loginBorrower(req, body) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   requireSessionSecret();
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';

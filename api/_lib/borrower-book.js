@@ -371,3 +371,38 @@ export async function signStaffDocument(applicationId, docPath) {
   const url = await signPrivate(path, 120);
   return { name: cleanText(hit.name, 80), url };
 }
+
+const PREVIEW_CLIENT_CAP = 200;
+
+export async function previewClients() {
+  const rows = await select('clients', {
+    select: 'id,ref,name,deleted_at',
+    order: 'name.asc',
+    limit: PREVIEW_CLIENT_CAP
+  });
+  return (rows || []).filter(row => row && !row.deleted_at && isSafeId(String(row.id || ''))).map(row => ({
+    id: row.id,
+    ref: String(row.ref || '').trim(),
+    name: String(row.name || '').trim()
+  }));
+}
+
+// Same borrower view as a signed-in client, for one id the staff member named.
+export async function previewBook(clientId) {
+  if (!isSafeId(clientId)) throw new HttpError(400, 'bad id');
+  const client = await selectOne('clients', {
+    select: 'id,ref,name,bank,deleted_at',
+    id: eq(clientId)
+  });
+  if (!client || client.deleted_at) throw new HttpError(404, 'Client not found');
+  const loans = await loansOf(client.id);
+  return {
+    identified: true,
+    preview: true,
+    profile: publicProfile(client),
+    account: accountFromLoans(loans),
+    statements: statementsFromLoans(loans),
+    applications: [],
+    messages: []
+  };
+}

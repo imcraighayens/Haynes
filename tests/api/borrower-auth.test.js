@@ -101,6 +101,7 @@ describe('borrower auth', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
     fake.reset();
+    process.env.QUIK1_BORROWER_PIN = '1';
     restore();
     restore = install(fake, URL);
   });
@@ -315,5 +316,30 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     process.env.QUIK1_SESSION_SECRET = SECRET;
     assert.equal(res.statusCode, 503);
+  });
+
+  test('live PIN stays off without the flag and on a production host', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const code = created.json().code;
+    delete process.env.QUIK1_BORROWER_PIN;
+    const held = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    process.env.QUIK1_BORROWER_PIN = '1';
+    assert.equal(held.statusCode, 503);
+    assert.equal(fake.db.q1_borrowers.length, 0);
+
+    process.env.VERCEL_ENV = 'production';
+    const live = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      headers: { host: 'quik1.app' },
+      body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    delete process.env.VERCEL_ENV;
+    assert.equal(live.statusCode, 503);
+    assert.equal(fake.db.q1_borrowers.length, 0);
+    assert.equal(JSON.stringify(live.json()).includes(PIN_OK), false);
   });
 });

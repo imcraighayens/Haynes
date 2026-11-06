@@ -151,6 +151,17 @@
 <script src="96aed023-8540-4384-bdbc-3bc317708b87.js"></script>
 </head>
 <body>
+<style>
+#q1-view-as[hidden]{display:none !important}
+#q1-view-as{position:fixed;z-index:90;left:12px;right:12px;top:calc(8px + env(safe-area-inset-top));display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:#0B0620;color:#fff;border:1px solid rgba(253,209,13,.5);font:600 12px/1.3 Ubuntu,sans-serif}
+#q1-view-as select{flex:1;min-width:0;background:#1C2029;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px}
+#q1-view-as button{border:0;border-radius:8px;background:#FDD10D;color:#0B0620;font:700 12px Ubuntu,sans-serif;padding:6px 10px}
+</style>
+<div id="q1-view-as" hidden>
+  <span>View as client</span>
+  <select id="q1-view-as-pick" aria-label="Ledger client"></select>
+  <button type="button" id="q1-view-as-go">Load</button>
+</div>
 <x-dc>
 <helmet>
 
@@ -2779,6 +2790,7 @@ input,button,textarea{font-family:inherit}
         if(d && (!this.state.linkDecision || this.state.linkDecision.at!==d.at)) this.setState({linkDecision:d});
       });
       this.prepareBorrowerAuth();
+      this.preparePreview();
     }
     signupVals(){
       const s=this.state, u=s.su||{step:1}, step=u.step||1, tried=!!s.suTried;
@@ -3199,9 +3211,56 @@ input,button,textarea{font-family:inherit}
       });
     }
     refreshBook(){
+      const previewId=this.state.previewClientId;
+      if(previewId){
+        return fetch(this.borrowerApi('/preview/'+encodeURIComponent(previewId)),{credentials:'same-origin',headers:this.previewHeaders()})
+          .then(r=>r.ok?r.json():null)
+          .then(j=>{ if(j&&j.identified===true) this.setState(this.homeFromBook(j)); })
+          .catch(()=>{});
+      }
       return fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
         .then(j=>{ if(j&&j.identified===true) this.setState(this.homeFromBook(j)); })
+        .catch(()=>{});
+    }
+    previewHeaders(){
+      const headers={accept:'application/json'};
+      try{
+        const raw=localStorage.getItem('ledjaa.supabase');
+        const cfg=raw?JSON.parse(raw):null;
+        if(cfg&&typeof cfg.key==='string'&&cfg.key) headers.authorization='Bearer '+cfg.key;
+      }catch(e){}
+      return headers;
+    }
+    preparePreview(){
+      fetch(this.borrowerApi('/preview'),{credentials:'same-origin',headers:this.previewHeaders()})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{
+          if(!j||j.enabled!==true||!Array.isArray(j.clients)||!j.clients.length) return;
+          const bar=document.getElementById('q1-view-as');
+          const pick=document.getElementById('q1-view-as-pick');
+          const go=document.getElementById('q1-view-as-go');
+          if(!bar||!pick||!go) return;
+          pick.textContent='';
+          j.clients.forEach(c=>{
+            const opt=document.createElement('option');
+            opt.value=String(c.id||'');
+            opt.textContent=(c.ref?c.ref+' · ':'')+(c.name||'Client');
+            pick.appendChild(opt);
+          });
+          bar.hidden=false;
+          go.onclick=()=>{ if(pick.value) this.loadPreviewClient(pick.value); };
+        })
+        .catch(()=>{});
+    }
+    loadPreviewClient(clientId){
+      fetch(this.borrowerApi('/preview/'+encodeURIComponent(clientId)),{credentials:'same-origin',headers:this.previewHeaders()})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{
+          if(!j||j.identified!==true) return;
+          this.setState(Object.assign({screen:'home',splashDone:true,customer:true,otp:'',pinNote:'',previewClientId:clientId}, this.homeFromBook(j)));
+          this.startBookPoll();
+        })
         .catch(()=>{});
     }
     startBookPoll(){

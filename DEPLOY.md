@@ -82,8 +82,14 @@ Nothing existing is altered.
 Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
 adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
 Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SESSION_SECRET`
-(32 or more characters) on Vercel before a client can choose a PIN. Leave it unset and the
-invite link can still be created, but redeeming it answers "Server not configured".
+(32 or more characters) before a client can choose a PIN. Live PIN also needs
+`QUIK1_BORROWER_PIN=1`, and it stays off when `VERCEL_ENV` is production or the host is
+quik1.app. Leave that flag unset in production. Leave the secret unset and redeeming an
+invite answers "Server not configured".
+
+Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT=1` and the
+deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The
+service role is not sent to the browser. Leave the preview flag unset on quik1.app.
 
 Then paste and run `supabase/migrations/20261106_quik1_borrower_app.sql`. That file adds the
 support-message table and a private `q1-documents` storage bucket. Do not apply it from the
