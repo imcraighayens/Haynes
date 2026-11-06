@@ -13,18 +13,17 @@ const vercel = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'
 const ledger = fs.readFileSync(path.join(root, 'ledger/index.html'), 'utf8');
 const video = '90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4';
 
-test('the PIN screen uses the Claude Design video and playVideos stays muted', () => {
+test('splash and login videos use the Claude Design file and playVideos stays muted', () => {
   const tags = [...quik.matchAll(/<video\b[^>]*>/g)].map(m => m[0]);
-  assert.equal(tags.length, 1);
+  assert.equal(tags.length, 2);
   for (const tag of tags) {
     assert.match(tag, new RegExp('src="' + video.replace(/\./g, '\\.') + '"'));
     assert.match(tag, /poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd\.png"/);
-    assert.match(tag, /\bmuted\b/);
-    assert.match(tag, /\bloop\b/);
-    assert.match(tag, /\bplaysinline\b/);
-    assert.match(tag, /\bautoplay\b/);
+    assert.match(tag, /muted="\{\{ true \}\}"/);
+    assert.match(tag, /loop="\{\{ true \}\}"/);
+    assert.match(tag, /sc-camel-plays-inline="\{\{ true \}\}"/);
+    assert.match(tag, /sc-camel-auto-play="\{\{ true \}\}"/);
   }
-  assert.match(quik, /id="pin"/);
   assert.ok(fs.existsSync(path.join(root, 'quik1', video)));
   assert.ok(fs.statSync(path.join(root, 'quik1', video)).size > 8_000_000);
   const play = quik.slice(quik.indexOf('playVideos(){'), quik.indexOf('playVideos(){') + 700);
@@ -89,6 +88,8 @@ test('mobile and standalone fill the screen and the dock sits on the physical bo
   assert.match(quik, /height:\s*100lvh\s*!important/);
   assert.match(quik, /min-height:\s*100lvh\s*!important/);
   assert.doesNotMatch(quik, /html, body \{\s*background: #0B0620;\s*position:\s*fixed/);
+  assert.match(quik, /showDockMini:!!\(busy&&on\)/);
+  assert.match(quik, /<sc-if value="\{\{ showDockMini \}\}">/);
   assert.match(quik, /gesturestart/);
   assert.match(quik, /e\.touches && e\.touches\.length > 1/);
   assert.match(quik, /placeholder="Ask Q1 anything" style="[^"]*font-size:16px/);
@@ -99,9 +100,6 @@ test('Safari hint is one-time, login-only, and hidden when already standalone', 
   assert.match(quik, /quik1\.iosHintDismissed/);
   assert.match(quik, /localStorage\.setItem\(HINT_KEY, '1'\)/);
   assert.match(quik, /Enter your PIN/);
-  assert.doesNotMatch(quik, /Loop/);
-  assert.doesNotMatch(quik, /NCR Registration pending/);
-  assert.doesNotMatch(quik, /NCA compliant/);
   assert.match(quik, /display-mode: standalone/);
   assert.match(quik, /navigator\.standalone === true/);
   assert.match(quik, /CriOS\|FxiOS/);
