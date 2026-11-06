@@ -1,6 +1,6 @@
 # Quik1 Claude Design source
 
-`design/claude-design/` is the Claude Design export and the source of truth for future Quik1 UI work. The live borrower UI is built from it into `quik1/`.
+`design/claude-design/` is the first Claude Design export and the visual source for the live Quik1 app. `design/claude-design-v2/` is the later “Loop — Revolving Credit” export, kept as a flow reference only. The live app keeps the first design’s look.
 
 Path: Claude Design → this folder → pull request → Vercel preview → Craig Go → production.
 

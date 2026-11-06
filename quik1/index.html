@@ -1569,6 +1569,7 @@ input,button,textarea{font-family:inherit}
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
+            <button sc-camel-on-click="{{ onIntroSignup }}" style="align-self:flex-start;padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
           </div>
         </sc-if>
       </div>
@@ -2676,7 +2677,7 @@ input,button,textarea{font-family:inherit}
   const YEL='#FDD10D', INK='#0B0620', BONE='#F2F0EA', GREY='#6B6675';
   const SHEETS=['accounts','loan','activity','schedule','statements','support','profile','tracker','documents','performance','credit'];
   const GLASS='rgba(255,255,255,.07)', GLASS_2='rgba(255,255,255,.12)', ON_GLASS='rgba(255,255,255,.62)';
-  const NEW_FLOW=['who','amount','purpose','eligibility','docs','kyc'];
+  const NEW_FLOW=['docs','kyc'];
   const RE_FLOW=['amount','purpose'];
   const LIMIT=8000;
   
@@ -2844,7 +2845,7 @@ input,button,textarea{font-family:inherit}
           if(!u.credit||!u.terms) return this.setState({suError:'Tick both boxes to continue.'});
           const rec={name:u.name.trim(),idnum:u.idnum,phone:'+27 '+u.phone,email:u.email.trim(),employment:u.employment,employer:(u.employer||'').trim()||'—',income:u.income,payday:u.payday};
           const id=window.Quik1Link?window.Quik1Link.submitSignup(rec):'SU-'+(2041+Math.floor(Math.random()*900));
-          this.setState(st=>({screen:'signupPending',suRef:id,suStatus:'Pending review',suTried:false,phone:u.phone,profile:{...st.profile,name:rec.name,email:rec.email,mobile:'0'+u.phone}}));
+          this.setState(st=>({screen:'docs',suRef:id,suStatus:'Pending review',suTried:false,phone:u.phone,applyName:rec.name,applyPhone:'0'+u.phone,profile:{...st.profile,name:rec.name,email:rec.email,mobile:'0'+u.phone}}));
         },
         suRef:s.suRef||'',
         suStatusBg:ok?'#FDD10D':no?'rgba(255,138,122,.16)':'rgba(255,255,255,.08)',
@@ -3756,7 +3757,7 @@ input,button,textarea{font-family:inherit}
       { const onProf=s.screen==='profile';
         Object.assign(v,{hdrMenuOn:onProf?0:1,hdrBackOn:onProf?1:0,hdrCloseOn:0,hdrMenuLabel:onProf?'Close profile settings':'Profile settings',
           onHeaderMenu:()=>{ this.setState({gridOpen:false,menuOpen:false}); if(onProf){ clearTimeout(this._panelT); this.dismiss('panel',{screen:'home',panelPhase:''}); } else this.switchPanel('profile',false); }}); }
-      { const HINT={'My loan':'What you owe and when','New loan':'Apply or top up','Application status':'See where your loan is','Repayments':'When money comes off','Documents':'Agreements and uploads','Rewards':'Grow your limit, invite friends','My contract':'The deal you signed','Help':'Chat to a person','Statements':'Monthly statements'};
+      { const HINT={'My loan':'What you owe and when','New loan':'Apply or top up','Borrow':'Request an amount. It waits in Ledger.','Repay early':'Ask Ledger to record a settlement. Nothing here collects money.','History':'Activity on your ledger','Contracts':'Loans on your ledger','Application status':'See where your loan is','Repayments':'When money comes off','Documents':'Agreements and uploads','Rewards':'Grow your limit, invite friends','My contract':'The deal you signed','Help':'Chat to a person','Statements':'Monthly statements'};
         const view=s.menuView||((typeof localStorage!=='undefined'&&localStorage.getItem('quik1_menu_view'))||'grid');
         const setV=k=>{ try{ localStorage.setItem('quik1_menu_view',k); }catch(e){} this.setState({menuView:k}); };
         const dLeft=Math.max(0,Math.ceil((DUE_DATE-new Date(2026,7,20))/86400000)), owing=!!s.activeLoan;
@@ -3978,7 +3979,7 @@ input,button,textarea{font-family:inherit}
         docs:{label:'Continue',action:nav.kyc,
           valid:s.docChecks.every(d=>d.state==='ok'),
           hint:'Upload your bank statement'},
-        kyc:{label:'Submit application',action:()=>this.submitApplication(),
+        kyc:{label:'Continue',action:()=>{ this.setState({screen:'deciding'}); this.runDecision(); },
           valid:s.kyc.length>=2,
           hint:'Capture your ID document'}
       };
@@ -4013,7 +4014,7 @@ input,button,textarea{font-family:inherit}
             :(s.loginMode!=='new')?['Good to see you again','Look at your phone to log in, or use your PIN.']:[null,null];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
-        onIntroSignup:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onIntroLogin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         loginIdStep:s.screen==='login'&&s.loginMode==='id',
         liPhone:s.liPhone||'', liId:s.liId||'', liError:s.liError||'',
@@ -4480,10 +4481,9 @@ input,button,textarea{font-family:inherit}
             chat:[{from:'them',text:'Sign in with the PIN from your loan officer to message the team.'}],
             profile:{name:'',idnum:'',email:'',mobile:'',bank:''}}); },
         menuItems:[
-          ['loan','My loan'],['amount','New loan'],['schedule','Repayments'],
+          ['amount','Borrow'],['schedule','Repay early'],['activity','History'],
+          ['loan','Contracts'],
           ['documents','Documents'],
-          ['performance','Rewards'],
-          ['activity','My contract'],
           ['support','Help']
         ].map(([k,label])=>{
           const on=s.screen===k&&SHEETS.includes(k);
@@ -4977,19 +4977,19 @@ input,button,textarea{font-family:inherit}
         themeIcon:lightHome?'M20 14.2A8 8 0 0 1 9.8 4a8 8 0 1 0 10.2 10.2Z':'M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4',
         onToggleTheme:()=>this.setState(st=>({homeLight:!(st.homeLight ?? (this.props.whiteBackground ?? false))})),
         homeActions:[
-          {label:wLocked?'Withdraw locked':'Withdraw',locked:wLocked,path:wLocked?'M7 10.6V8a5 5 0 0 1 10 0v2.6M5.6 10.6h12.8v9H5.6z':'M12 15V4.6M7.8 8.8 12 4.6l4.2 4.2M4.6 14.4v3.4a1.8 1.8 0 0 0 1.8 1.8h11.2a1.8 1.8 0 0 0 1.8-1.8v-3.4',sub:wLocked?'Unlocks after your repayment':('Up to '+(s.hideAmounts?'R ••••':this.money(this.headroom({...s,withdrawMode:true})))),go:()=>{ if(wLocked) return this.setState({sentNote:'Withdraw unlocks once we confirm your repayment.'}); this.setState({topUpMode:hasLoan,withdrawMode:hasLoan}); nav.amount(); },on:!wLocked,wide:true},
-          {label:'Documents',path:'M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2M12 17v-5M9.8 14l2.2-2.2 2.2 2.2',go:()=>this.switchPanel('documents',false)}
+          {label:wLocked?'Borrow locked':'Borrow',locked:wLocked,path:wLocked?'M7 10.6V8a5 5 0 0 1 10 0v2.6M5.6 10.6h12.8v9H5.6z':'M12 15V4.6M7.8 8.8 12 4.6l4.2 4.2M4.6 14.4v3.4a1.8 1.8 0 0 0 1.8 1.8h11.2a1.8 1.8 0 0 0 1.8-1.8v-3.4',sub:wLocked?'Unlocks after your repayment':('Up to '+(s.hideAmounts?'R ••••':this.money(this.headroom({...s,withdrawMode:true})))),go:()=>{ if(wLocked) return this.setState({sentNote:'Borrow unlocks once we confirm your repayment.'}); this.setState({topUpMode:hasLoan,withdrawMode:true}); nav.amount(); },on:!wLocked,wide:true},
+          {label:'History',path:'M3.6 12h3.6l2.4-5.4 3 10.8 2.4-5.4h5.4',go:()=>this.switchPanel('activity',false)}
         ].map(a=>({...a,justify:a.wide?'flex-start':'center',padX:a.wide?'12px':'0',iconAnim:'none',span:a.wide?'span 3':'auto',wideOn:!!a.wide,sub:a.sub||'',enter:()=>{},leave:()=>{},bg:a.on?'linear-gradient(180deg,#FFE04A 0%,#FDD10D 100%)':(lightPal?'linear-gradient(180deg,#2E333D 0%,#1C2029 100%)':'linear-gradient(180deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.035) 100%)'),border:a.on?'#FDD10D':(lightPal?'#1C2029':'rgba(255,255,255,.08)'),shadow:a.on?'0 12px 28px rgba(253,209,13,.22),inset 0 1px 0 rgba(255,255,255,.5)':'inset 0 1px 0 rgba(255,255,255,.08)',chip:a.on?'#0B0620':'rgba(255,255,255,.08)',icon:a.on?'#FDD10D':'#FFFFFF',ink:a.on?'#0B0620':'rgba(255,255,255,.9)'})),
         homeActions2:[
           {label:'Repay',path:'M12 5v14M6.6 13.6 12 19l5.4-5.4',go:()=>nav.schedule()},
-          {label:'Top up',path:'M12 5v14M5 12h14',go:()=>{ this.setState({topUpMode:true,withdrawMode:false}); nav.amount(); }},
+          {label:'Contracts',path:'M5.4 7.2h13.2a1.6 1.6 0 0 1 1.6 1.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.4a1.6 1.6 0 0 1-1.6-1.6V8.8a1.6 1.6 0 0 1 1.6-1.6ZM12 14.4a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8Z',go:()=>this.switchPanel('loan',false)},
           {label:'Statement',path:'M7 3.6h7l4 4V20.4H7ZM14 3.6v4h4M10 12h5M10 15.4h3.4',go:()=>this.switchPanel('statements',false)},
         ].map(a=>({...a,justify:a.wide?'flex-start':'center',padX:a.wide?'12px':'0',iconAnim:a.wide?'q-rise 1.8s cubic-bezier(.4,0,.2,1) infinite':'none',span:a.wide?'span 3':'auto',wideOn:!!a.wide,tipOn:(s.tileHover===a.label&&!a.wide)?1:0,tipY:s.tileHover===a.label?'0px':'4px',enter:()=>this.setState({tileHover:a.label}),leave:()=>this.setState(st=>st.tileHover===a.label?{tileHover:''}:null),bg:a.on?'linear-gradient(180deg,#FFE04A 0%,#FDD10D 100%)':(lightPal?'linear-gradient(180deg,#2E333D 0%,#1C2029 100%)':'linear-gradient(180deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.035) 100%)'),border:a.on?'#FDD10D':(lightPal?'#1C2029':'rgba(255,255,255,.08)'),shadow:a.on?'0 12px 28px rgba(253,209,13,.22),inset 0 1px 0 rgba(255,255,255,.5)':'inset 0 1px 0 rgba(255,255,255,.08)',chip:a.on?'#0B0620':'rgba(255,255,255,.08)',icon:a.on?'#FDD10D':'#FFFFFF',ink:a.on?'#0B0620':'rgba(255,255,255,.9)'})).map(a=>({...a,bg:lightPal?'linear-gradient(180deg,#3A3F4A 0%,#2A2E37 100%)':'linear-gradient(180deg,#3A3F4A 0%,#2B2F38 100%)',border:'rgba(255,255,255,.10)',chip:'rgba(255,255,255,.12)',shadow:'0 8px 18px -8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.10)'})),
         dockOn:(s.quickOpen||s.aiOpen)?0:1, dockPe:(s.quickOpen||s.aiOpen)?'none':'auto',
         dockItems:[
           {k:'home',label:'Home',path:'M4.6 10.4 12 4.4l7.4 6V19a1.4 1.4 0 0 1-1.4 1.4H6A1.4 1.4 0 0 1 4.6 19Z',go:()=>{ const g=!!s.gridOpen; this.setState({gridOpen:false,menuOpen:false}); if(s.screen==='home'&&!SHEETS.includes(s.screen)) return; if(SHEETS.includes(s.screen)) return this.dismiss('panel',{screen:'home',menuOpen:false,panelPhase:''}); this.go('home'); }},
-          {k:'credit',label:'Card',path:'M6.4 4.6h11.2a1.6 1.6 0 0 1 1.6 1.6v11.6a1.6 1.6 0 0 1-1.6 1.6H6.4a1.6 1.6 0 0 1-1.6-1.6V6.2a1.6 1.6 0 0 1 1.6-1.6ZM8 8.2h3.6v3H8ZM14 9.4a3 3 0 0 1 0 4.2M15.8 8a5 5 0 0 1 0 7',go:()=>{ this.setState({gridOpen:false}); this.switchPanel('credit',false); }},
-          {k:'accounts',label:'Accounts',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3',go:()=>{ this.setState({gridOpen:false}); this.switchPanel('accounts',false); }},
+          {k:'amount',label:'Borrow',path:'M12 5v14M5 12h14',go:()=>{ this.setState({gridOpen:false,topUpMode:!!s.activeLoan,withdrawMode:true}); nav.amount(); }},
+          {k:'loan',label:'Contracts',path:'M5.4 7.2h13.2a1.6 1.6 0 0 1 1.6 1.6v7.4a1.6 1.6 0 0 1-1.6 1.6H5.4a1.6 1.6 0 0 1-1.6-1.6V8.8a1.6 1.6 0 0 1 1.6-1.6ZM12 14.4a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8Z',go:()=>{ this.setState({gridOpen:false}); this.switchPanel('loan',false); }},
           {k:'menu',label:'Menu',path:'M5 5h5.6v5.6H5ZM13.4 5H19v5.6h-5.6ZM5 13.4h5.6V19H5ZM13.4 13.4H19V19h-5.6Z',go:()=>this.setState(st=>({gridOpen:!st.gridOpen,quickOpen:false,alertsOpen:false}))}
         ].map(d=>{ const real=d.k==='home'?(s.screen==='home'&&!pOpen&&!s.gridOpen):d.k==='menu'?!!s.gridOpen:(!s.gridOpen&&s.screen===d.k); const act=s.dockTap?s.dockTap===d.k:real; const go0=d.go; return {...d,go:()=>{ clearTimeout(this._dockT); this.setState({dockTap:(d.k==='menu'&&s.gridOpen)?'':d.k}); this._dockT=setTimeout(()=>this.setState({dockTap:null}),1400); go0(); },active:act,gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,shadow:act?'0 6px 16px rgba(253,209,13,.25),inset 0 1px 0 rgba(var(--q-fg),.45)':'none',pad:act?'18px':'13px',bg:act?'#FDD10D':'transparent',ink:act?'#0B0620':'rgba(255,255,255,.8)',
           hoverBg:act?'#FDD10D':'rgba(255,255,255,.14)',iconS:act?1.08:1,iconR:act?'-6deg':'0deg',labelX:act?'0px':'-6px',labelBlur:act?'0px':'3px',labelDelay:act?'.12s':'0s'}; }),
