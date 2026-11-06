@@ -27,3 +27,8 @@ scratch
 scratch.*
 
 # Keep tracked on purpose: .claude/ (skills) and .mcp.json (Supabase MCP config)
+
+# Design-box secrets. Never commit these, even if a local unpack drops them beside design/.
+**/.secrets/
+.ledger_key_generated
+*.ledger_key*
