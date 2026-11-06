@@ -31,6 +31,7 @@ Both apps already loaded their data layer dynamically; the bridge plugs into tho
 change seems to need an edit to the app source inside `<x-dc>` / `text/x-dc`, it is the wrong
 change. Readable copies of the original app logic sit in `ledger/original/` and
 `quik1/original/` for reference only (never loaded, never deployed).
+Future Quik1 UI work starts from the Claude Design export in `design/claude-design/` (see `design/README.md`).
 
 ## Layout
 

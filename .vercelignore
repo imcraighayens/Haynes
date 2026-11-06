@@ -7,6 +7,10 @@ tools
 docs
 ledger/original
 quik1/original
+
+# Claude Design export. Source of truth in Git; not part of the live site
+# (and the splash video is already served from quik1/).
+design
 supabase
 README.md
 DEPLOY.md
