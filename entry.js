@@ -36,6 +36,85 @@
 
   var kind = root.getAttribute('data-entry');
 
+  if (kind === 'apply') {
+    var applyForm = document.getElementById('company-apply');
+    var notice = document.getElementById('notice');
+    var applyStatus = document.getElementById('status');
+    var applySubmit = document.getElementById('submit');
+    var company = document.getElementById('company');
+    var contact = document.getElementById('contact');
+    var workEmail = document.getElementById('email');
+    var phone = document.getElementById('phone');
+    var applyPending = false;
+
+    function applyText(message) {
+      text(applyStatus, message || '');
+    }
+
+    fetch('/api/company/status', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+      signal: sessionSignal()
+    }).then(function (res) {
+      if (!res.ok) return null;
+      return res.json();
+    }, function () { return null; }).then(function (body) {
+      if (!notice || !body || body.configured !== false) return;
+      text(notice, 'Subscription billing is not set up. This page cannot save an application or take payment.');
+    });
+
+    if (!applyForm) return;
+    applyForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (applyPending) return;
+      var companyName = company ? String(company.value || '').trim() : '';
+      var contactName = contact ? String(contact.value || '').trim() : '';
+      var mail = workEmail ? String(workEmail.value || '').trim() : '';
+      var tel = phone ? String(phone.value || '').trim() : '';
+      if (company) company.setAttribute('aria-invalid', companyName.length >= 2 ? 'false' : 'true');
+      if (contact) contact.setAttribute('aria-invalid', contactName.length >= 2 ? 'false' : 'true');
+      if (workEmail) workEmail.setAttribute('aria-invalid', mail.indexOf('@') > 0 ? 'false' : 'true');
+      if (companyName.length < 2 || contactName.length < 2 || mail.indexOf('@') < 1) {
+        applyText('Enter the company name, your name, and a work email.');
+        return;
+      }
+      applyPending = true;
+      if (applySubmit) {
+        applySubmit.disabled = true;
+        text(applySubmit, 'Checking');
+      }
+      applyText('');
+      fetch('/api/company/apply', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: companyName, contact: contactName, email: mail, phone: tel })
+      }).then(function (res) {
+        return res.json().then(function (body) {
+          return { ok: res.ok, status: res.status, body: body || {} };
+        }, function () { return { ok: res.ok, status: res.status, body: {} }; });
+      }, function () { return { ok: false, status: 0, body: {} }; }).then(function (result) {
+        applyPending = false;
+        if (applySubmit) {
+          applySubmit.disabled = false;
+          text(applySubmit, 'Apply');
+        }
+        var saved = !!(result.body && result.body.saved === true);
+        if (saved) {
+          applyText('The application was saved.');
+          return;
+        }
+        if (result.status === 400 && result.body && result.body.error) {
+          applyText(String(result.body.error));
+          return;
+        }
+        applyText('Nothing was saved and nothing was charged. Company onboarding is not configured.');
+      });
+    });
+    return;
+  }
+
   if (kind === 'home') {
     var enter = document.getElementById('enter');
     var session = document.getElementById('session');

@@ -28,7 +28,7 @@ const TYPES = {
   png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', txt: 'text/plain; charset=utf-8',
   webmanifest: 'application/manifest+json', mp4: 'video/mp4'
 };
-const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js' };
+const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js', company: 'api/company.js' };
 
 export function loadFixture(file) {
   const p = path.resolve(ROOT, file || 'tests/fixtures/state.json');
@@ -74,6 +74,7 @@ export async function startMockApi({ port = 0, host = '127.0.0.1', fixture, key 
       // middleware.js and is not applied here; boot tests open /ledger/ with LEDGER_KEY.
       if (url.pathname === '/app') { res.writeHead(307, { location: '/quik1/' }); return res.end(); }
       if (url.pathname === '/login') { res.writeHead(307, { location: '/login/' + url.search }); return res.end(); }
+      if (url.pathname === '/apply') { res.writeHead(307, { location: '/apply/' + url.search }); return res.end(); }
       let rel = parts.join('/') || 'index.html';
       let file = path.resolve(ROOT, rel);
       if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); return res.end('forbidden'); }

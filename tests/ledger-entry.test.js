@@ -48,6 +48,14 @@ test('public entrance is Ledger, with no signup, oauth, or key field', () => {
   assert.match(css, /#1d4ed8/);
   assert.match(home, /href="\/login\/"/);
   assert.match(home, /id="enter"/);
+  assert.match(home, /id="apply"/);
+  assert.match(home, /href="\/apply\/"/);
+  assert.match(home, /Apply to use Ledger/);
+  assert.match(read('apply/index.html'), /Apply to use Ledger/);
+  assert.match(read('apply/index.html'), /not a loan application/i);
+  assert.match(read('apply/index.html'), /\/api\/company\/apply/);
+  assert.match(read('apply/index.html'), /Does not take card details/);
+  assert.doesNotMatch(read('apply/index.html'), /name="card|name="amount"|stripe|\/api\/ecoloans|\/api\/ledger\/login/i);
   assert.match(login, /href="\/"/);
   assert.match(login, /Back to home/);
   assert.match(login, /id="staff-login"/);

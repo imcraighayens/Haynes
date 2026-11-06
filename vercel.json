@@ -4,6 +4,7 @@
   "redirects": [
     { "source": "/ledger", "destination": "/ledger/", "permanent": false },
     { "source": "/login", "destination": "/login/", "permanent": false },
+    { "source": "/apply", "destination": "/apply/", "permanent": false },
     { "source": "/app", "destination": "/quik1/", "permanent": false }
   ],
   "rewrites": [
@@ -11,6 +12,7 @@
     { "source": "/api/q1/:path*", "destination": "/api/q1?path=:path*" },
     { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" },
     { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" },
+    { "source": "/api/company/:path*", "destination": "/api/company?path=:path*" },
     { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
     { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
     { "source": "/sw.js", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/sw.js" },
@@ -52,6 +54,18 @@
     },
     {
       "source": "/login/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/apply",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/apply/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
       ]
