@@ -33,7 +33,7 @@ api/                    Vercel Node 22 serverless functions (ESM)
 supabase/migrations/    additive SQL for the bridge tables/columns
 tests/                  node:test unit tests + Playwright boot tests
 tools/                  unpack-bundle.py (how the apps were unpacked), boot-test.js
-vercel.json             redirects / → /ledger/, /app → /quik1/; security headers
+vercel.json             / is the Ledger landing; /login/ signs in; /app → /quik1/; security headers
 ```
 
 ## How each app loads its data layer (the seams)

@@ -3,8 +3,10 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
-import { signInStaff } from './_lib/staff.js';
+import { createHash } from 'node:crypto';
+import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity, recoveryRedirectUrl } from './_lib/auth.js';
+import { signInStaff, requestStaffRecovery, completeStaffRecovery, normEmail } from './_lib/staff.js';
+import { createLimiter, clientIp } from './_lib/ratelimit.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
@@ -348,6 +350,50 @@ async function postTwilio(req, res) {
   json(res, 200, { ok: true }, req);
 }
 
+const recoverLimiter = createLimiter({ limit: 5, windowMs: 15 * 60 * 1000 });
+const resetLimiter = createLimiter({ limit: 8, windowMs: 15 * 60 * 1000 });
+
+function recoverBucket(req, email) {
+  const digest = createHash('sha256').update(normEmail(email)).digest('hex').slice(0, 16);
+  return clientIp(req) + ':' + digest;
+}
+
+async function postRecover(req, res) {
+  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
+  requireEnv(['LEDGER_KEY']);
+  const body = await readBody(req, 4 * 1024);
+  const burst = recoverLimiter.check(recoverBucket(req, body && body.email));
+  if (!burst.ok) {
+    res.setHeader('Retry-After', String(burst.retryAfter));
+    throw new HttpError(429, 'Too many requests');
+  }
+  // redirect_to from the browser is ignored. Only the fixed staff origins are used.
+  const result = await requestStaffRecovery(body && body.email, recoveryRedirectUrl(req));
+  if (!result.ok) throw new HttpError(503, 'Server not configured');
+  json(res, 200, { ok: true }, req);
+}
+
+async function postRecoverComplete(req, res) {
+  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
+  requireEnv(['LEDGER_KEY']);
+  const body = await readBody(req, 8 * 1024);
+  const burst = resetLimiter.check(clientIp(req));
+  if (!burst.ok) {
+    res.setHeader('Retry-After', String(burst.retryAfter));
+    throw new HttpError(429, 'Too many requests');
+  }
+  const result = await completeStaffRecovery(body && body.token_hash, body && body.password);
+  if (!result.ok) {
+    if (result.status === 503) throw new HttpError(503, 'Server not configured');
+    throw new HttpError(400, 'This reset link is invalid or has expired.');
+  }
+  // This browser's staff cookie is not a recovery credential. Drop it so the
+  // old session cannot continue after the password change. Other browsers keep
+  // their stateless cookies until they expire (12h) or the person locks.
+  res.setHeader('Set-Cookie', staffCookieHeader('', 0, { clear: true }));
+  json(res, 200, { ok: true }, req);
+}
+
 async function postLock(req, res) {
   if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
   res.setHeader('Set-Cookie', staffCookieHeader('', 0, { clear: true }));
@@ -418,6 +464,14 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'lock' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postLock(req, res);
+  }
+  if (head === 'recover' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postRecover(req, res);
+  }
+  if (head === 'recover' && rest.length === 1 && rest[0] === 'complete') {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postRecoverComplete(req, res);
   }
 
   requireEnv(ENV);

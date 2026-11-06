@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#050505">
+  <title>Choose a password · Ledger</title>
+  <link rel="stylesheet" href="/entry.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <main id="main" class="stage" data-entry="reset">
+    <section class="brand-panel" aria-label="Ledger">
+      <div class="beams" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="veil" aria-hidden="true"></div>
+      <div class="brand-copy">
+        <p class="mark">
+          <svg class="diamond" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.4" transform="rotate(45 12 12)" fill="currentColor"></rect></svg>
+          <span><span class="mark-brand">EcoLoans</span><span class="mark-name">Ledger</span></span>
+        </p>
+        <p class="panel-title">The book, in <em>one place.</em></p>
+        <p class="panel-sub">Use the link from the reset email. It works once.</p>
+      </div>
+    </section>
+    <section class="pane">
+      <a class="back" href="/login/">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+        Back to sign in
+      </a>
+      <h1>Choose a new password</h1>
+      <p id="reset-missing" class="sub">Open the reset link from your email. The link expires and works once. A staff sign-in by itself cannot set a password here.</p>
+      <form id="staff-reset" method="post" action="/api/ledger/recover/complete" novalidate hidden>
+        <div class="field">
+          <label for="password">New password</label>
+          <div class="control">
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+            <button class="toggle" id="toggle-password" type="button" aria-pressed="false" aria-controls="password">Show</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+        </div>
+        <button class="button" id="submit" type="submit">Update password</button>
+      </form>
+      <p id="status" class="status" role="alert"></p>
+      <p class="fine"><a href="/login/">Return to sign in</a></p>
+    </section>
+  </main>
+  <script src="/entry.js"></script>
+</body>
+</html>

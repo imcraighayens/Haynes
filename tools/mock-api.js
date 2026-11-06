@@ -5,8 +5,9 @@
 //
 //   node tools/mock-api.js [--port 8787] [--fixture tests/fixtures/state.json] [--key testkey]
 //
-// Then open http://127.0.0.1:8787/ledger/ (paste the key under Settings → Supabase, or let the
-// boot test pre-seed it) and http://127.0.0.1:8787/quik1/.
+// Then open http://127.0.0.1:8787/ (Ledger landing) and http://127.0.0.1:8787/quik1/.
+// This harness serves /ledger/ without the Vercel document gate so the machine-key
+// boot test can run. Hosted preview and production withhold that file in middleware.js.
 //
 // Test-only inspection endpoints (never part of api/):
 //   GET  /__mock/db            the whole fake database
@@ -27,7 +28,7 @@ const TYPES = {
   png: 'image/png', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon', txt: 'text/plain; charset=utf-8',
   webmanifest: 'application/manifest+json', mp4: 'video/mp4'
 };
-const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js' };
+const ROUTES = { ledger: 'api/ledger.js', q1: 'api/q1.js', quik1: 'api/quik1.js', ecoloans: 'api/ecoloans.js', company: 'api/company.js' };
 
 export function loadFixture(file) {
   const p = path.resolve(ROOT, file || 'tests/fixtures/state.json');
@@ -68,10 +69,13 @@ export async function startMockApi({ port = 0, host = '127.0.0.1', fixture, key 
         return route(req, res);
       }
 
-      // Static files, with vercel.json's two redirects and directory indexes.
-      if (url.pathname === '/') { res.writeHead(307, { location: '/ledger/' }); return res.end(); }
+      // Static files, with vercel.json's redirects and directory indexes.
+      // "/" is the Ledger landing (index.html). The console document gate lives in
+      // middleware.js and is not applied here; boot tests open /ledger/ with LEDGER_KEY.
       if (url.pathname === '/app') { res.writeHead(307, { location: '/quik1/' }); return res.end(); }
-      let rel = parts.join('/');
+      if (url.pathname === '/login') { res.writeHead(307, { location: '/login/' + url.search }); return res.end(); }
+      if (url.pathname === '/apply') { res.writeHead(307, { location: '/apply/' + url.search }); return res.end(); }
+      let rel = parts.join('/') || 'index.html';
       let file = path.resolve(ROOT, rel);
       if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); return res.end('forbidden'); }
       if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
@@ -127,7 +131,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const opt = (name, dflt) => { const i = args.indexOf('--' + name); return i >= 0 && args[i + 1] != null ? args[i + 1] : dflt; };
   startMockApi({ port: Number(opt('port', 8787)), fixture: opt('fixture'), key: opt('key', 'testkey'), quiet: false })
     .then(api => {
-      console.log(`mock API + static server: ${api.origin}/ledger/  ${api.origin}/quik1/  (LEDGER_KEY=${api.key})`);
+      console.log(`mock API + static server: ${api.origin}/  ${api.origin}/login/  ${api.origin}/ledger/  ${api.origin}/quik1/  (LEDGER_KEY=${api.key})`);
       console.log(`inspect: ${api.origin}/__mock/db  ${api.origin}/__mock/log`);
       const stop = () => api.close().then(() => process.exit(0));
       process.on('SIGINT', stop); process.on('SIGTERM', stop);

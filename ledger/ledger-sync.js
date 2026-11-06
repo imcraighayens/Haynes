@@ -464,7 +464,7 @@
     // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after unlock.
     L.state = fetchState();
     L.booted = L.state.then(function (st) {
-      if (!st && !c.key) L.error = L.error || 'no staff session — sign in under Admin, or Connect under Settings';
+      if (!st && !c.key) L.error = L.error || 'no staff session — sign in at /login';
       applyBootState(st);
       var who = st ? fetchStaff() : Promise.resolve();
       return who.then(function () {
