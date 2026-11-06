@@ -4,7 +4,7 @@
 <script>window.__resources={"https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0B0620">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -21,6 +21,17 @@
       || matchMedia('(display-mode: fullscreen)').matches;
     if (standalone) document.documentElement.classList.add('q-standalone');
   } catch (e) {}
+})();
+/* iOS pinch and gesture zoom scale the layout viewport and slide fixed
+   chrome over the chat. Block multi-touch scale; one-finger scroll stays. */
+(function () {
+  function block(e) { e.preventDefault(); }
+  document.addEventListener('gesturestart', block, { passive: false });
+  document.addEventListener('gesturechange', block, { passive: false });
+  document.addEventListener('gestureend', block, { passive: false });
+  document.addEventListener('touchmove', function (e) {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
 })();
 </script>
 <script>
@@ -40,9 +51,18 @@
      including the areas under the status bar and home indicator. */
   html, body {
     background: #0B0620;
+    position: fixed;
+    inset: 0;
+    width: 100%;
     height: 100%;
     min-height: -webkit-fill-available;
     min-height: 100lvh;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   #dc-root, #dc-root > .sc-host, .q-page {
     background: #0B0620;
@@ -1133,7 +1153,7 @@ input,button,textarea{font-family:inherit}
                   <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid {{ f.sep }};cursor:{{ f.cursor }}">
                     <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">{{ f.label }}</span>
                     <span style="display:flex;align-items:center;gap:10px">
-                      <input value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" sc-camel-read-only="{{ f.readOnly }}" style="flex:1;min-width:0;height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:{{ f.ink }}">
+                      <input value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" sc-camel-read-only="{{ f.readOnly }}" style="flex:1;min-width:0;height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:{{ f.ink }}">
                       <sc-if value="{{ f.readOnly }}">
                         <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:15px;height:15px;fill:none;stroke:rgba(var(--q-fg),.4);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M7 10.6V8a5 5 0 0 1 10 0v2.6M5.6 10.6h12.8v9H5.6z"></path></svg>
                       </sc-if>
@@ -1159,17 +1179,17 @@ input,button,textarea{font-family:inherit}
               <div style="border-radius:20px;overflow:hidden;background:var(--q-card);border:1px solid rgba(var(--q-fg),.14);box-shadow:0 10px 24px -14px rgba(0,0,0,.45)">
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Bank</span>
-                  <sc-raw-select value="{{ bkBank }}" sc-camel-on-change="{{ onBkBank }}" style="height:26px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:var(--q-ink);font-family:inherit;cursor:pointer">
+                  <sc-raw-select value="{{ bkBank }}" sc-camel-on-change="{{ onBkBank }}" style="height:26px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:var(--q-ink);font-family:inherit;cursor:pointer">
                     <sc-for list="{{ bkBanks }}" as="b" hint-placeholder-count="8"><option value="{{ b }}">{{ b }}</option></sc-for>
                   </sc-raw-select>
                 </label>
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Account holder</span>
-                  <input value="{{ bkHolder }}" sc-camel-on-change="{{ onBkHolder }}" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:var(--q-ink)">
+                  <input value="{{ bkHolder }}" sc-camel-on-change="{{ onBkHolder }}" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:var(--q-ink)">
                 </label>
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Account number</span>
-                  <input value="{{ bkAcc }}" sc-camel-on-change="{{ onBkAcc }}" inputmode="numeric" placeholder="e.g. 1234567890" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;letter-spacing:.04em;color:var(--q-ink)">
+                  <input value="{{ bkAcc }}" sc-camel-on-change="{{ onBkAcc }}" inputmode="numeric" placeholder="e.g. 1234567890" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;letter-spacing:.04em;color:var(--q-ink)">
                   <sc-if value="{{ bkAccErr }}"><span style="font-size:11.5px;font-weight:600;color:#FF5A4F">{{ bkAccErr }}</span></sc-if>
                 </label>
                 <div style="display:flex;flex-direction:column;gap:8px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
@@ -1264,7 +1284,7 @@ input,button,textarea{font-family:inherit}
               Chat on WhatsApp
             </a>
             <div style="display:flex;align-items:center;gap:10px;border:1.5px solid rgba(var(--q-fg),.18);border-radius:999px;padding:6px 6px 6px 20px">
-              <input value="{{ draft }}" sc-camel-on-change="{{ onDraft }}" placeholder="Ask a question" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:var(--q-ink)">
+              <input value="{{ draft }}" sc-camel-on-change="{{ onDraft }}" placeholder="Ask a question" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
               <button sc-camel-on-click="{{ onSend }}" style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:0;background:#FDD10D;display:grid;place-items:center;cursor:pointer">
                 <svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
               </button>
@@ -2229,7 +2249,7 @@ input,button,textarea{font-family:inherit}
             </sc-if>
             <div style="flex:0 0 auto;padding:0 20px 20px">
               <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(var(--q-fg),.12);border-radius:999px;background:rgba(var(--q-fg),.06);padding:6px 6px 6px 20px">
-                <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:var(--q-ink)">
+                <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
                 <sc-if value="{{ micSupported }}"><button sc-camel-on-click="{{ onMic }}" aria-label="{{ micLabel }}" style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:{{ micBg }};display:grid;place-items:center;cursor:pointer;animation:{{ micAnim }};transition:background .2s cubic-bezier(.33,1,.68,1)"><svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:{{ micInk }};stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.6a2.8 2.8 0 0 0-2.8 2.8v5.2a2.8 2.8 0 0 0 5.6 0V6.4A2.8 2.8 0 0 0 12 3.6ZM6.4 11.2a5.6 5.6 0 0 0 11.2 0M12 16.8v3.6"></path></svg></button></sc-if>
                 <button sc-camel-on-click="{{ onAiSend }}" aria-label="Send" style="position:relative;flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:0;background:#0000FE;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">{{ botFace }}</button>
               </div>
@@ -2540,7 +2560,7 @@ input,button,textarea{font-family:inherit}
         <div class="q-dock" style="position:absolute;right:18px;bottom:0;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:env(safe-area-inset-bottom);animation:q-float 4.2s ease-in-out infinite">
         <div style="height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
           <sc-if value="{{ quickOpen }}">
-            <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
+            <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
           </sc-if>
           <button sc-camel-on-click="{{ onQuickToggle }}" sc-camel-on-mouse-enter="{{ onBotEnter }}" sc-camel-on-mouse-leave="{{ onBotLeave }}" sc-camel-on-focus="{{ onBotEnter }}" sc-camel-on-blur="{{ onBotLeave }}" aria-label="Ask Q1" style="position:relative;flex:0 0 auto;width:40px;height:40px;margin:0 4px;border-radius:50%;border:0;background:#0000FE;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);display:grid;place-items:center;cursor:pointer;animation:{{ quickPulse }};transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">
             <span style="position:absolute;inset:0;border-radius:50%;background:#2A3BFF;animation:{{ quickHalo }};pointer-events:none"></span>

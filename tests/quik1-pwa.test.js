@@ -47,6 +47,7 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   for (const icon of manifest.icons) {
     assert.ok(fs.existsSync(path.join(root, icon.src.replace(/^\//, ''))), icon.src);
   }
+  assert.match(quik, /width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover/);
   assert.match(quik, /viewport-fit=cover/);
   assert.match(quik, /name="theme-color" content="#0B0620"/);
   assert.match(quik, /name="apple-mobile-web-app-capable" content="yes"/);
@@ -80,6 +81,12 @@ test('mobile and standalone fill the screen and the dock sits on the physical bo
   assert.doesNotMatch(quik, /bottom:calc\(40px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
   assert.match(quik, /homePadBottom:'calc\(76px \+ env\(safe-area-inset-bottom\)\)'/);
+  assert.match(quik, /touch-action:\s*pan-x pan-y/);
+  assert.match(quik, /overscroll-behavior:\s*none/);
+  assert.match(quik, /overflow:\s*hidden/);
+  assert.match(quik, /gesturestart/);
+  assert.match(quik, /e\.touches && e\.touches\.length > 1/);
+  assert.match(quik, /placeholder="Ask Q1 anything" style="[^"]*font-size:16px/);
 });
 
 test('Safari hint is one-time, login-only, and hidden when already standalone', () => {
