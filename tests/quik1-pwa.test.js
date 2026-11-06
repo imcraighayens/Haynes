@@ -37,8 +37,8 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, './');
   assert.equal(manifest.scope, './');
-  assert.equal(manifest.theme_color, '#0B0620');
-  assert.equal(manifest.background_color, '#0B0620');
+  assert.equal(manifest.theme_color, '#000000');
+  assert.equal(manifest.background_color, '#000000');
   const sizes = new Set(manifest.icons.map(i => i.sizes + ':' + i.purpose));
   assert.ok(sizes.has('192x192:any'));
   assert.ok(sizes.has('512x512:any'));
@@ -49,7 +49,7 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   }
   assert.match(quik, /width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover/);
   assert.match(quik, /viewport-fit=cover/);
-  assert.match(quik, /name="theme-color" content="#0B0620"/);
+  assert.match(quik, /name="theme-color" content="#000000"/);
   assert.match(quik, /name="apple-mobile-web-app-capable" content="yes"/);
   assert.match(quik, /name="mobile-web-app-capable" content="yes"/);
   assert.match(quik, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
@@ -62,7 +62,7 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   assert.doesNotMatch(quik, /100vh/);
   assert.match(quik, /env\(safe-area-inset-top\)/);
   assert.match(quik, /env\(safe-area-inset-bottom\)/);
-  assert.match(quik, /body\{margin:0;background:#0B0620/);
+  assert.match(quik, /body\{margin:0;background:#000000/);
   assert.doesNotMatch(quik, /body\{margin:0;background:#F2F0EA/);
 });
 
