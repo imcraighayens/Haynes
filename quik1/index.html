@@ -4,7 +4,7 @@
 <script>window.__resources={"https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -125,6 +125,29 @@
   #quik1-ios-hint[hidden] { display: none; }
   #quik1-ios-hint p { margin: 0; flex: 1; }
   #quik1-ios-hint button { flex: 0 0 auto; border: 0; border-radius: 999px; background: #FDD10D; color: #0B0620; font: 700 13px/1 Ubuntu, sans-serif; padding: 8px 12px; cursor: pointer; }
+  /* Keyboard open: --q-kb is how far the fixed 100lvh frame still extends
+     below the visual viewport (the top of the iOS keyboard). The shell
+     height stays 100lvh so the dock is flush with the physical bottom
+     once the keyboard closes. Safe-area padding and the idle float would
+     leave a gap between the field and the keys. */
+  html.q-kb .q-ask {
+    bottom: var(--q-kb, 0px) !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  html.q-kb .q-ask-strip {
+    bottom: calc(var(--q-kb, 0px) + 68px) !important;
+  }
+  html.q-kb .q-chat {
+    bottom: var(--q-kb, 0px) !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+  html.q-kb .q-chat-bar {
+    padding-bottom: 0 !important;
+  }
 </style>
 <script>
 /* This file lives in /quik1/. quik1.app rewrites "/" onto it while the
@@ -149,6 +172,7 @@
 </script>
 <style>x-dc{display:none!important}</style>
 <script src="96aed023-8540-4384-bdbc-3bc317708b87.js"></script>
+<script type="module" src="keyboard-inset.js"></script>
 </head>
 <body>
 <x-dc>
@@ -2215,7 +2239,7 @@ input,button,textarea{font-family:inherit}
       <!-- ── Tab bar ───────────────────────────────────────────── -->
       <sc-if value="{{ aiOpen }}">
         <div sc-camel-on-click="{{ onCloseAi }}" style="position:absolute;inset:0;z-index:26;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:{{ aiScrimAnim }}">
-          <div sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:14px;top:108px;border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
+          <div class="q-chat" sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:14px;top:108px;border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
             <div style="flex:0 0 auto;padding:20px 20px 14px;display:flex;align-items:center;gap:12px">
               <span style="flex:1;min-width:0">
                 <span style="display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--q-ink)">Q1</span>
@@ -2226,7 +2250,7 @@ input,button,textarea{font-family:inherit}
               </button>
             </div>
             <div style="height:1px;margin:0 20px;background:rgba(var(--q-fg),.16)"></div>
-            <div ref="{{ aiScrollRef }}" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+            <div class="q-chat-log" ref="{{ aiScrollRef }}" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:16px 20px;display:flex;flex-direction:column;gap:10px">
               <sc-for list="{{ aiChat }}" as="m" hint-placeholder-count="2">
                 <div style="align-self:{{ m.align }};max-width:88%;display:flex;align-items:flex-end;gap:8px">
                   <sc-if value="{{ m.showAvatar }}"><span style="flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:#0000FE;box-shadow:0 0 12px rgba(40,60,255,.7);display:grid;place-items:center;font-size:11px;font-weight:700;color:#FFFFFF;animation:q-up .35s cubic-bezier(.22,1,.36,1)">Q1</span></sc-if>
@@ -2254,7 +2278,7 @@ input,button,textarea{font-family:inherit}
               </sc-for>
             </div>
             </sc-if>
-            <div style="flex:0 0 auto;padding:0 20px 20px">
+            <div class="q-chat-bar" style="flex:0 0 auto;padding:0 20px 20px">
               <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(var(--q-fg),.12);border-radius:999px;background:rgba(var(--q-fg),.06);padding:6px 6px 6px 20px">
                 <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
                 <sc-if value="{{ micSupported }}"><button sc-camel-on-click="{{ onMic }}" aria-label="{{ micLabel }}" style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:{{ micBg }};display:grid;place-items:center;cursor:pointer;animation:{{ micAnim }};transition:background .2s cubic-bezier(.33,1,.68,1)"><svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:{{ micInk }};stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.6a2.8 2.8 0 0 0-2.8 2.8v5.2a2.8 2.8 0 0 0 5.6 0V6.4A2.8 2.8 0 0 0 12 3.6ZM6.4 11.2a5.6 5.6 0 0 0 11.2 0M12 16.8v3.6"></path></svg></button></sc-if>
@@ -2555,7 +2579,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ quickStripOn }}">
-        <div style="position:absolute;right:18px;left:18px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
+        <div class="q-ask-strip" style="position:absolute;right:18px;left:18px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
           <div style="pointer-events:auto;max-width:100%;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:16px;border:1px solid rgba(40,60,255,.45);background:rgba(12,16,58,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 14px 30px -10px rgba(0,0,0,.5);animation:q-up .3s cubic-bezier(.22,1,.36,1)">
             <span style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#0000FE;box-shadow:0 0 12px rgba(40,60,255,.7);display:grid;place-items:center;font-size:10px;font-weight:700;color:#FFFFFF">Q1</span>
             <button sc-camel-on-click="{{ onQuickStripOpen }}" style="flex:1;min-width:0;border:0;padding:0;background:transparent;text-align:left;cursor:pointer;font-size:13.5px;line-height:1.4;color:#FFFFFF;opacity:{{ quickStripOp }}">{{ quickStripText }}</button>
@@ -2566,7 +2590,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showQ1 }}">
-        <div class="q-dock" style="position:absolute;right:18px;bottom:0;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:env(safe-area-inset-bottom);animation:q-float 4.2s ease-in-out infinite">
+        <div class="q-dock q-ask" style="position:absolute;right:18px;bottom:0;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:env(safe-area-inset-bottom);animation:q-float 4.2s ease-in-out infinite">
         <div style="height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
           <sc-if value="{{ quickOpen }}">
             <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
