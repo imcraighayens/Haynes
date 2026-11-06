@@ -124,7 +124,10 @@ test('quik1.app root rewrite does not retarget ledger or admin', () => {
   assert.equal(rootRewrites.length, 4);
   assert.ok(rootRewrites.every(r => r.destination.startsWith('/quik1/')));
   assert.ok(rootRewrites.every(r => (r.has || []).some(h => h.type === 'host' && String(h.value).endsWith('quik1.app'))));
-  assert.ok(vercel.redirects.some(r => r.source === '/' && r.destination === '/ledger/'));
+  assert.equal(vercel.redirects.some(r => r.source === '/' && r.destination === '/ledger/'), false);
+  assert.ok(vercel.redirects.some(r => r.source === '/ledger' && r.destination === '/ledger/'));
+  assert.ok(vercel.redirects.some(r => r.source === '/app' && r.destination === '/quik1/'));
+  assert.equal(vercel.rewrites.some(r => r.source === '/' && String(r.destination || '').startsWith('/quik1')), false);
   assert.doesNotMatch(ledger, /manifest\.webmanifest/);
   assert.doesNotMatch(ledger, /serviceWorker\.register/);
   assert.doesNotMatch(ledger, /apple-mobile-web-app-capable/);

@@ -5,8 +5,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script>
-/* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
-   "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
+/* This file lives in /ledger/. "/" is the public Ledger landing, and "/ledger"
+   (no slash) redirects here. Either console URL makes ./ledger-sync.js
    resolve outside /ledger/, the runtime never boots, and the uncompiled call
    dialog stays on screen with {{ ccName }} and a Cancel button that does nothing.
    Assets always live at /ledger/, so pin the base there before any relative URL. */
@@ -709,7 +709,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         <div style="{{ staffBoxStyle }}">
           <div style="width:38px;height:38px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><div style="width:10px;height:10px;background:var(--acc);border-radius:2px;transform:rotate(45deg)"></div></div>
           <div style="font:700 16px 'Plus Jakarta Sans',sans-serif;text-align:center">ADMIN</div>
-          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Sign in with your staff email and password.<br>Cancelling returns to the dashboard.</div>
+          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Sign in with your staff email and password.<br>Cancelling returns to the Ledger home.</div>
           <input value="{{ staffEmail }}" sc-camel-on-change="{{ staffEmailChange }}" placeholder="Email" autocomplete="email" autocapitalize="none" spellcheck="false" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
           <input type="password" value="{{ staffPass }}" sc-camel-on-change="{{ staffPassChange }}" placeholder="Password" autocomplete="current-password" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;margin-top:10px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
           <sc-if value="{{ staffError }}" hint-placeholder-val="{{ false }}"><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--red);text-align:center;margin-top:10px;letter-spacing:.08em">SIGN-IN FAILED</div></sc-if>
@@ -4552,7 +4552,7 @@ class Component extends DCLogic {
           paneClose: ()=>{ if(on) this.setState({admPane:null}); },
           paneStop: e=>{ if(on && e && e.stopPropagation) e.stopPropagation(); }
         }; })(),
-      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); var sync=window.__ledger; var done=()=>{ try{ window.location.reload(); }catch(err){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(done, done); else done(); },
+      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); var sync=window.__ledger; var done=()=>{ try{ window.location.replace('/'); }catch(err){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(done, done); else done(); },
       prof: st.prof, profChange:(e)=>this.setState({prof:{...st.prof,[e.target.name]:e.target.value}}),
       saveProfile:()=>this.toast('Profile saved'), changePassword:()=>this.toast('Password reset link sent to '+st.prof.email),
       ...(()=>{
@@ -4778,8 +4778,8 @@ class Component extends DCLogic {
           this.setState(p=>({ledgerUnlocked:true, staffEmail:'', staffPass:'', staffError:false, prof: name?{...p.prof, name:String(name), email:(res.staff.email||p.prof.email)}:p.prof}));
         }, ()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffPass:'', staffError:true}); });
       },
-      staffCancel:()=>this.setState({route:'dashboard', staffEmail:'', staffPass:'', staffError:false}),
-      lockLedger:()=>{ var sync=window.__ledger; var go=()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffEmail:'', staffPass:'', staffError:false}); try{ window.location.reload(); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
+      staffCancel:()=>{ try{ window.location.replace('/'); }catch(e){} },
+      lockLedger:()=>{ var sync=window.__ledger; var go=()=>{ try{ window.location.replace('/'); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),
       ledgerRows: ledgerMonths.map(([month,issued,paid,start,end])=>({month,issued,paid,startFmt:fmt(start),endFmt:fmt(end), open:()=>this.setState({modal:'month', monthKey:month, modalStack:[]}),
         changeFmt:(end>=start?'+':'−')+fmt(Math.abs(end-start)).slice(2), changeStyle:this.cssObj('color:'+(end>=start?'var(--green)':'var(--red)'))})),

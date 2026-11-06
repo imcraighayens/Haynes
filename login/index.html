@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#050505">
+  <title>Sign in · Ledger</title>
+  <link rel="stylesheet" href="/entry.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <main id="main" class="stage" data-entry="login">
+    <section class="brand-panel" aria-label="Ledger">
+      <div class="beams" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="veil" aria-hidden="true"></div>
+      <div class="brand-copy">
+        <p class="mark">
+          <svg class="diamond" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.4" transform="rotate(45 12 12)" fill="currentColor"></rect></svg>
+          <span><span class="mark-brand">EcoLoans</span><span class="mark-name">Ledger</span></span>
+        </p>
+        <p class="panel-title">The book, in <em>one place.</em></p>
+        <p class="panel-sub">Loans, clients, and collections for EcoLoans staff.</p>
+      </div>
+    </section>
+    <section class="pane">
+      <a class="back" href="/">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+        Back to home
+      </a>
+      <h1>Sign in to Ledger</h1>
+      <p class="sub">Use your staff email and password.</p>
+      <noscript><p class="status">Turn on JavaScript to sign in. The password is sent to Ledger’s staff sign-in and is not put in the page address.</p></noscript>
+      <form id="staff-login" method="post" action="/api/ledger/login" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="name@ecoloan.co.za" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="control">
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
+            <button class="toggle" id="toggle-password" type="button" aria-pressed="false" aria-controls="password">Show</button>
+          </div>
+        </div>
+        <button class="button" id="submit" type="submit">Sign in</button>
+        <p id="status" class="status" role="alert"></p>
+      </form>
+    </section>
+  </main>
+  <script src="/entry.js"></script>
+</body>
+</html>

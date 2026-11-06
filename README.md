@@ -4,7 +4,7 @@ One repo, one Supabase database, two finished front-ends:
 
 | App | Who uses it | Served at | Source |
 | --- | --- | --- | --- |
-| **LEDGER** — the staff console: clients, loans, applications, logbook, petty cash, bank, settings | Ecoloans staff, desktop | `/ledger/` (`/` redirects here) | `ledger/index.html` |
+| **LEDGER** — the staff console: clients, loans, applications, logbook, petty cash, bank, settings | Ecoloans staff, desktop | `/` landing, `/login/` staff sign-in, then `/ledger/` | `ledger/index.html` |
 | **Quik1** — the customer app: sign up, apply for a loan, see the decision, repay | Customers, phone (440×940) | `/quik1/` (`/app` redirects here) | `quik1/index.html` |
 
 A customer submits a loan application in Quik1; it lands in the shared `applications` table;
