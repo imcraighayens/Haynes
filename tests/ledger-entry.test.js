@@ -39,7 +39,7 @@ test('public entrance is Ledger, with no signup, oauth, or key field', () => {
     assert.match(html, /The book, in <em>one place\.<\/em>/);
     assert.match(html, /href="\/entry\.css"/);
     assert.match(html, /src="\/entry\.js"/);
-    assert.doesNotMatch(html, /Aerivo|aviation|Google|Remember me|Forgot|Sign up|Create account|Privacy Policy|Terms of Service/i);
+    assert.doesNotMatch(html, /Aerivo|aviation|Google|Remember me|Sign up|Create account|Privacy Policy|Terms of Service/i);
     assert.doesNotMatch(html, /service_role|LEDGER_KEY|supabase\.co|246810|PROTOTYPE/i);
     assert.doesNotMatch(html, /\b\d{10,}\b/);
   }
@@ -62,6 +62,7 @@ test('public entrance is Ledger, with no signup, oauth, or key field', () => {
   assert.match(login, /autocomplete="email"/);
   assert.match(login, /autocomplete="current-password"/);
   assert.match(login, /id="toggle-password"/);
+  assert.match(login, /href="\/login\/forgot\/"/);
   assert.match(login, /role="alert"/);
   assert.doesNotMatch(login, /type="hidden"/);
   assert.match(client, /\/api\/ledger\/login/);

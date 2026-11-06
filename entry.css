@@ -329,7 +329,19 @@ input[aria-invalid="true"] { border-color: #ffb4a8; }
   line-height: 1.45;
 }
 
-.fine a { color: #f7f7f5; }
+.fine a, .forgot a { color: #f7f7f5; }
+
+.forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 0;
+}
+
+.forgot a {
+  font-size: 13.5px;
+  font-weight: 650;
+  text-underline-offset: 3px;
+}
 
 .note, .status {
   min-height: 1.35em;

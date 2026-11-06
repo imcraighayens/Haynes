@@ -133,6 +133,123 @@
     return;
   }
 
+  if (kind === 'forgot') {
+    var forgotForm = document.getElementById('staff-forgot');
+    var forgotEmail = document.getElementById('email');
+    var forgotStatus = document.getElementById('status');
+    var forgotSubmit = document.getElementById('submit');
+    var forgotPending = false;
+    if (!forgotForm) return;
+    forgotForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (forgotPending) return;
+      var mail = forgotEmail ? String(forgotEmail.value || '').trim() : '';
+      if (mail.indexOf('@') < 1) {
+        text(forgotStatus, 'Enter an email address.');
+        return;
+      }
+      forgotPending = true;
+      if (forgotSubmit) {
+        forgotSubmit.disabled = true;
+        text(forgotSubmit, 'Sending');
+      }
+      text(forgotStatus, '');
+      fetch('/api/ledger/recover', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: mail })
+      }).then(function (res) {
+        return { status: res.status };
+      }, function () { return { status: 0 }; }).then(function (result) {
+        forgotPending = false;
+        if (forgotSubmit) {
+          forgotSubmit.disabled = false;
+          text(forgotSubmit, 'Send reset link');
+        }
+        if (forgotEmail) forgotEmail.value = '';
+        if (result.status === 503) text(forgotStatus, 'Password reset is unavailable right now.');
+        else if (result.status === 429) text(forgotStatus, 'Wait a moment, then try again.');
+        else text(forgotStatus, 'If that email belongs to an active staff account, a reset link is on its way.');
+      });
+    });
+    return;
+  }
+
+  if (kind === 'reset') {
+    var resetForm = document.getElementById('staff-reset');
+    var resetMissing = document.getElementById('reset-missing');
+    var resetStatus = document.getElementById('status');
+    var resetPassword = document.getElementById('password');
+    var resetConfirm = document.getElementById('confirm');
+    var resetSubmit = document.getElementById('submit');
+    var resetToggle = document.getElementById('toggle-password');
+    var resetPending = false;
+    var params = new URLSearchParams(location.search);
+    var tokenHash = params.get('token_hash') || '';
+    var tokenType = params.get('type') || 'recovery';
+    if (location.search) history.replaceState(null, '', location.pathname);
+    var usable = tokenType === 'recovery' && /^[A-Za-z0-9_-]{20,512}$/.test(tokenHash);
+    if (!usable) {
+      if (resetForm) resetForm.hidden = true;
+      if (resetMissing) resetMissing.hidden = false;
+      return;
+    }
+    if (resetMissing) resetMissing.hidden = true;
+    if (resetForm) resetForm.hidden = false;
+    if (resetToggle && resetPassword) {
+      resetToggle.addEventListener('click', function () {
+        var show = resetPassword.getAttribute('type') === 'password';
+        resetPassword.setAttribute('type', show ? 'text' : 'password');
+        resetToggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+        text(resetToggle, show ? 'Hide' : 'Show');
+      });
+    }
+    if (!resetForm) return;
+    resetForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (resetPending) return;
+      var next = resetPassword ? String(resetPassword.value || '') : '';
+      var again = resetConfirm ? String(resetConfirm.value || '') : '';
+      if (next.length < 8 || next !== again) {
+        text(resetStatus, next.length < 8 ? 'Use at least 8 characters.' : 'Those passwords do not match.');
+        return;
+      }
+      resetPending = true;
+      if (resetSubmit) {
+        resetSubmit.disabled = true;
+        text(resetSubmit, 'Updating');
+      }
+      text(resetStatus, '');
+      fetch('/api/ledger/recover/complete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token_hash: tokenHash, password: next })
+      }).then(function (res) {
+        return { status: res.status };
+      }, function () { return { status: 0 }; }).then(function (result) {
+        resetPending = false;
+        if (resetPassword) resetPassword.value = '';
+        if (resetConfirm) resetConfirm.value = '';
+        tokenHash = '';
+        if (result.status === 200) {
+          if (resetForm) resetForm.hidden = true;
+          text(resetStatus, 'Password updated. Sign in with the new password.');
+          return;
+        }
+        if (resetSubmit) {
+          resetSubmit.disabled = false;
+          text(resetSubmit, 'Update password');
+        }
+        if (result.status === 503) text(resetStatus, 'Password reset is unavailable right now.');
+        else if (result.status === 429) text(resetStatus, 'Wait a moment, then try again.');
+        else text(resetStatus, 'This reset link is invalid or has expired.');
+      });
+    });
+    return;
+  }
+
   if (kind !== 'login') return;
 
   var form = document.getElementById('staff-login');

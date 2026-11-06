@@ -4,6 +4,8 @@
   "redirects": [
     { "source": "/ledger", "destination": "/ledger/", "permanent": false },
     { "source": "/login", "destination": "/login/", "permanent": false },
+    { "source": "/login/forgot", "destination": "/login/forgot/", "permanent": false },
+    { "source": "/login/reset", "destination": "/login/reset/", "permanent": false },
     { "source": "/apply", "destination": "/apply/", "permanent": false },
     { "source": "/app", "destination": "/quik1/", "permanent": false }
   ],

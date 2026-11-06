@@ -34,7 +34,7 @@
       <form id="staff-login" method="post" action="/api/ledger/login" novalidate>
         <div class="field">
           <label for="email">Email</label>
-          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="name@ecoloan.co.za" required>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="name@example.com" required>
         </div>
         <div class="field">
           <label for="password">Password</label>
@@ -43,6 +43,7 @@
             <button class="toggle" id="toggle-password" type="button" aria-pressed="false" aria-controls="password">Show</button>
           </div>
         </div>
+        <p class="forgot"><a href="/login/forgot/">Forgot password?</a></p>
         <button class="button" id="submit" type="submit">Sign in</button>
         <p id="status" class="status" role="alert"></p>
       </form>

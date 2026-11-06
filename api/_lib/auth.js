@@ -153,6 +153,17 @@ export function verifyUnlockPin(pin) {
 
 const PRODUCTION_HOSTS = new Set(['quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app']);
 
+// Fixed recovery pages. The client cannot choose a redirect. Preview hosts are
+// not listed: a reset link always returns to one of these two origins.
+const RECOVERY_REDIRECTS = {
+  'www.quik1ledger.com': 'https://www.quik1ledger.com/login/reset/',
+  'quik1ledger.com': 'https://quik1ledger.com/login/reset/'
+};
+
+export function recoveryRedirectUrl(req) {
+  return RECOVERY_REDIRECTS[requestHostname(req)] || RECOVERY_REDIRECTS['quik1ledger.com'];
+}
+
 export function requestHostname(req) {
   return requestHost(req).replace(/:\d+$/, '');
 }

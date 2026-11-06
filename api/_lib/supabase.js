@@ -115,12 +115,12 @@ export async function upsert(table, rows, onConflict = 'id', { ignoreDuplicates 
 
 // Same project URL and service-role headers as the table client. Used for GoTrue
 // (POST /auth/v1/token). The key never leaves the server. Callers must not forward `data`.
-export async function staffFetch(path, { method = 'POST', body, timeoutMs = 8000 } = {}) {
+export async function staffFetch(path, { method = 'POST', body, timeoutMs = 8000, authorization } = {}) {
   const { url, key } = env();
   const target = url + (String(path).charAt(0) === '/' ? path : '/' + path);
   const headers = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
+    Authorization: authorization || `Bearer ${key}`,
     Accept: 'application/json',
     ...(body !== undefined ? { 'Content-Type': 'application/json' } : {})
   };
