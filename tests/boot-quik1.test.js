@@ -16,7 +16,7 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
     try {
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => /Use your first four digits to sign in/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => /Enter the 4-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       const boot = await page.evaluate(() => ({
         bundlerErr: !!document.getElementById('__bundler_err'),
         link: window.Quik1Link && ['getState', 'subscribe', 'submitApplication', 'submitRequest', 'submitSignup', 'decide', 'decideSignup', 'confirmRepayment', 'repaymentFor', 'decisionFor', 'reset'].every(k => typeof window.Quik1Link[k] === 'function')
@@ -118,7 +118,7 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
   page.on('request', r => requested.push(r.url()));
   try {
     await page.goto(host.origin + '/', { waitUntil: 'load' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && /Use your first four digits to sign in/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && /Enter the 4-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
     const text = await page.evaluate(() => document.body.innerText);
     assert.equal(/\{\{/.test(text), false, 'no raw template markers');
     assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');

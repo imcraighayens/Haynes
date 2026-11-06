@@ -57,6 +57,10 @@ browser, in git, or in the staff UI.
 | `LEDGER_AI_PROVIDER` | Optional when both reader keys are set: `anthropic` or `openai`. |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
 | `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
+| `QUIK1_SESSION_SECRET` | Required for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. |
+| `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
+| `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
+| `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -74,6 +78,25 @@ Supabase dashboard → **SQL Editor → New query**, paste the whole file
 `supabase/migrations/20261029_quik1_bridge.sql` from the repo, **Run**. It is additive and
 idempotent (safe to run twice): two columns on `applications`, four new tables, staff-only RLS.
 Nothing existing is altered.
+
+Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
+adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
+Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SESSION_SECRET`
+(32 or more characters) before a client can choose a PIN. Live PIN also needs
+`QUIK1_BORROWER_PIN=1`, and it stays off when `VERCEL_ENV` is production or the host is
+quik1.app. Leave that flag unset in production. Leave the secret unset and redeeming an
+invite answers "Server not configured".
+
+Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT=1` and the
+deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The
+service role is not sent to the browser. Leave the preview flag unset on quik1.app.
+
+Then paste and run `supabase/migrations/20261106_quik1_borrower_app.sql`. That file adds the
+support-message table and a private `q1-documents` storage bucket. Do not apply it from the
+app. Withdrawals, new applications, and replies are status records only: they do not call
+NuPay or a bank. Optional `QUIK1_DOC_MAX_BYTES` caps an upload (default about 1.5 MB). The
+same `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`, and `QUIK1_SESSION_SECRET`
+already used by the bridge are enough. No new secret is required.
 
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.

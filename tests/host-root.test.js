@@ -18,7 +18,8 @@ test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in cop
   assert.ok(link > pin, 'quik1-link.js is also after the base');
   assert.ok(quik.includes('x-dc{display:none!important}'));
   assert.match(quik, /Enter your PIN/);
-  assert.match(quik, /Use your first four digits to sign in\. That is the first four digits of your ID number\./);
+  assert.match(quik, /Enter the 4-digit PIN you chose\. It is not your ID number\./);
+  assert.doesNotMatch(quik, /first four digits of your ID number/);
 });
 
 test('ledger asks for staff sign-in when /state is 401', () => {

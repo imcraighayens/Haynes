@@ -223,6 +223,46 @@
 
   function clientRefNum(ref) { var m = String(ref || '').match(/(\d+)\s*$/); return m ? parseInt(m[1], 10) : 0; }
 
+  // Quik1 rows from the book join the inbox. Local-only rows stay. Same id: the book wins on status.
+  function appToConsole(row) {
+    var meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
+    var docs = Array.isArray(meta.docs) ? meta.docs.map(function (d) { return typeof d === 'string' ? d : str(d && d.name, 'Document'); }) : [];
+    var when = row && row.created_at ? new Date(row.created_at) : null;
+    return {
+      id: 'qk_' + str(row.id),
+      extId: str(row.id),
+      name: str(row.name, 'Applicant'),
+      phone: str(row.phone, '—'),
+      email: str(row.email, '—'),
+      idNumber: str(row.id_number, '—'),
+      amount: num(row.amount),
+      term: parseInt(row.term_months, 10) || 1,
+      purpose: str(row.purpose, 'Personal'),
+      employer: str(row.employer, '—'),
+      jobTitle: str(row.job_title, '—'),
+      income: num(row.net_income),
+      bank: str(row.bank, '—'),
+      docs: docs,
+      status: str(row.status, 'new'),
+      source: row.client_id ? 'Quik1 · existing client' : 'Quik1 app',
+      submitted: when && !isNaN(when) ? labelOf(when).toUpperCase() : '',
+      existingClientId: row.client_id || null
+    };
+  }
+  function mergeApplications(local, remote) {
+    var seen = {}, out = [], i, row, mapped, prev;
+    (Array.isArray(local) ? local : []).forEach(function (a) { if (a && a.id && !seen[a.id]) { seen[a.id] = a; out.push(a); } });
+    (Array.isArray(remote) ? remote : []).forEach(function (r) {
+      if (!r || !r.id || String(r.source || '') !== 'quik1') return;
+      mapped = appToConsole(r);
+      prev = seen[mapped.id];
+      if (!prev) { seen[mapped.id] = mapped; out.push(mapped); return; }
+      for (i = 0; i < out.length; i++) if (out[i] && out[i].id === mapped.id) out[i] = Object.assign({}, prev, mapped);
+      seen[mapped.id] = Object.assign({}, prev, mapped);
+    });
+    return out;
+  }
+
   // The console's constructor only discards its built-in demo book when the saved state has
   // `clients` and `loans` ([] is truthy, so empty arrays are enough). The hosted console must
   // never show — let alone push — demo rows, so every boot path guarantees these keys exist.
@@ -285,6 +325,7 @@
     petty.sort(function (a, b) { return String(b.iso || '').localeCompare(String(a.iso || '')); });
 
     var payload = Object.assign(ensureBook(sv).book, { logbook: logbook, petty: petty });
+    payload.applications = mergeApplications(payload.applications, st && st.applications);
     seedSeq(payload, 'loanSeq', st && st.loans);
     seedSeq(payload, 'clientSeq', st && st.clients);
     writeJSON(KEYS.console, payload);
