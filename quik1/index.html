@@ -46,16 +46,15 @@
 })();
 </script>
 <style>
-  /* 100dvh stops above the iOS home indicator and leaves the body colour
-     in the gap. Percent height plus the large viewport fills the screen,
-     including the areas under the status bar and home indicator. */
-  /* Do not use position:fixed or min-height:100lvh here. On iOS that box
-     shrinks after the first paint, lifts the dock, and leaves a dead band
-     above the home indicator. The shell itself is position:fixed; inset:0. */
+  /* The document does not scroll. 100% alone stops above the iOS home
+     indicator, so the clip box is at least the large viewport. The shell
+     below is what the dock anchors to — not this percentage height. */
   html, body {
     background: #0B0620;
     width: 100%;
     height: 100%;
+    min-height: -webkit-fill-available;
+    min-height: 100lvh;
     margin: 0;
     overflow: hidden;
     overscroll-behavior: none;
@@ -65,32 +64,15 @@
   }
   #dc-root, #dc-root > .sc-host, .q-page {
     background: #0B0620;
-    min-height: 100%;
     min-height: -webkit-fill-available;
     min-height: 100lvh;
   }
-  /* Phones, tablets, and the installed app are the screen. A framed
-     preview stays on large desktop windows only (inline styles). */
+  /* Phones, tablets, and the installed app are the screen. Height is the
+     large viewport, not 100% / 100dvh, so the dock's bottom:0 is the
+     physical bottom. Safe-area padding lives only on the dock and the
+     scrolling content. A framed preview stays on large desktop windows. */
   @media (max-width: 1023px), (pointer: coarse), (display-mode: standalone), (display-mode: fullscreen) {
-    .q-page, .q-frame {
-      position: fixed !important;
-      inset: 0 !important;
-      top: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      left: 0 !important;
-      width: auto !important;
-      height: auto !important;
-      max-width: none !important;
-      max-height: none !important;
-      min-height: 0 !important;
-      margin: 0 !important;
-      aspect-ratio: auto !important;
-      border-radius: 0 !important;
-      box-shadow: none !important;
-      zoom: 1 !important;
-    }
-    .q-bleed {
+    .q-page, .q-frame, .q-bleed {
       position: fixed !important;
       inset: 0 !important;
       top: 0 !important;
@@ -98,47 +80,46 @@
       bottom: 0 !important;
       left: 0 !important;
       width: 100% !important;
-      height: 100% !important;
+      height: -webkit-fill-available !important;
+      height: 100lvh !important;
       max-width: none !important;
       max-height: none !important;
+      min-height: -webkit-fill-available !important;
+      min-height: 100lvh !important;
       margin: 0 !important;
-      object-fit: cover;
+      padding: 0 !important;
+      aspect-ratio: auto !important;
       border-radius: 0 !important;
+      box-shadow: none !important;
       zoom: 1 !important;
     }
+    .q-bleed { object-fit: cover; }
     .q-pad { padding: 0 !important; }
   }
   html.q-standalone .q-page,
-  html.q-standalone .q-frame {
+  html.q-standalone .q-frame,
+  html.q-standalone .q-bleed {
     position: fixed !important;
     inset: 0 !important;
     top: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: auto !important;
-    height: auto !important;
+    width: 100% !important;
+    height: -webkit-fill-available !important;
+    height: 100lvh !important;
     max-width: none !important;
     max-height: none !important;
-    min-height: 0 !important;
+    min-height: -webkit-fill-available !important;
+    min-height: 100lvh !important;
     margin: 0 !important;
+    padding: 0 !important;
     aspect-ratio: auto !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     zoom: 1 !important;
   }
-  html.q-standalone .q-bleed {
-    position: fixed !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    margin: 0 !important;
-    object-fit: cover;
-    border-radius: 0 !important;
-    zoom: 1 !important;
-  }
+  html.q-standalone .q-bleed { object-fit: cover; }
   html.q-standalone .q-pad { padding: 0 !important; }
   #quik1-ios-hint { position: fixed; z-index: 80; left: 16px; right: 16px; top: calc(12px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: #0B0620; color: #fff; border: 1px solid rgba(253,209,13,.55); box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 500 14px/1.4 Ubuntu, sans-serif; }
   #quik1-ios-hint[hidden] { display: none; }
@@ -2505,6 +2486,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showDock }}">
+        <sc-if value="{{ showDockMini }}">
         <button class="q-dock" sc-camel-on-click="{{ onDockExpand }}" aria-label="Open menu bar" style="position:absolute;left:18px;bottom:0;z-index:46;padding:0 0 env(safe-area-inset-bottom);border:0;background:transparent;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:{{ dockMiniOp }};visibility:{{ dockMiniVis }};pointer-events:{{ dockMiniPe }};transform:scale({{ dockMiniS }}) rotate({{ dockMiniR }});transform-origin:30px 30px;transition:opacity .3s ease,transform .5s cubic-bezier(.34,1.56,.64,1)" style-active="transform:scale(.92)">
           <span style="width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35);display:grid;place-items:center">
           <span style="width:48px;height:48px;border-radius:50%;background:#FDD10D;display:grid;place-items:center">
@@ -2512,6 +2494,7 @@ input,button,textarea{font-family:inherit}
           </span>
           </span>
         </button>
+        </sc-if>
         <div class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env(safe-area-inset-bottom);opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 30px;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
         <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ dockItems }}" as="d" hint-placeholder-count="4">
@@ -3354,7 +3337,7 @@ input,button,textarea{font-family:inherit}
       { const busy=s.screen!=='home'&&!s.gridOpen&&!s.dockPeek;
         const on=v.dockOn===undefined?1:Number(v.dockOn);
         Object.assign(v,{dockFullOp:busy?0:on,dockFullPe:(busy||!on)?'none':(v.dockPe||'auto'),dockFullS:busy?.35:1,dockFullBlur:busy?'6px':'0px',
-          dockMiniOp:busy?on:0,dockMiniVis:(busy&&on)?'visible':'hidden',dockMiniPe:(busy&&on)?'auto':'none',dockMiniS:busy?1:.6,dockMiniR:busy?'0deg':'-90deg',
+          showDockMini:!!(busy&&on),dockMiniOp:busy?on:0,dockMiniVis:(busy&&on)?'visible':'hidden',dockMiniPe:(busy&&on)?'auto':'none',dockMiniS:busy?1:.6,dockMiniR:busy?'0deg':'-90deg',
           onDockExpand:()=>{ clearTimeout(this._peekT); this.setState({dockPeek:true}); this._peekT=setTimeout(()=>this.setState({dockPeek:false}),5000); }}); }
       { const hideX=!!s.calPay&&s.screen==='schedule'; v.panelCloseOp=hideX?0:1; v.panelClosePe=hideX?'none':'auto'; }
       { const modal=!!s.loanSheet||!!s.infoKey||(!!s.manageOpen&&s.screen==='home')||!!v.lockTipOn||!!v.showToast||!!v.showDocError||!!v.showUpgrade||!!s.letter||!!s.agreement||!!s.mandatePop||(!!s.calPay&&s.screen==='schedule');

@@ -84,10 +84,12 @@ test('mobile and standalone fill the screen and the dock sits on the physical bo
   assert.match(quik, /touch-action:\s*pan-x pan-y/);
   assert.match(quik, /overscroll-behavior:\s*none/);
   assert.match(quik, /overflow:\s*hidden/);
-  assert.match(quik, /height:\s*auto\s*!important/);
-  assert.match(quik, /min-height:\s*0\s*!important/);
+  assert.match(quik, /height:\s*-webkit-fill-available\s*!important/);
+  assert.match(quik, /height:\s*100lvh\s*!important/);
+  assert.match(quik, /min-height:\s*100lvh\s*!important/);
   assert.doesNotMatch(quik, /html, body \{\s*background: #0B0620;\s*position:\s*fixed/);
-  assert.match(quik, /dockMiniVis:\(busy&&on\)\?'visible':'hidden'/);
+  assert.match(quik, /showDockMini:!!\(busy&&on\)/);
+  assert.match(quik, /<sc-if value="\{\{ showDockMini \}\}">/);
   assert.match(quik, /gesturestart/);
   assert.match(quik, /e\.touches && e\.touches\.length > 1/);
   assert.match(quik, /placeholder="Ask Q1 anything" style="[^"]*font-size:16px/);
