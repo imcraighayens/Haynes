@@ -84,6 +84,27 @@ export function settleKeyboard(signal) {
   return idle(Math.max(0, num(signal)), true);
 }
 
+// Scroll when keyboard mode starts, and again on each visualViewport resize
+// while it stays on, so the latest bubble stays above the composer.
+export function shouldStickChat(wasOpen, open, viewportResized) {
+  return !!open && (!wasOpen || !!viewportResized);
+}
+
+export function scrollChatLog(doc) {
+  if (!doc || typeof doc.querySelectorAll !== 'function') return 0;
+  const lists = doc.querySelectorAll('.q-chat-log');
+  let n = 0;
+  for (let i = 0; i < lists.length; i++) {
+    const el = lists[i];
+    if (!el) continue;
+    try {
+      el.scrollTop = el.scrollHeight;
+      n += 1;
+    } catch (e) { /* a detached list should not break the dock */ }
+  }
+  return n;
+}
+
 export function applyKeyboardMode(root, next) {
   if (!root || !root.classList || !root.style) return;
   if (next && next.open) {
@@ -122,11 +143,16 @@ function readFrame(doc, win) {
 
 export function installKeyboardInset(doc, win) {
   if (!doc || !win || !doc.documentElement) return;
+  // Older browsers have no visualViewport. Leave the dock at the physical
+  // bottom instead of throwing or inventing a lift.
+  const vv = win.visualViewport;
+  if (!vv || typeof vv.addEventListener !== 'function') return;
   const root = doc.documentElement;
   let state = { rest: 0, open: false, primed: false };
   let raf = 0;
   let holdTimer = 0;
   let lastKey = '';
+  let resizePending = false;
 
   function publish(next) {
     const key = (next.open ? '1' : '0') + ':' + next.inset;
@@ -135,8 +161,19 @@ export function installKeyboardInset(doc, win) {
     applyKeyboardMode(root, next);
   }
 
+  function stickChat() {
+    scrollChatLog(doc);
+    if (typeof win.requestAnimationFrame !== 'function') return;
+    win.requestAnimationFrame.call(win, function () {
+      if (root.classList.contains('q-kb')) scrollChatLog(doc);
+    });
+  }
+
   function update() {
     raf = 0;
+    const resized = resizePending;
+    resizePending = false;
+    const wasOpen = !!state.open;
     if (!phoneLayout(doc, win)) {
       if (root.classList.contains('q-kb')) publish({ open: false, inset: 0 });
       return;
@@ -147,6 +184,7 @@ export function installKeyboardInset(doc, win) {
     const next = stepKeyboard(state, overlap || { paint: 0, layout: 0 }, editing, hasFrame);
     state = { rest: next.rest, open: next.open, primed: next.primed };
     publish(next);
+    if (shouldStickChat(wasOpen, next.open, resized)) stickChat();
     if (next.hold) {
       if (holdTimer) win.clearTimeout(holdTimer);
       holdTimer = win.setTimeout(function () {
@@ -177,11 +215,11 @@ export function installKeyboardInset(doc, win) {
     }
   }
 
-  const vv = win.visualViewport;
-  if (vv && vv.addEventListener) {
-    vv.addEventListener('resize', schedule);
-    vv.addEventListener('scroll', schedule);
-  }
+  vv.addEventListener('resize', function () {
+    resizePending = true;
+    schedule();
+  });
+  vv.addEventListener('scroll', schedule);
   win.addEventListener('resize', schedule);
   win.addEventListener('orientationchange', schedule);
   doc.addEventListener('focusin', function () {

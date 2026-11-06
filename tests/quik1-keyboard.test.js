@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyKeyboardMode, measureOverlap, settleKeyboard, stepKeyboard } from '../quik1/keyboard-inset.js';
+import { applyKeyboardMode, installKeyboardInset, measureOverlap, scrollChatLog, settleKeyboard, shouldStickChat, stepKeyboard } from '../quik1/keyboard-inset.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const quik = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
@@ -122,6 +122,119 @@ test('applyKeyboardMode toggles the hook the stylesheet reads', () => {
   assert.equal(style.get('--q-kb'), '0px');
 });
 
+test('the chat log sticks when the keyboard opens and on later resizes', () => {
+  assert.equal(shouldStickChat(false, true, false), true);
+  assert.equal(shouldStickChat(true, true, true), true);
+  assert.equal(shouldStickChat(true, true, false), false);
+  assert.equal(shouldStickChat(false, false, true), false);
+  assert.equal(shouldStickChat(true, false, true), false);
+  const el = { scrollHeight: 480, scrollTop: 12 };
+  const doc = { querySelectorAll: (sel) => (sel === '.q-chat-log' ? [el] : []) };
+  assert.equal(scrollChatLog(doc), 1);
+  assert.equal(el.scrollTop, 480);
+  assert.equal(scrollChatLog(null), 0);
+});
+
+test('opening the keyboard and resizing it scrolls the chat log', () => {
+  const classes = new Set();
+  const style = new Map();
+  const log = { scrollHeight: 900, scrollTop: 4 };
+  let active = null;
+  const vvListeners = {};
+  const rafs = [];
+  const doc = {
+    readyState: 'complete',
+    documentElement: {
+      classList: {
+        add(c) { classes.add(c); },
+        remove(c) { classes.delete(c); },
+        contains(c) { return classes.has(c); }
+      },
+      style: { setProperty(k, v) { style.set(k, v); } },
+      scrollTop: 0
+    },
+    addEventListener() {},
+    querySelector(sel) {
+      if (sel === '.q-frame') {
+        return { offsetHeight: 844, getBoundingClientRect() { return { bottom: 844 }; } };
+      }
+      return null;
+    },
+    querySelectorAll(sel) { return sel === '.q-chat-log' ? [log] : []; }
+  };
+  Object.defineProperty(doc, 'activeElement', { get() { return active; } });
+  const vv = {
+    height: 844,
+    offsetTop: 0,
+    addEventListener(type, fn) { (vvListeners[type] || (vvListeners[type] = [])).push(fn); }
+  };
+  const win = {
+    visualViewport: vv,
+    scrollY: 0,
+    matchMedia() { return { matches: true }; },
+    addEventListener() {},
+    setTimeout() { return 0; },
+    clearTimeout() {},
+    requestAnimationFrame(fn) { rafs.push(fn); return rafs.length; },
+    scrollTo() {}
+  };
+  function flush() {
+    while (rafs.length) rafs.shift()();
+  }
+  installKeyboardInset(doc, win);
+  flush();
+  assert.equal(classes.has('q-kb'), false);
+
+  active = { closest() { return true; } };
+  vv.height = 500;
+  log.scrollTop = 4;
+  vvListeners.resize.forEach((fn) => fn());
+  flush();
+  assert.equal(classes.has('q-kb'), true);
+  assert.equal(style.get('--q-kb'), '344px');
+  assert.equal(log.scrollTop, 900);
+
+  log.scrollTop = 1;
+  vv.height = 480;
+  vvListeners.resize.forEach((fn) => fn());
+  flush();
+  assert.equal(log.scrollTop, 900);
+
+  log.scrollTop = 1;
+  flush();
+  assert.equal(log.scrollTop, 1);
+});
+
+test('a missing visualViewport does not lift or throw', () => {
+  const classes = new Set();
+  const doc = {
+    readyState: 'complete',
+    documentElement: {
+      classList: {
+        add(c) { classes.add(c); },
+        remove(c) { classes.delete(c); },
+        contains(c) { return classes.has(c); }
+      },
+      style: { setProperty() {} }
+    },
+    addEventListener() { throw new Error('listeners should not be attached'); },
+    querySelector() { throw new Error('frame should not be measured'); }
+  };
+  function win(visualViewport) {
+    return {
+      visualViewport,
+      addEventListener() { throw new Error('listeners should not be attached'); },
+      setTimeout() { throw new Error('timers should not be scheduled'); },
+      requestAnimationFrame() { throw new Error('frames should not be scheduled'); },
+      matchMedia() { return { matches: true }; }
+    };
+  }
+  assert.doesNotThrow(() => installKeyboardInset(doc, win(null)));
+  assert.doesNotThrow(() => installKeyboardInset(doc, win(undefined)));
+  assert.doesNotThrow(() => installKeyboardInset(doc, win({ height: 400 })));
+  assert.equal(classes.has('q-kb'), false);
+});
+
 test('Ask Q1 and the chat sheet are wired to the visual viewport', () => {
   assert.match(quik, /<script type="module" src="keyboard-inset\.js"><\/script>/);
   assert.match(keyboard, /visualViewport/);
@@ -131,7 +244,11 @@ test('Ask Q1 and the chat sheet are wired to the visual viewport', () => {
   assert.match(quik, /class="q-dock q-ask"/);
   assert.match(quik, /class="q-ask-strip"/);
   assert.match(quik, /class="q-chat"/);
+  assert.match(quik, /class="q-chat-log"/);
   assert.match(quik, /class="q-chat-bar"/);
+  assert.match(quik, /interactive-widget=resizes-visual/);
+  assert.match(keyboard, /shouldStickChat/);
+  assert.match(keyboard, /scrollChatLog/);
   assert.match(quik, /html\.q-kb \.q-ask \{[^}]*bottom: var\(--q-kb, 0px\) !important/);
   assert.match(quik, /html\.q-kb \.q-ask \{[^}]*padding-bottom: 0 !important/);
   assert.match(quik, /html\.q-kb \.q-ask \{[^}]*animation: none !important/);
