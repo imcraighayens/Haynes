@@ -8,18 +8,18 @@ const quik = fs.readFileSync(new URL('../quik1/index.html', import.meta.url), 'u
 const ledgerHtml = fs.readFileSync(new URL('../ledger/index.html', import.meta.url), 'utf8');
 const sync = fs.readFileSync(new URL('../ledger/ledger-sync.js', import.meta.url), 'utf8');
 
-test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in copy', () => {
+test('quik1 pins /quik1/ before the app script and keeps the PIN sign-in copy', () => {
   const literal = quik.indexOf('<base href="/quik1/">');
   const pin = quik.indexOf("var basePath = '/quik1/';");
-  const runtime = quik.indexOf('src="96aed023-8540-4384-bdbc-3bc317708b87.js"');
+  const app = quik.indexOf('src="./app.js"');
   const link = quik.indexOf('src="./quik1-link.js"');
-  assert.ok(literal > 0 && literal < runtime, 'the preload scanner sees base href before any script src');
-  assert.ok(pin > 0 && runtime > pin, 'base is set before the runtime script is requested');
+  assert.ok(literal > 0 && literal < app, 'the preload scanner sees base href before any script src');
+  assert.ok(pin > 0 && app > pin, 'base is set before the app script is requested');
   assert.ok(link > pin, 'quik1-link.js is also after the base');
-  assert.ok(quik.includes('x-dc{display:none!important}'));
   assert.match(quik, /Enter your PIN/);
   assert.match(quik, /Enter the 4-digit PIN you chose\. It is not your ID number\./);
   assert.doesNotMatch(quik, /first four digits of your ID number/);
+  assert.doesNotMatch(quik, /Loop/);
 });
 
 test('ledger asks for staff sign-in when /state is 401', () => {

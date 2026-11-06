@@ -333,7 +333,7 @@ describe('quik1 borrower q1', { concurrency: 1 }, () => {
 
 describe('q1 icon source', { concurrency: 1 }, () => {
   const ledger = fs.readFileSync(new URL('../../ledger/index.html', import.meta.url), 'utf8');
-  const quik = fs.readFileSync(new URL('../../quik1/index.html', import.meta.url), 'utf8');
+  const quik = fs.readFileSync(new URL('../../quik1/app.js', import.meta.url), 'utf8');
 
   test('ledger chat reaches /api/q1-assistant before any Claude call', () => {
     const fn = ledger.slice(ledger.indexOf('async botFromLedger'), ledger.indexOf('botRun(act)'));

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NuPay client list — Ledger</title>
+<style>
+  body { margin: 0; background: #101218; color: #f4f1ea; font: 16px/1.45 "Plus Jakarta Sans", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 28px 20px 64px; }
+  a { color: #d6ff4a; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p { color: #b7b3aa; }
+  textarea, button { font: inherit; }
+  textarea { width: 100%; min-height: 180px; box-sizing: border-box; border-radius: 12px; border: 1px solid #333; background: #181b22; color: inherit; padding: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  button { border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
+  #preview { background: #d6ff4a; color: #101218; }
+  #commit { background: #2a2e38; color: #fff; }
+  #commit:disabled { opacity: .45; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #2a2e38; vertical-align: top; }
+  .err { color: #ffb4a8; }
+  .ok { color: #b6f5c8; }
+</style>
+</head>
+<body>
+<main>
+  <p><a href="/ledger/">Back to Ledger</a></p>
+  <h1>NuPay client list</h1>
+  <p>Staff only. Preview the file, then import. Clients are matched on the NuPay reference. Loan columns are imported only when the file has them. This does not send a debit or a payout. After import, use Invite to Quik1 on the client.</p>
+  <p id="columns"></p>
+  <input id="file" type="file" accept=".csv,text/csv">
+  <textarea id="csv" placeholder="Or paste the CSV here. The first row must be headers."></textarea>
+  <div class="row">
+    <button id="preview" type="button">Preview import</button>
+    <button id="commit" type="button" disabled>Import into Ledger</button>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+(function () {
+  var csvEl = document.getElementById('csv');
+  var out = document.getElementById('out');
+  var commitBtn = document.getElementById('commit');
+  var last = '';
+  document.getElementById('file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { csvEl.value = String(reader.result || ''); commitBtn.disabled = true; };
+    reader.readAsText(file);
+  });
+  function add(tag, text, className) {
+    var el = document.createElement(tag);
+    if (className) el.className = className;
+    el.textContent = text;
+    out.appendChild(el);
+    return el;
+  }
+  function show(data, committed) {
+    out.textContent = '';
+    add('p', committed ? 'Imported. Invite the client from Ledger when you are ready.' : 'Preview only. Nothing was written.', (data.errors && data.errors.length) ? 'err' : 'ok');
+    if (data.counts) {
+      add('p', data.counts.clientsCreate + ' new clients, ' + data.counts.clientsUpdate + ' updated, ' + data.counts.loansCreate + ' new loans, ' + data.counts.loansUpdate + ' loans updated.');
+    }
+    if (data.columns) document.getElementById('columns').textContent = 'Supported columns: ' + data.columns.join(', ');
+    if (data.errors && data.errors.length) {
+      var list = document.createElement('ul');
+      list.className = 'err';
+      data.errors.forEach(function (e) {
+        var li = document.createElement('li');
+        li.textContent = 'Row ' + e.row + ': ' + e.message;
+        list.appendChild(li);
+      });
+      out.appendChild(list);
+    }
+    if (data.preview && data.preview.length) {
+      var table = document.createElement('table');
+      var head = document.createElement('tr');
+      ['Row', 'Reference', 'Name', 'Client', 'Loans'].forEach(function (label) {
+        var th = document.createElement('th');
+        th.textContent = label;
+        head.appendChild(th);
+      });
+      var thead = document.createElement('thead');
+      thead.appendChild(head);
+      table.appendChild(thead);
+      var body = document.createElement('tbody');
+      data.preview.forEach(function (row) {
+        var tr = document.createElement('tr');
+        [row.row, row.ref, row.name, row.client, (row.loans || []).join(', ')].forEach(function (value) {
+          var td = document.createElement('td');
+          td.textContent = value == null ? '' : String(value);
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+      table.appendChild(body);
+      out.appendChild(table);
+    }
+  }
+  function post(commit) {
+    var csv = csvEl.value;
+    if (!csv.trim()) { out.textContent = 'Choose a file or paste rows first.'; return; }
+    fetch('/api/ledger/nupay-clients', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ csv: csv, commit: commit })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (res.status === 401) { out.textContent = 'Sign in on Ledger first.'; commitBtn.disabled = true; return; }
+        last = csv;
+        show(res.body || {}, !!(res.body && res.body.committed));
+        commitBtn.disabled = !(res.ok && res.body && !res.body.committed && !(res.body.errors && res.body.errors.length));
+      })
+      .catch(function () { out.textContent = 'Could not reach Ledger.'; });
+  }
+  document.getElementById('preview').addEventListener('click', function () { post(false); });
+  commitBtn.addEventListener('click', function () {
+    if (csvEl.value !== last) { out.textContent = 'Preview this file before import.'; return; }
+    post(true);
+  });
+})();
+</script>
+</body>
+</html>

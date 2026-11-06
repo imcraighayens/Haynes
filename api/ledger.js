@@ -10,6 +10,7 @@ import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
 import { createInvite, revokeInvite, listInvites } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
+import { runNupayImport } from './_lib/nupay-import.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -487,6 +488,15 @@ export default wrap('ledger', async (req, res) => {
     const body = await readBody(req, 8192);
     const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
     return json(res, 201, await postStaffReply(clientId, body), req);
+  }
+  if (head === 'nupay-clients' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, STAFF_BODY_CAP);
+    const commit = !!(body && body.commit === true);
+    const who = staffIdentity(req);
+    const result = await runNupayImport(body && body.csv, { commit, actor: (who && who.displayName) || 'staff' });
+    if (commit && result.errors && result.errors.length) return json(res, 400, result, req);
+    return json(res, 200, result, req);
   }
   if (head === 'quik1-documents' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
