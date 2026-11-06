@@ -4,13 +4,36 @@
 <script>window.__resources={"https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0B0620">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Quik1">
 <link rel="apple-touch-icon" href="/quik1/apple-touch-icon.png">
+<script>
+/* Installed iOS app: mark the document before first paint so the phone
+   frame never letterboxes a Home Screen launch. */
+(function () {
+  try {
+    var standalone = navigator.standalone === true
+      || matchMedia('(display-mode: standalone)').matches
+      || matchMedia('(display-mode: fullscreen)').matches;
+    if (standalone) document.documentElement.classList.add('q-standalone');
+  } catch (e) {}
+})();
+/* iOS pinch and gesture zoom scale the layout viewport and slide fixed
+   chrome over the chat. Block multi-touch scale; one-finger scroll stays. */
+(function () {
+  function block(e) { e.preventDefault(); }
+  document.addEventListener('gesturestart', block, { passive: false });
+  document.addEventListener('gesturechange', block, { passive: false });
+  document.addEventListener('gestureend', block, { passive: false });
+  document.addEventListener('touchmove', function (e) {
+    if (e.touches && e.touches.length > 1) e.preventDefault();
+  }, { passive: false });
+})();
+</script>
 <script>
 /* Manifest scope follows the URL the page was opened at. quik1.app serves this
    HTML at /; the same file is also /quik1/. Relative start_url/scope in the
@@ -23,8 +46,81 @@
 })();
 </script>
 <style>
-  html, body { height: 100dvh !important; min-height: 100dvh; }
-  #dc-root, #dc-root > .sc-host { min-height: 100%; }
+  /* The document does not scroll. 100% alone stops above the iOS home
+     indicator, so the clip box is at least the large viewport. The shell
+     below is what the dock anchors to — not this percentage height. */
+  html, body {
+    background: #000000;
+    width: 100%;
+    height: 100%;
+    min-height: -webkit-fill-available;
+    min-height: 100lvh;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-x pan-y;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  #dc-root, #dc-root > .sc-host, .q-page {
+    background: #000000;
+    min-height: -webkit-fill-available;
+    min-height: 100lvh;
+  }
+  /* Phones, tablets, and the installed app are the screen. Height is the
+     large viewport, not 100% / 100dvh, so the dock's bottom:0 is the
+     physical bottom. Safe-area padding lives only on the dock and the
+     scrolling content. A framed preview stays on large desktop windows. */
+  @media (max-width: 1023px), (pointer: coarse), (display-mode: standalone), (display-mode: fullscreen) {
+    .q-page, .q-frame, .q-bleed {
+      position: fixed !important;
+      inset: 0 !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: -webkit-fill-available !important;
+      height: 100lvh !important;
+      max-width: none !important;
+      max-height: none !important;
+      min-height: -webkit-fill-available !important;
+      min-height: 100lvh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      aspect-ratio: auto !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      zoom: 1 !important;
+    }
+    .q-bleed { object-fit: cover; }
+    .q-pad { padding: 0 !important; }
+  }
+  html.q-standalone .q-page,
+  html.q-standalone .q-frame,
+  html.q-standalone .q-bleed {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: -webkit-fill-available !important;
+    height: 100lvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-height: -webkit-fill-available !important;
+    min-height: 100lvh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    aspect-ratio: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    zoom: 1 !important;
+  }
+  html.q-standalone .q-bleed { object-fit: cover; }
+  html.q-standalone .q-pad { padding: 0 !important; }
   #quik1-ios-hint { position: fixed; z-index: 80; left: 16px; right: 16px; top: calc(12px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: #0B0620; color: #fff; border: 1px solid rgba(253,209,13,.55); box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 500 14px/1.4 Ubuntu, sans-serif; }
   #quik1-ios-hint[hidden] { display: none; }
   #quik1-ios-hint p { margin: 0; flex: 1; }
@@ -279,7 +375,7 @@
 }
 </style>
 <style>
-body{margin:0;background:#F2F0EA;font-family:Lufga,Ubuntu,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+body{margin:0;background:#000000;font-family:Lufga,Ubuntu,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 a{color:#0B0620}a:hover{color:#0B0620}
 *{box-sizing:border-box}
 @keyframes q-in{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
@@ -324,7 +420,7 @@ input,button,textarea{font-family:inherit}
 </style>
 </helmet>
 
-<div style="min-height:100dvh;display:flex;background:#2B303B">
+<div class="q-page" style="min-height:100%;display:flex;background:#000000">
 
   <!-- ── Desktop sidebar ───────────────────────────────────────── -->
   <sc-if value="{{ showSidebar }}">
@@ -360,15 +456,16 @@ input,button,textarea{font-family:inherit}
     </div>
   </sc-if>
 
-  <div style="flex:1;min-width:0;display:flex;justify-content:center;padding:{{ shellPad }}">
-  <div style="--q-fg:{{ thFg }};--q-ink:{{ thInk }};--q-panel:{{ thPanel }};--q-btn:{{ thBtn }};--q-chat:{{ thChat }};--q-dock:{{ thDock }};--q-dock2:{{ thDock2 }};--q-surface:{{ thSurface }};--q-tile:{{ thTile }};--q-accent:{{ thAccent }};--q-card:{{ thCard }};--q-page:{{ thPage }};width:100%;max-width:{{ appMaxW }};aspect-ratio:{{ appAspect }};zoom:{{ appZoom }};height:{{ appMinH }};max-height:{{ appMinH }};background:{{ frameBg }};border-radius:{{ appRadius }}px;overflow:hidden;position:relative;box-shadow:{{ appShadow }};display:flex;flex-direction:column">
+  <div class="q-pad" style="flex:1;min-width:0;display:flex;justify-content:center;padding:{{ shellPad }}">
+  <div class="q-frame" style="--q-fg:{{ thFg }};--q-ink:{{ thInk }};--q-panel:{{ thPanel }};--q-btn:{{ thBtn }};--q-chat:{{ thChat }};--q-dock:{{ thDock }};--q-dock2:{{ thDock2 }};--q-surface:{{ thSurface }};--q-tile:{{ thTile }};--q-accent:{{ thAccent }};--q-card:{{ thCard }};--q-page:{{ thPage }};width:100%;max-width:{{ appMaxW }};aspect-ratio:{{ appAspect }};zoom:{{ appZoom }};height:{{ appMinH }};max-height:{{ appMaxH }};background:{{ frameBg }};border-radius:{{ appRadius }}px;overflow:hidden;position:relative;box-shadow:{{ appShadow }};display:flex;flex-direction:column">
 
 
     <!-- ── Splash ────────────────────────────────────────────── -->
     <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
-      <div style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:0 34px;overflow:hidden">
-        <video src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
-        <div style="position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
+      <div class="q-bleed" style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;overflow:hidden">
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
+        <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:calc(24px + env(safe-area-inset-top)) calc(34px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(34px + env(safe-area-inset-left));box-sizing:border-box">
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="position:relative;z-index:1;width:168px;height:auto;display:block">
         <div style="position:relative;z-index:1;display:flex;gap:5px">
           <span style="width:9px;height:9px;border-radius:50%;background:#FDD10D;animation:q-dot 1.5s cubic-bezier(.4,0,.2,1) infinite"></span>
@@ -379,6 +476,7 @@ input,button,textarea{font-family:inherit}
           <div style="width:100%;height:3px;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden">
             <div style="height:100%;border-radius:999px;background:#FDD10D;width:{{ splashPct }}%;transition:width .12s linear"></div>
           </div>
+        </div>
         </div>
       </div>
     </sc-if>
@@ -744,7 +842,7 @@ input,button,textarea{font-family:inherit}
               </div>
               <sc-if value="{{ calPayOpen }}">
                 <div sc-camel-on-click="{{ onCalPayToggle }}" style="position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)"></div>
-                <div style="position:absolute;left:12px;right:12px;bottom:12px;z-index:21;display:flex;flex-direction:column;padding:16px 18px;border-radius:26px;background:var(--q-surface);border:1px solid rgba(var(--q-fg),.12);box-shadow:0 30px 60px rgba(0,0,0,.5);animation:q-up .32s cubic-bezier(.22,1,.36,1)">
+                <div style="position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:21;display:flex;flex-direction:column;padding:16px 18px;border-radius:26px;background:var(--q-surface);border:1px solid rgba(var(--q-fg),.12);box-shadow:0 30px 60px rgba(0,0,0,.5);animation:q-up .32s cubic-bezier(.22,1,.36,1)">
                   <div style="display:flex;align-items:baseline;justify-content:space-between;padding:6px 0 8px"><span style="font-size:13px;color:rgba(var(--q-fg),.6)">Pay off today</span><span style="font-size:16px;font-weight:600;color:var(--q-ink)">{{ settleLabel }}</span></div>
                   <sc-for list="{{ payMethods }}" as="p" hint-placeholder-count="1">
                     <button sc-camel-on-click="{{ p.onClick }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:11px 0;border:0;border-top:1px solid rgba(var(--q-fg),.08);background:transparent;text-align:left;cursor:pointer;color:var(--q-ink)">
@@ -1062,7 +1160,7 @@ input,button,textarea{font-family:inherit}
                   <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid {{ f.sep }};cursor:{{ f.cursor }}">
                     <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">{{ f.label }}</span>
                     <span style="display:flex;align-items:center;gap:10px">
-                      <input value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" sc-camel-read-only="{{ f.readOnly }}" style="flex:1;min-width:0;height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:{{ f.ink }}">
+                      <input value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" sc-camel-read-only="{{ f.readOnly }}" style="flex:1;min-width:0;height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:{{ f.ink }}">
                       <sc-if value="{{ f.readOnly }}">
                         <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:15px;height:15px;fill:none;stroke:rgba(var(--q-fg),.4);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M7 10.6V8a5 5 0 0 1 10 0v2.6M5.6 10.6h12.8v9H5.6z"></path></svg>
                       </sc-if>
@@ -1088,17 +1186,17 @@ input,button,textarea{font-family:inherit}
               <div style="border-radius:20px;overflow:hidden;background:var(--q-card);border:1px solid rgba(var(--q-fg),.14);box-shadow:0 10px 24px -14px rgba(0,0,0,.45)">
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Bank</span>
-                  <sc-raw-select value="{{ bkBank }}" sc-camel-on-change="{{ onBkBank }}" style="height:26px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:var(--q-ink);font-family:inherit;cursor:pointer">
+                  <sc-raw-select value="{{ bkBank }}" sc-camel-on-change="{{ onBkBank }}" style="height:26px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:var(--q-ink);font-family:inherit;cursor:pointer">
                     <sc-for list="{{ bkBanks }}" as="b" hint-placeholder-count="8"><option value="{{ b }}">{{ b }}</option></sc-for>
                   </sc-raw-select>
                 </label>
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Account holder</span>
-                  <input value="{{ bkHolder }}" sc-camel-on-change="{{ onBkHolder }}" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;color:var(--q-ink)">
+                  <input value="{{ bkHolder }}" sc-camel-on-change="{{ onBkHolder }}" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;color:var(--q-ink)">
                 </label>
                 <label style="display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
                   <span style="font-size:11.5px;color:rgba(var(--q-fg),.5)">Account number</span>
-                  <input value="{{ bkAcc }}" sc-camel-on-change="{{ onBkAcc }}" inputmode="numeric" placeholder="e.g. 1234567890" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:15.5px;font-weight:500;letter-spacing:.04em;color:var(--q-ink)">
+                  <input value="{{ bkAcc }}" sc-camel-on-change="{{ onBkAcc }}" inputmode="numeric" placeholder="e.g. 1234567890" style="height:24px;padding:0;border:0;outline:none;background:transparent;font-size:16px;font-weight:500;letter-spacing:.04em;color:var(--q-ink)">
                   <sc-if value="{{ bkAccErr }}"><span style="font-size:11.5px;font-weight:600;color:#FF5A4F">{{ bkAccErr }}</span></sc-if>
                 </label>
                 <div style="display:flex;flex-direction:column;gap:8px;padding:11px 16px;border-top:1px solid rgba(var(--q-fg),.07)">
@@ -1193,7 +1291,7 @@ input,button,textarea{font-family:inherit}
               Chat on WhatsApp
             </a>
             <div style="display:flex;align-items:center;gap:10px;border:1.5px solid rgba(var(--q-fg),.18);border-radius:999px;padding:6px 6px 6px 20px">
-              <input value="{{ draft }}" sc-camel-on-change="{{ onDraft }}" placeholder="Ask a question" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:var(--q-ink)">
+              <input value="{{ draft }}" sc-camel-on-change="{{ onDraft }}" placeholder="Ask a question" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
               <button sc-camel-on-click="{{ onSend }}" style="flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:0;background:#FDD10D;display:grid;place-items:center;cursor:pointer">
                 <svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
               </button>
@@ -1329,9 +1427,11 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Login ─────────────────────────────────────────────── -->
     <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
-      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;display:flex;flex-direction:column;gap:22px;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;padding:0 26px calc(46px + env(safe-area-inset-bottom));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <video src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
-        <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
+      <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#0C0E13">
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
+        <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
         <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + env(safe-area-inset-top))">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
@@ -2156,7 +2256,7 @@ input,button,textarea{font-family:inherit}
             </sc-if>
             <div style="flex:0 0 auto;padding:0 20px 20px">
               <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(var(--q-fg),.12);border-radius:999px;background:rgba(var(--q-fg),.06);padding:6px 6px 6px 20px">
-                <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:var(--q-ink)">
+                <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
                 <sc-if value="{{ micSupported }}"><button sc-camel-on-click="{{ onMic }}" aria-label="{{ micLabel }}" style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:{{ micBg }};display:grid;place-items:center;cursor:pointer;animation:{{ micAnim }};transition:background .2s cubic-bezier(.33,1,.68,1)"><svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:{{ micInk }};stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.6a2.8 2.8 0 0 0-2.8 2.8v5.2a2.8 2.8 0 0 0 5.6 0V6.4A2.8 2.8 0 0 0 12 3.6ZM6.4 11.2a5.6 5.6 0 0 0 11.2 0M12 16.8v3.6"></path></svg></button></sc-if>
                 <button sc-camel-on-click="{{ onAiSend }}" aria-label="Send" style="position:relative;flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:0;background:#0000FE;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">{{ botFace }}</button>
               </div>
@@ -2297,7 +2397,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ botBubbleOn }}">
-        <button sc-camel-on-click="{{ onBotBubble }}" style="position:absolute;right:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:16;max-width:230px;display:flex;align-items:center;gap:10px;padding:11px 14px 11px 16px;border-radius:20px 20px 6px 20px;border:0;background:{{ bubBg }};box-shadow:{{ bubShadow }};cursor:pointer;text-align:left;color:{{ bubInk }};animation:q-bubble .45s cubic-bezier(.34,1.56,.64,1) both;transform-origin:100% 100%">
+        <button sc-camel-on-click="{{ onBotBubble }}" style="position:absolute;right:18px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:16;max-width:230px;display:flex;align-items:center;gap:10px;padding:11px 14px 11px 16px;border-radius:20px 20px 6px 20px;border:0;background:{{ bubBg }};box-shadow:{{ bubShadow }};cursor:pointer;text-align:left;color:{{ bubInk }};animation:q-bubble .45s cubic-bezier(.34,1.56,.64,1) both;transform-origin:100% 100%">
           <span style="font-size:13.5px;line-height:1.4;text-wrap:pretty">{{ botBubbleText }}</span>
           <span sc-camel-on-click="{{ onBotBubbleClose }}" aria-label="Dismiss" style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:{{ bubChip }};display:grid;place-items:center">
             <svg sc-camel-view-box="0 0 24 24" style="width:10px;height:10px;fill:none;stroke:{{ bubMute }};stroke-width:3;stroke-linecap:round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
@@ -2309,7 +2409,7 @@ input,button,textarea{font-family:inherit}
 
       <sc-if value="{{ gridOpen }}">
         <div sc-camel-on-click="{{ onCloseGrid }}" style="position:absolute;inset:0;z-index:42;background:{{ gridScrim }};backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:q-fade .3s cubic-bezier(.33,1,.68,1) reverse both">
-          <div sc-camel-on-click="{{ stopGrid }}" style="position:absolute;left:12px;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));max-height:calc(100% - 150px - env(safe-area-inset-bottom));overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:14px 12px 12px;background:{{ gridSheetBg }};border:1px solid {{ gridBd }};box-shadow:{{ gridShadow }};animation:q-up .38s cubic-bezier(.22,1,.36,1)">
+          <div sc-camel-on-click="{{ stopGrid }}" style="position:absolute;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));max-height:calc(100% - 110px - env(safe-area-inset-bottom));overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:14px 12px 12px;background:{{ gridSheetBg }};border:1px solid {{ gridBd }};box-shadow:{{ gridShadow }};animation:q-up .38s cubic-bezier(.22,1,.36,1)">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 4px 10px">
               <p style="margin:0;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:{{ gridMute }}">Menu</p>
               <div style="position:relative;display:flex;padding:3px;border-radius:999px;background:rgba(var(--q-fg),.07);border:1px solid rgba(var(--q-fg),.08)">
@@ -2373,8 +2473,9 @@ input,button,textarea{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{ showAuthDock }}">
-        <p style="position:absolute;left:24px;right:24px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:45;margin:0;text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
-        <div style="position:absolute;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
+        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
+        <div class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:45;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
+        <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ authDockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
               <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:22px;height:22px;stroke:{{ d.ink }};fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s ease"><path d="{{ d.path }}"></path></svg>
@@ -2382,14 +2483,20 @@ input,button,textarea{font-family:inherit}
             </button>
           </sc-for>
         </div>
+        </div>
       </sc-if>
       <sc-if value="{{ showDock }}">
-        <button sc-camel-on-click="{{ onDockExpand }}" aria-label="Open menu bar" style="position:absolute;left:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:46;width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35);display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:{{ dockMiniOp }};pointer-events:{{ dockMiniPe }};transform:scale({{ dockMiniS }}) rotate({{ dockMiniR }});transition:opacity .3s ease,transform .5s cubic-bezier(.34,1.56,.64,1)" style-active="transform:scale(.92)">
+        <sc-if value="{{ showDockMini }}">
+        <button class="q-dock" sc-camel-on-click="{{ onDockExpand }}" aria-label="Open menu bar" style="position:absolute;left:18px;bottom:0;z-index:46;padding:0 0 env(safe-area-inset-bottom);border:0;background:transparent;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent;opacity:{{ dockMiniOp }};visibility:{{ dockMiniVis }};pointer-events:{{ dockMiniPe }};transform:scale({{ dockMiniS }}) rotate({{ dockMiniR }});transform-origin:30px 30px;transition:opacity .3s ease,transform .5s cubic-bezier(.34,1.56,.64,1)" style-active="transform:scale(.92)">
+          <span style="width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35);display:grid;place-items:center">
           <span style="width:48px;height:48px;border-radius:50%;background:#FDD10D;display:grid;place-items:center">
             <svg sc-camel-view-box="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#0B0620;stroke-width:2;stroke-linejoin:round"><path d="M5 5h5.5v5.5H5ZM13.5 5H19v5.5h-5.5ZM5 13.5h5.5V19H5ZM13.5 13.5H19V19h-5.5Z"></path></svg>
           </span>
+          </span>
         </button>
-        <div style="position:absolute;left:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:45;height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px;opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 50%;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
+        </sc-if>
+        <div class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env(safe-area-inset-bottom);opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 30px;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
+        <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ dockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
               <svg sc-camel-view-box="0 0 24 24" style="flex:0 0 auto;width:22px;height:22px;stroke:{{ d.ink }};fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s ease"><path d="{{ d.path }}"></path></svg>
@@ -2397,10 +2504,11 @@ input,button,textarea{font-family:inherit}
             </button>
           </sc-for>
         </div>
+        </div>
       </sc-if>
       <sc-if value="{{ manageOpen }}">
         <div sc-camel-on-click="{{ onManageClose }}" style="position:absolute;inset:0;z-index:58;background:rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:q-fade .3s cubic-bezier(.33,1,.68,1) reverse both">
-          <div sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:12px;right:12px;bottom:12px;max-height:calc(100% - 120px);overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:10px 16px 18px;background:var(--q-surface);border:1px solid rgba(var(--q-fg),.10);box-shadow:0 30px 60px rgba(0,0,0,.5);animation:q-up .42s cubic-bezier(.22,1,.36,1)">
+          <div sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));max-height:calc(100% - 120px - env(safe-area-inset-bottom));overflow-y:auto;scrollbar-width:none;border-radius:30px;padding:10px 16px 18px;background:var(--q-surface);border:1px solid rgba(var(--q-fg),.10);box-shadow:0 30px 60px rgba(0,0,0,.5);animation:q-up .42s cubic-bezier(.22,1,.36,1)">
             <div style="width:40px;height:5px;margin:0 auto 14px;border-radius:999px;background:rgba(var(--q-fg),.2)"></div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 4px">
               <p style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.03em;color:var(--q-ink)">Manage your loan</p>
@@ -2447,7 +2555,7 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ quickStripOn }}">
-        <div style="position:absolute;right:18px;left:18px;bottom:calc(110px + env(safe-area-inset-bottom));z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
+        <div style="position:absolute;right:18px;left:18px;bottom:calc(70px + env(safe-area-inset-bottom));z-index:44;display:flex;justify-content:flex-end;pointer-events:none">
           <div style="pointer-events:auto;max-width:100%;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:16px;border:1px solid rgba(40,60,255,.45);background:rgba(12,16,58,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 14px 30px -10px rgba(0,0,0,.5);animation:q-up .3s cubic-bezier(.22,1,.36,1)">
             <span style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#0000FE;box-shadow:0 0 12px rgba(40,60,255,.7);display:grid;place-items:center;font-size:10px;font-weight:700;color:#FFFFFF">Q1</span>
             <button sc-camel-on-click="{{ onQuickStripOpen }}" style="flex:1;min-width:0;border:0;padding:0;background:transparent;text-align:left;cursor:pointer;font-size:13.5px;line-height:1.4;color:#FFFFFF;opacity:{{ quickStripOp }}">{{ quickStripText }}</button>
@@ -2458,9 +2566,10 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showQ1 }}">
-        <div style="position:absolute;right:18px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);animation:q-float 4.2s ease-in-out infinite;transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
+        <div class="q-dock" style="position:absolute;right:18px;bottom:0;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:env(safe-area-inset-bottom);animation:q-float 4.2s ease-in-out infinite">
+        <div style="height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
           <sc-if value="{{ quickOpen }}">
-            <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:15px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
+            <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
           </sc-if>
           <button sc-camel-on-click="{{ onQuickToggle }}" sc-camel-on-mouse-enter="{{ onBotEnter }}" sc-camel-on-mouse-leave="{{ onBotLeave }}" sc-camel-on-focus="{{ onBotEnter }}" sc-camel-on-blur="{{ onBotLeave }}" aria-label="Ask Q1" style="position:relative;flex:0 0 auto;width:40px;height:40px;margin:0 4px;border-radius:50%;border:0;background:#0000FE;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);display:grid;place-items:center;cursor:pointer;animation:{{ quickPulse }};transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">
             <span style="position:absolute;inset:0;border-radius:50%;background:#2A3BFF;animation:{{ quickHalo }};pointer-events:none"></span>
@@ -2469,6 +2578,7 @@ input,button,textarea{font-family:inherit}
               <path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path>
             </svg>
           </button>
+        </div>
         </div>
       </sc-if>
   
@@ -3227,7 +3337,7 @@ input,button,textarea{font-family:inherit}
       { const busy=s.screen!=='home'&&!s.gridOpen&&!s.dockPeek;
         const on=v.dockOn===undefined?1:Number(v.dockOn);
         Object.assign(v,{dockFullOp:busy?0:on,dockFullPe:(busy||!on)?'none':(v.dockPe||'auto'),dockFullS:busy?.35:1,dockFullBlur:busy?'6px':'0px',
-          dockMiniOp:busy?on:0,dockMiniPe:(busy&&on)?'auto':'none',dockMiniS:busy?1:.6,dockMiniR:busy?'0deg':'-90deg',
+          showDockMini:!!(busy&&on),dockMiniOp:busy?on:0,dockMiniVis:(busy&&on)?'visible':'hidden',dockMiniPe:(busy&&on)?'auto':'none',dockMiniS:busy?1:.6,dockMiniR:busy?'0deg':'-90deg',
           onDockExpand:()=>{ clearTimeout(this._peekT); this.setState({dockPeek:true}); this._peekT=setTimeout(()=>this.setState({dockPeek:false}),5000); }}); }
       { const hideX=!!s.calPay&&s.screen==='schedule'; v.panelCloseOp=hideX?0:1; v.panelClosePe=hideX?'none':'auto'; }
       { const modal=!!s.loanSheet||!!s.infoKey||(!!s.manageOpen&&s.screen==='home')||!!v.lockTipOn||!!v.showToast||!!v.showDocError||!!v.showUpgrade||!!s.letter||!!s.agreement||!!s.mandatePop||(!!s.calPay&&s.screen==='schedule');
@@ -3255,6 +3365,9 @@ input,button,textarea{font-family:inherit}
       const offerInterest=offerPrincipal*this.rate();
       const offerTotal=offerPrincipal+offerInterest;
       const vw=s.vw ?? (typeof window!=='undefined'?window.innerWidth:420);
+      const standalone=(typeof navigator!=='undefined'&&navigator.standalone===true)||(typeof window!=='undefined'&&!!window.matchMedia&&(window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches));
+      const coarse=typeof window!=='undefined'&&!!window.matchMedia&&window.matchMedia('(pointer: coarse)').matches;
+      const framed=!s.desktopView&&!standalone&&!coarse&&vw>=1024;
       const wide=false, mid=true;
       const pOpen=s.menuOpen||SHEETS.includes(s.screen)||s.closing==='panel';
       const lightHome=s.homeLight ?? (this.props.whiteBackground ?? false), lightPal=lightHome&&!!s.splashDone&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen);
@@ -3504,7 +3617,7 @@ input,button,textarea{font-family:inherit}
           this.dismiss('panel',{screen:'home',panelPhase:''});
         },
         showFlowCta:stepIdx>=0&&s.screen!=='who'&&!(s.screen==='amount'&&s.customer&&((!!s.activeLoan&&!s.topUpMode)||this.headroom(s)<500)),
-        ctaBottom:(onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'calc(112px + env(safe-area-inset-bottom))':'calc(20px + env(safe-area-inset-bottom))',
+        ctaBottom:(onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'calc(72px + env(safe-area-inset-bottom))':'calc(8px + env(safe-area-inset-bottom))',
         ctaLabel:ctaLabel, ctaHint:ctaValid?'':ctaHint,
         ctaAction:ctaValid?ctaAction:()=>{},
         ctaBg:ctaValid?'#FDD10D':'rgba(255,255,255,.66)',
@@ -3513,7 +3626,7 @@ input,button,textarea{font-family:inherit}
         ctaDisc:ctaValid?INK:'rgba(11,6,32,.08)',
         ctaArrow:ctaValid?YEL:'rgba(11,6,32,.35)',
         ctaCursor:ctaValid?'pointer':'not-allowed',
-        flowPadBottom:onTabScreen?'calc(220px + env(safe-area-inset-bottom))':'calc(128px + env(safe-area-inset-bottom))',
+        flowPadBottom:onTabScreen?'calc(180px + env(safe-area-inset-bottom))':'calc(128px + env(safe-area-inset-bottom))',
         wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'calc(34px + env(safe-area-inset-top))',
         panelTop:hdrOn?'calc(96px + env(safe-area-inset-top))':'0px', showDrawerHead:!hdrOn,
         hdrMenuOn:pOpen?0:1, hdrCloseOn:(pOpen&&!SHEETS.includes(s.screen))?1:0, hdrBackOn:(pOpen&&SHEETS.includes(s.screen)&&s.closing!=='panel')?1:0,
@@ -3523,15 +3636,17 @@ input,button,textarea{font-family:inherit}
           return L?{thFg:'11,6,32',thInk:'#0B0620',thPanel:'linear-gradient(180deg,rgba(255,255,255,.86) 0%,rgba(246,245,241,.94) 55%,rgba(236,234,227,.97) 100%)',thBtn:'rgba(255,255,255,.9)',thChat:'linear-gradient(180deg,#FFFFFF 0%,#F6F5F1 100%)',thDock:'linear-gradient(180deg,rgba(40,44,54,.72) 0%,rgba(14,16,21,.82) 100%)',thDock2:'linear-gradient(135deg,#2A3BFF 0%,#0000FE 100%)',thSurface:'linear-gradient(180deg,#FFFFFF 0%,#F2F0EA 100%)',thTile:'linear-gradient(180deg,#FFFFFF 0%,#F4F2EC 100%)',thAccent:'#8A6A00',thCard:'#FFFFFF',thPage:'linear-gradient(180deg,#E4E1D8 0%,#D9D5CA 100%)'}
            :{thFg:'255,255,255',thInk:'#FFFFFF',thPanel:'linear-gradient(180deg,rgba(28,32,41,.42) 0%,rgba(8,9,12,.72) 55%,rgba(6,7,9,.8) 100%)',thBtn:'rgba(28,32,41,.72)',thChat:'linear-gradient(180deg,rgba(24,26,32,.97) 0%,rgba(10,11,14,.98) 100%)',thDock:'linear-gradient(180deg,rgba(60,66,80,.42) 0%,rgba(20,23,30,.5) 100%)',thDock2:'rgba(12,13,17,.94)',thSurface:'linear-gradient(180deg,#17191F 0%,#0C0D11 100%)',thTile:'linear-gradient(180deg,#3A3F4A 0%,#2B2F38 100%)',thAccent:'#FDD10D',thCard:'linear-gradient(180deg,#22252C 0%,#181A20 100%)',thPage:'linear-gradient(180deg,#0C0D11 0%,#000000 100%)'}; })(),
         showQ1:!!s.splashDone&&!s.aiOpen&&(onTabScreen||(!!s.customer&&!['login','signup','signupPending'].includes(s.screen))||SHEETS.includes(s.screen)),
-        shellPad:(s.desktopView||vw<600)?'0px':'16px 20px',
-        appMaxW:s.desktopView?'100%':vw<600?'100%':'390px',
-        appZoom:(s.desktopView||vw<600)?1:Math.min(1,Math.max(.4,((s.vh||(typeof window!=='undefined'?window.innerHeight:900))-32)/844)),
-        appRadius:(s.desktopView||vw<600)?0:44,
-        appMinH:s.desktopView?'100%':vw<600?'100dvh':'844px', appAspect:(s.desktopView||vw<600)?'auto':'390 / 844',
+        shellPad:framed?'16px 20px':'0px',
+        appMaxW:framed?'390px':'100%',
+        appZoom:framed?Math.min(1,Math.max(.4,((s.vh||(typeof window!=='undefined'?window.innerHeight:900))-32)/844)):1,
+        appRadius:framed?44:0,
+        appMinH:framed?'844px':'100%',
+        appMaxH:framed?'844px':'none',
+        appAspect:framed?'390 / 844':'auto',
         deskTrackBg:s.desktopView?YEL:'rgba(255,255,255,.2)',
         deskKnobX:s.desktopView?'20px':'0px',
         onToggleDesktop:()=>this.setState(st=>({desktopView:!st.desktopView})),
-        appShadow:'0 24px 60px rgba(11,6,32,.18),0 0 0 1px rgba(11,6,32,.06)',
+        appShadow:framed?'0 24px 60px rgba(11,6,32,.18),0 0 0 1px rgba(11,6,32,.06)':'none',
         statusH:(!s.splashDone||s.screen==='signup'||s.screen==='signupPending')?0:52,
         statusBg:(s.screen==='home'||SHEETS.includes(s.screen)||onTabScreen)?'#1C2029'
           :(s.screen==='login'||s.screen==='signup'||s.screen==='signupPending')?'#1C2029':((s.screen==='login'||s.screen==='estimate'||s.screen==='deciding'||!s.splashDone)?'#000000':'#FFFFFF'),
@@ -3575,7 +3690,7 @@ input,button,textarea{font-family:inherit}
         onStepHelp:()=>{ this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); this.openGuide(); },
         stepTipOp:s.stepTipFade?0:1,
         onStepTipClose:e=>{ e&&e.stopPropagation&&e.stopPropagation(); this.setState(st=>({stepTipOff:{...(st.stepTipOff||{}),[st.screen]:true}})); },
-        stepTipBottom:'calc('+((onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'112px':'20px')+' + 70px + env(safe-area-inset-bottom))',
+        stepTipBottom:'calc('+((onTabScreen||(!!s.customer&&!['login','signup','signupPending','estimate','deciding'].includes(s.screen)))?'72px':'8px')+' + 70px + env(safe-area-inset-bottom))',
         ...(()=>{ const inc=parseInt(String(s.income||'').replace(/\D/g,'')||'0',10);
           const done={Pay:inc>=3000,Job:!!s.tenure,Proof:!!s.proof,Ok:(s.consent||[]).length>=2};
           const first=['Pay','Job','Proof','Ok'].find(k=>!done[k]);
@@ -3749,7 +3864,7 @@ input,button,textarea{font-family:inherit}
         ],
         showAiFab:false,
         fabPad:'178px',
-        aiBottom:onTabScreen?'calc(112px + env(safe-area-inset-bottom))':'calc(22px + env(safe-area-inset-bottom))',
+        aiBottom:onTabScreen?'calc(72px + env(safe-area-inset-bottom))':'calc(8px + env(safe-area-inset-bottom))',
         aiBusy:s.docChecks.some(d=>d.state==='checking'),
         aiIdle:!s.docChecks.some(d=>d.state==='checking'),
         botFace:this.botFace(),
@@ -4267,7 +4382,7 @@ input,button,textarea{font-family:inherit}
           ? (draws.length+' draws, collected as one debit order of '+this.money(L.total)+' on '+DUE+'. The '+ratePct+' charge on each is fixed, so settling sooner never costs more.')
           : ('One repayment of '+this.money(L.monthly)+' on '+DUE+', made up of your '+this.money(L.a)+' plus the '+ratePct+' charge. Settle sooner and the charge does not grow.'),
         firstName:(s.profile.name||'').split(' ')[0]||'there',
-        homePadBottom:'116px',
+        homePadBottom:'calc(76px + env(safe-area-inset-bottom))',
         cardsRef:this._cards,
         cardDots:[0,1].map(i=>({bgLight:i===(s.cardIdx||0)?'#0B0620':'rgba(11,6,32,.18)'})),
         onCardScroll:()=>{

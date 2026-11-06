@@ -37,8 +37,8 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, './');
   assert.equal(manifest.scope, './');
-  assert.equal(manifest.theme_color, '#0B0620');
-  assert.equal(manifest.background_color, '#0B0620');
+  assert.equal(manifest.theme_color, '#000000');
+  assert.equal(manifest.background_color, '#000000');
   const sizes = new Set(manifest.icons.map(i => i.sizes + ':' + i.purpose));
   assert.ok(sizes.has('192x192:any'));
   assert.ok(sizes.has('512x512:any'));
@@ -47,18 +47,52 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   for (const icon of manifest.icons) {
     assert.ok(fs.existsSync(path.join(root, icon.src.replace(/^\//, ''))), icon.src);
   }
+  assert.match(quik, /width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover/);
   assert.match(quik, /viewport-fit=cover/);
-  assert.match(quik, /name="theme-color" content="#0B0620"/);
+  assert.match(quik, /name="theme-color" content="#000000"/);
   assert.match(quik, /name="apple-mobile-web-app-capable" content="yes"/);
   assert.match(quik, /name="mobile-web-app-capable" content="yes"/);
   assert.match(quik, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
   assert.match(quik, /rel="apple-touch-icon" href="\/quik1\/apple-touch-icon.png"/);
   assert.match(quik, /atRoot \? '\/manifest\.webmanifest' : '\/quik1\/manifest\.webmanifest'/);
   assert.match(quik, /<base href="\/quik1\/">/);
-  assert.match(quik, /100dvh/);
+  assert.match(quik, /100lvh/);
+  assert.match(quik, /-webkit-fill-available/);
+  assert.doesNotMatch(quik, /height:\s*100dvh\s*!important/);
   assert.doesNotMatch(quik, /100vh/);
   assert.match(quik, /env\(safe-area-inset-top\)/);
   assert.match(quik, /env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /body\{margin:0;background:#000000/);
+  assert.doesNotMatch(quik, /body\{margin:0;background:#F2F0EA/);
+});
+
+test('mobile and standalone fill the screen and the dock sits on the physical bottom', () => {
+  assert.match(quik, /class="q-page"/);
+  assert.match(quik, /class="q-frame"/);
+  assert.match(quik, /class="q-bleed"/);
+  assert.match(quik, /class="q-dock"/);
+  assert.match(quik, /q-standalone/);
+  assert.match(quik, /display-mode: standalone/);
+  assert.match(quik, /pointer: coarse/);
+  assert.match(quik, /position:\s*fixed\s*!important/);
+  assert.match(quik, /inset:\s*0\s*!important/);
+  assert.match(quik, /const framed=!s\.desktopView&&!standalone&&!coarse&&vw>=1024/);
+  assert.match(quik, /appAspect:framed\?'390 \/ 844':'auto'/);
+  assert.doesNotMatch(quik, /bottom:calc\(40px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /homePadBottom:'calc\(76px \+ env\(safe-area-inset-bottom\)\)'/);
+  assert.match(quik, /touch-action:\s*pan-x pan-y/);
+  assert.match(quik, /overscroll-behavior:\s*none/);
+  assert.match(quik, /overflow:\s*hidden/);
+  assert.match(quik, /height:\s*-webkit-fill-available\s*!important/);
+  assert.match(quik, /height:\s*100lvh\s*!important/);
+  assert.match(quik, /min-height:\s*100lvh\s*!important/);
+  assert.doesNotMatch(quik, /html, body \{\s*background: #0B0620;\s*position:\s*fixed/);
+  assert.match(quik, /showDockMini:!!\(busy&&on\)/);
+  assert.match(quik, /<sc-if value="\{\{ showDockMini \}\}">/);
+  assert.match(quik, /gesturestart/);
+  assert.match(quik, /e\.touches && e\.touches\.length > 1/);
+  assert.match(quik, /placeholder="Ask Q1 anything" style="[^"]*font-size:16px/);
 });
 
 test('Safari hint is one-time, login-only, and hidden when already standalone', () => {
