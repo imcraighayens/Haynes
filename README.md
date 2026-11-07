@@ -238,6 +238,36 @@ never auto-approved**: every one waits for a staff decision in LEDGER.
   (two nullable/defaulted columns on `applications`, four new tables, idempotent indexes).
 * The two apps' design and behaviour (rule zero).
 
+## Run it on your laptop (port 5410)
+
+```bash
+npm run dev
+```
+
+Opens Quik1 at `http://localhost:5410/quik1/` and Admin at `http://localhost:5410/ledger/`
+(key `testkey`) on the fake database in `tests/fixtures/state.json`. No `.env`, nothing leaves
+the machine.
+
+```bash
+npm run dev:live
+```
+
+Same addresses, but against the real Supabase project in `.env` (`SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`). Guards in `tools/dev-live.js`, each tested in
+`tests/dev-live.test.js`:
+
+| Default in live mode | To change it (`npm run dev:live -- <flag>`) |
+| --- | --- |
+| **Read-only.** Database writes are blocked locally; staff sign-in still works. A blocked Quik1 submission gets a 403, so the phone's outbox drops it rather than sending it later. | `--allow-writes`. Anything saved is a real row and is never hard-deleted. |
+| Production project (`rcektqecduuzqqmcsgat`) refused. | `--prod` |
+| "Reset demo data" off, whatever `.env` says. | None. It is never available against a real project. |
+| Twilio keys dropped (call/SMS show "Not configured"). | `--allow-twilio` |
+| `Q1_WEBHOOK_URL` dropped. | `--allow-webhook` |
+| `/__mock/*` inspection endpoints removed; the real `LEDGER_KEY` is never printed. | None. |
+
+The server listens on `127.0.0.1` only. Staff sign-in sets a `Secure` cookie, which Chrome and
+Firefox accept on `localhost`; use one of those for Admin.
+
 ## Local testing
 
 ```
@@ -246,7 +276,8 @@ npm run boot:ledger # headless boot of /ledger → /tmp/ledger.png (Playwright, 
 npm run boot:quik1  # headless boot of /quik1  → /tmp/quik1.png
 ```
 
-Full stack locally: copy `.env.example` to `.env`, fill it in, run `vercel dev`, open
+For the apps on port 5410 without Vercel, see "Run it on your laptop" above.
+Full stack through Vercel instead: copy `.env.example` to `.env`, fill it in, run `vercel dev`, open
 `http://localhost:3000/ledger/`, paste `LEDGER_KEY` under Settings → Supabase → Connect, then
 submit a test application from `http://localhost:3000/quik1/`. Details in
 [tests/README.md](tests/README.md).
