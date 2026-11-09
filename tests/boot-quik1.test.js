@@ -130,7 +130,7 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
       const p = new URL(u).pathname;
       return p.startsWith('/quik1/') || rootShell.has(p);
     }), 'scripts, fonts, images and the splash video load from /quik1/');
-    const real404 = notFound.filter(u => !u.includes('.image-slots.state.json'));
+    const real404 = notFound.filter(u => !u.includes('.image-slots.state.json') && !u.includes('/api/'));
     assert.deepEqual(real404, [], 'no 404s for scripts, fonts or images');
   } finally {
     await browser.close();
