@@ -32,6 +32,6 @@ test('ledger asks for staff sign-in when /state is 401', () => {
   assert.match(sync, /L\.needsUnlock = !!\(e && e\.status === 401\)/);
   assert.match(sync, /needsUnlock: false/);
   assert.match(sync, /L\.login = login/);
-  assert.match(sync, /api\('POST', '\/unlock'/);
+  assert.doesNotMatch(sync, /\/unlock/);
   assert.match(sync, /api\('POST', '\/login'/);
 });

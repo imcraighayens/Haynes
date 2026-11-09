@@ -252,8 +252,8 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     `status: new|reviewing→'Needs decision', approved→'Approved', declined→'Declined'`,
     `decision: null | {verdict:'approved'|'declined', amount, by, note, at (ms)}`.
     404 for unknown ids; ids are unguessable so no auth.
-  * `POST signups` → insert `q1_signups` with **status 'Approved'** immediately (auto-approval
-    policy; `decided_by:'auto'`, `note:'Auto-approved by Quik1 bridge'`) → `{id, status}`.
+  * `POST signups` → insert `q1_signups` with **status 'Pending review'**. An SA ID number in the
+    body is ignored and not stored. Response `{id, status, decidedAt:null, by:null, note}`.
     `GET signups/:id` → `{id, status, decidedAt, by, note}`.
   * `POST requests` → insert `q1_requests` → `{id, status:'New'}`.
   * `GET repayments/:key` → `{ok, by, at}` or `null`. Keys are scoped to one customer record:

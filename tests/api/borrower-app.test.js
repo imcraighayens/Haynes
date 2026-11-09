@@ -68,7 +68,7 @@ async function call(handler, { method = 'GET', path = [], headers = {}, body } =
     method,
     query: { path },
     url: '/api/' + path.join('/'),
-    headers: { host: 'quik1.test', 'x-forwarded-proto': 'https', 'x-forwarded-for': '198.51.100.' + (++ipSeq % 200), ...headers },
+    headers: { host: handler === ledger ? 'localhost' : 'quik1.test', 'x-forwarded-proto': 'https', 'x-forwarded-for': '198.51.100.' + (++ipSeq % 200), ...headers },
     body
   };
   const res = makeRes();

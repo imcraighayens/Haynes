@@ -2576,7 +2576,7 @@ class Component extends DCLogic {
     // GET /api/ledger/state 401 means there is no staff cookie yet. A saved
     // ledgerUnlocked flag does not load the book. Show Admin sign-in until
     // Supabase login mints the cookie. A named session replaces the demo profile.
-    // POST /api/ledger/unlock stays server-only; this screen does not send a passcode.
+    // Staff sign in with email and password. There is no unlock PIN.
     try{
       const gate=window.__ledger;
       if(gate&&gate.needsUnlock){

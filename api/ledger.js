@@ -3,7 +3,7 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff, isSameOrigin, verifyUnlockPin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
+import { requireStaff, isSameOrigin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
 import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
@@ -296,17 +296,6 @@ async function pushRepaymentFlags(ops) {
   try { await upsert('q1_repayments', [...byKey.values()], 'key', { returning: false }); } catch { /* table optional until migration */ }
 }
 
-async function postUnlock(req, res) {
-  // Same-origin only — never mint a staff cookie for a cross-site caller.
-  if (!isSameOrigin(req)) throw new HttpError(403, 'Same-origin required');
-  requireEnv(['LEDGER_KEY']);
-  const body = await readBody(req, 4 * 1024);
-  verifyUnlockPin(body.pin);
-  const { token, exp } = mintStaffSession();
-  res.setHeader('Set-Cookie', staffCookieHeader(token, exp));
-  json(res, 200, { ok: true, expires_at: new Date(exp).toISOString() }, req);
-}
-
 async function postManagerPin(req, res) {
   const body = await readBody(req, 4 * 1024);
   verifyManagerPin(body.pin);
@@ -405,7 +394,9 @@ export default wrap('ledger', async (req, res) => {
   const parts = pathParts(req, 'ledger');
   const [head, ...rest] = parts;
 
-  // Login/unlock/lock mint or clear the staff cookie. Bearer is not required to call them.
+  // Login and lock mint or clear the staff cookie. Bearer is not required to call them.
+  // /unlock is gone: a PIN must not mint a session, even if a caller still posts one.
+  if (head === 'unlock') throw new HttpError(404, 'Not found');
   if (head === 'login' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postLogin(req, res);
@@ -413,10 +404,6 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'session' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getSession(req, res);
-  }
-  if (head === 'unlock' && rest.length === 0) {
-    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    return postUnlock(req, res);
   }
   if (head === 'lock' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
