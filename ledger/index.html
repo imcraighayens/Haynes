@@ -539,7 +539,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="5">
             <div sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:36px 96px minmax(140px,1.3fr) 150px 110px 110px;column-gap:12px;min-width:680px;padding:12px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
               <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim);font-variant-numeric:tabular-nums">{{ c.num }}</div><div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.ref }}</div>
-              <div style="font-weight:500">{{ c.name }}</div>
+              <div>
+                <div style="font-weight:500">{{ c.name }}</div>
+                <div sc-camel-on-click="{{ c.invite }}" style="margin-top:4px;display:inline-flex;padding:3px 8px;border-radius:8px;border:1px solid var(--line2);font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--accText);cursor:pointer">Invite to Quik1</div>
+              </div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.idMasked }}</div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.added }}</div>
               <div style="font-size:12px;color:var(--mut)">{{ c.employee }}</div>
@@ -570,6 +573,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div sc-camel-on-click="{{ cvCall }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--green)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--green);background:color-mix(in oklch, var(--green) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2z"></path></svg></div>Call</div>
               <div sc-camel-on-click="{{ cvSms }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--blue)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--blue);background:color-mix(in oklch, var(--blue) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"></path><path d="M8 12h.01M12 12h.01M16 12h.01"></path></svg></div>SMS</div>
               <div sc-camel-on-click="{{ cvContract }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--amber)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--amber);background:color-mix(in oklch, var(--amber) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8M8 17h5"></path></svg></div>Contract</div>
+              <div sc-camel-on-click="{{ cvInvite }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="transform:translateY(-1px);border-color:var(--accText)">Invite to Quik1</div>
               <div sc-camel-on-click="{{ cvToggleReveal }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--red)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--red);background:color-mix(in oklch, var(--red) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.1 12.3a1 1 0 0 1 0-.6C3.6 7.4 7.5 4.5 12 4.5s8.4 2.9 9.9 7.2a1 1 0 0 1 0 .6c-1.5 4.3-5.4 7.2-9.9 7.2s-8.4-2.9-9.9-7.2"></path><circle cx="12" cy="12" r="3"></circle></svg></div>{{ cvRevealText }}</div>
               <div style="width:1px;height:24px;background:var(--line2);margin:0 2px"></div>
               <div sc-camel-on-click="{{ cvNewLoan }}" style="display:flex;align-items:center;gap:7px;height:38px;padding:0 13px;border-radius:12px;border:1px solid var(--line2);color:var(--mut);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="color:var(--ink);border-color:var(--accText)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Full loan form</div>
@@ -1064,6 +1068,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         </div>
       </div>
     </div>
+    </sc-if>
+
+    <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:14px clamp(16px,2.6vw,34px) 24px;animation:fadeUp .25s ease;height:100%;box-sizing:border-box;overflow:auto" data-screen-label="Quik1 messages">
+        <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:8px">QUIK1 MESSAGES</div>
+        <div style="font-size:12.5px;color:var(--mut);margin-bottom:18px;max-width:640px">Messages from signed-in clients. A reply shows on their phone. Nothing here sends a debit order or a payout.</div>
+        <sc-if value="{{ q1ThreadsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 0;font-size:13px;color:var(--dim)">No messages yet.</div></sc-if>
+        <div style="display:flex;flex-direction:column;gap:14px;max-width:760px">
+          <sc-for list="{{ q1Threads }}" as="t" hint-placeholder-count="1">
+            <div style="border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--panel)">
+              <div style="font:700 14px 'Plus Jakarta Sans',sans-serif">{{ t.name }} <span style="font-weight:500;color:var(--dim)">{{ t.ref }}</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+                <sc-for list="{{ t.lines }}" as="m" hint-placeholder-count="2">
+                  <div style="font-size:13px;line-height:1.45"><span style="font:600 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:var(--dim)">{{ m.who }}</span><div style="margin-top:2px">{{ m.body }}</div></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <input value="{{ t.draft }}" sc-camel-on-change="{{ t.onDraft }}" placeholder="Reply" style="flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif">
+                <div sc-camel-on-click="{{ t.send }}" style="padding:10px 16px;border-radius:10px;background:var(--acc);color:var(--accInk);font:700 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer">Reply</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
     </sc-if>
 
     <sc-if value="{{ isNewLoan }}" hint-placeholder-val="{{ false }}">
@@ -1850,7 +1878,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <sc-if value="{{ mBankRep }}" hint-placeholder-val="{{ false }}">
             <div style="padding:24px 28px">
               <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif">IMPORT BANK REPORT</div><div sc-camel-on-click="{{ closeModal }}" style="color:var(--dim);cursor:pointer;font-size:18px" style-hover="color:var(--ink)">✕</div></div>
-              <div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;margin-bottom:16px">NUPAY TRANSACTION REPORT · XLSX OR CSV · MATCHED BY MANDATE ID</div>
+              <div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;margin-bottom:16px">NUPAY TRANSACTION REPORT · XLSX OR CSV · MATCHED BY MANDATE ID · <a href="/ledger/nupay.html" style="color:var(--accText)">Client list import</a></div>
               <sc-if value="{{ brInput }}" hint-placeholder-val="{{ true }}">
                 <div>
                   <label style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:34px 20px;border-radius:14px;border:1px dashed var(--line2);background:var(--panel);cursor:pointer;text-align:center" style-hover="border-color:#C6F432">
@@ -2002,6 +2030,29 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
                 <div sc-camel-on-click="{{ sendInvite }}" style="padding:11px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);text-align:center;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">SEND INVITE</div>
             </div>
           </div>
+          </sc-if>
+
+          <sc-if value="{{ mQ1Invite }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:24px 28px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif">INVITE TO QUIK1</div><div sc-camel-on-click="{{ closeModal }}" style="color:var(--dim);cursor:pointer;font-size:18px" style-hover="color:var(--ink)">✕</div></div>
+              <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut);margin-bottom:12px">{{ q1Who }}</div>
+              <div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div>
+              <sc-if value="{{ q1Busy }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Creating a link…</div></sc-if>
+              <sc-if value="{{ q1Err }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);margin-bottom:10px">{{ q1Err }}</div></sc-if>
+              <sc-if value="{{ q1HasCode }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">LINK</div><input readonly value="{{ q1Link }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"></div>
+                  <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">CODE</div><input readonly value="{{ q1Code }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px ui-monospace,monospace;color:var(--ink);letter-spacing:.04em"></div>
+                  <div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Expires {{ q1Exp }}</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <div sc-camel-on-click="{{ q1CopyLink }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">COPY LINK</div>
+                    <div sc-camel-on-click="{{ q1CopyCode }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">COPY CODE</div>
+                    <div sc-camel-on-click="{{ q1Revoke }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">REVOKE</div>
+                    <div sc-camel-on-click="{{ q1Reissue }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">REISSUE</div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
           </sc-if>
 
           <sc-if value="{{ mEmpEdit }}" hint-placeholder-val="{{ false }}">
@@ -2663,6 +2714,36 @@ class Component extends DCLogic {
     if(!sync||typeof sync.api!=='function') return Promise.reject(Object.assign(new Error('Not configured'),{status:503}));
     return sync.api(method, path, body);
   }
+  openQuik1Invite(clientId, ev){
+    if(ev&&ev.stopPropagation) ev.stopPropagation();
+    const c=(this.state.clients||[]).find(x=>x.id===clientId);
+    if(!c) return;
+    const base={name:c.name||'', ref:c.ref||'', busy:true, code:'', link:'', expiresAt:'', inviteId:'', error:''};
+    this.setState({modal:'q1invite', modalId:clientId, q1Invite:base});
+    this.staffApi('POST','/quik1-invites',{clientId:clientId}).then(j=>{
+      this.setState({q1Invite:{name:base.name, ref:base.ref, busy:false, code:(j&&j.code)||'', link:(j&&j.link)||'', expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', error:''}});
+    },()=>{
+      this.setState({q1Invite:{name:base.name, ref:base.ref, busy:false, code:'', link:'', expiresAt:'', inviteId:'', error:'Could not create an invite. Check the connection and try again.'}});
+    });
+  }
+  copyQuik1(which){
+    const q=this.state.q1Invite||{};
+    const text=which==='link'?q.link:q.code;
+    if(!text) return;
+    const done=()=>this.toast('Copied');
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, done); return; }
+    }catch(e){}
+    done();
+  }
+  revokeQuik1Invite(){
+    const id=(this.state.q1Invite&&this.state.q1Invite.inviteId)||'';
+    if(!id) return;
+    this.staffApi('POST','/quik1-invites/'+encodeURIComponent(id)+'/revoke',{}).then(()=>{
+      this.setState(p=>({q1Invite:{...(p.q1Invite||{}), code:'', link:'', error:'Revoked. That link no longer works.'}}));
+      this.toast('Invite revoked');
+    },()=>this.toast('Could not revoke'));
+  }
   refreshServerFeatures(){
     this._demoResetAllowed=false;
     this.staffApi('GET','/features',null).then(j=>{
@@ -2845,7 +2926,20 @@ class Component extends DCLogic {
   reelTo(n){ const L=this.state.reelList||[]; if(!L[n]) return;
     this.setState({reel:L[n], reelIdx:n, reelPlay:false}, ()=>{ const el=this._reelStrip; if(!el) return; const th=el.querySelectorAll('[title]')[n]; if(!th) return;
       el.scrollTo({left: th.offsetLeft - (el.clientWidth - th.offsetWidth)/2, behavior:'smooth'}); }); }
+  pullQuik1Feed(){
+    this.staffApi('GET','/quik1-feed').then(j=>{
+      if(!j) return;
+      const incoming=Array.isArray(j.applications)?j.applications:[];
+      this.setState(p=>{
+        const by={};
+        (p.applications||[]).forEach(a=>{ if(a&&a.id) by[a.id]=a; });
+        incoming.forEach(a=>{ if(a&&a.id) by[a.id]=Object.assign({}, by[a.id]||{}, a); });
+        return {applications:Object.values(by), q1Threads:Array.isArray(j.threads)?j.threads:[]};
+      });
+    },()=>{});
+  }
   componentDidMount(){ this.refreshServerFeatures(); setTimeout(()=>this.loadReel(),300); setTimeout(()=>this.qkSync(),2500); this._qkT=setInterval(()=>{ if(!document.hidden) this.qkSync(); },60000);
+    setTimeout(()=>this.pullQuik1Feed(),1500); this._q1Feed=setInterval(()=>{ if(!document.hidden) this.pullQuik1Feed(); },15000);
     this._reelAuto = setInterval(()=>{ const st=this.state, L=st.reelList||[];
       if(st.reelPlay || this._reelHover || L.length<2 || document.hidden || st.route!=='dashboard') return;
       if(this._reelPause && Date.now()-this._reelPause < 12000) return;
@@ -2898,7 +2992,7 @@ class Component extends DCLogic {
       el.style.top = Math.round(r.top + dy) + 'px';
     }
   }
-  componentWillUnmount(){ clearInterval(this._qkT); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
+  componentWillUnmount(){ clearInterval(this._qkT); clearInterval(this._q1Feed); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
   newsFeeds(){ const SA=/south africa|\bsa\b|\brand\b|\bzar\b|\bjse\b|sarb|reserve bank|kganyago|godongwana|treasury|eskom|transnet|sars|stats ?sa|johannesburg|cape town|durban|petrol|diesel|fuel price|dmre|opec|brent/i; return [
     {src:'BusinessTech', url:'https://businesstech.co.za/news/finance/feed/', cat:'markets', sa:true},
     {src:'BusinessTech Banking', url:'https://businesstech.co.za/news/banking/feed/', cat:'markets', sa:true},
@@ -3615,7 +3709,7 @@ class Component extends DCLogic {
     });
   }
   navIcon(r, active){
-    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'] };
+    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'], messages:['M5 6.5h14v9H10l-4 3.5v-3.5H5Z'] };
     const paths = (P[r]||[]).map((d,i)=>React.createElement('path',{key:i,d}));
     return React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round',style:{flex:'none',color: active?'var(--accText)':'var(--mut)'}}, paths);
   }
@@ -4063,7 +4157,7 @@ class Component extends DCLogic {
     const st = this.roleScope(this.state), fmt = this.fmt.bind(this);
     const orgName = this.props.orgName ?? (this._org && this._org.name) ?? 'Ecoloans';
     const mono = "font:500 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;";
-    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','ADMIN','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
+    const navDefs = [['dashboard','DASHBOARD','2px'],['loans','LOANS','2px'],['applications','APPLICATIONS','50%'],['messages','MESSAGES','50%'],['clients','CLIENTS','50%'],['logbook','LOGBOOK','2px'],['ledger','ADMIN','2px'],['petty','PETTY CASH','50%'],['notifications','NOTIFICATIONS','50%']];
     const appNewCount = st.applications.filter(a=>a.status==='new').length;
     const notif = this.notifItems();
     const notifFlagged = notif.filter(n=>n.flagged).length;
@@ -4689,12 +4783,16 @@ class Component extends DCLogic {
             docs:av.docs,
             approveLabel: existing?('Approve → issue loan to '+existing.name.split(' ')[0]):'Approve → onboard client',
             approve:()=>{ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'approved'}:x), appViewId:null}));
+              const ext=av.extId||String(av.id||'').replace(/^qk_/,'');
+              if(ext) this.staffApi('POST','/quik1-applications/'+encodeURIComponent(ext),{status:'approved',amount:av.amount}).catch(()=>{});
               this.apiEmit('application.approved', av); this.qkPush(av,'approved');
               this.logAdd({ref:existing?existing.ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION APPROVED', date:this.todayStamp(), by:st.prof.name, comment:(av.extId?'Quik1 app application · ':'Mobile-app application · ')+verdict[0]+' · installment '+fmt(install)});
               if(existing){ this.setState({nf:{...st.nf, client:existing.id, amount:String(av.amount), purpose:av.purpose, term:av.term+'m'}}); this.nav('newloan'); this.toast('Application approved — issue loan to '+av.name); }
               else { const parts=av.name.trim().split(' '); this.setState({route:'addclient',wizStep:1,acOfficer:null,docs:[],docExtracted:false,docProcessing:false, ac:{firstName:parts[0]||'', lastName:parts.slice(1).join(' '), idNumber:av.idNumber, contact:av.phone, email:av.email, employer:av.employer, jobTitle:av.jobTitle, bank:av.bank, netSalary:String(av.income)}}); this.toast('Application approved — complete onboarding for '+av.name); } },
             requestInfo:()=>{ this.smsVia(av.name, 'APP-'+av.id.toUpperCase(), 'Requested additional documents for mobile application', av.phone).then(ok=>{ if(ok) this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'reviewing'}:x)})); }); },
             decline:()=>{ this.setState(p=>({applications:p.applications.map(x=>x.id===av.id?{...x,status:'declined'}:x), appViewId:null}));
+              const ext=av.extId||String(av.id||'').replace(/^qk_/,'');
+              if(ext) this.staffApi('POST','/quik1-applications/'+encodeURIComponent(ext),{status:'declined',amount:av.amount}).catch(()=>{});
               this.apiEmit('application.declined', av); this.qkPush(av,'declined');
               this.logAdd({ref:'APP-'+av.id.toUpperCase(), customer:av.name, amount:av.amount, type:'APPLICATION DECLINED', date:this.todayStamp(), by:st.prof.name, comment:'Mobile-app application declined'});
               this.toast('Application from '+av.name+' declined — logged'); } };
@@ -4705,7 +4803,24 @@ class Component extends DCLogic {
           qkTitle: !qOn?'Link the Quik1 loan app so Q1 brings new applications here':this._qkErr?('Last sync failed: '+this._qkErr):'Q1 checks Quik1 every minute. Click to check now.',
           qkSyncNow: ()=>this.qkSync(true),
           appFilters, appRows, appEmpty: appRows.length===0,
-          appDetailOn: !!av, appD: appD||{}, appClose:()=>this.setState({appViewId:null}) };
+          appDetailOn: !!av, appD: appD||{}, appClose:()=>this.setState({appViewId:null}),
+          isMessages: st.route==='messages',
+          q1ThreadsEmpty: !(st.q1Threads||[]).length,
+          q1Threads: (st.q1Threads||[]).map(t=>{
+            const drafts=st.q1Drafts||{};
+            return { name:t.name||'Client', ref:t.ref||'', lines:(t.lines||[]).map(m=>({who:m.who||'', body:m.body||''})),
+              draft:drafts[t.clientId]||'',
+              onDraft:e=>this.setState(p=>({q1Drafts:{...(p.q1Drafts||{}),[t.clientId]:e.target.value}})),
+              send:()=>{
+                const text=String((this.state.q1Drafts||{})[t.clientId]||'').trim();
+                if(!text) return;
+                this.staffApi('POST','/quik1-messages',{clientId:t.clientId, body:text}).then(()=>{
+                  this.setState(p=>{ const next={...(p.q1Drafts||{})}; next[t.clientId]=''; return {q1Drafts:next}; });
+                  this.pullQuik1Feed();
+                  this.toast('Reply saved on the client thread');
+                },()=>this.toast('Could not send the reply'));
+              } };
+          }) };
       })(),
       isLedgerLocked: st.route==='ledger' && !st.ledgerUnlocked, isLedgerOpen: st.route==='ledger' && st.ledgerUnlocked,
       goLogbook:()=>this.nav('logbook'), goPetty:()=>this.nav('petty'), goNewLoan:()=>this.nav('newloan'), goLoans:()=>this.nav('loans'),
@@ -4733,7 +4848,7 @@ class Component extends DCLogic {
       menuA: (()=>{ const r = loanRows.find(l=>l.id===st.menuId) || {};
         return {openHistory:r.openHistory, openEdit:r.openEdit, openStatus:r.openStatus, settle:r.settle, openDelete:r.openDelete, openClient:r.openClient, contract:r.contract}; })(),
       clientCount: st.clients.length,
-      clientRows: st.clients.map((c,i)=>({...c, num:String(i+1), idMasked:'••••••• '+c.idFull.slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null})})),
+      clientRows: st.clients.map((c,i)=>({...c, num:String(i+1), idMasked:'••••••• '+c.idFull.slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e)})),
       employeeRows: st.employees.map(e=>({...e, bookFmt: e.book?fmt(e.book):'—', added:e.added.toUpperCase(),
         roleStyle:this.cssObj("padding:4px 10px;border-radius:99px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;border:1px solid var(--line2);color:"+(e.role==='Admin'?'var(--accText)':'var(--mut)')),
         statusStyle:this.cssObj("font:500 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(e.status==='INVITED'?'var(--amber)':e.status==='SUSPENDED'?'var(--red)':'var(--green)')),
@@ -5729,11 +5844,18 @@ class Component extends DCLogic {
             test:async()=>{ if(!a.url) return this.toast('Add the API base URL first'); this.setState(p=>({q1Msg:{...(p.q1Msg||{}), [a.id]:'Testing…'}}));
               let m; try{ const tx=await this.q1Req(a,'GET',a.path); m='Connected. '+tx.length.toLocaleString()+' characters received: '+tx.slice(0,160).replace(/\s+/g,' '); if(!a.on) this.q1Patch(a.id,{on:true}); }catch(e){ m='Failed: '+e.message; }
               this.setState(p=>({q1Msg:{...(p.q1Msg||{}), [a.id]:m}})); } }; })}; })(),
-      mHistory: st.modal==='history', mClient: st.modal==='client', mStatus: st.modal==='status', mDelete: st.modal==='delete', mInvite: st.modal==='invite', mContract: st.modal==='contract',
+      mHistory: st.modal==='history', mClient: st.modal==='client', mStatus: st.modal==='status', mDelete: st.modal==='delete', mInvite: st.modal==='invite', mQ1Invite: st.modal==='q1invite', mContract: st.modal==='contract',
+      ...(()=>{ const q=st.q1Invite||{}; return {
+        q1Who: [q.name, q.ref].filter(Boolean).join(' · '),
+        q1Busy: !!q.busy, q1Err: q.error||'', q1HasCode: !!(q.code||q.link),
+        q1Link: q.link||'', q1Code: q.code||'', q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
+        q1CopyLink:()=>this.copyQuik1('link'), q1CopyCode:()=>this.copyQuik1('code'),
+        q1Revoke:()=>this.revokeQuik1Invite(), q1Reissue:()=>this.openQuik1Invite(st.modalId)
+      }; })(),
       mLoan, mOtherLoans, mNoOthers: st.modal==='history' && mOtherLoans.length===0, mAudit: mAudit.length?mAudit:(st.modal==='history'?[{type:'LOAN ISSUED',date:'—',by:'—',comment:'No logbook entries for this loan yet'}]:[]),
       mCli, statusPicks, stMonth, ...ct, mCliLoans, mCliLoanCount: mCliLoans.length, mCliNoLoans: st.modal==='client' && mCliLoans.length===0, mHClient,
       ...(()=>{ const cvRaw = st.route==='clientview' ? st.clients.find(c=>c.id===st.clientViewId) : null;
-        if(!cvRaw) return { isClientView:false, cv:{}, cvLoans:[], cvFields:[], cvProfile:[], cvActivity:[], cvNoActivity:false, cvLoanCount:0, cvNoLoans:false, cvViewOn:false, cvEditOn:false };
+        if(!cvRaw) return { isClientView:false, cv:{}, cvLoans:[], cvFields:[], cvProfile:[], cvActivity:[], cvNoActivity:false, cvLoanCount:0, cvNoLoans:false, cvViewOn:false, cvEditOn:false, cvInvite:()=>{} };
         const cvMask = (this.props.maskPii ?? true) && !st.revealed;
         const cvOpen = st.loans.filter(l=>l.clientId===cvRaw.id && l.status!=='paid');
         const cvOut = cvOpen.reduce((s,l)=>s+this.dueAmt(l),0);
@@ -5786,6 +5908,7 @@ class Component extends DCLogic {
           cvLoans, cvLoanCount:cvLoans.length, cvNoLoans:cvLoans.length===0,
           backToClients:()=>this.setState({route:'clients', clientViewId:null, cliEdit:null, revealed:false}),
           cvContract:()=>this.setState({modal:'contractdoc', modalId:cvRaw.id}),
+          cvInvite:()=>this.openQuik1Invite(cvRaw.id),
           cvCall:()=>this.startCall(cvRaw.name, cvRaw.phone, cvRaw.ref),
           cvSms:()=>this.smsVia(cvRaw.name, cvRaw.ref, 'Payment reminder SMS'),
           cvNewLoan:()=>{ this.setState({nf:{...st.nf, client:cvRaw.id}}); this.nav('newloan'); },

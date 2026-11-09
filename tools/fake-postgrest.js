@@ -120,6 +120,23 @@ export function createFakePostgrest(seed = {}) {
         user: { id: 'user-' + email, email, user_metadata: { full_name: String(row.name || '') } }
       });
     }
+    if (u.pathname.startsWith('/storage/v1/object')) {
+      if (!db._storage || typeof db._storage !== 'object') db._storage = {};
+      if (u.pathname.includes('/object/sign/')) {
+        const signedPath = decodeURIComponent(u.pathname.split('/object/sign/')[1] || '');
+        if (!db._storage[signedPath]) return respond(404, { code: '404', message: 'not found' });
+        return respond(200, { signedURL: '/object/sign/' + signedPath + '?token=test' });
+      }
+      const raw = u.pathname.replace(/^\/storage\/v1\/object\//, '');
+      const parts = raw.split('/').map(seg => { try { return decodeURIComponent(seg); } catch { return seg; } });
+      const bucket = parts.shift();
+      const key = parts.join('/');
+      if (method !== 'POST') return respond(405, { code: '405', message: 'method' });
+      const size = init.body == null ? 0 : (typeof init.body === 'string' ? init.body.length : (init.body.byteLength || init.body.length || 0));
+      db._storage[bucket + '/' + key] = { size, type: headers['content-type'] || '' };
+      log.push({ method: 'POST', table: 'storage', rows: [{ path: key, size }], filters: [], prefer });
+      return respond(200, { Key: key });
+    }
     const m = /^\/rest\/v1\/([^/]+)\/?$/.exec(u.pathname);
     try {
       if (!m) throw httpError(404, 'PGRST000', 'not a rest/v1 path');
