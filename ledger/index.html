@@ -4,6 +4,7 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger</title>
 <script>
 /* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
    "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
@@ -31,6 +32,75 @@
 <script src="./ledger-sync.js"></script>
 </head>
 <body>
+<script>window.__ledgerSplashAt = Date.now();</script>
+<style id="ledger-gate-css">
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url("928f9cdb-66ba-4571-b89e-5d1ed04ee4ee.woff2") format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url("928f9cdb-66ba-4571-b89e-5d1ed04ee4ee.woff2") format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+#ledger-gate { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 24px 18px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% -10%, rgba(253,209,13,.16), transparent 46%), radial-gradient(90% 70% at 100% 100%, rgba(195,245,60,.12), transparent 42%), #07080c; color: #f5f4ee; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+#ledger-gate[data-gate="splash"] #ledger-login,
+#ledger-gate[data-gate="login"] #ledger-splash,
+#ledger-gate [hidden] { display: none !important; }
+#ledger-gate * { box-sizing: border-box; }
+.lg-card { width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lg-mark { width: 54px; height: 54px; border-radius: 16px; background: #c3f53c; display: grid; place-items: center; box-shadow: 0 12px 30px -16px rgba(195,245,60,.9); }
+.lg-mark svg { display: block; }
+.lg-word { margin-top: 18px; font-weight: 800; font-size: 28px; letter-spacing: -.04em; line-height: 1; }
+.lg-by { margin-top: 8px; font-weight: 600; font-size: 11px; letter-spacing: .18em; color: #8a8778; }
+.lg-by b { color: #FDD10D; font-weight: 700; }
+.lg-track { margin-top: 28px; width: min(180px, 70%); height: 3px; border-radius: 99px; background: rgba(245,244,238,.12); overflow: hidden; }
+.lg-track > span { display: block; height: 100%; width: 40%; border-radius: 99px; background: #FDD10D; animation: lg-slide .9s ease-in-out infinite; }
+.lg-dots { display: flex; gap: 6px; margin-top: 18px; }
+.lg-dots i { width: 7px; height: 7px; border-radius: 50%; background: #FDD10D; animation: lg-dot 1.05s ease-in-out infinite; }
+.lg-dots i:nth-child(2) { animation-delay: .15s; }
+.lg-dots i:nth-child(3) { animation-delay: .3s; }
+#ledger-login { width: min(420px, 100%); }
+.lg-panel { width: 100%; background: linear-gradient(180deg, #161613 0%, #0c0c0a 100%); border: 1px solid rgba(245,244,238,.1); border-radius: 24px; padding: 28px 22px 22px; box-shadow: 0 30px 70px -28px rgba(0,0,0,.75); text-align: left; }
+.lg-panel .lg-mark { width: 44px; height: 44px; border-radius: 14px; margin-bottom: 14px; }
+.lg-kicker { font-weight: 700; font-size: 11px; letter-spacing: .16em; color: #FDD10D; }
+.lg-title { margin: 8px 0 0; font-weight: 800; font-size: 26px; letter-spacing: -.03em; line-height: 1.1; }
+.lg-copy { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #b3b0a4; }
+.lg-field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.lg-field span { font-weight: 600; font-size: 10px; letter-spacing: .12em; color: #8a8778; }
+.lg-field input { width: 100%; background: #07080c; border: 1px solid #3a3933; border-radius: 12px; padding: 13px 14px; color: #f5f4ee; font: 600 16px 'Plus Jakarta Sans', system-ui, sans-serif; }
+.lg-field input:focus { outline: none; border-color: #c3f53c; }
+.lg-error { margin: 12px 0 0; font-weight: 600; font-size: 12.5px; letter-spacing: .02em; color: #e08a76; }
+#ledger-login-submit { width: 100%; margin-top: 18px; border: 0; border-radius: 12px; padding: 13px 16px; background: #c3f53c; color: #101408; font: 800 13px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; }
+#ledger-login-submit:disabled { opacity: .6; cursor: progress; }
+#ledger-login-submit:hover:not(:disabled) { filter: brightness(1.06); }
+.lg-foot { margin: 14px 0 0; font-size: 12px; line-height: 1.45; color: #8a8778; }
+@keyframes lg-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }
+@keyframes lg-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+@media (max-width: 480px) {
+  #ledger-gate { padding: 18px 14px; align-items: center; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+  .lg-panel { border-radius: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-track > span, .lg-dots i { animation: none; }
+}
+</style>
+<div id="ledger-gate" data-gate="splash" data-screen-label="Ledger splash" role="dialog" aria-modal="true" aria-label="Ledger">
+<script>window.__ledgerSawSplash = document.getElementById('ledger-gate').getAttribute('data-gate') === 'splash';</script>
+  <div id="ledger-splash" class="lg-card">
+    <div class="lg-mark" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div>
+    <div class="lg-word">LEDGER</div>
+    <div class="lg-by">BY ECOLOANS · <b>QUIK1</b></div>
+    <div class="lg-track" aria-hidden="true"><span></span></div>
+    <div class="lg-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  </div>
+  <div id="ledger-login" hidden data-screen-label="Staff login">
+    <form id="ledger-login-form" class="lg-panel" novalidate>
+      <div class="lg-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div>
+      <div class="lg-kicker">STAFF</div>
+      <h1 class="lg-title">Sign in to Ledger</h1>
+      <p class="lg-copy">Sign in with your staff email and password.</p>
+      <label class="lg-field"><span>EMAIL</span><input id="ledger-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email" required></label>
+      <label class="lg-field"><span>PASSWORD</span><input id="ledger-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" required></label>
+      <p id="ledger-login-error" class="lg-error" hidden role="alert"></p>
+      <button id="ledger-login-submit" type="submit">SIGN IN</button>
+      <p class="lg-foot">Ledger by EcoLoans. Quik1 clients set their own PIN from an invite. This page is for staff.</p>
+    </form>
+  </div>
+</div>
 <x-dc>
 <helmet data-dc-atomics="">
 
@@ -541,7 +611,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim);font-variant-numeric:tabular-nums">{{ c.num }}</div><div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.ref }}</div>
               <div>
                 <div style="font-weight:500">{{ c.name }}</div>
-                <div sc-camel-on-click="{{ c.invite }}" style="margin-top:4px;display:inline-flex;padding:3px 8px;border-radius:8px;border:1px solid var(--line2);font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--accText);cursor:pointer">Invite to Quik1</div>
+                <div sc-camel-on-click="{{ c.invite }}" style="margin-top:4px;display:inline-flex;padding:3px 8px;border-radius:8px;border:1px solid var(--line2);font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--accText);cursor:pointer">Give Quik1 access</div>
               </div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.idMasked }}</div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.added }}</div>
@@ -573,7 +643,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div sc-camel-on-click="{{ cvCall }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--green)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--green);background:color-mix(in oklch, var(--green) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2z"></path></svg></div>Call</div>
               <div sc-camel-on-click="{{ cvSms }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--blue)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--blue);background:color-mix(in oklch, var(--blue) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"></path><path d="M8 12h.01M12 12h.01M16 12h.01"></path></svg></div>SMS</div>
               <div sc-camel-on-click="{{ cvContract }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--amber)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--amber);background:color-mix(in oklch, var(--amber) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8M8 17h5"></path></svg></div>Contract</div>
-              <div sc-camel-on-click="{{ cvInvite }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="transform:translateY(-1px);border-color:var(--accText)">Invite to Quik1</div>
+              <div sc-camel-on-click="{{ cvInvite }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="transform:translateY(-1px);border-color:var(--accText)">Give Quik1 access</div>
               <div sc-camel-on-click="{{ cvToggleReveal }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--red)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--red);background:color-mix(in oklch, var(--red) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.1 12.3a1 1 0 0 1 0-.6C3.6 7.4 7.5 4.5 12 4.5s8.4 2.9 9.9 7.2a1 1 0 0 1 0 .6c-1.5 4.3-5.4 7.2-9.9 7.2s-8.4-2.9-9.9-7.2"></path><circle cx="12" cy="12" r="3"></circle></svg></div>{{ cvRevealText }}</div>
               <div style="width:1px;height:24px;background:var(--line2);margin:0 2px"></div>
               <div sc-camel-on-click="{{ cvNewLoan }}" style="display:flex;align-items:center;gap:7px;height:38px;padding:0 13px;border-radius:12px;border:1px solid var(--line2);color:var(--mut);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="color:var(--ink);border-color:var(--accText)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Full loan form</div>
@@ -713,12 +783,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         <div style="{{ staffBoxStyle }}">
           <div style="width:38px;height:38px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><div style="width:10px;height:10px;background:var(--acc);border-radius:2px;transform:rotate(45deg)"></div></div>
           <div style="font:700 16px 'Plus Jakarta Sans',sans-serif;text-align:center">ADMIN</div>
-          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Sign in with your staff email and password.<br>Cancelling returns to the dashboard.</div>
+          <div style="font-size:12.5px;color:var(--mut);text-align:center;margin:8px 0 20px;line-height:1.5">Sign in with your staff email and password.</div>
           <input value="{{ staffEmail }}" sc-camel-on-change="{{ staffEmailChange }}" placeholder="Email" autocomplete="email" autocapitalize="none" spellcheck="false" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
           <input type="password" value="{{ staffPass }}" sc-camel-on-change="{{ staffPassChange }}" placeholder="Password" autocomplete="current-password" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:12px;margin-top:10px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
           <sc-if value="{{ staffError }}" hint-placeholder-val="{{ false }}"><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--red);text-align:center;margin-top:10px;letter-spacing:.08em">SIGN-IN FAILED</div></sc-if>
           <div style="display:flex;gap:10px;margin-top:18px">
-            <div sc-camel-on-click="{{ staffCancel }}" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--line2);font-size:12.5px;font-weight:600;color:var(--mut);text-align:center;cursor:pointer" style-hover="color:var(--ink)">CANCEL</div>
             <div sc-camel-on-click="{{ staffSubmit }}" style="flex:1;padding:10px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);text-align:center;cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">SIGN IN</div>
         </div>
       </div>
@@ -2034,24 +2103,26 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
 
           <sc-if value="{{ mQ1Invite }}" hint-placeholder-val="{{ false }}">
             <div style="padding:24px 28px">
-              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif">INVITE TO QUIK1</div><div sc-camel-on-click="{{ closeModal }}" style="color:var(--dim);cursor:pointer;font-size:18px" style-hover="color:var(--ink)">✕</div></div>
+              <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif">QUIK1 ACCESS</div><div sc-camel-on-click="{{ closeModal }}" style="color:var(--dim);cursor:pointer;font-size:18px" style-hover="color:var(--ink)">✕</div></div>
               <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut);margin-bottom:12px">{{ q1Who }}</div>
-              <div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div>
-              <sc-if value="{{ q1Busy }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Creating a link…</div></sc-if>
-              <sc-if value="{{ q1Err }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);margin-bottom:10px">{{ q1Err }}</div></sc-if>
-              <sc-if value="{{ q1HasCode }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;flex-direction:column;gap:10px">
-                  <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">LINK</div><input readonly value="{{ q1Link }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"></div>
-                  <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">CODE</div><input readonly value="{{ q1Code }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px ui-monospace,monospace;color:var(--ink);letter-spacing:.04em"></div>
-                  <div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Expires {{ q1Exp }}</div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <div sc-camel-on-click="{{ q1CopyLink }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">COPY LINK</div>
-                    <div sc-camel-on-click="{{ q1CopyCode }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">COPY CODE</div>
-                    <div sc-camel-on-click="{{ q1Revoke }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">REVOKE</div>
-                    <div sc-camel-on-click="{{ q1Reissue }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">REISSUE</div>
+              <sc-if value="{{ q1Busy }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Checking Quik1 access…</div></sc-if>
+              <sc-if value="{{ q1Setup }}" hint-placeholder-val="{{ false }}"><div style="font:600 13px 'Plus Jakarta Sans',sans-serif;color:var(--amber);line-height:1.5">Quik1 access not set up yet</div></sc-if>
+              <sc-if value="{{ q1Ready }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">STATUS</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1Status }}</div></div>
+                <div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div>
+                <sc-if value="{{ q1ExpOn }}" hint-placeholder-val="{{ false }}"><div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-bottom:12px">Expires {{ q1Exp }}</div></sc-if>
+                <sc-if value="{{ q1HasCode }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+                    <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">LINK</div><input readonly value="{{ q1Link }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"></div>
+                    <div sc-camel-on-click="{{ q1CopyLink }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">COPY LINK</div>
                   </div>
+                </sc-if>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-if value="{{ q1CanGrant }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">GIVE QUIK1 ACCESS</div></sc-if>
+                  <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">REVOKE ACCESS</div></sc-if>
                 </div>
               </sc-if>
+              <sc-if value="{{ q1ErrOn }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);margin-top:10px">{{ q1Err }}</div></sc-if>
             </div>
           </sc-if>
 
@@ -2573,17 +2644,17 @@ class Component extends DCLogic {
     };
     try{ const org = JSON.parse(localStorage.getItem('evoltOrg')||'null'); if(org && org.name){ this._org = org; if(org.admin) this.state.prof = {...this.state.prof, name:org.admin, email:org.email||this.state.prof.email}; } }catch(e){}
     try{ const sv = JSON.parse(localStorage.getItem('evoltConsoleV4')||'null'); if(sv && sv.clients && sv.loans){ const th=this.state.theme; Object.assign(this.state, sv); this.state.theme=th; } }catch(e){}
-    // GET /api/ledger/state 401 means there is no staff cookie yet. A saved
-    // ledgerUnlocked flag does not load the book. Show Admin sign-in until
-    // Supabase login mints the cookie. A named session replaces the demo profile.
-    // POST /api/ledger/unlock stays server-only; this screen does not send a passcode.
+    // The page gate owns signed-out visitors. This console is only injected after
+    // /state succeeds. A saved ledgerUnlocked flag does not load the book.
+    // A named session replaces the demo profile. POST /api/ledger/unlock stays
+    // server-only; this screen does not send a passcode.
     try{
       const gate=window.__ledger;
       if(gate&&gate.needsUnlock){
         this.state.route='ledger'; this.state.ledgerUnlocked=false;
         this.state.staffEmail=''; this.state.staffPass=''; this.state.staffError=false;
-      } else if(gate&&gate.staff&&gate.staff.displayName){
-        this.state.prof=this.signedInProf();
+      } else {
+        if(gate&&gate.staff&&gate.staff.displayName) this.state.prof=this.signedInProf();
         this.state.ledgerUnlocked=true;
       }
     }catch(e){}
@@ -2714,16 +2785,43 @@ class Component extends DCLogic {
     if(!sync||typeof sync.api!=='function') return Promise.reject(Object.assign(new Error('Not configured'),{status:503}));
     return sync.api(method, path, body);
   }
+  q1FailText(e){
+    const msg=String((e&&e.message)||'');
+    if(/not set up/i.test(msg)) return 'Quik1 access not set up yet';
+    return 'Could not update Quik1 access. Check the connection and try again.';
+  }
+  q1Blank(c){
+    return {name:(c&&c.name)||'', ref:(c&&c.ref)||'', busy:true, ready:true, access:'none', accessLabel:'', expiresAt:'', inviteId:'', code:'', link:'', error:''};
+  }
+  q1FromStatus(base, j){
+    const ready=!(j&&j.ready===false);
+    const label=(j&&j.accessLabel)||'';
+    return Object.assign({}, base, {busy:false, ready:ready, access:(j&&j.access)||(ready?'none':'unavailable'), accessLabel:label, expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', code:'', link:'', error:ready?'':(label||'Quik1 access not set up yet')});
+  }
   openQuik1Invite(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
     const c=(this.state.clients||[]).find(x=>x.id===clientId);
     if(!c) return;
-    const base={name:c.name||'', ref:c.ref||'', busy:true, code:'', link:'', expiresAt:'', inviteId:'', error:''};
+    const base=this.q1Blank(c);
     this.setState({modal:'q1invite', modalId:clientId, q1Invite:base});
-    this.staffApi('POST','/quik1-invites',{clientId:clientId}).then(j=>{
-      this.setState({q1Invite:{name:base.name, ref:base.ref, busy:false, code:(j&&j.code)||'', link:(j&&j.link)||'', expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', error:''}});
-    },()=>{
-      this.setState({q1Invite:{name:base.name, ref:base.ref, busy:false, code:'', link:'', expiresAt:'', inviteId:'', error:'Could not create an invite. Check the connection and try again.'}});
+    this.staffApi('GET','/quik1-invites/'+encodeURIComponent(clientId), null).then(j=>{
+      this.setState({q1Invite:this.q1FromStatus(base, j)});
+    },(e)=>{
+      const text=this.q1FailText(e);
+      const unavailable=/not set up/i.test(text);
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:!unavailable, access:unavailable?'unavailable':'none', accessLabel:unavailable?text:'No access', error:text})});
+    });
+  }
+  giveQuik1Access(){
+    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
+    if(!id||base.ready===false) return;
+    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
+    this.staffApi('POST','/quik1-invites',{clientId:id}).then(j=>{
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:true, access:'invited', accessLabel:'Invited', code:(j&&j.code)||'', link:(j&&j.link)||'', expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', error:''})});
+    },(e)=>{
+      const text=this.q1FailText(e);
+      const unavailable=/not set up/i.test(text);
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:!unavailable, access:unavailable?'unavailable':base.access, accessLabel:unavailable?text:base.accessLabel, error:text})});
     });
   }
   copyQuik1(which){
@@ -2736,13 +2834,16 @@ class Component extends DCLogic {
     }catch(e){}
     done();
   }
-  revokeQuik1Invite(){
-    const id=(this.state.q1Invite&&this.state.q1Invite.inviteId)||'';
+  revokeQuik1Access(){
+    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
     if(!id) return;
-    this.staffApi('POST','/quik1-invites/'+encodeURIComponent(id)+'/revoke',{}).then(()=>{
-      this.setState(p=>({q1Invite:{...(p.q1Invite||{}), code:'', link:'', error:'Revoked. That link no longer works.'}}));
-      this.toast('Invite revoked');
-    },()=>this.toast('Could not revoke'));
+    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
+    this.staffApi('POST','/quik1-invites/revoke-access',{clientId:id}).then(j=>{
+      this.setState({q1Invite:this.q1FromStatus(base, j)});
+      this.toast('Quik1 access revoked');
+    },(e)=>{
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:this.q1FailText(e)})});
+    });
   }
   refreshServerFeatures(){
     this._demoResetAllowed=false;
@@ -3902,7 +4003,7 @@ class Component extends DCLogic {
       apiReqsEmpty:A.reqs.length===0
     };
   }
-  nav(route){ this.setState(p=>({route, menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, ...(p.route==='ledger' && route!=='ledger' ? {ledgerUnlocked:false} : {})})); }
+  nav(route){ this.setState({route, menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null}); }
   pushModal(next){ this.setState(p=>({ modalStack:[...(p.modalStack||[]), {modal:p.modal, modalId:p.modalId}], smsOpen:false, smsText:'', cliEdit:null, ...next })); }
   openDate(target, dob){ const now=new Date(); this.setState({datePick:{target, month:dob?0:now.getMonth(), year:dob?1995:now.getFullYear(), dob:!!dob}}); }
   writeDate(d){ const dp=this.state.datePick; if(!dp) return;
@@ -4893,7 +4994,6 @@ class Component extends DCLogic {
           this.setState(p=>({ledgerUnlocked:true, staffEmail:'', staffPass:'', staffError:false, prof: name?{...p.prof, name:String(name), email:(res.staff.email||p.prof.email)}:p.prof}));
         }, ()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffPass:'', staffError:true}); });
       },
-      staffCancel:()=>this.setState({route:'dashboard', staffEmail:'', staffPass:'', staffError:false}),
       lockLedger:()=>{ var sync=window.__ledger; var go=()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffEmail:'', staffPass:'', staffError:false}); try{ window.location.reload(); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),
       ledgerRows: ledgerMonths.map(([month,issued,paid,start,end])=>({month,issued,paid,startFmt:fmt(start),endFmt:fmt(end), open:()=>this.setState({modal:'month', monthKey:month, modalStack:[]}),
@@ -5845,12 +5945,15 @@ class Component extends DCLogic {
               let m; try{ const tx=await this.q1Req(a,'GET',a.path); m='Connected. '+tx.length.toLocaleString()+' characters received: '+tx.slice(0,160).replace(/\s+/g,' '); if(!a.on) this.q1Patch(a.id,{on:true}); }catch(e){ m='Failed: '+e.message; }
               this.setState(p=>({q1Msg:{...(p.q1Msg||{}), [a.id]:m}})); } }; })}; })(),
       mHistory: st.modal==='history', mClient: st.modal==='client', mStatus: st.modal==='status', mDelete: st.modal==='delete', mInvite: st.modal==='invite', mQ1Invite: st.modal==='q1invite', mContract: st.modal==='contract',
-      ...(()=>{ const q=st.q1Invite||{}; return {
+      ...(()=>{ const q=st.q1Invite||{}; const setup=q.ready===false||q.access==='unavailable'; const canAct=q.access==='invited'||q.access==='pin'||q.access==='locked'||!!(q.code||q.link); return {
         q1Who: [q.name, q.ref].filter(Boolean).join(' · '),
-        q1Busy: !!q.busy, q1Err: q.error||'', q1HasCode: !!(q.code||q.link),
-        q1Link: q.link||'', q1Code: q.code||'', q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
-        q1CopyLink:()=>this.copyQuik1('link'), q1CopyCode:()=>this.copyQuik1('code'),
-        q1Revoke:()=>this.revokeQuik1Invite(), q1Reissue:()=>this.openQuik1Invite(st.modalId)
+        q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
+        q1Status: q.accessLabel||'No access',
+        q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
+        q1HasCode: !!(q.code||q.link), q1CanGrant: !setup && !q.busy && !(q.code||q.link), q1CanRevoke: !setup && !q.busy && canAct,
+        q1Link: q.link||'', q1Code: q.code||'', q1ExpOn: !!q.expiresAt, q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
+        q1CopyLink:()=>this.copyQuik1('link'),
+        q1Give:()=>this.giveQuik1Access(), q1RevokeAccess:()=>this.revokeQuik1Access()
       }; })(),
       mLoan, mOtherLoans, mNoOthers: st.modal==='history' && mOtherLoans.length===0, mAudit: mAudit.length?mAudit:(st.modal==='history'?[{type:'LOAN ISSUED',date:'—',by:'—',comment:'No logbook entries for this loan yet'}]:[]),
       mCli, statusPicks, stMonth, ...ct, mCliLoans, mCliLoanCount: mCliLoans.length, mCliNoLoans: st.modal==='client' && mCliLoans.length===0, mHClient,
