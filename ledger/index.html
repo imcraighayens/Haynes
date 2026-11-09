@@ -37,6 +37,9 @@
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url("928f9cdb-66ba-4571-b89e-5d1ed04ee4ee.woff2") format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url("928f9cdb-66ba-4571-b89e-5d1ed04ee4ee.woff2") format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 #ledger-gate { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 24px 18px; box-sizing: border-box; background: radial-gradient(120% 80% at 50% -10%, rgba(253,209,13,.16), transparent 46%), radial-gradient(90% 70% at 100% 100%, rgba(195,245,60,.12), transparent 42%), #07080c; color: #f5f4ee; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+#ledger-gate[data-gate="splash"] #ledger-login,
+#ledger-gate[data-gate="login"] #ledger-splash,
+#ledger-gate [hidden] { display: none !important; }
 #ledger-gate * { box-sizing: border-box; }
 .lg-card { width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; text-align: center; }
 .lg-mark { width: 54px; height: 54px; border-radius: 16px; background: #c3f53c; display: grid; place-items: center; box-shadow: 0 12px 30px -16px rgba(195,245,60,.9); }
@@ -52,6 +55,7 @@
 .lg-dots i:nth-child(3) { animation-delay: .3s; }
 #ledger-login { width: min(420px, 100%); }
 .lg-panel { width: 100%; background: linear-gradient(180deg, #161613 0%, #0c0c0a 100%); border: 1px solid rgba(245,244,238,.1); border-radius: 24px; padding: 28px 22px 22px; box-shadow: 0 30px 70px -28px rgba(0,0,0,.75); text-align: left; }
+.lg-panel .lg-mark { width: 44px; height: 44px; border-radius: 14px; margin-bottom: 14px; }
 .lg-kicker { font-weight: 700; font-size: 11px; letter-spacing: .16em; color: #FDD10D; }
 .lg-title { margin: 8px 0 0; font-weight: 800; font-size: 26px; letter-spacing: -.03em; line-height: 1.1; }
 .lg-copy { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #b3b0a4; }
@@ -67,7 +71,7 @@
 @keyframes lg-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }
 @keyframes lg-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 @media (max-width: 480px) {
-  #ledger-gate { padding: 18px 14px; align-items: flex-end; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+  #ledger-gate { padding: 18px 14px; align-items: center; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
   .lg-panel { border-radius: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -85,6 +89,7 @@
   </div>
   <div id="ledger-login" hidden data-screen-label="Staff login">
     <form id="ledger-login-form" class="lg-panel" novalidate>
+      <div class="lg-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div>
       <div class="lg-kicker">STAFF</div>
       <h1 class="lg-title">Sign in to Ledger</h1>
       <p class="lg-copy">Sign in with your staff email and password.</p>
