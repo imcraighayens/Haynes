@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter } from '../../api/_lib/ratelimit.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
+import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -124,6 +125,17 @@ describe('borrower book', { concurrency: false }, () => {
     }
     assert.equal(home.json().identified, false);
     assert.equal(JSON.stringify(home.json()).includes(NAME_A), false);
+
+    const stale = mintBorrowerToken({ sid: 'qs_missing', bid: 'qb_missing', cid: CLIENT_A });
+    delete fake.db.q1_sessions;
+    delete fake.db.q1_borrowers;
+    delete fake.db.q1_invites;
+    const quiet = await call(quik1, {
+      method: 'GET', path: ['me'], headers: { cookie: 'q1_session=' + encodeURIComponent(stale.token) }
+    });
+    assert.equal(quiet.statusCode, 200);
+    assert.equal(quiet.json().identified, false);
+    fake.reset();
 
     const cookieA = await signIn(CLIENT_A, PIN_A);
     const cookieB = await signIn(CLIENT_B, PIN_B);

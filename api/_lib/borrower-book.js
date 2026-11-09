@@ -118,7 +118,9 @@ export async function borrowerBook(req) {
   let who;
   try { who = await requireBorrower(req); }
   catch (err) {
-    if (err instanceof HttpError && err.status === 401) return unidentified();
+    // No session, or the borrower tables are not applied yet. The public
+    // home stays the signed-out app instead of a 500.
+    if (err instanceof HttpError && (err.status === 401 || missingTable(err))) return unidentified();
     throw err;
   }
   const loans = await loansOf(who.client.id);
