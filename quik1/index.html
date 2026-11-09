@@ -5399,15 +5399,15 @@ input,button,textarea{font-family:inherit}
         onQuickStripOpen:()=>{ clearTimeout(this._qrT); this.setState({quickReply:'',quickOpen:false,aiOpen:true}); },
         onQuickClose:()=>this.setState({quickOpen:false,aiDraft:''}),
   
-        isLogin:['login','signup','signupPending'].includes(s.screen),
-        isSignup:false,
-        isSignupPending:false,
+        isLogin:s.screen==='login',
+        isSignup:s.screen==='signup',
+        isSignupPending:s.screen==='signupPending',
         loginPhoneStep:false,
         loginIntroStep:false,
         loginIdStep:false,
         loginReturnStep:false,
-        loginOtpStep:['login','signup','signupPending'].includes(s.screen),
-        loginStepHeadOn:['login','signup','signupPending'].includes(s.screen),
+        loginOtpStep:s.screen==='login',
+        loginStepHeadOn:s.screen==='login',
         loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':'Enter your PIN',
         loginSub:s.pinPhase==='choose'
           ?'Choose a 4-digit PIN, then enter it again. It is not taken from an ID number.'
