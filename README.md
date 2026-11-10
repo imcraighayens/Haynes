@@ -222,8 +222,10 @@ copy is the source of truth and wins on the next load.
   It is stored as AES-256-GCM ciphertext under `QUIK1_ID_KEY` and the client receives
   only the last four digits. After that post succeeds, the phone's local signup keeps
   those four digits and drops the rest. Public signup still ignores an ID number.
-  `QUIK1_SESSION_SECRET` (32+ characters) must be set or redeem and sign-in answer 503.
-  Live PIN stays off unless `QUIK1_BORROWER_PIN=1` and the host is not production.
+  `QUIK1_BORROWER_PIN=1` is the live switch on every host, next to `QUIK1_SESSION_SECRET`
+  (32+ characters). Leave either unset and redeem and sign-in answer 503. On production,
+  `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must also be non-empty. A preview needs only the
+  flag and the session secret.
 * **Public application routes are insert-only.** `/api/quik1/applications`, signups, requests,
   and repayments have no auth, are rate-limited per IP,
   caps bodies at 16 KB, whitelists every field, and can only insert a new row or

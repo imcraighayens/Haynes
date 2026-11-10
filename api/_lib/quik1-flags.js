@@ -1,6 +1,7 @@
-// Quik1 live sign-in and staff preview are off unless a flag says otherwise,
-// and they never run on a production host. The service role stays on the server.
+// Borrower PIN sign-in follows QUIK1_BORROWER_PIN. Staff "view as client" stays
+// off on a production host. The service role stays on the server.
 import { requestHostname } from './auth.js';
+import { sessionSecret } from './quik1-session.js';
 
 const PRODUCTION_HOSTS = new Set([
   'quik1.app',
@@ -23,10 +24,18 @@ function flagOn(name) {
   return String(process.env[name] || '').trim() === '1';
 }
 
-// Live borrower PIN. Off unless QUIK1_BORROWER_PIN=1, and still off on production.
+function envSet(name) {
+  return String(process.env[name] || '').trim() !== '';
+}
+
+// Live borrower PIN. QUIK1_BORROWER_PIN=1 is the switch on every host, including
+// production. It also needs QUIK1_SESSION_SECRET (32+ characters). A production
+// deployment additionally needs QUIK1_ID_KEY and QUIK1_ID_HMAC_KEY non-empty.
+// Previews need only the flag and the session secret. The default is off.
 export function borrowerPinLive(req) {
   if (!flagOn('QUIK1_BORROWER_PIN')) return false;
-  if (isProductionDeployment(req)) return false;
+  if (!sessionSecret()) return false;
+  if (isProductionDeployment(req) && (!envSet('QUIK1_ID_KEY') || !envSet('QUIK1_ID_HMAC_KEY'))) return false;
   return true;
 }
 

@@ -82,7 +82,8 @@ async function call(handler, { method = 'GET', path = [], url, headers = {}, bod
   process.env.SUPABASE_URL = URL;
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
   process.env.LEDGER_KEY = STAFF;
-  if (sessionSecret) process.env.QUIK1_SESSION_SECRET = sessionSecret;
+  if (sessionSecret === '') process.env.QUIK1_SESSION_SECRET = '';
+  else if (sessionSecret) process.env.QUIK1_SESSION_SECRET = sessionSecret;
   else delete process.env.QUIK1_SESSION_SECRET;
   await handler(req, res);
   return res;
@@ -458,47 +459,86 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.match(created.json().link, /^https:\/\/quik1\.app\/quik1\/#invite=[0-9a-f]{64}$/);
   });
 
-  test('live PIN stays off without the flag and on a production host', async () => {
+  test('borrower PIN follows the flag, and production also needs both ID keys', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     const code = created.json().code;
-    delete process.env.QUIK1_BORROWER_PIN;
-    const held = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    process.env.QUIK1_BORROWER_PIN = '1';
-    assert.equal(held.statusCode, 503);
-    assert.equal(fake.db.q1_borrowers.length, 0);
-
-    for (const host of ['quik1.app', 'www.quik1.app']) {
-      const blocked = await call(quik1, {
-        method: 'POST', path: ['invites', 'redeem'],
-        headers: { host },
-        body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-      });
-      assert.equal(blocked.statusCode, 503, host);
-    }
-    for (const host of ['quik1ledger.com', 'www.quik1ledger.com']) {
-      const blocked = await call(quik1, {
-        method: 'POST', path: ['invites', 'redeem'],
-        headers: { host },
-        body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-      });
-      assert.equal(blocked.statusCode, 404, host);
-    }
-    assert.equal(fake.db.q1_borrowers.length, 0);
-
-    process.env.VERCEL_ENV = 'production';
-    const live = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'],
-      headers: { host: 'quik1.app' },
+    const redeem = (headers, sessionSecret = SECRET) => call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], headers, sessionSecret,
       body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
     });
-    delete process.env.VERCEL_ENV;
-    assert.equal(live.statusCode, 503);
-    assert.equal(fake.db.q1_borrowers.length, 0);
-    assert.equal(JSON.stringify(live.json()).includes(PIN_OK), false);
+    const login = headers => call(quik1, {
+      method: 'POST', path: ['login'], headers,
+      body: { accountRef: 'qb_' + 'a'.repeat(32), pin: PIN_OK }
+    });
+    try {
+      delete process.env.QUIK1_BORROWER_PIN;
+      delete process.env.VERCEL_ENV;
+      delete process.env.QUIK1_ID_KEY;
+      delete process.env.QUIK1_ID_HMAC_KEY;
+      const noFlagHost = await redeem({ host: 'quik1.app' });
+      const noFlagLogin = await login({ host: 'quik1.app' });
+      process.env.VERCEL_ENV = 'production';
+      const noFlagEnv = await redeem({ host: 'preview.example' });
+      delete process.env.VERCEL_ENV;
+      for (const res of [noFlagHost, noFlagLogin, noFlagEnv]) {
+        assert.equal(res.statusCode, 503);
+        assert.equal(res.json().error, 'Sign-in is not available');
+      }
+
+      process.env.QUIK1_BORROWER_PIN = '1';
+      const missingSecret = await redeem({ host: 'preview.example' }, null);
+      const emptySecret = await redeem({ host: 'preview.example' }, '');
+      assert.equal(missingSecret.statusCode, 503);
+      assert.equal(emptySecret.statusCode, 503);
+      assert.equal(emptySecret.json().error, 'Sign-in is not available');
+
+      const prodNoId = await redeem({ host: 'quik1.app' });
+      process.env.QUIK1_ID_KEY = ID_KEY;
+      const prodNoHmac = await redeem({ host: 'www.quik1.app' });
+      delete process.env.QUIK1_ID_KEY;
+      process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
+      process.env.VERCEL_ENV = 'production';
+      const prodEnvNoId = await redeem({ host: 'preview.example' });
+      delete process.env.VERCEL_ENV;
+      delete process.env.QUIK1_ID_HMAC_KEY;
+      for (const res of [prodNoId, prodNoHmac, prodEnvNoId]) {
+        assert.equal(res.statusCode, 503);
+        assert.equal(res.json().error, 'Sign-in is not available');
+      }
+      assert.equal(fake.db.q1_borrowers.length, 0);
+
+      for (const host of ['quik1ledger.com', 'www.quik1ledger.com']) {
+        const blocked = await redeem({ host });
+        assert.equal(blocked.statusCode, 404, host);
+      }
+
+      const preview = await redeem({ host: 'preview.example' });
+      assert.equal(preview.statusCode, 200, preview.body);
+      assert.equal(fake.db.q1_borrowers.length, 1);
+      assert.equal(JSON.stringify(preview.json()).includes(PIN_OK), false);
+
+      const again = await call(ledger, {
+        method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+      });
+      process.env.QUIK1_ID_KEY = ID_KEY;
+      process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
+      const prod = await call(quik1, {
+        method: 'POST', path: ['invites', 'redeem'],
+        headers: { host: 'quik1.app' },
+        body: { code: again.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+      });
+      assert.equal(prod.statusCode, 200, prod.body);
+      assert.equal(String(fake.db.q1_borrowers[0].pin_hash).startsWith('scrypt$'), true);
+      assert.equal(JSON.stringify(prod.json()).includes(PIN_NEXT), false);
+    } finally {
+      delete process.env.VERCEL_ENV;
+      delete process.env.QUIK1_ID_KEY;
+      delete process.env.QUIK1_ID_HMAC_KEY;
+      process.env.QUIK1_BORROWER_PIN = '1';
+      process.env.QUIK1_SESSION_SECRET = SECRET;
+    }
   });
 
   test('a lock expires after the cooldown and a new invite still resets it immediately', async () => {
