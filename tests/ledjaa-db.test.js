@@ -115,6 +115,14 @@ test('toConsoleState maps loans with schedule, paid instalments and status like 
   assert.equal(s.employees[0].added, '1 Nov 2025');
 });
 
+test('a settled loan stays settled_early on the console object', () => {
+  const row = m.loanToConsole({ id: 'l_synth', ref: 'SYN-4401', client_id: 'c_synth', principal: 100, status: 'settled_early', schedule: ['2026-05-25'], instalments_paid: 1 });
+  assert.equal(row.status, 'paid');
+  assert.equal(row.dbStatus, 'settled_early');
+  const closed = m.loanToConsole({ id: 'l_wo', ref: 'SYN-4402', client_id: 'c_synth', principal: 100, status: 'written_off', schedule: [] });
+  assert.equal(closed.dbStatus, 'written_off');
+});
+
 test('status normalisation both ways', () => {
   assert.equal(m.statusToConsole('written_off'), 'written off');
   assert.equal(m.statusToConsole('settled_early'), 'paid');

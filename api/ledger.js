@@ -89,7 +89,8 @@ async function postLoanStatus(req, res) {
     note: body && body.note,
     by: (who && (who.displayName || who.email)) || 'staff',
     updatedBy: (who && who.email) || 'staff',
-    instalmentsPaid: body && body.instalmentsPaid
+    instalmentsPaid: body && body.instalmentsPaid,
+    requestId: body && body.requestId
   });
   return json(res, 200, result, req);
 }
@@ -101,6 +102,34 @@ async function postAttention(req, res) {
   const items = cleanAttentionItems(body);
   const result = await saveAttention(who.email, items);
   return json(res, 200, result, req);
+}
+
+// These four columns change only through POST /loan-status. A queued sync from an
+// old tab must not put them back. A brand-new loan still needs a starting point,
+// and that starting point is chosen here, not by the client.
+const LOAN_STATUS_FIELDS = ['status', 'status_at', 'instalments_paid', 'paid_dates'];
+
+function stripLoanStatus(row) {
+  LOAN_STATUS_FIELDS.forEach(k => { delete row[k]; });
+  return row;
+}
+
+function applyNewLoanDefaults(row) {
+  stripLoanStatus(row);
+  const now = new Date().toISOString();
+  row.status = 'issued';
+  row.status_at = now;
+  row.instalments_paid = 0;
+  row.paid_dates = [];
+  return row;
+}
+
+async function prepareLoanWrites(rows, kind) {
+  if (kind === 'update') return rows.map(stripLoanStatus);
+  if (kind === 'insert') return rows.map(applyNewLoanDefaults);
+  const found = await select('loans', { select: 'id' });
+  const existing = new Set((found || []).map(r => r && r.id).filter(Boolean));
+  return rows.map(row => existing.has(row.id) ? stripLoanStatus(row) : applyNewLoanDefaults(row));
 }
 
 function rowsOf(op) {
@@ -126,12 +155,13 @@ async function applyOp(op) {
     throw new HttpError(400, `${kind || '(none)'} not allowed on ${table}`);
   }
   if (kind === 'upsert' || kind === 'insert') {
-    const rows = rowsOf(op).map(r => {
+    let rows = rowsOf(op).map(r => {
       const row = pick(table, r);
       if (rule.singleton) row.id = rule.singleton;
       requireId(row);
       return row;
     });
+    if (table === 'loans') rows = await prepareLoanWrites(rows, kind);
     if (kind === 'insert' && !rule.ignoreDuplicates && !rule.singleton) {
       const out = await insert(table, rows);
       return out.length;
@@ -141,8 +171,9 @@ async function applyOp(op) {
   }
   if (kind === 'update') {
     const id = rule.singleton || requireId(op);
-    const patch = pick(table, op.patch || {});
+    let patch = pick(table, op.patch || {});
     delete patch.id;
+    if (table === 'loans') patch = stripLoanStatus(patch);
     if (!Object.keys(patch).length) return 0;
     if (rule.singleton) {
       const out = await upsert(table, [{ id, ...patch }], 'id');

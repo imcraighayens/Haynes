@@ -2058,7 +2058,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
                 <div><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">RETURN RATE (%)</div><input name="ret" value="{{ led.ret }}" sc-camel-on-change="{{ ledChange }}" placeholder="35" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"></div>
                 <div><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">ISSUED DATE</div><div sc-camel-on-click="{{ openLedIssued }}" style="background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between" style-hover="border-color:var(--line2)">{{ ledIssuedLabel }}<svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M3 9h18M8 2v4M16 2v4"></path></svg></div></div>
                 <div><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">DUE DATE</div><div sc-camel-on-click="{{ openLedDue }}" style="background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between" style-hover="border-color:var(--line2)">{{ ledDueLabel }}<svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M3 9h18M8 2v4M16 2v4"></path></svg></div></div>
-                <div><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">STATUS</div><sc-raw-select name="status" value="{{ led.status }}" sc-camel-on-change="{{ ledChange }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif"><option value="issued">Issued</option><option value="duetoday">Due today</option><option value="overdue">Overdue</option><option value="paid">Paid</option></sc-raw-select></div>
+                <div><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">STATUS</div><sc-raw-select name="status" value="{{ led.status }}" sc-camel-on-change="{{ ledChange }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif"><option value="issued">Issued</option><option value="duetoday">Due today</option><option value="overdue">Overdue</option><sc-if value="{{ ledAllowPaid }}" hint-placeholder-val="{{ true }}"><option value="paid">Paid</option></sc-if></sc-raw-select></div>
                 <div style="grid-column:1/-1"><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">TERM (MONTHS)</div><div style="display:flex;gap:8px"><sc-for list="{{ ledTerms }}" as="t" hint-placeholder-count="4"><div sc-camel-on-click="{{ t.pick }}" style="{{ t.style }}">{{ t.n }}</div></sc-for></div><div style="font:400 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:7px">{{ ledTermNote }}</div></div>
                 <div style="grid-column:1/-1"><div style="font:500 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:6px">PURPOSE</div><input name="purpose" value="{{ led.purpose }}" sc-camel-on-change="{{ ledChange }}" placeholder="Personal" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif"></div>
             </div>
@@ -3638,12 +3638,31 @@ class Component extends DCLogic {
     this.toast([n.paid?n.paid+' paid':'', n.unpaid?n.unpaid+' unpaid':'', n.new?n.new+' new loan'+(n.new>1?'s':''):''].filter(Boolean).join(' · ')||'Applied');
   }
   setLoanStatus(id, s, note, extra){ return this.commitLoanStatus(id, s, note, extra); }
+  statusChoices(loan){
+    const lib=(typeof window!=='undefined' && window.LedgerAttention) || null;
+    if(lib && typeof lib.statusChoices==='function') return lib.statusChoices(loan && loan.dbStatus);
+    if(loan && loan.dbStatus==='written_off') return [];
+    if(loan && (loan.dbStatus==='settled_early' || loan.dbStatus==='settled')) return ['issued','duetoday','overdue'];
+    return ['issued','duetoday','overdue','paid'];
+  }
   commitLoanStatus(id, s, note, extra){
     const l=(this.state.loans||[]).find(x=>x.id===id); if(!l) return Promise.resolve(false);
+    const lib=(typeof window!=='undefined' && window.LedgerAttention) || null;
+    const refused=lib && typeof lib.statusRefusal==='function' ? lib.statusRefusal(l.dbStatus, s) : '';
+    if(refused){ this.toast(refused); return Promise.resolve(false); }
     const sync=window.__ledger;
-    const fail=()=>{ this.toast('Could not save the loan status. Nothing was changed.'); return false; };
+    const fail=(err)=>{
+      let detail='';
+      const raw=err && err.message ? String(err.message) : '';
+      const json=raw.match(/\{[\s\S]*\}/);
+      if(json){ try { detail=JSON.parse(json[0]).error || ''; } catch(e){} }
+      const clear=/written-off loan|cannot be marked paid|changed while it was being saved|exactly one instalment|does not close the loan/i.test(detail);
+      this.toast(clear ? detail : 'Could not save the loan status. Nothing was changed.');
+      return false;
+    };
     if(!sync||typeof sync.api!=='function') return Promise.resolve(fail());
-    const body={loanId:id, status:s, note:note||''};
+    const count=extra&&extra.instalmentsPaid!=null ? extra.instalmentsPaid : 'status';
+    const body={loanId:id, status:s, note:note||'', requestId:String((extra&&extra.requestId)||(id+':'+s+':'+count)).slice(0,80)};
     if(extra&&extra.instalmentsPaid!=null) body.instalmentsPaid=extra.instalmentsPaid;
     return sync.api('POST','/loan-status',body).then(res=>{
       const row=res&&res.loan;
@@ -4710,7 +4729,7 @@ class Component extends DCLogic {
       return {label:'UPDATING '+(t?(MN[t.getMonth()]+' '+t.getFullYear()).toUpperCase():String(ds[i]).toUpperCase()),
         sub:(ds.length+done>1?'Instalment '+(done+i+1)+' of '+(done+ds.length)+' · ':'')+'due '+ds[i]+(k>=0&&k<pd?' · already paid':''),
         future, hasFuture:!!future.length}; })();
-    const statusPicks = ['issued','duetoday','overdue','paid'].map(s=>{
+    const statusPicks = this.statusChoices(mLoanRaw).map(s=>{
       const sm = this.statusMeta(s), cur = mLoanRaw && mLoanRaw.status===s;
       return {label:sm.label+(cur?' — CURRENT':''), pick:()=>{
         if(!mLoanRaw||cur) return;
@@ -5312,21 +5331,19 @@ class Component extends DCLogic {
               return;
             }
             const src=(st.bulkFileName?' ('+st.bulkFileName+')':'');
-            let seq=st.loanSeq; const made=[], patch={}, close={}, logs=[];
+            let seq=st.loanSeq; const made=[], patch={}, logs=[], writeOffs=[];
             ok.forEach(({r,v,act,owedNow},i)=>{
               const term=parseInt(r.term,10)||1, cname=clientById(r.clientId).name;
               const base={id:'l'+Date.now()+'-'+i, clientId:r.clientId, ret:35, status:'issued', issued:this.todayLabel(), due:r.due, term};
               if(r.mode==='overwrite' && act.length){
                 const ref='ECL-0'+(seq++);
                 made.push({...base, ref, amount:v.amt, purpose:r.purpose||'—'});
-                act.forEach(l=>{ close[l.id]={status:'written off', reason:'Replaced by '+ref+' — bulk overwrite'+src};
-                  logs.push({ref:l.ref, customer:cname, amount:l.amount, type:'LOAN WRITTEN OFF', date:this.todayStamp(), by:st.prof.name, comment:'Bulk overwrite'+src+' · '+fmt(owed(l))+' outstanding closed and replaced by new debt '+ref}); });
+                act.forEach(l=>{ writeOffs.push({id:l.id, note:'Bulk overwrite'+src+' · '+fmt(owed(l))+' outstanding closed and replaced by new debt '+ref}); });
                 logs.push({ref, customer:cname, amount:v.amt, type:'LOAN ISSUED', date:this.todayStamp(), by:st.prof.name, comment:'Bulk overwrite'+src+' · new debt installed in place of '+act.map(l=>l.ref).join(', ')+' · '+term+'-month term · due '+r.due});
               } else if(r.mode==='merge' && act.length){
                 const keep=act[0], mergedPrincipal=owedNow+v.amt;
                 patch[keep.id]={amount:mergedPrincipal, ret:0, due:r.due, term, purpose:'Consolidated debt'};
-                act.slice(1).forEach(l=>{ close[l.id]={status:'written off', reason:'Consolidated into '+keep.ref+' — balance carried over, not collected'};
-                  logs.push({ref:l.ref, customer:cname, amount:l.amount, type:'LOAN CONSOLIDATED', date:this.todayStamp(), by:st.prof.name, comment:'Bulk merge'+src+' · '+fmt(owed(l))+' outstanding carried into '+keep.ref+' — no payment received'}); });
+                act.slice(1).forEach(l=>{ writeOffs.push({id:l.id, note:'Bulk merge'+src+' · '+fmt(owed(l))+' outstanding carried into '+keep.ref+' — no payment received'}); });
                 logs.push({ref:keep.ref, customer:cname, amount:mergedPrincipal, type:'DEBT MERGED', date:this.todayStamp(), by:st.prof.name, comment:'Bulk merge'+src+' · '+fmt(owedNow)+' outstanding + '+fmt(v.amt)+' new = '+fmt(mergedPrincipal)+' single balance'+(act.length>1?' · closed '+act.slice(1).map(l=>l.ref).join(', '):'')+' · due '+r.due});
               } else {
                 const ref='ECL-0'+(seq++);
@@ -5334,9 +5351,10 @@ class Component extends DCLogic {
                 logs.push({ref, customer:cname, amount:v.amt, type:'LOAN ISSUED', date:this.todayStamp(), by:st.prof.name, comment:'Bulk upload'+src+' · '+term+'-month term · due '+r.due+(act.length?' · runs concurrently with '+act.map(l=>l.ref).join(', '):'')});
               }
             });
-            this.setState(p=>({ loans:[...made, ...p.loans.map(l=>patch[l.id]?{...l,...patch[l.id]}:close[l.id]?{...l,...close[l.id]}:l)],
+            this.setState(p=>({ loans:[...made, ...p.loans.map(l=>patch[l.id]?{...l,...patch[l.id]}:l)],
               loanSeq:seq, modal:null, bulkText:'', bulkFileName:'', bulkStage:'input', bulkDraft:[], bulkSkip:[] }));
             logs.forEach(l=>this.logAdd(l));
+            writeOffs.forEach(w=>this.commitLoanStatus(w.id, 'written_off', w.note, { requestId: w.id+':written_off' }));
             const nOver=ok.filter(x=>x.r.mode==='overwrite').length, nMrg=ok.filter(x=>x.r.mode==='merge').length, nNew=ok.length-nOver-nMrg;
             this.logAdd({ref:'BULK-'+ok.length, customer:'—', amount:ok.reduce((s,x)=>s+x.v.amt,0), type:'BULK UPLOAD', date:this.todayStamp(), by:st.prof.name, comment:nNew+' issued · '+nOver+' overwritten · '+nMrg+' merged'+(bad.length?' · '+bad.length+' rows left unresolved':'')});
             this.toast([nNew?nNew+' issued':'', nOver?nOver+' overwritten':'', nMrg?nMrg+' merged':''].filter(Boolean).join(' · ')); } }; })(),
@@ -5455,7 +5473,7 @@ class Component extends DCLogic {
       openQlDue:()=>this.openDate('ql.due'), openNfDue:()=>this.openDate('nf.due'), openNfSalary:()=>this.openDate('nf.salaryDate'), openAcDob:()=>this.openDate('ac.dob', true),
       openLedDue:()=>this.openDate('led.due'), openLedIssued:()=>this.openDate('led.issued'),
       ledIssuedLabel: (st.led&&st.led.issued)||'Set issue date',
-      mLoanEdit: st.modal==='loanedit', led: st.led||{amount:'',ret:'',due:'',status:'issued',purpose:'',topup:'',term:1,issued:''},
+      mLoanEdit: st.modal==='loanedit', ledAllowPaid: !(mLoanRaw && (mLoanRaw.dbStatus==='settled_early' || mLoanRaw.dbStatus==='written_off')), led: st.led||{amount:'',ret:'',due:'',status:'issued',purpose:'',topup:'',term:1,issued:''},
       ledTerms: [1,2,3,6].map(n=>{ const cur=(st.led&&st.led.term)||1; const on=cur===n;
         return { n:String(n), pick:()=>{ const d=this.state.led; if(!d||d.term===n) return;
           let due=d.due; const dt=new Date(d.due||'');
@@ -5485,11 +5503,15 @@ class Component extends DCLogic {
         const amt=parseFloat(String(d.amount).replace(/\s/g,''))||0; const ret=parseFloat(String(d.ret).replace(/\s/g,''))||0;
         if(!amt) return this.toast('Principal is required');
         const newIssued=d.issued||mLoanRaw.issued||''; const newDue=d.due||mLoanRaw.due;
-        this.setState(p=>({loans:p.loans.map(l=>l.id===mLoanRaw.id?{...l, amount:amt, ret, issued:newIssued, due:newDue, status:d.status, purpose:d.purpose||l.purpose, term:(d.term||1)+'m'}:l), modal:null, led:null}));
+        this.setState(p=>({loans:p.loans.map(l=>l.id===mLoanRaw.id?{...l, amount:amt, ret, issued:newIssued, due:newDue, purpose:d.purpose||l.purpose, term:(d.term||1)+'m'}:l), modal:null, led:null}));
         const grew = amt > (mLoanRaw.amount||0);
         const dueMoved = newDue !== mLoanRaw.due; const issuedMoved = newIssued !== (mLoanRaw.issued||'');
         const termMoved = (d.term||1) !== (d.term0||1);
         const kind = grew && (dueMoved||termMoved) ? 'LOAN TOPPED UP & EXTENDED' : grew ? 'LOAN TOPPED UP' : termMoved ? 'LOAN TERM EXTENDED' : (dueMoved||issuedMoved) ? 'LOAN DATES ADJUSTED' : 'LOAN EDITED';
+        const db=mLoanRaw.dbStatus||'';
+        const next=d.status;
+        const unchanged=next===mLoanRaw.status || next===db || (db==='settled_early' && next==='paid');
+        if(!unchanged) this.commitLoanStatus(mLoanRaw.id, next, kind, { requestId: mLoanRaw.id+':edit:'+next });
         const trail=[]; if(issuedMoved) trail.push('Issued '+(mLoanRaw.issued||'unset')+' → '+newIssued); if(dueMoved) trail.push('Due '+mLoanRaw.due+' → '+newDue);
         const delta = grew ? ' · +'+fmt(amt-(mLoanRaw.amount||0))+' top-up' : '';
         this.logAdd({ref:mLoanRaw.ref, customer:clientById(mLoanRaw.clientId).name, amount:amt, type:kind, date:this.todayStamp(), by:st.prof.name, comment:'Principal '+fmt(amt)+delta+' · '+ret+'% · '+(d.term||1)+'m · '+this.statusMeta(d.status).label+(trail.length?' · '+trail.join(' · '):' · Due '+newDue)});
@@ -5633,7 +5655,9 @@ class Component extends DCLogic {
             return { hubTlOn:on, hubTl:tl, hubTlHasNext:!!nx, hubTlNextRef: nx?nx.l.ref+(nx.of>1?' '+(nx.k+1)+'/'+nx.of:''):'',
               hubTlSummary: (()=>{ const pre=cl.reduce((s2,l)=>s2+(l.instDone||0),0); const p=items.filter(x=>x.paid).length+pre, t=items.length+pre; return p+' OF '+t+' PAID'+(pre?' · '+pre+' BEFORE SCHEDULE':''); })(),
               hubTlRef: this._hubTlRefFn || (this._hubTlRefFn = el=>{ this._hubTlEl=el; if(el) requestAnimationFrame(()=>{ if(el.scrollWidth <= el.clientWidth + 1) { el.scrollLeft = 0; return; } const n=this._hubTlNext; const kid=el.children[n>=0?n:el.children.length-1]; if(kid) el.scrollLeft = Math.max(0, kid.offsetLeft - el.clientWidth/2 + kid.offsetWidth/2); }); }),
-              hubTlPayNext: ()=>{ if(!nx) return; this.setLoanStatus(nx.l.id,'paid','Instalment '+(nx.k+1)+'/'+nx.of+' marked paid from client timeline');
+              hubTlPayNext: ()=>{ if(!nx) return;
+                const step=(window.LedgerAttention&&window.LedgerAttention.nextInstalmentStep)?window.LedgerAttention.nextInstalmentStep(nx.l, nx.of):{instalmentsPaid:(Number(nx.l.paidInst)||0)+1, status:(Number(nx.l.paidInst)||0)+1>=(nx.of||1)?'paid':'issued'};
+                this.commitLoanStatus(nx.l.id, step.status, 'Instalment '+step.instalmentsPaid+'/'+(nx.of||step.instalmentsPaid)+' marked paid from client timeline', { instalmentsPaid: step.instalmentsPaid, requestId: nx.l.id+':inst:'+step.instalmentsPaid });
                 setTimeout(()=>{ this.instSync(); const el=this._hubTlEl; if(el){ const kid=el.children[Math.min((this._hubTlNext??0), el.children.length-1)]; if(kid) el.scrollTo({left:Math.max(0,kid.offsetLeft-el.clientWidth/2+kid.offsetWidth/2), behavior:'smooth'}); } }, 60); } }; })(),
           hubStats: (()=>{ const instPaid=l=>{ const tot=l.instTotal||1; if(l.status==='paid'&&l.instRemaining==null) return tot; return Math.max(0, tot-(l.instRemaining??tot)); };
             const collected = cl.reduce((a,l)=>a+cents(l)*instPaid(l),0);
@@ -5930,7 +5954,7 @@ class Component extends DCLogic {
               noteStyle: this.cssObj("display:inline-flex;align-items:center;font:700 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;margin-top:7px;padding:5px 11px;border-radius:99px;white-space:nowrap;color:"+col+";border:1px solid "+col+";background:"+(n.flagged?'rgba(255,69,58,.14)':'var(--amberSoft)')),
               rowStyle: this.cssObj('padding:12px 15px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:9px;'+(n.flagged?'background:var(--redSoft)':'')),
               open: ()=>this.pushModal({modal:'history', modalId:l.id}),
-              picks: ['duetoday','paid','overdue','issued'].map(sv=>{ const sm=this.statusMeta(sv), cur=l.status===sv;
+              picks: ['duetoday','paid','overdue','issued'].filter(sv=>this.statusChoices(l).includes(sv)).map(sv=>{ const sm=this.statusMeta(sv), cur=l.status===sv;
                 return {label:sm.label, pick:()=>this.setLoanStatus(l.id, sv),
                   style:this.cssObj("padding:5px 11px;border-radius:99px;font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;cursor:pointer;white-space:nowrap;transition:background .2s ease,color .2s ease;"+(cur?'background:'+sm.soft+';color:'+sm.color+';border:1px solid '+sm.color:'border:1px solid var(--line2);color:var(--mut)'))}; })
             }; })
@@ -5962,7 +5986,7 @@ class Component extends DCLogic {
           dbRows: rows.map(r=>{ const c=clientById(r.loan.clientId);
             return {customer:c.name||'—', ref:r.loan.ref, bank:(c.bank||'—').toUpperCase(),
               amountFmt: fmt(this.dueAmt(r.loan)),
-              picks: ['duetoday','paid','overdue','issued'].map(sv=>{ const sm=this.statusMeta(sv), cur=r.loan.status===sv;
+              picks: ['duetoday','paid','overdue','issued'].filter(sv=>this.statusChoices(r.loan).includes(sv)).map(sv=>{ const sm=this.statusMeta(sv), cur=r.loan.status===sv;
                 return {label:sm.label, pick:(e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.setLoanStatus(r.loan.id, sv, 'Updated from due brief'); },
                   style:this.cssObj("padding:4px 10px;border-radius:99px;font:600 9px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;cursor:pointer;white-space:nowrap;"+(cur?'background:'+sm.soft+';color:'+sm.color+';border:1px solid '+sm.color:'border:1px solid var(--line2);color:var(--mut)'))}; }),
               amountStyle: this.cssObj("font:700 14px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;color:"+col),
@@ -6003,7 +6027,7 @@ class Component extends DCLogic {
           bsApplyLabel:'Mark '+picked.length+' as '+lbl,
           bsApplyStyle:this.cssObj('flex:1;padding:11px;border-radius:12px;text-align:center;font-size:12.5px;font-weight:700;'+(picked.length?'background:#C6F432;color:#000;cursor:pointer':'background:var(--panel2);color:var(--dim);cursor:default')),
           bsApply:()=>{ if(!picked.length) return; this._bsQuiet=true;
-            picked.forEach(n=>this.setLoanStatus(n.loan.id, to, 'Bulk status update · was due '+n.date));
+            picked.forEach(n=>{ if(!this.statusChoices(n.loan).includes(to)) return; this.setLoanStatus(n.loan.id, to, 'Bulk status update · was due '+n.date); });
             this._bsQuiet=false; this.setState({modal:null, modalStack:[], bsSel:{}});
             if(to==='paid' && this.instSync) setTimeout(()=>this.instSync(), 0);
             this.toast(picked.length+' loan'+(picked.length===1?'':'s')+' → '+lbl); } }; })(),
@@ -6050,7 +6074,7 @@ class Component extends DCLogic {
         const cvLoans = st.loans.filter(l=>l.clientId===cvRaw.id).map(l=>({
           ref:l.ref, amountFmt:this.lentFmt(l), dueFmt:l.due.toUpperCase(), instFmt: fmt(this.dueAmt(l)),
           instOf: l.instTotal ? ((l.instTotal-(l.instRemaining??l.instTotal))+' of '+l.instTotal+' paid') : '',
-          picks: ['issued','duetoday','overdue','paid'].map(s=>{ const sm=this.statusMeta(s), cur=l.status===s;
+          picks: this.statusChoices(l).map(s=>{ const sm=this.statusMeta(s), cur=l.status===s;
             return { label:sm.label, pick:()=>{ if(cur) return; this.commitLoanStatus(l.id, s, 'Changed from client workspace'); },
               style:this.cssObj("padding:4px 10px;border-radius:99px;font:500 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;cursor:pointer;"+(cur?'background:var(--panel2);'+(sm.style.cssText||''):'color:var(--dim)')) };
           }),
@@ -6126,7 +6150,7 @@ class Component extends DCLogic {
       toggleSms:()=>this.setState(p=>({smsOpen:!p.smsOpen})),
       smsQuick:()=>this.setState({smsText:'Hi '+(mLoanRaw?clientById(mLoanRaw.clientId).name.split(' ')[0]:'')+', a friendly reminder that your '+orgName+' loan '+(mLoanRaw?mLoanRaw.ref:'')+' payment is due. Reply or call us to arrange.'}),
       sendSms:()=>{ if(!st.smsText.trim()) return this.toast('Type a message first'); const c=mLoanRaw?clientById(mLoanRaw.clientId):{}; this.setState({smsOpen:false,smsText:''}); this.smsVia(c.name||'—', mLoanRaw?mLoanRaw.ref:'—', st.smsText.slice(0,60)); },
-      histStatusPicks: ['issued','duetoday','overdue','paid'].map(s=>{ const sm=this.statusMeta(s); const cur=mLoanRaw&&mLoanRaw.status===s;
+      histStatusPicks: this.statusChoices(mLoanRaw).map(s=>{ const sm=this.statusMeta(s); const cur=mLoanRaw&&mLoanRaw.status===s;
         const ic={issued:'M12 5v14M5 12h14',duetoday:'M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z',overdue:'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L14.4 3.9a2 2 0 00-3.4 0z',paid:'M20 6 9 17l-5-5'}[s];
         return {label:sm.label, iconPath:ic,
           pick:()=>{ if(!mLoanRaw||cur) return; this.commitLoanStatus(mLoanRaw.id, s, 'Changed from loan history'); },

@@ -95,6 +95,38 @@ export function popupKeeps(serverStatus) {
   return saved === 'overdue' || saved === 'duetoday';
 }
 
+// The console shows settled_early as paid. That label must not be offered as a
+// transition: one click would ask the server to downgrade the loan.
+export function statusChoices(dbStatus) {
+  const raw = String(dbStatus || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (raw === 'written_off' || raw === 'writtenoff') return [];
+  const all = ['issued', 'duetoday', 'overdue', 'paid'];
+  if (raw === 'settled_early' || raw === 'settled') return all.filter(s => s !== 'paid');
+  return all;
+}
+
+export function statusRefusal(dbStatus, next) {
+  const raw = String(dbStatus || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const want = String(next || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (raw === 'written_off' || raw === 'writtenoff') return 'A written-off loan cannot change status.';
+  if ((raw === 'settled_early' || raw === 'settled') && want === 'paid') return 'A settled loan cannot be marked paid.';
+  return '';
+}
+
+// Advance exactly one instalment. The loan is paid only when that step is the last one.
+export function nextInstalmentStep(loan, total) {
+  const paid = Number(loan && loan.paidInst) || 0;
+  const of = Number(total) || 0;
+  const instalmentsPaid = paid + 1;
+  const done = of > 0 && instalmentsPaid >= of;
+  const db = String((loan && loan.dbStatus) || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  let status = 'issued';
+  if (done) status = 'paid';
+  else if (db === 'overdue') status = 'overdue';
+  else if (db === 'duetoday' || db === 'due_today') status = 'duetoday';
+  return { instalmentsPaid, status, done };
+}
+
 export function attentionHeading(count) {
   const n = Number(count) || 0;
   if (n === 1) return '1 account needs attention';
@@ -107,5 +139,5 @@ export function ackHolds(stored, loan, todayIso) {
   return !!current && stored === current;
 }
 
-const api = { toIso, labelOfIso, firstMissedDue, overdueSince, overdueMarker, attentionNote, attentionAmount, attentionHeading, ackHolds, popupKeeps, missedCount };
+const api = { toIso, labelOfIso, firstMissedDue, overdueSince, overdueMarker, attentionNote, attentionAmount, attentionHeading, ackHolds, popupKeeps, missedCount, statusChoices, statusRefusal, nextInstalmentStep };
 try { if (typeof window !== 'undefined') window.LedgerAttention = api; } catch (e) {}

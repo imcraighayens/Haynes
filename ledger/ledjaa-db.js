@@ -259,6 +259,17 @@ export function statusToDb(s, prev) {
   return 'issued'; // issued, duetoday, restructured, active, '' …
 }
 // DB enum → console vocabulary (statusMeta/instNorm/bucketOf compare these exact strings).
+function dbStatusOf(s) {
+  const k = norm(s);
+  if (k === 'written_off' || k === 'writtenoff') return 'written_off';
+  if (k === 'settled_early' || k === 'settled' || k === 'settledearly') return 'settled_early';
+  if (k === 'paid') return 'paid';
+  if (k === 'overdue') return 'overdue';
+  if (k === 'due_today' || k === 'duetoday') return 'duetoday';
+  if (k === 'issued' || k === '') return 'issued';
+  return k;
+}
+
 export function statusToConsole(s) {
   const k = norm(s);
   if (k === 'written_off' || k === 'writtenoff') return 'written off';
@@ -419,6 +430,7 @@ export function loanToConsole(row) {
     sched,
     issued: row.issued_on ? labelOf(row.issued_on) : undefined,
     statusAt: row.status_at || '',
+    dbStatus: dbStatusOf(row.status),
     issuedBy: row.issued_by || undefined,
     employeeId: row.officer_id || undefined,
     paidDates: Array.isArray(row.paid_dates) ? row.paid_dates.filter(Boolean).map(labelOf) : []

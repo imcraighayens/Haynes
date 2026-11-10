@@ -20,6 +20,21 @@ create table if not exists public.ledger_attention (
 create index if not exists ledger_attention_staff_idx
   on public.ledger_attention (staff_email);
 
+-- Points the acknowledgement at the loan. Its own step so running this file
+-- again, after the table already exists, does not fail and does not rewrite rows.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'ledger_attention_loan_id_fkey'
+      and conrelid = 'public.ledger_attention'::regclass
+  ) then
+    alter table public.ledger_attention
+      add constraint ledger_attention_loan_id_fkey
+      foreign key (loan_id) references public.loans (id);
+  end if;
+end $$;
+
 alter table public.ledger_attention enable row level security;
 
 revoke all on table public.ledger_attention from public;

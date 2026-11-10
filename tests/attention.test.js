@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { firstMissedDue, overdueSince, attentionNote, attentionAmount, attentionHeading, popupKeeps } from '../ledger/attention.js';
+import { firstMissedDue, overdueSince, attentionNote, attentionAmount, attentionHeading, popupKeeps, statusChoices, statusRefusal, nextInstalmentStep } from '../ledger/attention.js';
 
 const TODAY = '2026-11-10';
 
@@ -42,6 +42,27 @@ test('the popup keeps a loan until the saved status is paid or settled', () => {
   assert.equal(popupKeeps(''), false);
   assert.equal(attentionNote({ status: 'duetoday', due: TODAY }, TODAY), 'Due today');
   assert.equal(firstMissedDue({ schedule: ['2026-08-01'], paid_dates: [], due: '—' }, TODAY), '2026-08-01');
+});
+
+test('settled and written-off loans are not offered a paid transition', () => {
+  assert.deepEqual(statusChoices('issued'), ['issued', 'duetoday', 'overdue', 'paid']);
+  assert.deepEqual(statusChoices('settled_early'), ['issued', 'duetoday', 'overdue']);
+  assert.equal(statusChoices('settled_early').includes('paid'), false);
+  assert.deepEqual(statusChoices('written_off'), []);
+  assert.equal(statusRefusal('written_off', 'paid'), 'A written-off loan cannot change status.');
+  assert.equal(statusRefusal('settled_early', 'paid'), 'A settled loan cannot be marked paid.');
+  assert.equal(statusRefusal('overdue', 'paid'), '');
+});
+
+test('pay next advances one instalment and marks the loan paid only on the last one', () => {
+  const first = nextInstalmentStep({ paidInst: 0, dbStatus: 'overdue' }, 3);
+  assert.equal(first.instalmentsPaid, 1);
+  assert.equal(first.status, 'overdue');
+  assert.equal(first.done, false);
+  const last = nextInstalmentStep({ paidInst: 2, dbStatus: 'issued' }, 3);
+  assert.equal(last.instalmentsPaid, 3);
+  assert.equal(last.status, 'paid');
+  assert.equal(last.done, true);
 });
 
 test('the attention heading is singular for one account', () => {
