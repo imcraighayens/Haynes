@@ -165,6 +165,20 @@ async function lockUntilRedeem(clientId, nowIso) {
     updated_at: nowIso
   });
   await revokeSessions(borrower.id, nowIso);
+  await revokeWebauthn(borrower.id, nowIso);
+}
+
+// A reset invite retires Face ID on every device. Missing table: PIN lock still stands.
+async function revokeWebauthn(borrowerId, nowIso) {
+  try {
+    await patchWhere('q1_webauthn_credentials', {
+      borrower_id: eq(borrowerId),
+      revoked_at: 'is.null'
+    }, { revoked_at: nowIso });
+  } catch (err) {
+    if (missingTable(err)) return;
+    throw err;
+  }
 }
 
 export async function createInvite(req, clientId, now = Date.now()) {
@@ -306,6 +320,11 @@ async function openSession(borrower, now = Date.now()) {
 export function authCookies(minted, accountRef, req) {
   const secure = requestIsSecure(req);
   return [sessionCookie(minted.token, minted.exp, secure), deviceCookie(accountRef, secure)];
+}
+
+export async function startBorrowerSession(borrower, req, now = Date.now()) {
+  const { minted, accountRef } = await openSession(borrower, now);
+  return { accountRef, cookies: authCookies(minted, accountRef, req) };
 }
 
 export async function redeemInvite(req, body) {

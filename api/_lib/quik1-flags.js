@@ -30,6 +30,11 @@ export function borrowerPinLive(req) {
   return true;
 }
 
+// Face ID / passkey unlock uses the same switch as the PIN. No separate flag.
+export function borrowerBiometricLive(req) {
+  return borrowerPinLive(req);
+}
+
 // Staff "view as client". Off unless QUIK1_PREVIEW_VIEW_AS_CLIENT=1, and still off on production.
 export function previewViewAsAllowed(req) {
   if (!flagOn('QUIK1_PREVIEW_VIEW_AS_CLIENT')) return false;
