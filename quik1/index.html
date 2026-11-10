@@ -1570,7 +1570,7 @@ input,button,textarea{font-family:inherit}
               </label>
             </sc-if>
             <div style="display:flex;gap:10px">
-              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="4">
+              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="6">
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
@@ -2705,7 +2705,7 @@ input,button,textarea{font-family:inherit}
       decisionTick:0, terms:false, offerError:'',
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
       profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
-      bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false,
+      bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false, challengeId:'',
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
       aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
@@ -2814,7 +2814,7 @@ input,button,textarea{font-family:inherit}
         email:!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email||'')?'Enter a valid email address':'',
         employer:(u.employment!=='Self-employed'&&!(u.employer||'').trim())?'Who do you work for?':'',
         income:(parseInt(u.income||'0',10)<1000)?'Monthly take-home pay, at least R1 000':'',
-        pin:!/^\d{4}$/.test(u.pin||'')?'Choose 4 digits':'',
+        pin:!/^\d{6}$/.test(u.pin||'')?'Choose 6 digits':'',
         pin2:(u.pin2!==u.pin)?'PINs do not match':''
       };
       const F=(k,label,ph,o)=>Object.assign({label,ph,value:u[k]||'',onChange:set(k,o&&o.fmt),type:'text',mode:'text',max:80,prefix:'',ls:'0',
@@ -2824,8 +2824,8 @@ input,button,textarea{font-family:inherit}
            F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'})],
         2:[F('employer',u.employment==='Self-employed'?'Business name (optional)':'Employer','Company name'),
            F('income','Monthly take-home pay','0',{mode:'numeric',max:7,fmt:digits(7),prefix:'R'})],
-        3:[F('pin','Create a 4-digit PIN','••••',{type:'password',mode:'numeric',max:4,fmt:digits(4),ls:'.4em'}),
-           F('pin2','Confirm PIN','••••',{type:'password',mode:'numeric',max:4,fmt:digits(4),ls:'.4em'})]
+        3:[F('pin','Create a 6-digit PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'}),
+           F('pin2','Confirm PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'})]
       }[step];
       const stepKeys={1:['name','idnum','phone','email'],2:['employer','income'],3:['pin','pin2']}[step];
       const chip=(k,v)=>({label:v,go:()=>this.setState(st=>({su:{...st.su,[k]:v}})),bg:u[k]===v?'#FDD10D':'rgba(255,255,255,.05)',fg:u[k]===v?'#0B0620':'#FFFFFF',bd:u[k]===v?'#FDD10D':'rgba(255,255,255,.12)'});
@@ -2834,15 +2834,15 @@ input,button,textarea{font-family:inherit}
       const tl=[
         {label:'Application submitted',meta:'Sent to applications@ecoloans.co.za',done:true},
         {label:'Admin review',meta:ok?'Approved':no?'Not approved':'Usually within 1 business hour',done:ok||no,cur:!ok&&!no},
-        {label:'Account active',meta:ok?'You can borrow now':'We will SMS you',done:ok}];
+        {label:'Account active',meta:ok?'You can borrow now':'We will be in touch',done:ok}];
       return {
         isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
         suStep:step, suStep2:step===2, suStep3:step===3,
         suStepName:{1:'About you',2:'Work and pay',3:'Pick a PIN'}[step],
-        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 4 numbers you will remember. You use them to open the app.'}[step],
+        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 6 numbers you will remember. You use them to open the app.'}[step],
         suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
         suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
-        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these 4 digits to log in. Keep them to yourself.'}[step],
+        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these 6 digits to log in. Keep them to yourself.'}[step],
         suFields:fields, suError:s.suError||'',
         suEmp:['Permanent','Contract','Self-employed','Part-time'].map(v=>chip('employment',v)),
         suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
@@ -2864,7 +2864,7 @@ input,button,textarea{font-family:inherit}
         suDoneTitle:ok?'You are approved':no?'We could not approve this account':'Thanks, we are reviewing your account',
         suDoneBody:ok?'Your account is active. Sign in with your number and PIN to apply for your first loan.'
           :no?'Our team could not verify the details supplied. Email applications@ecoloans.co.za and we will help.'
-          :'Your details are with our team at applications@ecoloans.co.za. We will SMS you as soon as your account is approved.',
+          :'Your details are with our team at applications@ecoloans.co.za. We will be in touch as soon as your account is approved.',
         suTimeline:tl.map((t,i)=>({...t,bg:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):'transparent',bd:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):t.cur?'#FDD10D':'rgba(255,255,255,.25)',tick:t.done?1:0,ink:t.done||t.cur?'#FFFFFF':'rgba(255,255,255,.55)',line:i<2?'rgba(255,255,255,.07)':'transparent'})),
         suDoneCta:ok?'Sign in':no?'Back to start':'Back to start',
         suDoneBg:ok?'#FDD10D':'transparent', suDoneInk:ok?'#0B0620':'#FFFFFF', suDoneBorder:ok?'0':'1.5px solid rgba(255,255,255,.22)',
@@ -2942,6 +2942,10 @@ input,button,textarea{font-family:inherit}
       }catch(e){}
       if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
+      try{
+        const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
+        if(link) this.consumeEmailLink(link[1]);
+      }catch(e){}
       fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
         .then(j=>{ if(j&&j.identified===true&&!this.state.inviteCode){ this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); this.startBookPoll(); } })
@@ -2956,8 +2960,9 @@ input,button,textarea{font-family:inherit}
       const acct=payload&&payload.account&&typeof payload.account==='object'?payload.account:{};
       const num=n=>{ const x=Number(n); return Number.isFinite(x)?x:0; };
       const credit=num(acct.credit_limit), owed=num(acct.outstanding_principal), available=num(acct.available), nextDebit=num(acct.next_debit);
-      const name=identified?String((payload.profile&&payload.profile.name)||'').trim():'';
+        const name=identified?String((payload.profile&&payload.profile.name)||'').trim():'';
       const bank=identified?String((payload.profile&&payload.profile.bank)||'').trim():'';
+      const idMasked=identified&&/^\*{9}\d{4}$/.test(String((payload.profile&&payload.profile.idMasked)||''))?payload.profile.idMasked:'';
       const loans=Array.isArray(acct.loans)?acct.loans:[];
       const activeLoan=identified&&owed>0?{
         a:owed, total:owed, term:1, monthly:nextDebit>0?nextDebit:owed,
@@ -2976,7 +2981,7 @@ input,button,textarea{font-family:inherit}
             next_debit:nextDebit, loans
           }
         },
-        profile:{name,idnum:'',email:'',mobile:'',bank,ref:identified?String((payload.profile&&payload.profile.ref)||''):''},
+        profile:{name,idnum:idMasked,email:'',mobile:'',bank,ref:identified?String((payload.profile&&payload.profile.ref)||''):''},
         customer:true, activeLoan, baseAmount:credit, interestPaid:0, graduated:false,
         bookStatements:Array.isArray(payload.statements)?payload.statements:[],
         bookApplications:Array.isArray(payload.applications)?payload.applications:[],
@@ -3146,6 +3151,7 @@ input,button,textarea{font-family:inherit}
         })),
         profileFields:[
           field('Full name',name,'From your ledger client.',true),
+          ...(/^\*{9}\d{4}$/.test(String((s.profile&&s.profile.idnum)||''))?[field('SA ID',s.profile.idnum,'Only the last four digits are shown.')]:[]),
           field('Bank',bank,'Ask your loan officer to change this on the ledger.'),
           field('Client reference',ref,'Staff use this reference. It is not a PIN.')
         ],
@@ -3353,8 +3359,19 @@ input,button,textarea{font-family:inherit}
     openLedgerHome(){
       this.setState({otp:'',pinBusy:true});
       const apply=payload=>{
-        this.setState(Object.assign({pinBusy:false,authing:false,screen:'home',customer:true,otp:'',pinNote:'',pinPhase:'sign',pinFirst:''}, this.homeFromBook(payload)));
-        if(payload&&payload.identified===true) this.startBookPoll();
+        this.setState(Object.assign({pinBusy:false,authing:false,screen:'home',customer:true,otp:'',pinNote:'',pinPhase:'sign',pinFirst:'',challengeId:''}, this.homeFromBook(payload)));
+        if(payload&&payload.identified===true){
+          this.startBookPoll();
+          const raw=this.state.su&&this.state.su.idnum;
+          if(window.Quik1Link&&typeof window.Quik1Link.submitIdentity==='function'&&/^\d{13}$/.test(raw||'')){
+            window.Quik1Link.submitIdentity(raw).then(r=>{
+              if(!r||!r.ok) return;
+              const masked=r.body&&r.body.idMasked;
+              const show=/^\*{9}\d{4}$/.test(String(masked||''))?masked:String(raw).slice(-4);
+              this.setState(st=>({profile:Object.assign({},st.profile,{idnum:show}),su:Object.assign({},st.su,{idnum:String(raw).slice(-4)})}));
+            }).catch(()=>{});
+          }
+        }
       };
       fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
@@ -3363,7 +3380,7 @@ input,button,textarea{font-family:inherit}
     }
     submitBorrowerPin(pin){
       if(this.state.pinBusy) return;
-      if(!/^\d{4}$/.test(pin)) return;
+      if(!/^\d{6}$/.test(pin)) return;
       const st=this.state;
       if(st.inviteCode){
         if(st.pinPhase!=='confirm'){
@@ -3390,7 +3407,20 @@ input,button,textarea{font-family:inherit}
         .then(async r=>{
           let j=null; try{ j=await r.json(); }catch(e){ j=null; }
           if(r.status===423){
-            this.setState({pinBusy:false, otp:'', pinFirst:'', pinNote:'This account is locked. Ask your loan officer for a new invite.'});
+            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
+            return;
+          }
+          if(r.ok&&j&&j.verifyRequired){
+            if(j.contactStaff){
+              this.setState({pinBusy:false, otp:'', pinPhase:'staff', verifyToken:'', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
+              return;
+            }
+            this.setState({pinBusy:false, otp:'', pinPhase:'email', verifyToken:j.verifyToken||'', pinNote:''});
+            this.requestEmailLink(j.verifyToken);
+            return;
+          }
+          if(r.ok&&j&&j.sent===true){
+            this.setState({pinBusy:false, pinPhase:'email', pinNote:'Open the email link on this phone. It confirms this device and then stops working.'});
             return;
           }
           if(!r.ok){
@@ -3404,10 +3434,23 @@ input,button,textarea{font-family:inherit}
             this.setState({deviceRef:accountRef});
           }
           try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
-          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', otp:''});
+          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', otp:'', challengeId:''});
           this.openLedgerHome();
         })
         .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
+    }
+    requestEmailLink(token){
+      const ref=this.state.deviceRef||'';
+      const ticket=token||this.state.verifyToken||'';
+      if(!ticket||!/^qb_[0-9a-f]{32}$/.test(ref)){
+        this.setState({pinBusy:false, pinPhase:'staff', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
+        return;
+      }
+      this.finishBorrower('/verify', {accountRef:ref, verifyToken:ticket});
+    }
+    consumeEmailLink(token){
+      if(!/^[0-9a-f]{64}$/.test(token||'')) return;
+      this.finishBorrower('/verify/email', {token:token});
     }
     bookDueDate(){
       const iso=this.state.ledgerAccount&&this.state.ledgerAccount.account&&this.state.ledgerAccount.account.next_due;
@@ -3603,8 +3646,8 @@ input,button,textarea{font-family:inherit}
         docs:'Upload your latest payslip or bank statement. Clear photos are processed fastest.',
         kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
         who:'Pick if this loan is for you or for your business.',
-        signup:'Sign up takes 3 short steps: your details, your work and pay, then a 4-digit PIN. Tap Back any time to change something.',
-        login:'Enter the 4-digit PIN you chose. It is not your ID number.'};
+        signup:'Sign up takes 3 short steps: your details, your work and pay, then a 6-digit PIN. Tap Back any time to change something.',
+        login:'Enter the 6-digit PIN you chose. It is not your ID number.'};
       const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
       const last=st.aiChat[st.aiChat.length-1];
       const add=!(last&&last.from==='bot'&&last.text===txt);
@@ -3838,7 +3881,7 @@ input,button,textarea{font-family:inherit}
           acControls:[
             {label:fz?'Unfreeze':'Freeze',path:'M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9',go:()=>this.setState({cardFrozen:!fz}),on:fz},
             {label:rv?'Hide details':'Show details',path:'M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM12 14.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z',go:()=>this.setState({cardReveal:!rv}),on:rv},
-            {label:'Replace card',path:'M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6M17.7 3v3.4h-3.4M6.3 21v-3.4h3.4',go:()=>this.setState({sentNote:'Replacement card requested. We will SMS you when it ships.'}),on:false}
+            {label:'Replace card',path:'M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6M17.7 3v3.4h-3.4M6.3 21v-3.4h3.4',go:()=>this.setState({sentNote:'Replacement card requested. We will be in touch when it ships.'}),on:false}
           ].map(c=>({...c,bg:c.on?'#FDD10D':'var(--q-tile)',bd:c.on?'#FDD10D':'rgba(var(--q-fg),.08)',ink:c.on?'#0B0620':'var(--q-ink)',icon:c.on?'#0B0620':'var(--q-accent)'})),
           acList:[
             {name:'Quik1 Credit',meta:'Q1-'+(idd.slice(-6)||'000000')+' · Limit '+this.money(LIMIT),status:fz?'Frozen':'Active',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3'},
@@ -4018,10 +4061,7 @@ input,button,textarea{font-family:inherit}
         loginIntroStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false,
         ...(()=>{ if(s.screen!=='login') return {loginStepHeadOn:false};
           const pin=s.loginMode==='pin';
-          const [h,sub]=s.otpMode?(pin?['Enter your PIN','The 4 digits you chose when you signed up.']:['Check your SMS','We sent a 4-digit code to +27 '+(s.phone||'82 000 0000')+'.'])
-            :s.loginMode==='id'?['Welcome back','Log in with your mobile number and SA ID.']
-            :(s.loginMode==='new'&&s.loginIntro===false)?["Let's get you started","Enter your number and we'll SMS you a code."]
-            :(s.loginMode!=='new')?['Good to see you again','Look at your phone to log in, or use your PIN.']:[null,null];
+          const [h,sub]=['Enter your PIN','The 6 digits you chose. It is not an ID number.'];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
         onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
@@ -4047,7 +4087,7 @@ input,button,textarea{font-family:inherit}
           const su=(ls.signups||[]).find(u=>String(u.phone||'').replace(/\D/g,'').slice(-9)===s.liPhone);
           const demo={phone:'824319077',id:String(s.profile.idnum||'').replace(/\D/g,'')};
           if(su&&su.idnum!==s.liId) return toast('Details do not match','That ID number is not linked to this mobile number.');
-          if(su&&su.status==='Pending review') return toast('Account still in review','Your sign-up is with applications@ecoloans.co.za. We will SMS you once it is approved.','wait');
+          if(su&&su.status==='Pending review') return toast('Account still in review','Your sign-up is with applications@ecoloans.co.za. We will be in touch once it is approved.','wait');
           if(su&&su.status==='Declined') return toast('Account not approved','This sign-up was declined. Email applications@ecoloans.co.za for help.');
           if(!su&&s.liPhone===demo.phone&&s.liId!==demo.id) return toast('Details do not match','That ID number is not linked to this mobile number.');
           if(!su&&s.liPhone!==demo.phone) return toast('No account found','We could not find an account for +27 '+s.liPhone+'. Tap Sign up to create one.');
@@ -4265,8 +4305,8 @@ input,button,textarea{font-family:inherit}
         onReturning:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
-        otpTitle:'Enter your 4-digit PIN',
-        otpSub:'Enter the 4-digit PIN you chose. It is not your ID number.',
+        otpTitle:'Enter your 6-digit PIN',
+        otpSub:'Enter the 6-digit PIN you chose. It is not your ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
           const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
           return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
@@ -4443,8 +4483,8 @@ input,button,textarea{font-family:inherit}
               ln('Documents','Agreements and uploads','M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2','',()=>this.switchPanel('documents',false))]},
             {title:'Security',rows:[
               tg('Sign in with Face ID','Use your face instead of a PIN','M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M9.4 15.4a3.8 3.8 0 0 0 5.2 0',s.setFaceId!==false,()=>this.setState({setFaceId:s.setFaceId===false})),
-              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'We sent a one-time code to '+((s.profile&&s.profile.mobile)||'your phone')+' to reset your PIN.'})),
-              tg('Approve logins by SMS','Extra check on new devices','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2',s.setSms!==false,()=>this.setState({setSms:s.setSms===false}))]},
+              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'Ask your loan officer for a new invite if you need a new PIN.'})),
+              ln('New phone','Confirmed with an email link','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2','',()=>this.setState({sentNote:'A new phone opens an email link. Staff can reset the device in Ledger if email is not set up.'}))]} ,
             {title:'Preferences',rows:[
               tg('Light mode','','M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2',light,()=>this.setState({homeLight:!light})),
               tg('Hide amounts','Mask balances on screen','M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM4 4l16 16',!!s.hideAmounts,()=>this.setState({hideAmounts:!s.hideAmounts})),
@@ -4527,15 +4567,15 @@ input,button,textarea{font-family:inherit}
   
         phone:s.phone, phoneError:s.phoneError,
         onPhone:e=>this.setState({phone:e.target.value,phoneError:''}),
-        otpCells:[0,1,2,3].map(i=>({char:s.otp[i]||''})),
+        otpCells:[0,1,2,3,4,5].map(i=>({char:s.otp[i]||''})),
         keypad:['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>({
           label:k,
           onClick:()=>{
             if(!k) return;
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
-              const next=(st.otp+k).slice(0,4);
-              if(next.length===4) setTimeout(()=>this.submitBorrowerPin(next), 320);
+              const next=(st.otp+k).slice(0,6);
+              if(next.length===6) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -5418,12 +5458,16 @@ input,button,textarea{font-family:inherit}
         loginReturnStep:false,
         loginOtpStep:s.screen==='login',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':'Enter your PIN',
+        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
         loginSub:s.pinPhase==='choose'
-          ?'Choose a 4-digit PIN, then enter it again. It is not taken from an ID number.'
+          ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
           ?'Enter that PIN again. It is not taken from an ID number.'
-          :'Enter the 4-digit PIN you chose. It is not your ID number.',
+          :s.pinPhase==='email'
+          ?'Open the link on this phone. It works once, then this device is remembered.'
+          :s.pinPhase==='staff'
+          ?'Staff can reset this device in Ledger. Your PIN stays the same.'
+          :'Enter the 6-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
         showAccountRef:!s.inviteCode&&!s.deviceRef,
         accountRefInput:s.accountRefInput||'',

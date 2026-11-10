@@ -15,12 +15,13 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
-import { redeemInvite, loginBorrower, logoutBorrower, borrowerHome } from './_lib/borrower.js';
+import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome } from './_lib/borrower.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
   createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument,
-  previewClients, previewBook
+  previewClients, previewBook, requireBorrower
 } from './_lib/borrower-book.js';
+import { storeBorrowerId } from './_lib/sa-id.js';
 import { requireStaff } from './_lib/auth.js';
 import { previewViewAsAllowed } from './_lib/quik1-flags.js';
 
@@ -29,7 +30,7 @@ const DOC_BODY_CAP = 2 * 1024 * 1024;
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
 const DEFAULT_REVIEWER = 'applications@ecoloans.co.za';
 const PENDING_STATUS = 'Pending review';
-const PENDING_NOTE = 'Your sign-up is in review. We will SMS you once a person has decided.';
+const PENDING_NOTE = 'Your sign-up is in review. We will be in touch once a person has decided.';
 // Extra fields from the app record we keep (whitelisted) under meta.raw for staff context.
 // SA ID numbers are not accepted here, even under another key.
 const RAW_KEYS = ['source', 'status', 'employment', 'payday', 'estIncome', 'estExpenses'];
@@ -188,11 +189,12 @@ async function getRepayment(req, res, key) {
 const OPEN_LOAN = new Set(['issued', 'overdue']);
 const CREDIT_LIMIT = Math.max(500, parseInt(process.env.QUIK1_CREDIT_LIMIT, 10) || 8000);
 
-// Read-own by unguessable application id. No PIN / id_number lookup — live PIN verification stays off.
+// Credit still open on this client's book. The session is required; an application id is not a login.
 async function getAvailableForApplication(req, res, applicationId) {
+  const { client } = await requireBorrower(req);
   if (!isSafeId(applicationId)) throw new HttpError(400, 'bad id');
   const app = await selectOne('applications', { select: 'id,client_id,status,amount,source', id: eq(applicationId), source: eq('quik1') });
-  if (!app) throw new HttpError(404, 'Application not found');
+  if (!app || app.client_id !== client.id) throw new HttpError(404, 'Application not found');
   let outstanding = 0, open = 0, nextDue = null;
   if (app.client_id) {
     const loans = await select('loans', { select: 'principal,status,schedule,deleted_at,client_id', client_id: eq(app.client_id) });
@@ -244,15 +246,43 @@ function setCookies(res, list) {
 }
 
 async function postRedeem(req, res) {
-  const out = await redeemInvite(req, await readBody(req, PUBLIC_BODY_CAP));
+  const out = await redeemInvite(req, await readBody(req, PUBLIC_BODY_CAP), res);
   setCookies(res, out.cookies);
   json(res, 200, { ok: true, accountRef: out.accountRef }, req);
 }
 
 async function postBorrowerLogin(req, res) {
-  const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP));
+  const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  if (out && out.verifyRequired) {
+    json(res, 200, {
+      verifyRequired: true,
+      contactStaff: !!out.contactStaff,
+      verifyToken: out.verifyToken || undefined
+    }, req);
+    return;
+  }
   setCookies(res, out.cookies);
   json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postVerify(req, res) {
+  const out = await issueVerification(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { sent: true }, req);
+}
+
+async function postVerifyEmail(req, res) {
+  const out = await consumeEmailLink(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postIdentity(req, res) {
+  await guardAuth(req, res);
+  const { borrower } = await requireBorrower(req);
+  const body = await readBody(req, PUBLIC_BODY_CAP);
+  const out = await storeBorrowerId(borrower.id, body.idNumber ?? body.idnum);
+  json(res, 200, { idMasked: out.idMasked }, req);
 }
 
 async function postBorrowerLogout(req, res) {
@@ -323,6 +353,14 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerLogin(req, res);
+  } else if (head === 'verify') {
+    if (!id && method === 'POST') return postVerify(req, res);
+    if (id === 'email' && !rest.length && method === 'POST') return postVerifyEmail(req, res);
+    throw new HttpError(404, 'Not found');
+  } else if (head === 'identity') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postIdentity(req, res);
   } else if (head === 'logout') {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
