@@ -1,6 +1,6 @@
-// Borrower PINs are 4 digits the client chooses. Only a salted scrypt hash is stored.
-// Node's built-in scrypt keeps the bridge free of npm packages. A 4-digit PIN is a
-// small space, so online guesses are also locked in the database after repeated failures.
+// Borrower PINs and SMS codes are 6 digits. Only a salted scrypt hash is stored.
+// Node's built-in scrypt keeps the bridge free of npm packages. The space is small,
+// so online guesses are also locked in the database after repeated failures.
 import { scrypt as scryptCb, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
@@ -12,7 +12,7 @@ const KEYLEN = 32;
 const MAXMEM = 64 * 1024 * 1024;
 
 export function isPin(v) {
-  return typeof v === 'string' && /^\d{4}$/.test(v);
+  return typeof v === 'string' && /^\d{6}$/.test(v);
 }
 
 function paramsOk(cost, block, parallel) {

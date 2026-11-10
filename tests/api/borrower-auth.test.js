@@ -10,7 +10,10 @@ import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { hashPin, verifyPin } from '../../api/_lib/pin.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
-import { publicLimiter } from '../../api/_lib/ratelimit.js';
+import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
+import { setSmsProvider, smsProvider } from '../../api/_lib/sms.js';
+import { authIpHash } from '../../api/_lib/borrower.js';
+import { decryptId } from '../../api/_lib/sa-id.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -20,9 +23,11 @@ const CLIENT_A = 'c_book_a';
 const CLIENT_B = 'c_book_b';
 const NAME_A = 'Book Client A';
 const NAME_B = 'Book Client B';
-const PIN_OK = '2468';
-const PIN_BAD = '1357';
-const PIN_NEXT = '8024';
+const PIN_OK = '246810';
+const PIN_BAD = '135791';
+const PIN_NEXT = '802468';
+const SA_ID = '8001015009087';
+const ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 process.env.SUPABASE_URL = URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
@@ -42,7 +47,10 @@ const seed = {
   ],
   q1_borrowers: [],
   q1_invites: [],
-  q1_sessions: []
+  q1_sessions: [],
+  q1_devices: [],
+  q1_otp_challenges: [],
+  q1_auth_attempts: []
 };
 
 const fake = createFakePostgrest(seed);
@@ -88,6 +96,13 @@ function cookieHeader(res) {
   return list.map(c => String(c).split(';')[0]).filter(Boolean).join('; ');
 }
 
+function knownCookie(res) {
+  const raw = res.headers['set-cookie'];
+  const list = Array.isArray(raw) ? raw : [String(raw || '')];
+  const hit = list.find(c => String(c).startsWith('q1_known='));
+  return hit ? String(hit).split(';')[0] : '';
+}
+
 function sessionToken(res) {
   const raw = res.headers['set-cookie'];
   const list = Array.isArray(raw) ? raw : [String(raw || '')];
@@ -100,12 +115,16 @@ let restore = () => {};
 describe('borrower auth', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
+    authLimiter.reset();
+    setSmsProvider(null);
+    delete process.env.QUIK1_SMS;
+    delete process.env.QUIK1_ID_KEY;
     fake.reset();
     process.env.QUIK1_BORROWER_PIN = '1';
     restore();
     restore = install(fake, URL);
   });
-  afterEach(() => { restore(); restore = () => {}; });
+  afterEach(() => { setSmsProvider(null); restore(); restore = () => {}; });
 
   test('PIN hash verifies and does not keep the PIN', async () => {
     const stored = await hashPin(PIN_OK);
@@ -114,7 +133,9 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(await verifyPin(PIN_OK, stored), true);
     assert.equal(await verifyPin(PIN_BAD, stored), false);
     assert.equal(await verifyPin('12', stored), false);
+    assert.equal(await verifyPin('1234', stored), false);
     assert.equal(await verifyPin('12345', stored), false);
+    assert.equal(await verifyPin('1234567', stored), false);
   });
 
   test('available credit ignores settled principal and the interest rate', () => {
@@ -221,39 +242,49 @@ describe('borrower auth', { concurrency: false }, () => {
       method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
     });
     const accountRef = redeemed.json().accountRef;
+    const device = { cookie: knownCookie(redeemed) };
+    assert.match(device.cookie, /^q1_known=[0-9a-f]{64}$/);
     for (let i = 0; i < 4; i++) {
-      const miss = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_BAD } });
+      const miss = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_BAD } });
       assert.equal(miss.statusCode, 401);
     }
-    const locked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_BAD } });
+    const locked = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_BAD } });
     assert.equal(locked.statusCode, 423);
-    const still = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    const still = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_OK } });
     assert.equal(still.statusCode, 423);
     assert.equal(JSON.stringify(still.json()).includes(PIN_OK), false);
 
     const reset = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    const oldPin = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    const oldPin = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_OK } });
     assert.equal(oldPin.statusCode, 423);
     const again = await call(quik1, {
       method: 'POST', path: ['invites', 'redeem'], body: { code: reset.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
     });
     assert.equal(again.statusCode, 200);
-    const back = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_NEXT } });
+    const back = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(again) }, body: { accountRef, pin: PIN_NEXT }
+    });
     assert.equal(back.statusCode, 200);
-    const previous = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    const previous = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(again) }, body: { accountRef, pin: PIN_OK }
+    });
     assert.equal(previous.statusCode, 401);
   });
 
   test('a signed-out request cannot read a Ledger client, and a session sees only its own book', async () => {
     const anon = await call(quik1, { method: 'GET', path: ['me'] });
-    assert.equal(anon.statusCode, 200);
-    assert.equal(anon.json().identified, false);
-    assert.equal(anon.json().profile.name, '');
-    assert.equal(anon.json().account.available, 0);
+    assert.equal(anon.statusCode, 401);
     assert.equal(JSON.stringify(anon.json()).includes(NAME_A), false);
     assert.equal(JSON.stringify(anon.json()).includes(NAME_B), false);
+    const loans = await call(quik1, { method: 'GET', path: ['loans'] });
+    assert.equal(loans.statusCode, 401);
+    const avail = await call(quik1, { method: 'GET', path: ['available', 'ap_0123456789ab'] });
+    assert.equal(avail.statusCode, 401);
+    const ident = await call(quik1, { method: 'POST', path: ['identity'], body: { idNumber: SA_ID } });
+    assert.equal(ident.statusCode, 401);
+    assert.equal(ident.body.includes(SA_ID), false);
 
     const missing = await call(quik1, { method: 'GET', path: ['clients', CLIENT_A] });
     assert.equal(missing.statusCode, 404);
@@ -292,7 +323,7 @@ describe('borrower auth', { concurrency: false }, () => {
     const crossed = await call(quik1, {
       method: 'GET', path: ['me'], headers: { cookie: 'q1_session=' + encodeURIComponent(forged.token) }
     });
-    assert.equal(crossed.json().identified, false);
+    assert.equal(crossed.statusCode, 401);
     assert.equal(JSON.stringify(crossed.json()).includes(NAME_A), false);
     assert.equal(JSON.stringify(crossed.json()).includes(NAME_B), false);
   });
@@ -455,5 +486,216 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(live.statusCode, 503);
     assert.equal(fake.db.q1_borrowers.length, 0);
     assert.equal(JSON.stringify(live.json()).includes(PIN_OK), false);
+  });
+
+  test('a lock expires after the cooldown and a new invite still resets it immediately', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const device = { cookie: knownCookie(redeemed) };
+    for (let i = 0; i < 5; i++) {
+      await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_BAD } });
+    }
+    const held = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_OK } });
+    assert.equal(held.statusCode, 423);
+    fake.db.q1_borrowers[0].locked_at = new Date(Date.now() - 16 * 60 * 1000).toISOString();
+    const cooled = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_OK } });
+    assert.equal(cooled.statusCode, 200, cooled.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts, 0);
+    assert.equal(fake.db.q1_borrowers[0].locked_at, null);
+  });
+
+  test('an unrecognised device needs an SMS code, and the default provider sends nothing', async () => {
+    const phone = '0825550199';
+    fake.db.clients.find(c => c.id === CLIENT_A).phone = phone;
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const sessions = fake.db.q1_sessions.length;
+    const blocked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(blocked.statusCode, 503);
+    assert.equal(blocked.body.includes(PIN_OK), false);
+    assert.equal(blocked.body.includes(phone), false);
+    assert.equal(fake.db.q1_otp_challenges.length, 0);
+    assert.equal(fake.db.q1_sessions.length, sessions);
+    const idle = smsProvider({ headers: { host: 'quik1.test' } });
+    assert.equal(idle.enabled, false);
+    assert.equal((await idle.send('+27825550199', 'Quik1 code 000000')).sent, false);
+
+    const sent = [];
+    setSmsProvider({
+      enabled: true,
+      async send(to, body) { sent.push({ to, body }); return { sent: true }; }
+    });
+    const fresh = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(fresh.statusCode, 200, fresh.body);
+    assert.equal(fresh.json().otpRequired, true);
+    assert.equal(fresh.headers['set-cookie'], undefined);
+    assert.equal(fresh.body.includes(phone), false);
+    assert.equal(fresh.body.includes(PIN_OK), false);
+    assert.equal(fresh.json().phoneMasked, '••••••0199');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, '+27825550199');
+    const code = (sent[0].body.match(/\d{6}/) || [])[0];
+    assert.match(code, /^\d{6}$/);
+    assert.equal(fresh.body.includes(code), false);
+    const challenge = fake.db.q1_otp_challenges[0];
+    assert.equal(challenge.code_hash === code, false);
+    assert.equal(challenge.code_hash.startsWith('scrypt$'), true);
+    assert.equal(await verifyPin(code, challenge.code_hash), true);
+
+    const wrong = await call(quik1, {
+      method: 'POST', path: ['otp'], body: { challengeId: fresh.json().challengeId, code: PIN_BAD }
+    });
+    assert.equal(wrong.statusCode, 401);
+    assert.equal(wrong.body.includes(code), false);
+    assert.equal(fake.db.q1_sessions.length, sessions);
+
+    const good = await call(quik1, {
+      method: 'POST', path: ['otp'], body: { challengeId: fresh.json().challengeId, code }
+    });
+    assert.equal(good.statusCode, 200, good.body);
+    assert.match(knownCookie(good), /^q1_known=/);
+    assert.equal(good.body.includes(code), false);
+    sent.length = 0;
+    const again = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(good) }, body: { accountRef, pin: PIN_OK }
+    });
+    assert.equal(again.statusCode, 200, again.body);
+    assert.equal(again.json().otpRequired, undefined);
+    assert.equal(sent.length, 0);
+
+    process.env.QUIK1_SMS = '1';
+    process.env.VERCEL_ENV = 'production';
+    setSmsProvider(null);
+    const prod = smsProvider({ headers: { host: 'quik1.app', 'x-forwarded-host': 'quik1.app' } });
+    delete process.env.QUIK1_SMS;
+    delete process.env.VERCEL_ENV;
+    assert.equal(prod.enabled, false);
+  });
+
+  test('five wrong SMS codes lock the account', async () => {
+    fake.db.clients.find(c => c.id === CLIENT_A).phone = '0825550199';
+    const sent = [];
+    setSmsProvider({
+      enabled: true,
+      async send(to, body) { sent.push(body); return { sent: true }; }
+    });
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const started = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: redeemed.json().accountRef, pin: PIN_OK }
+    });
+    assert.equal(started.json().otpRequired, true);
+    for (let i = 0; i < 4; i++) {
+      const miss = await call(quik1, {
+        method: 'POST', path: ['otp'], body: { challengeId: started.json().challengeId, code: PIN_BAD }
+      });
+      assert.equal(miss.statusCode, 401);
+    }
+    const locked = await call(quik1, {
+      method: 'POST', path: ['otp'], body: { challengeId: started.json().challengeId, code: PIN_BAD }
+    });
+    assert.equal(locked.statusCode, 423);
+    const code = (sent[0].match(/\d{6}/) || [])[0];
+    const still = await call(quik1, {
+      method: 'POST', path: ['otp'], body: { challengeId: started.json().challengeId, code }
+    });
+    assert.equal(still.statusCode, 423);
+    assert.equal(still.body.includes(code), false);
+  });
+
+  test('a signed-in borrower can store an SA ID encrypted, and the client only sees a mask', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const session = { cookie: cookieHeader(redeemed) };
+    const unsigned = await call(quik1, { method: 'POST', path: ['identity'], body: { idNumber: SA_ID } });
+    assert.equal(unsigned.statusCode, 401);
+    assert.equal(unsigned.body.includes(SA_ID), false);
+
+    const missingKey = await call(quik1, { method: 'POST', path: ['identity'], headers: session, body: { idNumber: SA_ID } });
+    assert.equal(missingKey.statusCode, 503);
+    assert.equal(missingKey.body.includes(SA_ID), false);
+    assert.equal(fake.db.q1_borrowers[0].id_ciphertext, undefined);
+
+    process.env.QUIK1_ID_KEY = ID_KEY;
+    const bad = await call(quik1, { method: 'POST', path: ['identity'], headers: session, body: { idNumber: '9001015009087' } });
+    assert.equal(bad.statusCode, 400);
+    assert.equal(bad.body.includes('9001015009087'), false);
+
+    const saved = await call(quik1, { method: 'POST', path: ['identity'], headers: session, body: { idNumber: SA_ID } });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(saved.json().idMasked, '*********9087');
+    assert.equal(saved.body.includes(SA_ID), false);
+    const stored = fake.db.q1_borrowers[0].id_ciphertext;
+    assert.match(stored, /^v1\./);
+    assert.equal(stored.includes(SA_ID), false);
+    assert.equal(decryptId(stored), SA_ID);
+    const home = await call(quik1, { method: 'GET', path: ['me'], headers: session });
+    assert.equal(home.statusCode, 200);
+    assert.equal(home.json().profile.idMasked, '*********9087');
+    assert.equal(home.body.includes(SA_ID), false);
+    assert.equal(home.body.includes(stored), false);
+    delete process.env.QUIK1_ID_KEY;
+    assert.equal(decryptId(stored), '');
+  });
+
+  test('auth attempts from one address are rate limited', async () => {
+    process.env.QUIK1_AUTH_RATE_LIMIT = '3';
+    authLimiter.reset();
+    const ip = { 'x-forwarded-for': '198.51.100.77' };
+    for (let i = 0; i < 3; i++) {
+      const res = await call(quik1, { method: 'POST', path: ['login'], headers: ip, body: { pin: 'nope' } });
+      assert.equal(res.statusCode, 401);
+    }
+    const blocked = await call(quik1, { method: 'POST', path: ['login'], headers: ip, body: { pin: PIN_BAD } });
+    delete process.env.QUIK1_AUTH_RATE_LIMIT;
+    authLimiter.reset();
+    assert.equal(blocked.statusCode, 429);
+    assert.equal(blocked.body.includes(PIN_BAD), false);
+
+    const hash = authIpHash('203.0.113.50');
+    for (let i = 0; i < 30; i++) {
+      fake.db.q1_auth_attempts.push({
+        id: 'qa_seed_' + i,
+        borrower_id: null,
+        kind: 'pin',
+        ip_hash: hash,
+        created_at: new Date().toISOString()
+      });
+    }
+    const persisted = await call(quik1, {
+      method: 'POST', path: ['login'],
+      headers: { 'x-forwarded-for': '203.0.113.50' },
+      body: { accountRef: 'qb_' + 'ab'.repeat(16), pin: PIN_BAD }
+    });
+    assert.equal(persisted.statusCode, 429);
+    assert.equal(persisted.body.includes(PIN_BAD), false);
+  });
+
+  test('live SMS and live PIN stay unset in the example env', () => {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const env = fs.readFileSync(path.join(root, '.env.example'), 'utf8');
+    assert.doesNotMatch(env, /^QUIK1_SMS=1/m);
+    assert.doesNotMatch(env, /^QUIK1_BORROWER_PIN=1/m);
+    assert.match(env, /^# QUIK1_SMS=/m);
+    assert.match(env, /^QUIK1_SESSION_SECRET=/m);
+    assert.match(env, /^# QUIK1_ID_KEY=/m);
   });
 });

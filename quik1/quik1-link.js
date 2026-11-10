@@ -135,8 +135,9 @@
     } catch (e) {}
     return Promise.resolve(null);
   }
-  function request(method, path, body) {
+  function request(method, path, body, opts) {
     var init = { method: method, headers: { Accept: 'application/json' }, cache: 'no-store' };
+    if (opts && opts.credentials) init.credentials = opts.credentials;
     if (body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
     var ctrl = null, t = null;
     try {
@@ -324,6 +325,12 @@
         flush();
       });
       return id;
+    },
+    // Authenticated ID intake. Not queued on the public signup outbox.
+    submitIdentity: function (idNumber) {
+      var digits = String(idNumber == null ? '' : idNumber).replace(/\D/g, '');
+      if (!/^\d{13}$/.test(digits)) return Promise.resolve({ ok: false, status: 400, body: null });
+      return request('POST', 'identity', { idNumber: digits }, { credentials: 'same-origin' });
     },
     submitSignup: function (sign) {
       sign = isObj(sign) ? sign : {};

@@ -244,8 +244,11 @@ test('quik1 POST requests and GET repayments/:key', async () => {
   assert.equal(rep.statusCode, 200); assert.equal(rep.json(), null);
 });
 
-test('quik1: routing — 404 unknown, 405 wrong method, never DELETE, no auth header needed', async () => {
+test('quik1: routing — 404 unknown, 405 wrong method, never DELETE, borrower data is 401', async () => {
   assert.equal((await call({ path: ['loans'] })).statusCode, 401);
+  assert.equal((await call({ path: ['me'] })).statusCode, 401);
+  assert.equal((await call({ path: ['available', 'ap_0123456789ab'] })).statusCode, 401);
+  assert.equal((await call({ method: 'POST', path: ['identity'], body: { idNumber: '8001015009087' } })).statusCode, 401);
   assert.equal((await call({ method: 'DELETE', path: ['applications', 'ap_0123456789ab'] })).statusCode, 405);
   assert.equal((await call({ method: 'GET', path: ['applications'] })).statusCode, 401);
   assert.equal((await call({ method: 'PATCH', path: ['applications', 'ap_0123456789ab'], body: { status: 'approved' } })).statusCode, 405, 'customers cannot decide');

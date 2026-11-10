@@ -57,7 +57,7 @@ function boot(route) {
   }
   class FakeDate extends Date { static now() { return timers.now; } }
   const fetch = async (url, init = {}) => {
-    const call = { url: String(url), method: init.method || 'GET', headers: init.headers || {}, body: init.body ? JSON.parse(init.body) : null };
+    const call = { url: String(url), method: init.method || 'GET', headers: init.headers || {}, credentials: init.credentials || '', body: init.body ? JSON.parse(init.body) : null };
     calls.push(call);
     return route(call);
   };
@@ -334,4 +334,25 @@ test('local admin helpers and cross-tab sync keep working; storage failures neve
   localStorage.throwOnSet = false;
   Link.reset();
   assert.deepEqual(plain(Link.getState()), EMPTY);
+});
+
+test('submitIdentity posts only to the authenticated route and leaves public signup unchanged', async () => {
+  const { Link, calls } = boot(() => json(200, { idMasked: '*********9087' }));
+  const bad = await Link.submitIdentity('123');
+  assert.equal(bad.ok, false);
+  assert.equal(calls.length, 0);
+  const id = '8001015009087';
+  const res = await Link.submitIdentity(id);
+  assert.equal(res.ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, API + '/identity');
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].credentials, 'same-origin');
+  assert.equal(calls[0].body.idNumber, id);
+  Link.submitSignup({ name: 'Thandi Mokoena', idnum: id, phone: '0820000000' });
+  await drain();
+  const signup = calls.find(c => c.url.endsWith('/signups'));
+  assert.equal(signup.body.idnum, undefined);
+  assert.equal(signup.body.idNumber, undefined);
+  assert.equal(JSON.stringify(signup.body).includes(id), false);
 });
