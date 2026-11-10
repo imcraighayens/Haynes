@@ -1,7 +1,7 @@
 # Ecoloans — LEDGER console + Quik1 app on Vercel + Supabase
 
 This repo hosts two finished front-ends and the thin bridge that makes them
-share one Supabase database (`ledger-ecoloans`, project ref `rcektqecduuzqqmcsgat`).
+share one Supabase database (`ledger-ecoloans`; the project ref is `SUPABASE_URL`, not written here).
 
 **Rule zero: the two apps are design-frozen.** `ledger/index.html` and
 `quik1/index.html` (plus the runtime/font/image/react files next to them) are
@@ -166,7 +166,7 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
 * Runtime: Vercel Node 22 (`engines.node` = `22.x` in package.json), ESM (`"type":"module"`), zero npm dependencies (use global `fetch`).
   Each file `export default async function handler(req, res)`. Catch-all routes:
   `api/ledger.js`, `api/q1.js`, `api/quik1.js`, `api/ecoloans.js` (vercel.json rewrites `/api/<area>/*` to `/api/<area>?path=*`).
-* Env: `SUPABASE_URL` (`https://rcektqecduuzqqmcsgat.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY`,
+* Env: `SUPABASE_URL` (`https://<project-ref>.supabase.co`), `SUPABASE_SERVICE_ROLE_KEY`,
   `LEDGER_KEY` (long random secret shared with the console). Optional `ALLOWED_ORIGIN` (Quik1 and staff only).
   Optional EcoLoans caps: `ECOLOANS_HOURLY_CAP` (60), `ECOLOANS_PHONE_DAILY_CAP` (3), `ECOLOANS_RATE_LIMIT` (30).
   Missing env → 503 with a plain message, never a stack trace.

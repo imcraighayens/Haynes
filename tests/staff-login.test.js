@@ -14,7 +14,7 @@ const INTRUDER = 'intruder@test.invalid';
 const FIXTURE_PASSWORD = 'test-only-staff';
 
 const ENV = {
-  SUPABASE_URL: 'https://rcektqecduuzqqmcsgat.supabase.co',
+  SUPABASE_URL: 'https://db.test.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-secret-NEVER-RETURN',
   LEDGER_KEY: 'ledger-test-key-0123456789abcdef'
 };

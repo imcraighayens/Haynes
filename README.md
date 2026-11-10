@@ -14,7 +14,7 @@ cash, bank, expenses, settings) is saved to the same database and comes back on 
 on any machine.
 
 Hosting: Vercel (static files + `api/` functions, no build step). Database: Supabase project
-`ledger-ecoloans` (`rcektqecduuzqqmcsgat`). First-time setup is in [DEPLOY.md](DEPLOY.md); the
+`ledger-ecoloans` (project ref comes from `SUPABASE_URL`, not from this file). First-time setup is in [DEPLOY.md](DEPLOY.md); the
 engineering contract is in [docs/BRIDGE-SPEC.md](docs/BRIDGE-SPEC.md).
 
 ## Rule zero: the apps are design-frozen
