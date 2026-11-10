@@ -1,6 +1,7 @@
 // node --test tests/api/   — /api/ledger/* (state, sync, ledger_book emulation) with a stubbed fetch.
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { idHmac, phoneHmac, luhnOk } from '../../api/_lib/sa-id.js';
 
 const ENV = { SUPABASE_URL: 'https://db.test.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service-role-secret-NEVER-RETURN', LEDGER_KEY: 'ledger-test-key-0123456789abcdef' };
 const KEY = ENV.LEDGER_KEY;
@@ -540,6 +541,33 @@ test('ledger POST sync: upstream outages are reported as retryable, validation/c
   out = (await call({ method: 'POST', path: ['sync'], body: { ops: [{ table: 'clients', op: 'upsert', rows: [{ id: 'c1', ref: 'EC-1', name: 'A' }] }] } })).json();
   assert.deepEqual(out.results[0], { table: 'clients', op: 'upsert', count: 0, error: 'Database unreachable', retryable: true });
   assert.equal((await call({ method: 'POST', path: ['sync'], body: { ops: [{ table: 'loans', op: 'upsert', rows: [{ id: 'l1', principal_derived: null }] }] } })).statusCode, 200);
+});
+
+test('ledger POST sync: a new client gets both HMACs when the key is set', async () => {
+  const body = '880101580008';
+  let said = '';
+  for (let check = 0; check <= 9; check++) {
+    const id = body + String(check);
+    if (luhnOk(id)) said = id;
+  }
+  const phone = '0825550198';
+  const key = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  process.env.QUIK1_ID_HMAC_KEY = key;
+  stubFetch(r => ({ status: 200, body: r.method === 'GET' ? (tableRows[r.table] || []) : (r.body || []) }));
+  try {
+    const res = await call({ method: 'POST', path: ['sync'], body: { ops: [
+      { table: 'clients', op: 'insert', rows: [{ id: 'c_hmac_new', ref: 'EC-9', name: 'New', id_number: said, phone }] }
+    ] } });
+    assert.equal(res.statusCode, 200, res.body);
+    const patch = calls.find(c => c.method === 'PATCH' && c.table === 'clients');
+    assert.ok(patch);
+    assert.equal(patch.body.id_hmac, idHmac(said));
+    assert.equal(patch.body.phone_hmac, phoneHmac(phone));
+    assert.equal(JSON.stringify(res.json()).includes(said), false);
+    assert.equal(JSON.stringify(res.json()).includes(patch.body.id_hmac), false);
+  } finally {
+    delete process.env.QUIK1_ID_HMAC_KEY;
+  }
 });
 
 test('ledger GET state: applications are capped, record tables are paged to completion, a short page is a 503', async () => {

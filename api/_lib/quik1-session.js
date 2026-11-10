@@ -121,8 +121,10 @@ export function clearSessionCookie(secure = true) {
   return cookie(SESSION_COOKIE, '', { clear: true, secure });
 }
 
+export const DEVICE_MAX_AGE = 90 * 24 * 3600;
+
 export function deviceCookie(accountRef, secure = true) {
-  return cookie(DEVICE_COOKIE, accountRef, { maxAge: 400 * 24 * 3600, secure });
+  return cookie(DEVICE_COOKIE, accountRef, { maxAge: DEVICE_MAX_AGE, secure });
 }
 
 export function knownDeviceCookie(token, secure = true) {
