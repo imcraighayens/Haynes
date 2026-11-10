@@ -30,7 +30,7 @@ test('safe-area variables pad the top chrome and the dock keeps the bottom inset
   assert.match(quik, /drawerHeadTop:'calc\(34px \+ var\(--q-safe-top, env\(safe-area-inset-top, 0px\)\)\)'/);
   const backs = quik.match(/<span style="display:block;white-space:nowrap;line-height:1;letter-spacing:0">Back<\/span>/g);
   assert.equal(backs && backs.length, 2, 'both Back labels are nowrap spans so iOS does not overlap the glyphs');
-  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /class="q-dock q-home-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
   assert.match(quik, /homePadBottom:'calc\(76px \+ env\(safe-area-inset-bottom\)\)'/);
 });
 

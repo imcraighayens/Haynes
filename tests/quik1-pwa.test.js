@@ -79,7 +79,7 @@ test('mobile and standalone fill the screen and the dock sits on the physical bo
   assert.match(quik, /const framed=!s\.desktopView&&!standalone&&!coarse&&vw>=1024/);
   assert.match(quik, /appAspect:framed\?'390 \/ 844':'auto'/);
   assert.doesNotMatch(quik, /bottom:calc\(40px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /class="q-dock q-home-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
   assert.match(quik, /homePadBottom:'calc\(76px \+ env\(safe-area-inset-bottom\)\)'/);
   assert.match(quik, /touch-action:\s*pan-x pan-y/);
   assert.match(quik, /overscroll-behavior:\s*none/);

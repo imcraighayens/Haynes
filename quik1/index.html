@@ -52,6 +52,7 @@
   :root {
     --q-safe-top: 0px;
     --q-safe-bottom: 0px;
+    --q-ios-hint: 0px;
   }
   @supports (padding-top: env(safe-area-inset-top)) {
     :root {
@@ -135,6 +136,22 @@
   #quik1-ios-hint[hidden] { display: none; }
   #quik1-ios-hint p { margin: 0; flex: 1; }
   #quik1-ios-hint button { flex: 0 0 auto; border: 0; border-radius: 999px; background: #FDD10D; color: #0B0620; font: 700 13px/1 Ubuntu, sans-serif; padding: 8px 12px; cursor: pointer; }
+  /* Home pill stays off the 60px Ask Q1 orb. 375px and wider already
+     clear it, so the cap does not bind there. Narrower phones tighten
+     the pill's horizontal padding instead of letting the two bars cross. */
+  .q-home-dock { max-width: calc(100% - 104px); }
+  .q-home-dock > div { max-width: 100%; min-width: 0; }
+  @media (max-width: 374px) {
+    .q-home-dock button { padding-left: 11px !important; padding-right: 11px !important; }
+  }
+  @media (max-width: 339px) {
+    .q-home-dock > div { padding-left: 3px !important; padding-right: 3px !important; gap: 0 !important; }
+    .q-home-dock button { padding-left: 8px !important; padding-right: 8px !important; }
+  }
+  /* Chat sheet stays below the safe-area header. A later keyboard lift
+     may move .q-ask / .q-chat up by setting bottom to --q-kb; this top
+     edge does not follow it under the header. */
+  .q-chat[data-q-chat] { top: calc(108px + var(--q-safe-top, 0px)); }
 </style>
 <script>
 /* This file lives in /quik1/. quik1.app rewrites "/" onto it while the
@@ -1453,8 +1470,8 @@ input,button,textarea{font-family:inherit}
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
       <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))">
-          <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
+        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)) + var(--q-ios-hint, 0px))">
+          <img class="q-pin-logo" src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
             <h1 style="margin:0;font-size:46px;font-weight:500;line-height:1.05;letter-spacing:-.04em;text-wrap:balance">Are you short before payday<span style="color:#FDD10D">?</span> We've got you<span style="color:#FDD10D">.</span></h1>
@@ -2250,7 +2267,7 @@ input,button,textarea{font-family:inherit}
       <!-- ── Tab bar ───────────────────────────────────────────── -->
       <sc-if value="{{ aiOpen }}">
         <div sc-camel-on-click="{{ onCloseAi }}" style="position:absolute;inset:0;z-index:26;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:{{ aiScrimAnim }}">
-          <div sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:14px;top:108px;border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
+          <div class="q-chat" data-q-chat="" sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:14px;top:calc(108px + var(--q-safe-top, 0px));border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
             <div style="flex:0 0 auto;padding:20px 20px 14px;display:flex;align-items:center;gap:12px">
               <span style="flex:1;min-width:0">
                 <span style="display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--q-ink)">Q1</span>
@@ -2530,7 +2547,7 @@ input,button,textarea{font-family:inherit}
           </span>
         </button>
         </sc-if>
-        <div class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env(safe-area-inset-bottom);opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 30px;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
+        <div class="q-dock q-home-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env(safe-area-inset-bottom);opacity:{{ dockFullOp }};pointer-events:{{ dockFullPe }};transform-origin:30px 30px;transform:scale({{ dockFullS }});filter:blur({{ dockFullBlur }});transition:opacity .35s cubic-bezier(.33,1,.68,1),transform .5s cubic-bezier(.32,.72,0,1),filter .35s ease">
         <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);border:1px solid rgba(255,255,255,.22);box-shadow:0 18px 40px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(255,255,255,.06);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ dockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
@@ -2647,19 +2664,28 @@ input,button,textarea{font-family:inherit}
   }
   var el = document.getElementById('quik1-ios-hint');
   var btn = document.getElementById('quik1-ios-hint-dismiss');
+  function pinScreen() {
+    return document.documentElement.getAttribute('data-q-pin') === '1';
+  }
   function sync() {
     if (!el) return;
-    var onLogin = /Enter your PIN/.test((document.body && document.body.innerText) || '');
-    el.hidden = !(iosSafari() && !dismissed() && onLogin);
+    var show = iosSafari() && !dismissed() && pinScreen();
+    el.hidden = !show;
+    var h = 0;
+    if (show) h = Math.ceil(el.getBoundingClientRect().height + 10);
+    document.documentElement.style.setProperty('--q-ios-hint', h + 'px');
   }
   if (btn) btn.addEventListener('click', function () {
     try { localStorage.setItem(HINT_KEY, '1'); } catch (e) {}
     if (el) el.hidden = true;
+    document.documentElement.style.setProperty('--q-ios-hint', '0px');
   });
   if (el && iosSafari() && !dismissed()) {
     sync();
     var obs = new MutationObserver(sync);
-    obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-q-pin'] });
+    if (window.ResizeObserver) new ResizeObserver(sync).observe(el);
+    window.addEventListener('resize', sync);
   }
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -2757,7 +2783,15 @@ input,button,textarea{font-family:inherit}
         if(p&&p.catch) p.catch(()=>{ if(!this._vidTap){ this._vidTap=()=>{ this.playVideos(); }; ['touchstart','click'].forEach(ev=>window.addEventListener(ev,this._vidTap,{once:true,passive:true})); } });
       });
     }
+    publishChrome(){
+      const s=this.state, root=document.documentElement;
+      if(!root||!root.setAttribute) return;
+      const pin=!!s.splashDone && s.screen==='login' && (s.pinPhase||'sign')==='sign';
+      if(pin){ if(root.getAttribute('data-q-pin')!=='1') root.setAttribute('data-q-pin','1'); }
+      else if(root.hasAttribute('data-q-pin')) root.removeAttribute('data-q-pin');
+    }
     componentDidUpdate(pp,ps){
+      this.publishChrome();
       this.persist();
       if(this.state.quickAsking&&!this.state.aiTyping){ const c=this.state.aiChat||[], last=c[c.length-1];
         if(last&&last.from!=='me'&&c.length>(this._qrN||0)){ const t=String(last.text||'');
@@ -2802,6 +2836,7 @@ input,button,textarea{font-family:inherit}
       });
       this.prepareBorrowerAuth();
       this.preparePreview();
+      this.publishChrome();
     }
     signupVals(){
       const s=this.state, u=s.su||{step:1}, step=u.step||1, tried=!!s.suTried;
