@@ -3351,10 +3351,10 @@ input,button,textarea{font-family:inherit}
           const raw=this.state.su&&this.state.su.idnum;
           if(window.Quik1Link&&typeof window.Quik1Link.submitIdentity==='function'&&/^\d{13}$/.test(raw||'')){
             window.Quik1Link.submitIdentity(raw).then(r=>{
-              const masked=r&&r.body&&r.body.idMasked;
-              if(r&&r.ok&&/^\*{9}\d{4}$/.test(String(masked||''))){
-                this.setState(st=>({profile:Object.assign({},st.profile,{idnum:masked}),su:Object.assign({},st.su,{idnum:''})}));
-              }
+              if(!r||!r.ok) return;
+              const masked=r.body&&r.body.idMasked;
+              const show=/^\*{9}\d{4}$/.test(String(masked||''))?masked:String(raw).slice(-4);
+              this.setState(st=>({profile:Object.assign({},st.profile,{idnum:show}),su:Object.assign({},st.su,{idnum:String(raw).slice(-4)})}));
             }).catch(()=>{});
           }
         }

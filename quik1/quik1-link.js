@@ -98,8 +98,44 @@
     return { queue: [], dead: {} };
   }
   function writeOutbox(o) { try { w.localStorage.setItem(OUTBOX_KEY, JSON.stringify(o)); } catch (e) {} }
-  // The phone may still keep an ID number for its own screens. The public API must not receive one.
+  // The public API must not receive an ID number. The phone may keep one on the
+  // local signup until POST /identity succeeds, and then only the last four digits.
   var ID_KEYS = { idnum: 1, idNumber: 1, id_number: 1, saId: 1, nationalId: 1 };
+  function digitsOf(v) { return String(v == null ? '' : v).replace(/\D/g, ''); }
+  function redactSignupIds(s) {
+    if (!s || !isArr(s.signups)) return false;
+    var changed = false;
+    s.signups = s.signups.map(function (rec) {
+      if (!isObj(rec)) return rec;
+      var n = {}, k, full = '', touched = false;
+      for (k in rec) if (Object.prototype.hasOwnProperty.call(rec, k)) n[k] = rec[k];
+      for (k in ID_KEYS) {
+        if (!Object.prototype.hasOwnProperty.call(n, k) || n[k] == null || n[k] === '') continue;
+        var digits = digitsOf(n[k]);
+        if (digits.length > 4) {
+          if (digits.length > full.length) full = digits;
+          delete n[k];
+          touched = true;
+        }
+      }
+      if (!touched) return rec;
+      changed = true;
+      if (full) n.idnum = full.slice(-4);
+      return n;
+    });
+    return changed;
+  }
+  function redactOutboxIds() {
+    var o = readOutbox(), changed = false, i, q, k;
+    for (i = 0; i < o.queue.length; i++) {
+      q = o.queue[i];
+      if (!q || !isObj(q.body)) continue;
+      for (k in ID_KEYS) {
+        if (q.body[k] != null && digitsOf(q.body[k]).length > 4) { delete q.body[k]; changed = true; }
+      }
+    }
+    if (changed) writeOutbox(o);
+  }
   function postedBody(rec) {
     var body = {}, k;
     for (k in rec) if (Object.prototype.hasOwnProperty.call(rec, k) && !ID_KEYS[k]) body[k] = rec[k];
@@ -327,10 +363,20 @@
       return id;
     },
     // Authenticated ID intake. Not queued on the public signup outbox.
+    // A successful post drops the full number from the local signup. The last four digits stay for display.
     submitIdentity: function (idNumber) {
       var digits = String(idNumber == null ? '' : idNumber).replace(/\D/g, '');
       if (!/^\d{13}$/.test(digits)) return Promise.resolve({ ok: false, status: 400, body: null });
-      return request('POST', 'identity', { idNumber: digits }, { credentials: 'same-origin' });
+      return request('POST', 'identity', { idNumber: digits }, { credentials: 'same-origin' }).then(function (r) {
+        if (r && r.ok) {
+          safe(function () {
+            var s = read();
+            if (redactSignupIds(s)) write(s);
+            redactOutboxIds();
+          });
+        }
+        return r;
+      });
     },
     submitSignup: function (sign) {
       sign = isObj(sign) ? sign : {};

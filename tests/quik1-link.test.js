@@ -356,3 +356,31 @@ test('submitIdentity posts only to the authenticated route and leaves public sig
   assert.equal(signup.body.idNumber, undefined);
   assert.equal(JSON.stringify(signup.body).includes(id), false);
 });
+
+test('a successful identity post keeps only the last four digits on the local signup', async () => {
+  let accept = false;
+  const full = '8001015009087';
+  const { Link, calls, localStorage } = boot(c => {
+    if (String(c.url).endsWith('/identity')) return accept ? json(200, { idMasked: '*********9087' }) : json(503, { error: 'Server not configured' });
+    return json(201, { id: c.body && c.body.id, status: 'Pending review' });
+  });
+  Link.submitSignup({ name: 'Thandi Mokoena', idnum: full, idNumber: full, phone: '0820000000' });
+  await drain();
+  assert.equal(Link.getState().signups[0].idnum, full);
+  const failed = await Link.submitIdentity(full);
+  assert.equal(failed.ok, false);
+  assert.equal(Link.getState().signups[0].idnum, full);
+  assert.equal(localStorage.getItem('quik1-link-v1').includes(full), true);
+  accept = true;
+  const res = await Link.submitIdentity(full);
+  assert.equal(res.ok, true);
+  const rec = Link.getState().signups[0];
+  assert.equal(rec.idnum, '9087');
+  assert.equal(rec.idNumber, undefined);
+  assert.equal(JSON.stringify(rec).includes(full), false);
+  assert.equal(localStorage.getItem('quik1-link-v1').includes(full), false);
+  assert.equal(String(localStorage.getItem('quik1-link-v1.outbox') || '').includes(full), false);
+  const posted = calls.filter(c => String(c.url).endsWith('/signups') || String(c.url).endsWith('/identity'));
+  assert.equal(posted.some(c => JSON.stringify(c.body).includes(full) && !String(c.url).endsWith('/identity')), false);
+  assert.equal(calls.filter(c => String(c.url).endsWith('/identity')).pop().body.idNumber, full);
+});

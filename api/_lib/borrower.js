@@ -45,10 +45,6 @@ function otpTtlMs() {
   return minutes * 60 * 1000;
 }
 
-function missingTable(err) {
-  return !!(err && (err.code === '42P01' || /42P01/.test(String(err.message || ''))));
-}
-
 export function authIpHash(ip) {
   return createHash('sha256').update(`q1-auth|${sessionSecret() || 'unset'}|${ip}`).digest('hex');
 }

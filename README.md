@@ -217,7 +217,8 @@ copy is the source of truth and wins on the next load.
   Borrower book routes, including `GET /api/quik1/me` and available credit, answer 401
   with no session. A signed-in borrower can submit an SA ID (`POST /api/quik1/identity`).
   It is stored as AES-256-GCM ciphertext under `QUIK1_ID_KEY` and the client receives
-  only the last four digits. Public signup still ignores an ID number.
+  only the last four digits. After that post succeeds, the phone's local signup keeps
+  those four digits and drops the rest. Public signup still ignores an ID number.
   `QUIK1_SESSION_SECRET` (32+ characters) must be set or redeem and sign-in answer 503.
   Live PIN stays off unless `QUIK1_BORROWER_PIN=1` and the host is not production.
 * **Public application routes are insert-only.** `/api/quik1/applications`, signups, requests,
