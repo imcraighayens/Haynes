@@ -2112,7 +2112,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <sc-if value="{{ mQ1Invite }}" hint-placeholder-val="{{ false }}">
             <div style="padding:24px 28px">
               <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif">QUIK1 ACCESS</div><div sc-camel-on-click="{{ closeModal }}" style="color:var(--dim);cursor:pointer;font-size:18px" style-hover="color:var(--ink)">✕</div></div>
-              <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut);margin-bottom:12px">{{ q1Who }}</div>
+              <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut);margin-bottom:12px"><div>{{ q1Name }}</div><sc-if value="{{ q1HasRef }}" hint-placeholder-val="{{ false }}"><div style="margin-top:3px">NuPay ref: {{ q1Ref }}</div></sc-if></div>
               <sc-if value="{{ q1Busy }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Checking Quik1 access…</div></sc-if>
               <sc-if value="{{ q1Setup }}" hint-placeholder-val="{{ false }}"><div style="font:600 13px 'Plus Jakarta Sans',sans-serif;color:var(--amber);line-height:1.5">Quik1 access not set up yet</div></sc-if>
               <sc-if value="{{ q1Ready }}" hint-placeholder-val="{{ false }}">
@@ -6030,7 +6030,7 @@ class Component extends DCLogic {
               this.setState(p=>({q1Msg:{...(p.q1Msg||{}), [a.id]:m}})); } }; })}; })(),
       mHistory: st.modal==='history', mClient: st.modal==='client', mStatus: st.modal==='status', mDelete: st.modal==='delete', mInvite: st.modal==='invite', mQ1Invite: st.modal==='q1invite', mContract: st.modal==='contract',
       ...(()=>{ const q=st.q1Invite||{}; const setup=q.ready===false||q.access==='unavailable'; const canAct=q.access==='invited'||q.access==='pin'||q.access==='locked'||!!(q.code||q.link); return {
-        q1Who: [q.name, q.ref].filter(Boolean).join(' · '),
+        q1Name: q.name || '', q1Ref: q.ref || '', q1HasRef: !!q.ref,
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
