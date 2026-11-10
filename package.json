@@ -2,7 +2,7 @@
   "name": "ecoloans-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "LEDGER console + Quik1 customer app (design-frozen static apps) bridged to one Supabase database through Vercel functions. No build step, no npm dependencies.",
+  "description": "LEDGER console + Quik1 customer app (design-frozen static apps) bridged to one Supabase database through Vercel functions. No build step. WebAuthn verification uses @simplewebauthn/server.",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -12,6 +12,8 @@
     "boot:ledger": "node tools/boot-test.js ledger index.html /tmp/ledger.png 1440 900",
     "boot:quik1": "node tools/boot-test.js quik1 index.html /tmp/quik1.png 440 940"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@simplewebauthn/browser": "^13.2.2",
+    "@simplewebauthn/server": "^13.2.2"
+  }
 }

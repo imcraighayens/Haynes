@@ -11,6 +11,7 @@ import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers
 import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
+import { stampClientIdentity } from './_lib/sa-id.js';
 import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
 import { commitLoanStatus } from './_lib/loan-status.js';
 
@@ -170,9 +171,17 @@ async function applyOp(op) {
     if (table === 'loans') rows = await prepareLoanWrites(rows, kind);
     if (kind === 'insert' && !rule.ignoreDuplicates && !rule.singleton) {
       const out = await insert(table, rows);
+      if (table === 'clients') {
+        const rawRows = rowsOf(op);
+        for (let i = 0; i < rows.length; i++) await stampClientIdentity(rows[i].id, rawRows[i]);
+      }
       return out.length;
     }
     const out = await upsert(table, rows, 'id', { ignoreDuplicates: !!rule.ignoreDuplicates });
+    if (table === 'clients') {
+      const rawRows = rowsOf(op);
+      for (let i = 0; i < rows.length; i++) await stampClientIdentity(rows[i].id, rawRows[i]);
+    }
     return out.length;
   }
   if (kind === 'update') {
@@ -186,6 +195,7 @@ async function applyOp(op) {
       return out.length;
     }
     const out = await update(table, { id }, patch);
+    if (table === 'clients') await stampClientIdentity(id, op.patch || {});
     return out.length;
   }
   if (kind === 'soft_delete') {

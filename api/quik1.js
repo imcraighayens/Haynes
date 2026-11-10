@@ -16,6 +16,8 @@ import {
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome } from './_lib/borrower.js';
+import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
+import { biometricStatus, registerOptions, registerCredential, loginOptions, loginCredential } from './_lib/borrower-webauthn.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
   createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument,
@@ -266,15 +268,55 @@ async function postBorrowerLogin(req, res) {
 }
 
 async function postVerify(req, res) {
+  await guardAuth(req, res);
   const out = await issueVerification(req, await readBody(req, PUBLIC_BODY_CAP));
   setCookies(res, out.cookies);
   json(res, 200, { sent: true }, req);
 }
 
 async function postVerifyEmail(req, res) {
+  await guardAuth(req, res);
   const out = await consumeEmailLink(req, await readBody(req, PUBLIC_BODY_CAP));
   setCookies(res, out.cookies);
   json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postSignInEmail(req, res) {
+  const started = Date.now();
+  let out;
+  try {
+    out = await requestEmailSignIn(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  } finally {
+    await padSignIn(started);
+  }
+  setCookies(res, out.cookies);
+  json(res, 200, out.body, req);
+}
+
+async function postSignInId(req, res) {
+  const started = Date.now();
+  let out;
+  try {
+    out = await requestIdPhoneSignIn(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  } finally {
+    await padSignIn(started);
+  }
+  setCookies(res, out.cookies);
+  json(res, 200, out.body, req);
+}
+
+async function postWebauthn(req, res) {
+  const body = await readBody(req, PUBLIC_BODY_CAP);
+  const op = body && body.op;
+  if (op === 'register-options') return json(res, 200, await registerOptions(req), req);
+  if (op === 'register') return json(res, 200, await registerCredential(req, body), req);
+  if (op === 'login-options') return json(res, 200, await loginOptions(req, body), req);
+  if (op === 'login') {
+    const out = await loginCredential(req, body);
+    setCookies(res, out.cookies);
+    return json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+  }
+  throw new HttpError(404, 'Not found');
 }
 
 async function postIdentity(req, res) {
@@ -357,6 +399,16 @@ export default wrap('quik1', async (req, res) => {
     if (!id && method === 'POST') return postVerify(req, res);
     if (id === 'email' && !rest.length && method === 'POST') return postVerifyEmail(req, res);
     throw new HttpError(404, 'Not found');
+  } else if (head === 'signin') {
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    if (id === 'email' && !rest.length) return postSignInEmail(req, res);
+    if (id === 'id' && !rest.length) return postSignInId(req, res);
+    throw new HttpError(404, 'Not found');
+  } else if (head === 'webauthn') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method === 'GET' || method === 'HEAD') return json(res, 200, await biometricStatus(req), req);
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postWebauthn(req, res);
   } else if (head === 'identity') {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');

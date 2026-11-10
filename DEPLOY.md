@@ -16,7 +16,7 @@ On the import screen:
 * Framework Preset: **Other**
 * Build Command: leave **empty** (toggle off any override)
 * Output Directory: leave **blank**
-* Install Command: leave default (there is nothing to install)
+* Install Command: leave default. Vercel installs the WebAuthn packages. There is no build step.
 * Root Directory: `./`
 
 `vercel.json` in the repo already sets `framework: null` (no build), and `package.json` pins the
@@ -67,7 +67,7 @@ browser, in git, or in the staff UI.
 | `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to exactly `1` next to `QUIK1_SESSION_SECRET`. `true`, `yes`, `on`, and a spaced `1` stay off. Leave unset and sign-in stays off. |
 | `QUIK1_ID_KEY` | Exactly 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this matches that pattern. A preview can sign in without it. |
 | `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
-| `QUIK1_ID_HMAC_KEY` | Separate key of exactly 64 hex characters so the same ID cannot be stored twice. Production sign-in stays off until this matches that pattern. A preview can sign in without it. |
+| `QUIK1_ID_HMAC_KEY` | Required to store an SA ID. Separate key of exactly 64 hex characters. ID storage fails closed with 503 without it. Production sign-in stays off until this is exactly 64 hex characters. A preview can sign in without it. Leave unset until that intake is turned on. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -119,8 +119,41 @@ before production PIN sign-in will run, and the same rule applies before a signe
 can store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
 `QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then says
 "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."
-No link is issued. Staff can still reset the device from Ledger. The PIN is not changed. Leave
-`QUIK1_BORROWER_PIN` unset until that sign-in should be live.
+No link is issued. Staff can still reset the device from Ledger. The PIN is not changed.
+That reset also revokes open sessions and passkeys, and lets the next correct PIN trust
+one new phone within 24 hours when email cannot be sent. Leave `QUIK1_BORROWER_PIN`
+unset until that sign-in should be live.
+
+Then paste and run `supabase/migrations/20261110143000_quik1_signin.sql` after the
+guard file. It stops if those tables are missing. It adds sign-in purpose on email
+links, the attempt-log columns, and the passkey tables. Challenges are stored only
+as a SHA-256 hash. Do not apply it from the app.
+
+`supabase/migrations/20261110150000_quik1_client_hmac.sql` is separate and later.
+apply only after #37 review approval; backfill needs QUIK1_ID_HMAC_KEY. It adds
+only `id_hmac` and `phone_hmac` on `clients`, with their checks and one partial
+unique index. It does not depend on another clients migration. Until either
+column exists, ID and cellphone sign-in says to use email. Do not apply it from
+the app. `scripts/backfill-client-hmac.js` is dry-run unless `--commit` is passed,
+prints counts only, and refuses to run without `QUIK1_ID_HMAC_KEY`.
+
+Leave the new variables below unset. No email provider is chosen. Passkeys use the
+same switch as the PIN.
+
+| Name | What it does |
+| --- | --- |
+| `QUIK1_SIGNIN_COOLDOWN_SECONDS` | Optional. Seconds before another email or ID link can be asked for. Default 60. |
+| `QUIK1_SIGNIN_HOURLY_CAP` | Optional. Email sign-in links per address per hour. Default 5. |
+| `QUIK1_ID_PHONE_HOURLY_CAP` | Optional. ID and cellphone attempts per hour. Default 5. Tighter than the general auth cap. |
+| `QUIK1_PASSKEY_REGISTER_MINUTES` | Optional. How recently the borrower must have signed in before saving Face ID. Default 15. |
+
+`QUIK1_OTP_TTL_MINUTES` is also the lifetime of these sign-in links. The relying party
+for Face ID on quik1.app is `quik1.app` (www included) so the home-screen app is not
+inside another origin. There is no separate passkey flag and no SMS sign-in. An ID
+and cellphone never open a session; they only ask for the email already on the client.
+That match needs `QUIK1_ID_HMAC_KEY` plus `clients.id_hmac` and `clients.phone_hmac`. If any of those is missing, the answer is 503, "Sign in with your email for now", not a link.
+Storing an ID from a signed-in session also stays off until both `QUIK1_ID_KEY` and
+`QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters.
 
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.
