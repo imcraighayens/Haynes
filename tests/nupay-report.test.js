@@ -410,6 +410,10 @@ test('the page mounts the report without a write path', () => {
   const src = fs.readFileSync(new URL('../ledger/nupay-report.js', import.meta.url), 'utf8');
   assert.match(html, /id="nupay-report-mount"/);
   assert.match(html, /src="\.\/nupay-report\.js"/);
+  assert.match(html, /id="nupay-tab-drop"/);
+  assert.match(html, /reportTab==='nupay'/);
+  assert.match(src, /Loan found, no matched payment yet/);
+  assert.match(src, /Loan found, amount or date doesn't agree/);
   assert.equal(src.includes('localStorage'), false);
   assert.equal(src.includes('fetch('), false);
   assert.equal(src.includes('indexedDB'), false);

@@ -983,6 +983,7 @@ body.nupay-open dc-import{display:none !important}
 .np-btn.primary{background:var(--acc,#c3f53c);color:var(--accInk,#101408);border-color:transparent}
 .np-scroll{flex:1;min-height:0;overflow:auto;background:#0c0c0a;background:var(--panel,#0c0c0a);padding:16px}
 .np-drop{border:1px dashed var(--line2,#3a3933);border-radius:12px;padding:22px 16px;text-align:center;background:var(--panel2,#111110)}
+#nupay-tab-drop{max-width:560px;margin-top:8px}
 .np-drop.is-hot{border-color:var(--acc,#c3f53c)}
 .np-drop h3{margin:0 0 6px;font:700 16px 'Plus Jakarta Sans',sans-serif}
 .np-drop p{margin:0;color:var(--mut,#b3b0a4)}
@@ -1090,10 +1091,29 @@ function mount(host) {
   }
   closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', onKey);
-  document.addEventListener('click', ev => {
-    const tab = ev.target && ev.target.closest && ev.target.closest('[data-report-tab="nupay"]');
-    if (tab) open(tab);
-  });
+  function bindTabEntry() {
+    const drop = document.getElementById('nupay-tab-drop');
+    if (!drop || drop.dataset.bound) return;
+    drop.dataset.bound = '1';
+    const choose = document.getElementById('nupay-tab-choose');
+    const input = document.getElementById('nupay-tab-file');
+    if (choose && input) choose.addEventListener('click', () => input.click());
+    if (input) input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (file) { open(choose); readFile(file); }
+      input.value = '';
+    });
+    drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.classList.add('is-hot'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-hot'));
+    drop.addEventListener('drop', ev => {
+      ev.preventDefault();
+      drop.classList.remove('is-hot');
+      const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (file) { open(choose); readFile(file); }
+    });
+  }
+  bindTabEntry();
+  new MutationObserver(bindTabEntry).observe(document.body, { childList: true, subtree: true });
 
   function setExport(on) { exp.disabled = !on; }
   exp.addEventListener('click', () => { if (lastReport && lastReport.rows && lastReport.rows.length) downloadCsv(lastReport); });
@@ -1231,7 +1251,7 @@ function mount(host) {
   function drawTiles(root, report) {
     const tiles = el('div', 'np-tiles');
     tiles.id = 'nupay-report-summary';
-    [['Matched', report.summary.matched, 'Success, and the loan, amount, and date agree'], ['Loan found', report.summary.loanFound, 'Not paid'], ['Mismatched', report.summary.mismatched, 'Loan found, amount or date does not'], ['Unknown', report.summary.unknown, 'No loan on the loaded book']].forEach(([label, count, sub]) => {
+    [['Matched', report.summary.matched, 'Success, and the loan, amount, and date agree'], ['Loan found', report.summary.loanFound, 'Loan found, no matched payment yet'], ['Mismatched', report.summary.mismatched, "Loan found, amount or date doesn't agree"], ['Unknown', report.summary.unknown, 'No loan on the loaded book']].forEach(([label, count, sub]) => {
       const tile = el('div', 'np-tile');
       tile.append(el('span', 'act-k', label), el('span', 'act-n', String(count)), el('span', 'act-s', sub));
       tiles.appendChild(tile);
