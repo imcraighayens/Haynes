@@ -7,7 +7,7 @@ import {
   PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders,
   parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance, amountsAgree,
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
-  reportToCsv, previewLoan, normalizeLoan
+  reportToCsv, previewLoan, normalizeLoan, matchBadge
 } from '../ledger/nupay-report.js';
 
 const fixture = fs.readFileSync(new URL('./fixtures/nupay/fake_Active_mandate_report.csv', import.meta.url), 'utf8');
@@ -278,6 +278,29 @@ test('Success adds a paid date, reversals remove one, and the other statuses do 
   assert.equal(statuses.Cancelled, 1);
   assert.equal(statuses.Reversed, 1);
   assert.equal(statuses.Disputed, 1);
+});
+
+test('only a Success row can wear the green Matched badge', () => {
+  const csv = [
+    'Contract Reference,Transaction Date,Debit Amount,Status',
+    'FAKE-CR-0001,2026-02-25,1380.16,Success',
+    'FAKE-CR-0001,2026-01-25,1380.16,Reversed',
+    'FAKE-CR-0001,2026-03-25,1380.16,In Tracking',
+    'FAKE-CR-0001,2026-04-25,1380.16,Future',
+    'FAKE-CR-0003,2026-05-25,410.93,Disputed',
+    'FAKE-CR-0001,2026-03-25,1380.16,Failed',
+    'FAKE-CR-0002,2026-01-25,100.00,Success',
+    'FAKE-CR-4040,2026-02-25,1380.16,Failed'
+  ].join('\n');
+  const report = analyseText(csv, book);
+  const byStatus = Object.fromEntries(report.rows.map(row => [row.statusKind + ':' + row.outcome, matchBadge(row)]));
+  assert.deepEqual(byStatus['success:matched'], { label: 'Matched', tone: 'ok' });
+  for (const kind of ['reversed', 'tracking', 'future', 'disputed', 'failed']) {
+    assert.deepEqual(byStatus[kind + ':matched'], { label: 'Loan found', tone: 'neutral' }, kind);
+  }
+  assert.deepEqual(byStatus['success:mismatched'], { label: 'Mismatched', tone: 'warn' });
+  assert.deepEqual(byStatus['failed:unknown'], { label: 'Unknown', tone: 'neutral' });
+  assert.equal(report.rows.find(row => row.statusKind === 'reversed').outcome, 'matched');
 });
 
 test('manual mapping is used when the headers are not recognised', () => {

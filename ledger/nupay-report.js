@@ -935,16 +935,13 @@ function outcomeClass(kind) {
   return 'is-neutral';
 }
 
-function matchClass(outcome) {
-  if (outcome === 'matched') return 'is-ok';
-  if (outcome === 'mismatched') return 'is-warn';
-  return 'is-neutral';
-}
-
-function matchLabel(outcome) {
-  if (outcome === 'matched') return 'Matched';
-  if (outcome === 'mismatched') return 'Mismatched';
-  return 'Unknown';
+export function matchBadge(row) {
+  const outcome = row && row.outcome;
+  const kind = row && row.statusKind;
+  if (outcome === 'unknown') return { label: 'Unknown', tone: 'neutral' };
+  if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
+  if (kind === 'success') return { label: 'Matched', tone: 'ok' };
+  return { label: 'Loan found', tone: 'neutral' };
 }
 
 function el(tag, className, text) {
@@ -1247,7 +1244,8 @@ function mount(host) {
     const outcome = el('div', '');
     outcome.append(el('span', 'np-k', 'Outcome'), pill(row.statusLabel || '—', outcomeClass(row.statusKind)));
     const match = el('div', '');
-    match.append(el('span', 'np-k', 'Match'), pill(matchLabel(row.outcome), matchClass(row.outcome)));
+    const badge = matchBadge(row);
+    match.append(el('span', 'np-k', 'Match'), pill(badge.label, 'is-' + badge.tone));
     line.append(date, amount, outcome, match);
     const wrap = el('div', '');
     wrap.appendChild(line);
