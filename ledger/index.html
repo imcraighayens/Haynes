@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head>
+<html lang="en-ZA"><head>
 <script>window.__resources={"ldbStandalone": "./ledjaa-db.js", "./Q1%20Assistant%20Button.dc.html": "./Q1 Assistant Button.dc.html", "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
@@ -580,7 +580,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 </button>
                 </sc-if>
                 <sc-if value="{{ t.held }}" hint-placeholder-val="{{ false }}">
-                <button type="button" class="{{ t.cls }} is-disabled" disabled aria-describedby="q1-gate-note-global">
+                <button type="button" class="{{ t.cls }} is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">
                   <span class="act-k">{{ t.label }}</span>
                   <span class="act-n">{{ t.count }}</span>
                   <span class="act-s">{{ t.sub }}</span>
@@ -853,7 +853,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.idMasked }}</div>
               <div style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.added }}</div>
               <div class="cell-clip" style="font-size:14px;color:var(--mut)">{{ c.employee }}</div>
-              <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
+              <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
               <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ c.invite }}" class="row-act">Give Quik1 access</div></sc-if>
           </div>
           </sc-for>
@@ -888,7 +888,10 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div sc-camel-on-click="{{ cvCall }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--green)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--green);background:color-mix(in oklch, var(--green) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2z"></path></svg></div>Call</div>
               <div sc-camel-on-click="{{ cvSms }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--blue)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--blue);background:color-mix(in oklch, var(--blue) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"></path><path d="M8 12h.01M12 12h.01M16 12h.01"></path></svg></div>SMS</div>
               <div sc-camel-on-click="{{ cvContract }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--amber)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--amber);background:color-mix(in oklch, var(--amber) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8M8 17h5"></path></svg></div>Contract</div>
-              <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
+              <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
+              <sc-if value="{{ cvCanRevoke }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ cvRevoke }}">Revoke invite</button></sc-if>
+              <sc-if value="{{ cvCanRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ cvRevoke }}">Revoke access</button></sc-if>
+              <sc-if value="{{ cvResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Reset device</button></sc-if>
               <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ cvInvite }}" style="display:inline-flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="transform:translateY(-1px);border-color:var(--accText)">Give Quik1 access</div></sc-if>
               <sc-if value="{{ cvCanReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ cvReset }}">Reset device</button></sc-if>
               <div sc-camel-on-click="{{ cvToggleReveal }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--red)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--red);background:color-mix(in oklch, var(--red) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.1 12.3a1 1 0 0 1 0-.6C3.6 7.4 7.5 4.5 12 4.5s8.4 2.9 9.9 7.2a1 1 0 0 1 0 .6c-1.5 4.3-5.4 7.2-9.9 7.2s-8.4-2.9-9.9-7.2"></path><circle cx="12" cy="12" r="3"></circle></svg></div>{{ cvRevealText }}</div>
@@ -1346,11 +1349,13 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div role="cell" class="cell-clip">{{ c.employee }}</div>
                 <div role="cell"><div>{{ c.invStatus }}</div><div class="due-k">{{ c.invDetail }}</div></div>
                 <div role="cell" style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
-                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled aria-describedby="q1-gate-note">Give Quik1 access</button></sc-if>
+                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Give Quik1 access</button></sc-if>
                   <sc-if value="{{ c.invSend }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.sendInvite }}">Send invite</button></sc-if>
                   <sc-if value="{{ c.invResend }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.sendInvite }}">Resend invite</button></sc-if>
                   <sc-if value="{{ c.invRevoke }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ c.revokeInvite }}">Revoke invite</button></sc-if>
+                  <sc-if value="{{ c.invRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ c.revokeInvite }}">Revoke access</button></sc-if>
                   <sc-if value="{{ c.invReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ c.resetDevice }}">Reset device</button></sc-if>
+                  <sc-if value="{{ c.invResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Reset device</button></sc-if>
                 </div>
               </div>
             </sc-for>
@@ -1900,9 +1905,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           <h2 id="q1-confirm-title" style="margin:0 0 8px;font:700 18px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">{{ q1ConfirmTitle }}</h2>
           <p id="q1-confirm-body" style="margin:0 0 16px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;line-height:1.45">{{ q1ConfirmBody }}</p>
           <div style="display:flex;justify-content:flex-end;gap:8px">
-            <button type="button" class="pager-btn" data-confirm-cancel sc-camel-on-click="{{ q1ConfirmCancel }}">Cancel</button>
-            <sc-if value="{{ q1ConfirmReady }}" hint-placeholder-val="{{ true }}"><button type="button" class="pager-btn" data-confirm-ok sc-camel-on-click="{{ q1ConfirmOk }}" style="background:#f7f4ee;color:#14120e">Confirm</button></sc-if>
-            <sc-if value="{{ q1ConfirmBusy }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn" disabled>Confirm</button></sc-if>
+            <button type="button" class="pager-btn" data-confirm-cancel disabled="{{ q1Hold }}" aria-disabled="{{ q1Aria }}" aria-busy="{{ q1Aria }}" sc-camel-on-click="{{ q1ConfirmCancel }}">Cancel</button>
+            <button type="button" class="pager-btn" data-confirm-ok disabled="{{ q1Hold }}" aria-disabled="{{ q1Aria }}" aria-busy="{{ q1Aria }}" sc-camel-on-click="{{ q1ConfirmOk }}" style="background:#f7f4ee;color:#14120e">Confirm</button>
           </div>
         </div>
       </div>
@@ -2432,11 +2436,12 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   </div>
                 </sc-if>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled aria-describedby="q1-dialog-gate">Give Quik1 access</button></sc-if>
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Give Quik1 access</button></sc-if>
                   <sc-if value="{{ q1CanGrant }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Give Quik1 access</div></sc-if>
                   <sc-if value="{{ q1CanSendNew }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Send new link</div></sc-if>
                   <sc-if value="{{ q1CanResend }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Resend invite</div></sc-if>
                   <sc-if value="{{ q1CanReset }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;max-width:280px"><div role="button" tabindex="0" data-kbd="1" aria-label="Reset device" sc-camel-on-click="{{ q1ResetDevices }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Reset device</div><div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;line-height:1.4">Signs the client out of their phone; they set up again with a new link.</div></div></sc-if>
+                  <sc-if value="{{ q1ResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Reset device</button></sc-if>
                   <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke invite</div></sc-if>
                   <sc-if value="{{ q1CanRevokeAccess }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke access</div></sc-if>
                 </div>
@@ -3190,7 +3195,8 @@ class Component extends DCLogic {
       const exp=(open&&open.expiresAt)||(j&&j.expiresAt);
       detail=exp?('Expires '+this.shortDay(exp)):'';
     } else if(newest&&newest.state==='expired'){ kind='expired'; status='Expired'; }
-    return { kind, status, detail, off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', reset:access==='pin'||access==='locked' };
+    const pinish=access==='pin'||access==='locked';
+    return { kind, status, detail, off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
   }
   ensureInviteMap(){
     const ids=(this.state.clients||[]).map(c=>c.id).filter(Boolean);
@@ -4721,7 +4727,7 @@ class Component extends DCLogic {
   printSettlement(l){
     const { d, p1, p2 } = this.settlementHtml(l);
     const w=window.open('','_blank','width=880,height=1100'); if(!w){ this.toast('Allow pop-ups to download the PDF'); return; }
-    w.document.write('<html><head><title>'+d.no+' — '+(d.c.name||'')+'</title>'
+    w.document.write('<html lang="en-ZA"><head><title>'+d.no+' — '+(d.c.name||'')+'</title>'
       +'<style>@page{size:A4;margin:16mm}body{margin:0}.pg{max-width:178mm;margin:0 auto}.br{page-break-before:always}</style></head>'
       +'<body onload="window.focus();window.print();"><div class="pg">'+p1+'</div><div class="pg br">'+p2+'</div></body></html>');
     w.document.close();
@@ -4729,7 +4735,7 @@ class Component extends DCLogic {
   }
   printPdf(c){
     const w=window.open('','_blank','width=820,height=1000'); if(!w){ this.toast('Allow pop-ups to download the PDF'); return; }
-    w.document.write('<html><head><title>'+((c.contract&&c.contract.no)||'contract')+' — '+(c.name||'')+'</title>'
+    w.document.write('<html lang="en-ZA"><head><title>'+((c.contract&&c.contract.no)||'contract')+' — '+(c.name||'')+'</title>'
       +'<style>@page{size:A4;margin:22mm}body{margin:0}</style></head><body onload="window.focus();window.print();">'
       +'<div style="max-width:170mm;margin:0 auto">'+this.contractHtml(c)+'</div></body></html>');
     w.document.close();
@@ -5597,7 +5603,7 @@ class Component extends DCLogic {
         const size = 12;
         const pages = Math.max(1, Math.ceil(filtered.length / size) || 1);
         const page = Math.min(Math.max(0, st.clientPage||0), pages-1);
-        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invReset:inv.reset, sendInvite:(e)=>this.sendInviteFor(c.id, e), revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e)}; });
+        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invRevokeAccess:inv.revokeAccess, invReset:inv.reset, invResetOff:inv.resetOff, sendInvite:(e)=>this.sendInviteFor(c.id, e), revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e)}; });
         return { clientRows: rows, clientEmpty: filtered.length===0, clientEmptyText: cq ? 'No clients match that search.' : 'No clients on the book yet.', clientPageLabel: (page+1)+' / '+pages, clientQ: st.clientQ||'', clientQChange:(e)=>this.setState({clientQ:e.target.value, clientPage:0}), clientPrev:()=>this.setState(p=>({clientPage:Math.max(0,(p.clientPage||0)-1)})), clientNext:()=>this.setState(p=>({clientPage:Math.min(pages-1,(p.clientPage||0)+1)})) };
       })(),
       employeeRows: st.employees.map(e=>({...e, bookFmt: e.book?fmt(e.book):'—', added:e.added.toUpperCase(),
@@ -6006,6 +6012,7 @@ class Component extends DCLogic {
       modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(),
       q1ConfirmOn: !!st.q1Confirm, q1ConfirmTitle: st.q1Confirm?st.q1Confirm.title:'', q1ConfirmBody: st.q1Confirm?st.q1Confirm.body:'',
       q1ConfirmBusy: !!(st.q1Confirm&&st.q1Confirm.busy), q1ConfirmReady: !!(st.q1Confirm&&!st.q1Confirm.busy),
+      q1Hold: !!(st.q1Confirm&&st.q1Confirm.busy), q1Aria: (st.q1Confirm&&st.q1Confirm.busy)?'true':'false',
       q1ConfirmCancel: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.cancelQuik1Confirm(); },
       q1ConfirmOk: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.runQuik1Confirm(); }, modalWidth: st.modal==='history'?'880px':st.modal==='contractdoc'||st.modal==='settlement'?'720px':st.modal==='clienthub'?'min(1280px, calc(100vw - 32px))':st.modal==='bulkloan'?'780px':st.modal==='duebrief'?'620px':'640px',
       ...(()=>{ const dp=st.datePick; if(!dp) return { datePickOn:false, dpCells:[], dpYears:[] };
@@ -6619,7 +6626,8 @@ class Component extends DCLogic {
         q1CanResend: this.borrowerGateOn() && !setup && !q.busy && q.access!=='pin' && q.access!=='locked' && !!(q.code||q.link),
         q1CanRevoke: this.borrowerGateOn() && !setup && !q.busy && canAct && q.access!=='pin' && q.access!=='locked',
         q1CanRevokeAccess: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
-        q1CanReset: !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
+        q1CanReset: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
+        q1ResetOff: !this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
         q1Link: q.link||'', q1Code: q.code||'', q1ExpOn: !!q.expiresAt, q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
         q1CopyLink:()=>this.copyQuik1('link'),
         q1Give:()=>this.giveQuik1Access(), q1RevokeAccess:()=>this.revokeQuik1Access(), q1ResetDevices:()=>this.resetQuik1Devices()
@@ -6681,7 +6689,11 @@ class Component extends DCLogic {
           backToClients:()=>this.setState({route:'clients', clientViewId:null, cliEdit:null, revealed:false}),
           cvContract:()=>this.setState({modal:'contractdoc', modalId:cvRaw.id}),
           cvInvite:()=>this.openQuik1Invite(cvRaw.id),
+          cvCanRevoke: this.inviteView(cvRaw).revoke,
+          cvCanRevokeAccess: this.inviteView(cvRaw).revokeAccess,
           cvCanReset: this.inviteView(cvRaw).reset,
+          cvResetOff: this.inviteView(cvRaw).resetOff,
+          cvRevoke:(e)=>this.revokeInviteFor(cvRaw.id, e),
           cvReset:(e)=>this.resetDeviceFor(cvRaw.id, e),
           cvCall:()=>this.startCall(cvRaw.name, cvRaw.phone, cvRaw.ref),
           cvSms:()=>this.smsVia(cvRaw.name, cvRaw.ref, 'Payment reminder SMS'),
