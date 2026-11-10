@@ -67,6 +67,75 @@ function inviteState(row, now = Date.now()) {
   return 'open';
 }
 
+const ACCESS_LABEL = {
+  none: 'No access',
+  invited: 'Invited',
+  pin: 'PIN set',
+  locked: 'Locked',
+  revoked: 'Revoked',
+  unavailable: 'Quik1 access not set up yet'
+};
+
+function missingTable(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const msg = String((err && err.message) || '');
+  return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
+}
+
+function notSetUp() {
+  return new HttpError(503, ACCESS_LABEL.unavailable);
+}
+
+function accessFrom(borrower, invites, now = Date.now()) {
+  const list = Array.isArray(invites) ? invites : [];
+  const open = list.find(row => inviteState(row, now) === 'open') || null;
+  const newest = list[0] || null;
+  const hasPin = !!(borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$'));
+  const staffLocked = !!(borrower && (borrower.pin_hash === LOCKED_PLACEHOLDER || (borrower.locked_at && !hasPin)));
+  let access = 'none';
+  if (open) access = 'invited';
+  else if (hasPin && isLocked(borrower)) access = 'locked';
+  else if (hasPin) access = 'pin';
+  else if (staffLocked) access = 'revoked';
+  else if (newest && inviteState(newest, now) === 'revoked') access = 'revoked';
+  return { access, open };
+}
+
+function accessPayload(client, borrower, invites, now = Date.now()) {
+  const view = accessFrom(borrower, invites, now);
+  const mapped = (invites || []).map(row => ({
+    id: row.id,
+    state: inviteState(row, now),
+    expiresAt: row.expires_at,
+    createdAt: row.created_at
+  }));
+  return {
+    ready: true,
+    clientRef: client.ref || '',
+    locked: !!(borrower && (borrower.locked_at || borrower.pin_hash === LOCKED_PLACEHOLDER)),
+    hasPin: !!(borrower && borrower.pin_hash && String(borrower.pin_hash).startsWith('scrypt$')),
+    access: view.access,
+    accessLabel: ACCESS_LABEL[view.access],
+    expiresAt: view.open ? view.open.expires_at : null,
+    inviteId: view.open ? view.open.id : null,
+    invites: mapped
+  };
+}
+
+function unavailablePayload(client) {
+  return {
+    ready: false,
+    clientRef: (client && client.ref) || '',
+    locked: false,
+    hasPin: false,
+    access: 'unavailable',
+    accessLabel: ACCESS_LABEL.unavailable,
+    expiresAt: null,
+    inviteId: null,
+    invites: []
+  };
+}
+
 async function revokeOpenInvites(clientId, nowIso) {
   await patchWhere('q1_invites', {
     client_id: eq(clientId),
@@ -101,27 +170,32 @@ async function lockUntilRedeem(clientId, nowIso) {
 export async function createInvite(req, clientId, now = Date.now()) {
   const client = await liveClient(clientId);
   const nowIso = new Date(now).toISOString();
-  await revokeOpenInvites(client.id, nowIso);
-  await lockUntilRedeem(client.id, nowIso);
-  const code = randomBytes(32).toString('hex');
-  const id = 'qi_' + randomBytes(8).toString('hex');
-  const who = staffIdentity(req);
-  const createdBy = who && who.email ? String(who.email).slice(0, 80) : 'ledger';
-  const expiresAt = new Date(now + inviteTtlMs()).toISOString();
-  await insert('q1_invites', [{
-    id,
-    client_id: client.id,
-    code_hash: hashInviteCode(code),
-    expires_at: expiresAt,
-    created_by: createdBy
-  }]);
-  return {
-    inviteId: id,
-    expiresAt,
-    code,
-    link: inviteLink(req, code),
-    clientRef: client.ref || ''
-  };
+  try {
+    await revokeOpenInvites(client.id, nowIso);
+    await lockUntilRedeem(client.id, nowIso);
+    const code = randomBytes(32).toString('hex');
+    const id = 'qi_' + randomBytes(8).toString('hex');
+    const who = staffIdentity(req);
+    const createdBy = who && who.email ? String(who.email).slice(0, 80) : 'ledger';
+    const expiresAt = new Date(now + inviteTtlMs()).toISOString();
+    await insert('q1_invites', [{
+      id,
+      client_id: client.id,
+      code_hash: hashInviteCode(code),
+      expires_at: expiresAt,
+      created_by: createdBy
+    }]);
+    return {
+      inviteId: id,
+      expiresAt,
+      code,
+      link: inviteLink(req, code),
+      clientRef: client.ref || ''
+    };
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
+  }
 }
 
 export async function revokeInvite(inviteId) {
@@ -141,28 +215,37 @@ export async function revokeInvite(inviteId) {
 
 export async function listInvites(clientId) {
   const client = await liveClient(clientId);
-  const borrower = await selectOne('q1_borrowers', {
-    select: 'id,locked_at,failed_attempts,pin_hash',
-    client_id: eq(client.id)
-  });
-  const invites = await select('q1_invites', {
-    select: 'id,expires_at,revoked_at,redeemed_at,created_at',
-    client_id: eq(client.id),
-    order: 'created_at.desc',
-    limit: 10
-  });
-  const locked = !!(borrower && (borrower.locked_at || borrower.pin_hash === LOCKED_PLACEHOLDER));
-  return {
-    clientRef: client.ref || '',
-    locked,
-    hasPin: !!(borrower && borrower.pin_hash && borrower.pin_hash.startsWith('scrypt$')),
-    invites: (invites || []).map(row => ({
-      id: row.id,
-      state: inviteState(row),
-      expiresAt: row.expires_at,
-      createdAt: row.created_at
-    }))
-  };
+  try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id,locked_at,failed_attempts,pin_hash',
+      client_id: eq(client.id)
+    });
+    const invites = await select('q1_invites', {
+      select: 'id,expires_at,revoked_at,redeemed_at,created_at',
+      client_id: eq(client.id),
+      order: 'created_at.desc',
+      limit: 10
+    });
+    return accessPayload(client, borrower, invites || []);
+  } catch (err) {
+    if (missingTable(err)) return unavailablePayload(client);
+    throw err;
+  }
+}
+
+// Staff revoke. Open links die, and a PIN that was already set stops working
+// until the client opens a new invite and chooses another PIN.
+export async function revokeAccess(clientId) {
+  const client = await liveClient(clientId);
+  const nowIso = new Date().toISOString();
+  try {
+    await revokeOpenInvites(client.id, nowIso);
+    await lockUntilRedeem(client.id, nowIso);
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
+  }
+  return listInvites(client.id);
 }
 
 let dummyHash = '';

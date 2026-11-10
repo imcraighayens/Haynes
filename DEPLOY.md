@@ -83,8 +83,9 @@ adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower
 Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SESSION_SECRET`
 (32 or more characters) before a client can choose a PIN. Live PIN also needs
 `QUIK1_BORROWER_PIN=1`, and it stays off when `VERCEL_ENV` is production or the host is
-quik1.app. Leave that flag unset in production. Leave the secret unset and redeeming an
-invite answers "Server not configured".
+quik1.app or quik1ledger.com (including www). Leave that flag unset in production. Leave the secret unset and redeeming an
+invite answers "Server not configured". Until both borrower migrations are applied, Ledger
+shows "Quik1 access not set up yet" and does not create an invite.
 
 Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT=1` and the
 deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The

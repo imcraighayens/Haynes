@@ -8,7 +8,7 @@ import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { createInvite, revokeInvite, listInvites } from './_lib/borrower.js';
+import { createInvite, revokeInvite, listInvites, revokeAccess } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 
@@ -445,6 +445,15 @@ export default wrap('ledger', async (req, res) => {
     if (req.method === 'GET' || req.method === 'HEAD') return getTwilio(req, res);
     if (req.method === 'POST') return postTwilio(req, res);
     throw new HttpError(405, 'Method not allowed');
+  }
+  if (head === 'quik1-invites' && rest.length === 1 && rest[0] === 'revoke-access') {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, 4096);
+    const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
+    return json(res, 200, await revokeAccess(clientId), req);
+  }
+  if (head === 'quik1-invites' && rest.length === 1 && (req.method === 'GET' || req.method === 'HEAD')) {
+    return json(res, 200, await listInvites(rest[0]), req);
   }
   if (head === 'quik1-invites' && rest.length === 0) {
     if (req.method === 'GET' || req.method === 'HEAD') {

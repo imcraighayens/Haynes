@@ -152,29 +152,43 @@ test('a 401 on /state shows Admin sign-in, then the live book', { skip: pw ? fal
         } catch (e) {}
       });
       await page.goto(api.origin + '/ledger/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => /Sign in with your staff email and password/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => window.__ledgerSawSplash === true, null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => {
+        const gate = document.getElementById('ledger-gate');
+        return !!(gate && gate.getAttribute('data-gate') === 'login' && /Sign in with your staff email and password/.test(document.body.innerText));
+      }, null, { timeoutMs: BOOT_TIMEOUT_MS });
       const locked = await bodyText(page);
-      assert.match(locked, /ADMIN/);
+      assert.match(locked, /Sign in to Ledger/);
+      assert.match(locked, /STAFF/);
+      assert.doesNotMatch(locked, /BY ECOLOANS/);
       assert.doesNotMatch(locked, /PROTOTYPE CODE/);
       assert.doesNotMatch(locked, /246810/);
-      assert.equal(/LOANED OUT/.test(locked) && !/Sign in with your staff email and password/.test(locked), false, 'a saved unlock flag does not skip the staff session');
-      const titles = await page.evaluate(() => [...document.querySelectorAll('[title]')].map(el => el.getAttribute('title')));
-      assert.ok(titles.includes('Admin'));
-      assert.equal(titles.includes('Ledger'), false);
+      assert.doesNotMatch(locked, /LOANED OUT/);
+      assert.doesNotMatch(locked, /Cancelling returns to the dashboard/);
+      assert.equal(/Test Client One/.test(locked), false, 'a saved unlock flag does not render the book');
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 401), 'anonymous /state is 401');
 
-      await page.getByPlaceholder('Email').fill('craig@ecoloan.co.za');
-      await page.getByPlaceholder('Password').fill(fixturePassword);
-      await page.waitForFunction(() => {
-        const email = document.querySelector('input[placeholder="Email"]');
-        const pass = document.querySelector('input[placeholder="Password"]');
-        return !!(email && email.value === 'craig@ecoloan.co.za' && pass && pass.value);
-      }, null, { timeout: 5000 });
-      await clickText(page, 'SIGN IN');
-      await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText) && /Craig Haynes/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await page.locator('#ledger-pass').fill('not-the-password');
+      await page.locator('#ledger-email').fill('craig@ecoloan.co.za');
+      await page.locator('#ledger-login-submit').click();
+      await pageWaitFor(page, () => /Sign-in failed/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      assert.equal(await page.locator('#ledger-gate').count(), 1, 'a wrong password stays on the login page');
+      assert.equal(/Test Client One/.test(await bodyText(page)), false);
+
+      await page.locator('#ledger-email').fill('craig@ecoloan.co.za');
+      await page.locator('#ledger-pass').fill(fixturePassword);
+      await page.locator('#ledger-login-submit').click();
+      await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Test Client One/.test(document.body.innerText) && /Craig Haynes/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after sign-in, /state is 200');
       const anon = await fetch(api.origin + '/api/ledger/state');
       assert.equal(anon.status, 401, 'a request without the staff cookie stays 401');
+
+      await page.locator('[title="Sign out"]').dispatchEvent('click');
+      await pageWaitFor(page, () => {
+        const gate = document.getElementById('ledger-gate');
+        return !!(gate && gate.getAttribute('data-gate') === 'login' && /Sign in with your staff email and password/.test(document.body.innerText));
+      }, null, { timeoutMs: BOOT_TIMEOUT_MS });
+      assert.equal(/Test Client One/.test(await bodyText(page)), false, 'sign-out returns to the login page');
       assert.deepEqual(pageErrors.filter(e => !isKnownPageError(e)), []);
     } finally {
       await browser.close();

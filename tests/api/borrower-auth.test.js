@@ -297,6 +297,92 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(JSON.stringify(crossed.json()).includes(NAME_B), false);
   });
 
+  test('staff invite, client PIN, sign-in, then revoke access', async () => {
+    const none = await call(ledger, {
+      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
+    });
+    assert.equal(none.statusCode, 200);
+    assert.equal(none.json().ready, true);
+    assert.equal(none.json().access, 'none');
+    assert.equal(none.json().accessLabel, 'No access');
+
+    const anonInvite = await call(ledger, { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } });
+    assert.equal(anonInvite.statusCode, 401);
+
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(created.statusCode, 201);
+    const ttl = new Date(created.json().expiresAt).getTime() - Date.now();
+    assert.equal(ttl > 71 * 3600 * 1000 && ttl < 73 * 3600 * 1000, true);
+    assert.match(created.json().link, /#invite=[0-9a-f]{64}$/);
+    const invited = await call(ledger, {
+      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
+    });
+    assert.equal(invited.json().access, 'invited');
+    assert.equal(invited.json().accessLabel, 'Invited');
+    assert.equal(JSON.stringify(invited.json()).includes(created.json().code), false);
+
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(redeemed.statusCode, 200);
+    const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
+    assert.equal(home.json().identified, true);
+    assert.equal(home.json().profile.name, NAME_A);
+    const pinSet = await call(ledger, {
+      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
+    });
+    assert.equal(pinSet.json().access, 'pin');
+    assert.equal(pinSet.json().accessLabel, 'PIN set');
+
+    const anonRevoke = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'revoke-access'], body: { clientId: CLIENT_A }
+    });
+    assert.equal(anonRevoke.statusCode, 401);
+
+    const revoked = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(revoked.statusCode, 200);
+    assert.equal(revoked.json().access, 'revoked');
+    assert.equal(revoked.json().accessLabel, 'Revoked');
+    assert.equal(JSON.stringify(revoked.json()).includes(PIN_OK), false);
+    const signedOut = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: redeemed.json().accountRef, pin: PIN_OK }
+    });
+    assert.equal(signedOut.statusCode, 423);
+    const stale = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      body: { code: created.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    assert.equal(stale.statusCode, 410);
+  });
+
+  test('missing borrower tables tell staff Quik1 access is not set up', async () => {
+    delete fake.db.q1_borrowers;
+    delete fake.db.q1_invites;
+    delete fake.db.q1_sessions;
+    const listed = await call(ledger, {
+      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
+    });
+    assert.equal(listed.statusCode, 200);
+    assert.equal(listed.json().ready, false);
+    assert.equal(listed.json().accessLabel, 'Quik1 access not set up yet');
+    assert.equal(JSON.stringify(listed.json()).includes(NAME_A), false);
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(created.statusCode, 503);
+    assert.equal(created.json().error, 'Quik1 access not set up yet');
+    const revoked = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(revoked.statusCode, 503);
+    assert.equal(revoked.json().error, 'Quik1 access not set up yet');
+  });
+
   test('borrower routes do not look up an ID number', () => {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const src = fs.readFileSync(path.join(root, 'api/_lib/borrower.js'), 'utf8');
@@ -339,6 +425,24 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     process.env.QUIK1_BORROWER_PIN = '1';
     assert.equal(held.statusCode, 503);
+    assert.equal(fake.db.q1_borrowers.length, 0);
+
+    for (const host of ['quik1.app', 'www.quik1.app']) {
+      const blocked = await call(quik1, {
+        method: 'POST', path: ['invites', 'redeem'],
+        headers: { host },
+        body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+      });
+      assert.equal(blocked.statusCode, 503, host);
+    }
+    for (const host of ['quik1ledger.com', 'www.quik1ledger.com']) {
+      const blocked = await call(quik1, {
+        method: 'POST', path: ['invites', 'redeem'],
+        headers: { host },
+        body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+      });
+      assert.equal(blocked.statusCode, 404, host);
+    }
     assert.equal(fake.db.q1_borrowers.length, 0);
 
     process.env.VERCEL_ENV = 'production';

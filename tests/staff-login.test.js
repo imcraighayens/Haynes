@@ -92,6 +92,23 @@ function cookieFrom(res) {
   return { setCookie, token: decodeURIComponent(m[1]), header: 'ledger_staff=' + m[1] };
 }
 
+test('protected ledger routes reject a visitor with no session', async () => {
+  installFetch();
+  const paths = [
+    { method: 'GET', path: ['state'] },
+    { method: 'POST', path: ['sync'], body: { ops: [] } },
+    { method: 'GET', path: ['quik1-invites'] },
+    { method: 'POST', path: ['quik1-invites'], body: { clientId: 'c_test' } },
+    { method: 'POST', path: ['nupay-clients'], body: { csv: 'ref,name\n', commit: false } },
+    { method: 'GET', path: ['features'] }
+  ];
+  for (const item of paths) {
+    const res = await call({ method: item.method, path: item.path, headers: sameOrigin(), body: item.body });
+    assert.equal(res.statusCode, 401, item.path.join('/'));
+    assert.equal(JSON.stringify(res.json()).includes('client'), false);
+  }
+});
+
 test('sidebar says Admin and the shared passcode is gone', () => {
   const html = fs.readFileSync(path.join(ROOT, 'ledger/index.html'), 'utf8');
   const sync = fs.readFileSync(path.join(ROOT, 'ledger/ledger-sync.js'), 'utf8');
