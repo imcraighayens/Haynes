@@ -144,6 +144,13 @@ test('loan-status updates public.loans and audit_log together, and puts the loan
   assert.equal(audit.body[0].ref, 'SYN-9050');
   assert.equal(audit.body[0].customer, 'Synthetic Borrower');
   assert.equal(audit.body[0].amount, 4140.47);
+  const patch = calls.find(c => c.table === 'loans' && c.method === 'PATCH').body;
+  assert.equal(patch.status, 'paid');
+  assert.ok(patch.status_at);
+  assert.ok(patch.updated_at);
+  assert.equal(patch.updated_by, 'staff');
+  assert.ok(patch.instalments_paid >= 1);
+  assert.equal(Array.isArray(patch.paid_dates) && patch.paid_dates.length, 1);
   const writes = calls.filter(c => c.method === 'PATCH' || (c.table === 'audit_log' && c.method === 'POST')).map(c => c.table + ' ' + c.method);
   assert.deepEqual(writes, ['loans PATCH', 'audit_log POST']);
   failAudit = true;
@@ -151,6 +158,20 @@ test('loan-status updates public.loans and audit_log together, and puts the loan
   assert.equal(bad.statusCode, 502);
   assert.equal(loan.status, 'paid');
   assert.equal(bad.body.includes('hidden'), false);
+});
+
+test('loan-status does not write an audit row when the loan update changes no rows', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'overdue', deleted_at: null, instalment_amount: 10, schedule: [], paid_dates: [] };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') return { status: 200, body: [] };
+    if (r.table === 'clients' && r.method === 'GET') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'no row' } });
+  assert.equal(res.statusCode, 409);
+  assert.equal(calls.some(c => c.table === 'audit_log'), false);
+  assert.equal(loan.status, 'overdue');
 });
 
 test('ledger GET state: survives a missing ledger_book table (pre-migration)', async () => {

@@ -3624,30 +3624,33 @@ class Component extends DCLogic {
         logs.push({ref, customer:r.clientName, amount:r.orig, type:'LOAN ADDED', date:this.todayStamp(), by, comment:'Mandate '+r.mid+' · '+r.V+' × '+this.fmt(r.deb)+src});
         return; }
       const i=loans.findIndex(l=>l.id===r.loanId); if(i<0) return; const l=loans[i];
-      if(r.kind==='paid'){ loans[i]=this.instNorm({...l, paidInst:Math.max(l.paidInst||0, r.idx+1), status:'issued'}); n.paid++;
-        logs.push({ref:l.ref, customer:r.clientName, amount:l.amount, type:'PAYMENT RECEIVED', date:this.todayStamp(), by, comment:'Inst '+r.K+' · '+r.dueLbl+' · '+r.res+src}); }
-      else if(r.kind==='unpaid'){ loans[i]={...l, status:'overdue'}; n.unpaid++;
-        logs.push({ref:l.ref, customer:r.clientName, amount:l.amount, type:'STATUS → Overdue', date:this.todayStamp(), by, comment:'Inst '+r.K+' · '+r.dueLbl+' · '+r.res+src}); }
+      if(r.kind==='paid'){ const paidInst=Math.max(l.paidInst||0, (r.idx>=0?r.idx+1:0)); const status=paidInst>=((l.instTotal||l.sched&&l.sched.length)||paidInst)?'paid':'issued'; n.paid++;
+        logs.push({__status:{id:l.id, status:status, note:'Inst '+r.K+' · '+r.dueLbl+' · '+r.res+src, instalmentsPaid:paidInst}}); }
+      else if(r.kind==='unpaid'){ n.unpaid++;
+        logs.push({__status:{id:l.id, status:'overdue', note:'Inst '+r.K+' · '+r.dueLbl+' · '+r.res+src}}); }
       sAt[l.id]=now; });
     this.setState({loans, clients, clientSeq:cSeq, statusAt:sAt, br:null, modal:null, modalStack:[]});
-    logs.forEach(g=>this.logAdd(g));
+    logs.forEach(g=>{ if(g.__status) this.commitLoanStatus(g.__status.id, g.__status.status, g.__status.note, g.__status); else this.logAdd(g); });
     this.logAdd({ref:'BANK-'+rows.length, customer:'—', amount:0, type:'BANK REPORT IMPORTED', date:this.todayStamp(), by, comment:n.paid+' paid · '+n.unpaid+' unpaid · '+n.new+' new'+src});
     this.toast([n.paid?n.paid+' paid':'', n.unpaid?n.unpaid+' unpaid':'', n.new?n.new+' new loan'+(n.new>1?'s':''):''].filter(Boolean).join(' · ')||'Applied');
   }
-  setLoanStatus(id, s, note){ this.commitLoanStatus(id, s, note); }
-  commitLoanStatus(id, s, note){
-    const l=(this.state.loans||[]).find(x=>x.id===id); if(!l) return;
+  setLoanStatus(id, s, note, extra){ return this.commitLoanStatus(id, s, note, extra); }
+  commitLoanStatus(id, s, note, extra){
+    const l=(this.state.loans||[]).find(x=>x.id===id); if(!l) return Promise.resolve(false);
     const sync=window.__ledger;
-    const fail=()=>{ this.toast('The loan was not saved'); };
-    if(!sync||typeof sync.api!=='function') return fail();
-    sync.api('POST','/loan-status',{loanId:id, status:s, note:note||''}).then(res=>{
+    const fail=()=>{ this.toast('Could not save the loan status. Nothing was changed.'); return false; };
+    if(!sync||typeof sync.api!=='function') return Promise.resolve(fail());
+    const body={loanId:id, status:s, note:note||''};
+    if(extra&&extra.instalmentsPaid!=null) body.instalmentsPaid=extra.instalmentsPaid;
+    return sync.api('POST','/loan-status',body).then(res=>{
       const row=res&&res.loan;
       const mapped=row&&this.ldbMod&&this.ldbMod.loanToConsole?this.ldbMod.loanToConsole(row):null;
-      if(!mapped||!row||mapped.status==null) return fail();
+      if(!res||res.updated!==1||!mapped||!row||row.status==null) return fail();
       this.setState(p=>({loans:p.loans.map(x=>x.id===id?{...x, ...mapped, serverStatus:mapped.status, statusAt:row.status_at||mapped.statusAt||''}:x)}));
       const audit=res.audit;
       if(audit&&audit.id) this.logAdd({id:audit.id, ref:audit.ref, customer:audit.customer, amount:audit.amount, type:audit.type, date:this.todayStamp(), by:audit.by, comment:audit.comment||note||''});
       if(!this._bsQuiet) this.toast((row.ref||l.ref)+' → '+this.statusMeta(mapped.status).label);
+      return true;
     }, fail);
   }
   nextCollectionDay(){
@@ -4418,7 +4421,7 @@ class Component extends DCLogic {
     const attnLib = (typeof window!=='undefined' && window.LedgerAttention) || null;
     const todayIso = this.todayIso();
     const attnBase = (st.attentionFromServer && attnLib ? st.loans : []).filter(l=>attnLib.popupKeeps(l.serverStatus));
-    const attnRows = attnBase.map(l=>{ const c=clientById(l.clientId); const note=attnLib.attentionNote(l, todayIso); return {customer:c.name, ref:l.ref, note, amountFmt:fmt(attnLib.attentionAmount(l, todayIso)), dot:(l.serverStatus==='overdue'?'var(--red)':'var(--amber)'), open:()=>this.setState({attentionOpen:false, modal:'history', modalId:l.id}), resolve:()=>{ this.logAdd({ref:l.ref, customer:c.name, amount:attnLib.attentionAmount(l, todayIso), type:'ATTENDED', date:this.todayStamp(), by:st.prof.name, comment:'Opened from needs-attention'}); this.setState({attentionOpen:false, route:'clientview', clientViewId:c.id, revealed:false, cliEdit:null}); }}; });
+    const attnRows = attnBase.map(l=>{ const c=clientById(l.clientId); const note=attnLib.attentionNote(l, todayIso); const marker=attnLib.overdueMarker(l, todayIso); return {customer:c.name, ref:l.ref, note, amountFmt:fmt(attnLib.attentionAmount(l, todayIso)), dot:(l.serverStatus==='overdue'?'var(--red)':'var(--amber)'), open:()=>this.setState({attentionOpen:false, modal:'history', modalId:l.id}), resolve:()=>{ this.rememberAttention([{loanId:l.id, marker:marker}]); this.setState({attentionOpen:false, route:'clientview', clientViewId:c.id, revealed:false, cliEdit:null}); }}; });
     const statOpen = st.loans.filter(l=>l.status!=='paid' && l.status!=='written off');
     const instOf = l => this.dueAmt(l);
     const upcoming = [];
@@ -4926,7 +4929,7 @@ class Component extends DCLogic {
       calNone: !!st.calSelected && selLoans.length===0,
       calPrev:()=>this.setState(p=>{ let m=p.calMonth-1,y=p.calYear; if(m<0){m=11;y--;} return {calMonth:m,calYear:y,calSelected:null}; }),
       calNext:()=>this.setState(p=>{ let m=p.calMonth+1,y=p.calYear; if(m>11){m=0;y++;} return {calMonth:m,calYear:y,calSelected:null}; }),
-      attentionShow: !!(st.attentionFromServer && st.attentionOpen && attnBase.length>0), attnDismiss:()=>this.rememberAttention(attnBase.map(l=>({loanId:l.id, marker:attnLib.overdueMarker(l, todayIso)}))),
+      attentionShow: !!(st.attentionFromServer && st.attentionOpen && attnBase.length>0), attnDismiss:()=>{ if(!attnLib) return; this.rememberAttention(attnBase.map(l=>({loanId:l.id, marker:attnLib.overdueMarker(l, todayIso)}))); },
       attnCountStyle: this.cssObj("font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);background:var(--red);border-radius:99px;padding:2px 9px"),
       isClients: st.route==='clients', isEmployees: st.route==='ledger' && st.ledgerUnlocked && st.admPane==='employees',
       isLogbook: st.route==='logbook' || st.admPane==='logbook', isPetty: st.route==='petty' || st.admPane==='petty', isNewLoan: st.route==='newloan', isAddClient: st.route==='addclient',

@@ -15,8 +15,10 @@ test('the attention popup is wired to the server book and a per-staff acknowledg
   assert.match(html, /attentionAmount\(l, todayIso\)/);
   assert.match(html, /attentionNote\(l, todayIso\)/);
   assert.match(html, /POST','\/loan-status'/);
+  assert.match(html, /Could not save the loan status/);
   assert.match(html, /commitLoanStatus\(mLoanRaw\.id/);
   assert.match(html, /commitLoanStatus\(l\.id, s, 'Changed from client workspace'\)/);
+  assert.match(html, /rememberAttention\(\[\{loanId:l\.id/);
 });
 
 const pw = loadPlaywright();
@@ -92,19 +94,46 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
       });
       await pageWaitFor(page, () => !!document.querySelector('[data-screen-label="Client workspace"]') && /Synthetic Borrower/.test(document.body.innerText), null, { timeoutMs: 8000 });
 
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await pageWaitFor(page, () => /1 account needs attention/.test(document.body.innerText) && /Overdue since 5 Nov 2026/.test(document.body.innerText), null, { timeoutMs: 20000 });
-      const saved = await page.evaluate(async () => {
-        const res = await window.__ledger.api('POST', '/loan-status', { loanId: 'l_test_902', status: 'paid', note: 'Marked paid in test' });
-        return { status: res && res.loan && res.loan.status, audit: !!(res && res.audit && res.audit.id) };
+      await page.route('**/api/ledger/loan-status', route => route.fulfill({
+        status: 502,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'The loan was not updated' })
+      }));
+      const clickPaid = () => page.evaluate(() => {
+        const root = document.querySelector('[data-screen-label="Client workspace"]');
+        const label = [...root.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'ECL-902');
+        let node = label;
+        while (node && node !== root) {
+          const paid = [...node.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'PAID');
+          if (paid && node.getBoundingClientRect().height < 180) {
+            paid.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            return true;
+          }
+          node = node.parentElement;
+        }
+        return false;
       });
-      assert.equal(saved.status, 'paid');
-      assert.equal(saved.audit, true);
-      assert.equal(api.fake.db.loans.find(l => l.id === 'l_test_902').status, 'paid');
-      assert.ok(api.fake.db.audit_log.some(row => row && row.ref === 'ECL-902' && /PAID/.test(String(row.type || ''))));
+      assert.equal(await clickPaid(), true);
+      await pageWaitFor(page, () => /Nothing was changed/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      assert.equal(api.fake.db.loans.find(l => l.id === 'l_test_902').status, 'overdue');
+      await page.unroute('**/api/ledger/loan-status');
+      assert.equal(await clickPaid(), true);
+      await pageWaitFor(page, () => /ECL-902 → PAID/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      const row = api.fake.db.loans.find(l => l.id === 'l_test_902');
+      assert.equal(row.status, 'paid');
+      assert.ok(row.updated_at);
+      assert.equal(row.updated_by, 'staff');
+      assert.ok(row.instalments_paid >= 1);
+      assert.ok(api.fake.db.audit_log.some(entry => entry && entry.ref === 'ECL-902' && /PAID/.test(String(entry.type || ''))));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await pageWaitFor(page, () => !document.getElementById('ledger-gate') && (document.body.innerText || '').length > 80, null, { timeoutMs: 20000 });
-      await page.waitForTimeout(800);
+      const again = await page.evaluate(async () => {
+        const st = await window.__ledger.api('GET', '/state');
+        const loan = (st.loans || []).find(l => l.id === 'l_test_902');
+        return loan ? loan.status : '';
+      });
+      assert.equal(again, 'paid');
+      await page.waitForTimeout(500);
       assert.doesNotMatch(await page.locator('body').innerText(), /needs attention/);
     } finally {
       await browser.close();

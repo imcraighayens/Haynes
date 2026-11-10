@@ -291,7 +291,7 @@ export const LIVE_COLUMNS = {
   // and carrying it in a full-row upsert is how it once reached PostgREST as null (23502).
   loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'return_rate_pct', 'instalment_amount',
     'collection_fee', 'schedule', 'instalments_paid', 'prior_instalments', 'status', 'status_at', 'mandate_id', 'contract_ref',
-    'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at'],
+    'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at', 'updated_at', 'updated_by'],
   applications: ['id', 'ref', 'client_id', 'name', 'phone', 'email', 'id_number', 'employer', 'job_title', 'net_income', 'bank',
     'amount', 'term_months', 'purpose', 'source', 'status', 'decline_reason', 'decided_by', 'decided_at', 'loan_id', 'created_at', 'meta', 'decision']
 };

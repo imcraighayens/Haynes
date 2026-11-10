@@ -87,7 +87,9 @@ async function postLoanStatus(req, res) {
     loanId: body && body.loanId,
     status: body && body.status,
     note: body && body.note,
-    by: (who && who.displayName) || 'staff'
+    by: (who && (who.displayName || who.email)) || 'staff',
+    updatedBy: (who && who.email) || 'staff',
+    instalmentsPaid: body && body.instalmentsPaid
   });
   return json(res, 200, result, req);
 }
