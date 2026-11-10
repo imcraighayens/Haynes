@@ -437,6 +437,10 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
   .act-table .act-row>*:nth-child(2){grid-column:1;grid-row:4;font-size:12px}
   .act-table .act-row>*:nth-child(7){grid-column:1 / -1;grid-row:5}
   .act-table .act-row>*:nth-child(7) button,.act-table .act-row>*:nth-child(7) .row-act{width:100%;min-height:44px}
+  .act-tiles{grid-template-columns:1fr}
+  button.act-tile.act-wide{grid-column:auto}
+  .report-kpis{grid-template-columns:1fr !important}
+  .admin-screen .adm-block-staff,.admin-screen .adm-block-settings{grid-template-columns:1fr !important}
   .sheet-5{display:block;min-width:0}
   .sheet-5 .act-row{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-column:auto;row-gap:6px;column-gap:12px;margin:8px;padding:12px;min-height:0;border:1px solid var(--line);border-radius:10px}
   .sheet-5 .act-row.act-head{display:none}
@@ -512,7 +516,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         </div>
       </div>
     </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px">
+      <div class="report-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px">
         <div sc-camel-on-click="{{ goLoansAll }}" style="position:relative;overflow:hidden;box-shadow:0 12px 26px -12px rgba(0,0,254,.9), inset 0 1px 0 rgba(255,255,255,.22);background:radial-gradient(120% 140% at 100% 0%, rgba(90,90,255,.75) 0%, transparent 60%), linear-gradient(135deg, #0000b8 0%, #0000FE 100%);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;min-width:0;transition:box-shadow .22s ease, transform .22s ease" style-hover="filter:brightness(1.08);transform:translateY(-1px)">
           <div style="width:30px;height:30px;flex:none;border-radius:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.3"></circle></svg></div>
           <div style="min-width:0"><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:rgba(255,255,255,.94);letter-spacing:.06em;line-height:1.3;min-height:2.6em;display:flex;align-items:flex-start">{{ kpiOutLabel }}</div><div style="font:600 clamp(13px,1.25vw,16px) 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;color:#fff">{{ kpiOut }}</div></div>
@@ -1890,6 +1894,20 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div style="position:fixed;bottom:26px;right:26px;z-index:100;background:var(--panel2);border:1px solid var(--acc);border-radius:12px;padding:12px 18px;font-size:13px;font-weight:500;color:var(--ink);box-shadow:var(--shadow);animation:toastIn .2s ease">{{ toastMsg }}</div>
     </sc-if>
 
+    <sc-if value="{{ q1ConfirmOn }}" hint-placeholder-val="{{ false }}">
+      <div data-q1-confirm sc-camel-on-click="{{ q1ConfirmCancel }}" style="position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px">
+        <div role="dialog" aria-modal="true" aria-labelledby="q1-confirm-title" aria-describedby="q1-confirm-body" tabindex="-1" sc-camel-on-click="{{ stop }}" style="width:min(420px,100%);background:var(--modalBg);border:1px solid var(--modalLine);border-radius:16px;padding:20px;box-shadow:var(--modalShadow)">
+          <h2 id="q1-confirm-title" style="margin:0 0 8px;font:700 18px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">{{ q1ConfirmTitle }}</h2>
+          <p id="q1-confirm-body" style="margin:0 0 16px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;line-height:1.45">{{ q1ConfirmBody }}</p>
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button type="button" class="pager-btn" data-confirm-cancel sc-camel-on-click="{{ q1ConfirmCancel }}">Cancel</button>
+            <sc-if value="{{ q1ConfirmReady }}" hint-placeholder-val="{{ true }}"><button type="button" class="pager-btn" data-confirm-ok sc-camel-on-click="{{ q1ConfirmOk }}" style="background:#f7f4ee;color:#14120e">Confirm</button></sc-if>
+            <sc-if value="{{ q1ConfirmBusy }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn" disabled>Confirm</button></sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ modalOn }}" hint-placeholder-val="{{ false }}">
       <div sc-camel-on-click="{{ closeModal }}" style="position:fixed;inset:0;z-index:60;background:var(--scrim);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);display:flex;align-items:center;justify-content:center">
         <div sc-camel-on-click="{{ stop }}" style="width:{{ modalWidth }};max-width:calc(100vw - 32px);max-height:94vh;overflow-y:auto;display:flex;flex-direction:column;align-items:stretch;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;box-shadow:var(--modalShadow);animation:modalIn .26s cubic-bezier(.2,.8,.2,1)">
@@ -3192,40 +3210,83 @@ class Component extends DCLogic {
     if(!this.borrowerGateOn()||!clientId) return;
     this.staffApi('POST','/quik1-invites',{clientId}).then(()=>{ this.toast('Invite sent'); this.refreshInvites(); }, e=>this.toast(this.q1FailText(e)));
   }
+  askQuik1Confirm(kind, clientId, opener){
+    if(!clientId) return;
+    if(kind==='revoke' && !this.borrowerGateOn()) return;
+    if(this.state.q1Confirm) return;
+    this._confirmOpener = (opener && typeof opener.focus==='function') ? opener : (typeof document!=='undefined' ? document.activeElement : null);
+    const spec = kind==='reset'
+      ? {kind, clientId, title:"Reset this client's device?", body:'Signs the client out of their phone; they set up again with a new link.', busy:false}
+      : {kind, clientId, title:'Revoke Quik1 access?', body:'The client is signed out and their link stops working.', busy:false};
+    this.setState({q1Confirm:spec}, ()=>this.bindQuik1Confirm());
+  }
+  bindQuik1Confirm(){
+    if(this._confirmKey) document.removeEventListener('keydown', this._confirmKey, true);
+    const root=document.querySelector('[data-q1-confirm]');
+    if(!root) return;
+    const items=()=>[...root.querySelectorAll('button:not([disabled])')];
+    const first=items()[0];
+    if(first) first.focus();
+    this._confirmKey=(e)=>{
+      if(!this.state.q1Confirm) return;
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); this.cancelQuik1Confirm(); return; }
+      if(e.key!=='Tab') return;
+      const list=items();
+      if(!list.length){ e.preventDefault(); return; }
+      const a=list[0], b=list[list.length-1];
+      if(e.shiftKey && document.activeElement===a){ e.preventDefault(); b.focus(); }
+      else if(!e.shiftKey && document.activeElement===b){ e.preventDefault(); a.focus(); }
+    };
+    document.addEventListener('keydown', this._confirmKey, true);
+  }
+  cancelQuik1Confirm(){
+    const c=this.state.q1Confirm;
+    if(!c || c.busy || this._confirmBusy) return;
+    this.closeQuik1Confirm();
+  }
+  closeQuik1Confirm(){
+    if(this._confirmKey){ document.removeEventListener('keydown', this._confirmKey, true); this._confirmKey=null; }
+    const back=this._confirmOpener;
+    this.setState({q1Confirm:null}, ()=>{ if(back && typeof back.focus==='function') back.focus(); });
+  }
+  runQuik1Confirm(){
+    const c=this.state.q1Confirm;
+    if(!c || c.busy || this._confirmBusy) return;
+    this._confirmBusy=true;
+    this.setState({q1Confirm:Object.assign({}, c, {busy:true})});
+    const fail=(e)=>{ this._confirmBusy=false; this.toast(this.q1FailText(e)); this.setState({q1Confirm:Object.assign({}, c, {busy:false})}); };
+    const done=()=>{ this._confirmBusy=false; this.closeQuik1Confirm(); };
+    if(c.kind==='revoke'){
+      this.staffApi('POST','/quik1-invites/revoke-access',{clientId:c.clientId}).then(j=>{
+        this.toast('Quik1 access revoked');
+        this.refreshInvites();
+        if(this.state.modal==='q1invite' && this.state.modalId===c.clientId){
+          const base=this.state.q1Invite||this.q1Blank();
+          this.setState({q1Invite:this.q1FromStatus(base, j)});
+        }
+        done();
+      }, fail);
+      return;
+    }
+    this.staffApi('POST','/quik1-devices/reset',{clientId:c.clientId}).then(()=>{
+      this.toast('Device reset. The next phone must open the email link.');
+      if(this.state.modal==='q1invite' && this.state.modalId===c.clientId){
+        const base=this.state.q1Invite||this.q1Blank();
+        this.setState({q1Invite:Object.assign({}, base, {busy:false, error:''})});
+      }
+      done();
+    }, fail);
+  }
   revokeInviteFor(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
-    if(!this.borrowerGateOn()||!clientId) return;
-    this.staffApi('POST','/quik1-invites/revoke-access',{clientId}).then(()=>{ this.toast('Quik1 access revoked'); this.refreshInvites(); }, e=>this.toast(this.q1FailText(e)));
+    this.askQuik1Confirm('revoke', clientId, ev&&ev.currentTarget);
   }
   resetDeviceFor(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
-    if(!clientId) return;
-    this.staffApi('POST','/quik1-devices/reset',{clientId}).then(()=>{
-      this.toast('Device reset. The next phone must open the email link.');
-    }, e=>this.toast(this.q1FailText(e)));
+    this.askQuik1Confirm('reset', clientId, ev&&ev.currentTarget);
   }
-  resetQuik1Devices(){
-    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
-    if(!id) return;
-    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
-    this.staffApi('POST','/quik1-devices/reset',{clientId:id}).then(()=>{
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:''})});
-      this.toast('Device reset. The next phone must open the email link.');
-    },(e)=>{
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:this.q1FailText(e)})});
-    });
-  }
-  revokeQuik1Access(){
-    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
-    if(!id) return;
-    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
-    this.staffApi('POST','/quik1-invites/revoke-access',{clientId:id}).then(j=>{
-      this.setState({q1Invite:this.q1FromStatus(base, j)});
-      this.toast('Quik1 access revoked');
-    },(e)=>{
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:this.q1FailText(e)})});
-    });
-  }
+  resetQuik1Devices(){ this.askQuik1Confirm('reset', this.state.modalId, typeof document!=='undefined'?document.activeElement:null); }
+  revokeQuik1Access(){ this.askQuik1Confirm('revoke', this.state.modalId, typeof document!=='undefined'?document.activeElement:null); }
   refreshServerFeatures(){
     this._demoResetAllowed=false;
     this.staffApi('GET','/features',null).then(j=>{
@@ -5942,7 +6003,11 @@ class Component extends DCLogic {
       ccOn: !!(st.callConfirm && st.callConfirm.name), ccName: (st.callConfirm && st.callConfirm.name) ? String(st.callConfirm.name) : '', ccPhone: (st.callConfirm && st.callConfirm.name) ? ((st.callConfirm.phone && st.callConfirm.phone!=='—') ? String(st.callConfirm.phone) : 'No number on file') : '', ccRef: (st.callConfirm && st.callConfirm.ref) ? String(st.callConfirm.ref) : '',
       ccCancel: (e)=>{ if(e&&e.preventDefault) e.preventDefault(); if(e&&e.stopPropagation) e.stopPropagation(); this.setState({callConfirm:null}); },
       ccGo: ()=>{ const c=st.callConfirm; if(!c) return; if(!c.phone || c.phone==='—'){ this.setState({callConfirm:null}); return this.toast('No phone number on file for '+c.name); } this.setState({callConfirm:null}); this.doCall(c.name, c.phone, c.ref); },
-      modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(), modalWidth: st.modal==='history'?'880px':st.modal==='contractdoc'||st.modal==='settlement'?'720px':st.modal==='clienthub'?'min(1280px, calc(100vw - 32px))':st.modal==='bulkloan'?'780px':st.modal==='duebrief'?'620px':'640px',
+      modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(),
+      q1ConfirmOn: !!st.q1Confirm, q1ConfirmTitle: st.q1Confirm?st.q1Confirm.title:'', q1ConfirmBody: st.q1Confirm?st.q1Confirm.body:'',
+      q1ConfirmBusy: !!(st.q1Confirm&&st.q1Confirm.busy), q1ConfirmReady: !!(st.q1Confirm&&!st.q1Confirm.busy),
+      q1ConfirmCancel: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.cancelQuik1Confirm(); },
+      q1ConfirmOk: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.runQuik1Confirm(); }, modalWidth: st.modal==='history'?'880px':st.modal==='contractdoc'||st.modal==='settlement'?'720px':st.modal==='clienthub'?'min(1280px, calc(100vw - 32px))':st.modal==='bulkloan'?'780px':st.modal==='duebrief'?'620px':'640px',
       ...(()=>{ const dp=st.datePick; if(!dp) return { datePickOn:false, dpCells:[], dpYears:[] };
         const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
         const dim=new Date(dp.year,dp.month+1,0).getDate(), firstDow=new Date(dp.year,dp.month,1).getDay();
