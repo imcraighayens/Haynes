@@ -72,7 +72,8 @@ test('ledger GET state: shape, parallel per-table selects with service headers, 
   const res = await call({ path: ['state'] });
   assert.equal(res.statusCode, 200);
   const s = res.json();
-  assert.deepEqual(Object.keys(s).sort(), ['applications', 'audit_log', 'bank_tx', 'clients', 'employees', 'expenses', 'ledger_book', 'loans', 'petty_cash', 'server_time', 'settings'].sort());
+  assert.deepEqual(Object.keys(s).sort(), ['applications', 'attention', 'audit_log', 'bank_tx', 'clients', 'employees', 'expenses', 'ledger_book', 'loans', 'petty_cash', 'server_time', 'settings'].sort());
+  assert.deepEqual(s.attention, { ready: true, rows: [], viewer: '' });
   assert.equal(s.clients.length, 2, 'deleted rows are included; the client filters');
   assert.equal(s.settings, null, 'no org row yet → null');
   assert.deepEqual(s.ledger_book, { updated_at: '2026-10-28T10:00:00Z' });
@@ -87,6 +88,208 @@ test('ledger GET state: shape, parallel per-table selects with service headers, 
     assert.equal(c.headers.Authorization, 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY);
     assert.equal(c.method, 'GET');
   }
+});
+
+test('ledger GET state: a missing attention table does not fail the book', async () => {
+  stubFetch(r => r.table === 'ledger_attention' ? { status: 404, body: { code: '42P01', message: 'relation does not exist' } } : { status: 200, body: tableRows[r.table] || [] });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json().attention, { ready: false, rows: [], viewer: '' });
+});
+
+test('ledger POST attention: stores one marker per staff email and loan, and ignores a missing table', async () => {
+  const { mintStaffSession } = await import('../../api/_lib/auth.js');
+  const { token } = mintStaffSession(Date.now(), { email: 'staff@test.invalid', displayName: 'Test Staff' });
+  const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+  stubFetch(r => ({ status: 200, body: r.method === 'POST' ? (r.body || []) : [] }));
+  const saved = await call({ method: 'POST', path: ['attention'], headers, body: { items: [
+    { loanId: 'l_test_902', marker: 'overdue|2026-08-01|2026-10-02T08:00:00.000Z' },
+    { loanId: 'not a loan', marker: 'overdue||' },
+    { loanId: 'l_test_902', marker: 'nope' }
+  ] } });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.json().ready, true);
+  assert.equal(saved.json().saved, 1);
+  const write = calls.find(c => c.table === 'ledger_attention' && c.method === 'POST');
+  assert.equal(write.body.length, 1);
+  assert.equal(write.body[0].staff_email, 'staff@test.invalid');
+  assert.equal(write.body[0].loan_id, 'l_test_902');
+  assert.equal(write.body[0].id, 'staff@test.invalid:l_test_902');
+  stubFetch(r => r.table === 'ledger_attention' ? { status: 404, body: { code: '42P01', message: 'relation does not exist' } } : { status: 200, body: [] });
+  const missing = await call({ method: 'POST', path: ['attention'], headers, body: { items: [{ loanId: 'l_test_902', marker: 'overdue|2026-08-01|' }] } });
+  assert.equal(missing.statusCode, 200);
+  assert.deepEqual(missing.json(), { ready: false, saved: 0 });
+});
+
+test('loan-status updates public.loans and audit_log together, and puts the loan back if the audit insert fails', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'overdue', status_at: '2026-11-05T08:00:00.000Z', principal: 4050, instalment_amount: 4140.47, deleted_at: null };
+  const client = { id: 'c_synth', name: 'Synthetic Borrower' };
+  let failAudit = false;
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'clients' && r.method === 'GET') return { status: 200, body: [client] };
+    if (r.table === 'loans' && r.method === 'PATCH') { Object.assign(loan, r.body); return { status: 200, body: [{ ...loan }] }; }
+    if (r.table === 'audit_log' && r.method === 'POST') {
+      if (failAudit) return { status: 500, body: { code: 'XX000', message: 'hidden' } };
+      return { status: 200, body: r.body };
+    }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Marked paid' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().loan.status, 'paid');
+  assert.ok(res.json().loan.status_at);
+  assert.ok(res.json().loan.instalments_paid >= 1);
+  assert.equal(res.json().loan.paid_dates.length, 1);
+  assert.equal(loan.status, 'paid');
+  const audit = calls.find(c => c.table === 'audit_log' && c.method === 'POST');
+  assert.ok(audit);
+  assert.equal(audit.body[0].ref, 'SYN-9050');
+  assert.equal(audit.body[0].customer, 'Synthetic Borrower');
+  assert.equal(audit.body[0].amount, 4140.47);
+  const patchCall = calls.find(c => c.table === 'loans' && c.method === 'PATCH');
+  const patch = patchCall.body;
+  assert.equal(patchCall.url.searchParams.get('updated_at'), 'is.null');
+  assert.equal(patch.status, 'paid');
+  assert.ok(patch.status_at);
+  assert.ok(patch.updated_at);
+  assert.equal(patch.updated_by, 'staff');
+  assert.ok(patch.instalments_paid >= 1);
+  assert.equal(Array.isArray(patch.paid_dates) && patch.paid_dates.length, 1);
+  const writes = calls.filter(c => c.method === 'PATCH' || (c.table === 'audit_log' && c.method === 'POST')).map(c => c.table + ' ' + c.method);
+  assert.deepEqual(writes, ['loans PATCH', 'audit_log POST']);
+  failAudit = true;
+  const bad = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'issued', note: 'should roll back' } });
+  assert.equal(bad.statusCode, 502);
+  assert.equal(loan.status, 'paid');
+  assert.equal(bad.body.includes('hidden'), false);
+  const patches = calls.filter(c => c.table === 'loans' && c.method === 'PATCH');
+  const revert = patches[patches.length - 1];
+  assert.equal(revert.url.searchParams.get('updated_at'), 'eq.' + patches[patches.length - 2].body.updated_at);
+  assert.equal(revert.body.status, 'paid');
+});
+
+test('loan-status does not write an audit row when the loan update changes no rows', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'overdue', deleted_at: null, instalment_amount: 10, schedule: [], paid_dates: [] };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') return { status: 200, body: [] };
+    if (r.table === 'clients' && r.method === 'GET') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'no row' } });
+  assert.equal(res.statusCode, 409);
+  assert.equal(calls.some(c => c.table === 'audit_log'), false);
+  assert.equal(loan.status, 'overdue');
+});
+
+test('loan-status refuses a written-off loan and will not turn settled_early into paid', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', status: 'written_off', deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') { Object.assign(loan, r.body); return { status: 200, body: [{ ...loan }] }; }
+    return { status: 200, body: [] };
+  });
+  const written = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'req-written' } });
+  assert.equal(written.statusCode, 409);
+  assert.match(written.json().error, /written-off/);
+  assert.equal(calls.some(c => c.method === 'PATCH'), false);
+  loan.status = 'settled_early';
+  const settled = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'req-settled' } });
+  assert.equal(settled.statusCode, 409);
+  assert.match(settled.json().error, /settled/);
+  assert.equal(loan.status, 'settled_early');
+  assert.equal(calls.some(c => c.method === 'PATCH'), false);
+});
+
+test('loan-status advances one instalment and closes the loan only on the last one', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'overdue', instalments_paid: 0, paid_dates: [], schedule: ['2026-09-01', '2026-10-01', '2026-11-01'], instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      const filter = r.url.searchParams.get('updated_at');
+      if (filter !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+  const early = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', instalmentsPaid: 1, requestId: 'inst-1' } });
+  assert.equal(early.statusCode, 422);
+  assert.match(early.json().error, /does not close/);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(loan.instalments_paid, 0);
+  const step = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'overdue', instalmentsPaid: 1, requestId: 'inst-1' } });
+  assert.equal(step.statusCode, 200);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(loan.instalments_paid, 1);
+  assert.equal(loan.paid_dates.length, 1);
+  loan.instalments_paid = 2;
+  const done = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', instalmentsPaid: 3, requestId: 'inst-3' } });
+  assert.equal(done.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  assert.ok(loan.instalments_paid >= 3);
+});
+
+test('loan-status audit id is stable for the same request and a stale updated_at is a 409', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'issued', instalments_paid: 0, paid_dates: [], schedule: [], instalment_amount: 10, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  let conflict = false;
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      if (conflict) return { status: 200, body: [] };
+      if (r.url.searchParams.get('updated_at') !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+  const first = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'overdue', requestId: 'same-click' } });
+  const second = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'overdue', requestId: 'same-click' } });
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 200);
+  assert.equal(first.json().audit.id, second.json().audit.id);
+  assert.match(first.json().audit.id, /^al_[a-f0-9]{32}$/);
+  const token = loan.updated_at;
+  conflict = true;
+  const raced = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'other-click' } });
+  assert.equal(raced.statusCode, 409);
+  assert.match(raced.json().error, /changed while/);
+  const racedPatch = calls.filter(c => c.table === 'loans' && c.method === 'PATCH').pop();
+  assert.equal(racedPatch.url.searchParams.get('updated_at'), 'eq.' + token);
+  assert.equal(calls.filter(c => c.table === 'audit_log').length, 2);
+});
+
+test('a failed audit does not roll back a newer loan write', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'issued', instalments_paid: 0, paid_dates: [], schedule: [], deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  let wrote = '';
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      const filter = r.url.searchParams.get('updated_at');
+      const expect = loan.updated_at == null ? 'is.null' : 'eq.' + loan.updated_at;
+      if (filter !== expect) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      wrote = r.body.updated_at;
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'audit_log') {
+      loan.updated_at = '2099-01-01T00:00:00.000Z';
+      loan.status = 'overdue';
+      return { status: 500, body: { code: 'XX000', message: 'hidden' } };
+    }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'race' } });
+  assert.equal(res.statusCode, 502);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(loan.updated_at, '2099-01-01T00:00:00.000Z');
+  const revert = calls.filter(c => c.method === 'PATCH').pop();
+  assert.equal(revert.url.searchParams.get('updated_at'), 'eq.' + wrote);
 });
 
 test('ledger GET state: survives a missing ledger_book table (pre-migration)', async () => {
@@ -118,11 +321,27 @@ test('ledger POST sync: whitelist drops unknown columns, strips NCR/fee settings
   assert.equal(out.ok, true);
   assert.deepEqual(out.results.map(r => [r.table, r.op, r.count]), [['loans', 'upsert', 1], ['audit_log', 'insert', 1], ['bank_tx', 'upsert', 1], ['settings', 'upsert', 1], ['expenses', 'soft_delete', 1]]);
 
-  const [loans, audit, bank, settings, exp] = calls;
+  const loans = calls.find(c => c.table === 'loans' && c.method === 'POST');
+  const audit = calls.find(c => c.table === 'audit_log');
+  const bank = calls.find(c => c.table === 'bank_tx');
+  const settings = calls.find(c => c.table === 'settings');
+  const exp = calls.find(c => c.table === 'expenses');
   assert.equal(loans.method, 'POST');
   assert.equal(loans.url.searchParams.get('on_conflict'), 'id');
   assert.equal(loans.headers.Prefer, 'resolution=merge-duplicates,return=representation');
-  assert.deepEqual(loans.body, [{ id: 'l1', ref: 'ECL-1', client_id: 'c1', principal: 100, schedule: ['2026-06-25'], status: 'settled_early' }]);
+  const created = loans.body[0];
+  assert.equal(created.id, 'l1');
+  assert.equal(created.ref, 'ECL-1');
+  assert.equal(created.client_id, 'c1');
+  assert.equal(created.principal, 100);
+  assert.deepEqual(created.schedule, ['2026-06-25']);
+  assert.equal(created.status, 'issued');
+  assert.equal(created.instalments_paid, 0);
+  assert.deepEqual(created.paid_dates, []);
+  assert.match(created.status_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(created.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(created.updated_by, null);
+  assert.equal(created.bogus, undefined);
 
   assert.equal(audit.headers.Prefer, 'resolution=ignore-duplicates,return=representation');
   assert.deepEqual(audit.body, [{ id: 'a9', at: '2026-10-29T00:00:00.000Z', type: 'LOAN ADDED', amount: 100, by: 'Craig' }]);
@@ -136,6 +355,134 @@ test('ledger POST sync: whitelist drops unknown columns, strips NCR/fee settings
   assert.equal(exp.url.searchParams.get('id'), 'eq.x1');
   assert.deepEqual(Object.keys(exp.body), ['deleted_at'], 'soft delete only sets deleted_at');
   assert.ok(!calls.some(c => c.method === 'DELETE'), 'never DELETE');
+});
+
+test('ledger POST sync strips loan status fields on update and on an existing upsert', async () => {
+  stubFetch(r => {
+    if (r.method === 'GET' && r.table === 'loans') return { status: 200, body: [{ id: 'l1' }] };
+    if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l1', ...r.body }] };
+    return { status: 200, body: r.body || [] };
+  });
+  const updated = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l1', patch: { status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 9, paid_dates: ['2020-01-01'], purpose: 'School fees' } }
+  ] } });
+  assert.equal(updated.statusCode, 200);
+  const patch = calls.find(c => c.method === 'PATCH').body;
+  assert.equal(patch.purpose, 'School fees');
+  assert.equal(patch.status, undefined);
+  assert.equal(patch.status_at, undefined);
+  assert.equal(patch.instalments_paid, undefined);
+  assert.equal(patch.paid_dates, undefined);
+  calls.length = 0;
+  const again = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l1', ref: 'SYN-1', client_id: 'c1', principal: 100, status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 4, paid_dates: ['2020-01-01'] }] }
+  ] } });
+  assert.equal(again.statusCode, 200);
+  const row = calls.find(c => c.table === 'loans' && c.method === 'POST').body[0];
+  assert.equal(row.ref, 'SYN-1');
+  assert.equal(row.status, undefined);
+  assert.equal(row.instalments_paid, undefined);
+  assert.equal(row.paid_dates, undefined);
+  calls.length = 0;
+  const empty = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l1', patch: { status: 'paid', instalments_paid: 1, paid_dates: ['2020-01-01'], status_at: '2020-01-01T00:00:00.000Z' } }
+  ] } });
+  assert.equal(empty.json().results[0].count, 0);
+  assert.equal(calls.some(c => c.method === 'PATCH'), false);
+});
+
+test('sync does not rewind updated_at or updated_by, and a new loan gets server stamps', async () => {
+  stubFetch(r => {
+    if (r.method === 'GET' && r.table === 'loans') return { status: 200, body: [{ id: 'l1' }] };
+    if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l1', ...r.body }] };
+    return { status: 200, body: r.body || [] };
+  });
+  const updated = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l1', patch: { purpose: 'School fees', updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' } }
+  ] } });
+  assert.equal(updated.statusCode, 200);
+  const patch = calls.find(c => c.method === 'PATCH').body;
+  assert.deepEqual(patch, { purpose: 'School fees' });
+  calls.length = 0;
+  const again = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l1', ref: 'SYN-1', client_id: 'c1', principal: 100, updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser', status: 'paid' }] }
+  ] } });
+  assert.equal(again.statusCode, 200);
+  const kept = calls.find(c => c.table === 'loans' && c.method === 'POST').body[0];
+  assert.equal(kept.ref, 'SYN-1');
+  assert.equal(kept.updated_at, undefined);
+  assert.equal(kept.updated_by, undefined);
+  assert.equal(kept.status, undefined);
+  calls.length = 0;
+  const created = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'insert', rows: [{ id: 'l_new', ref: 'SYN-2', client_id: 'c1', principal: 40, updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser', status: 'paid' }] }
+  ] } });
+  assert.equal(created.statusCode, 200);
+  const fresh = calls.find(c => c.table === 'loans' && c.method === 'POST').body[0];
+  assert.equal(fresh.status, 'issued');
+  assert.equal(fresh.updated_by, null);
+  assert.match(fresh.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.notEqual(fresh.updated_at, '2020-01-01T00:00:00.000Z');
+});
+
+test('replace_book keeps status columns on an existing loan and defaults them on a new one', async () => {
+  process.env.LEDGER_MANAGER_PIN = 'fixture-manager-pin';
+  try {
+    stubFetch(r => {
+      if (r.method === 'GET') return { status: 200, body: [{ id: 'l_keep', deleted_at: null }, { id: 'l_gone', deleted_at: '2026-01-01T00:00:00.000Z' }] };
+      if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l_keep', deleted_at: '2026-11-10T00:00:00.000Z' }] };
+      return { status: 200, body: r.body || [] };
+    });
+    const rows = [
+      { id: 'l_keep', ref: 'SYN-1', client_id: 'c1', principal: 100, purpose: 'School fees', status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 4, paid_dates: ['2020-01-01'], updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' },
+      { id: 'l_new', ref: 'SYN-2', client_id: 'c1', principal: 50, status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 9, paid_dates: ['2020-01-01'], updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' }
+    ];
+    const viaSync = await call({ method: 'POST', path: ['sync'], body: { ops: [
+      { table: 'loans', op: 'replace_book', manager_pin: 'fixture-manager-pin', rows }
+    ] } });
+    assert.equal(viaSync.statusCode, 200);
+    assert.equal(viaSync.json().ok, true);
+    const posted = calls.find(c => c.table === 'loans' && c.method === 'POST').body;
+    const kept = posted.find(r => r.id === 'l_keep');
+    const created = posted.find(r => r.id === 'l_new');
+    assert.equal(kept.purpose, 'School fees');
+    assert.equal(kept.deleted_at, null);
+    assert.equal(kept.status, undefined);
+    assert.equal(kept.status_at, undefined);
+    assert.equal(kept.instalments_paid, undefined);
+    assert.equal(kept.paid_dates, undefined);
+    assert.equal(kept.updated_at, undefined);
+    assert.equal(kept.updated_by, undefined);
+    assert.equal(created.status, 'issued');
+    assert.equal(created.instalments_paid, 0);
+    assert.deepEqual(created.paid_dates, []);
+    assert.equal(created.updated_by, null);
+    assert.match(created.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+    assert.notEqual(created.updated_at, '2020-01-01T00:00:00.000Z');
+    assert.equal(created.deleted_at, null);
+    calls.length = 0;
+    const viaDestructive = await call({ method: 'POST', path: ['destructive'], body: { action: 'replace_book', pin: 'fixture-manager-pin', rows } });
+    assert.equal(viaDestructive.statusCode, 200);
+    const again = calls.find(c => c.table === 'loans' && c.method === 'POST').body.find(r => r.id === 'l_keep');
+    assert.equal(again.status, undefined);
+    assert.equal(again.updated_at, undefined);
+    assert.equal(again.updated_by, undefined);
+  } finally {
+    delete process.env.LEDGER_MANAGER_PIN;
+  }
+});
+
+test('loan-status returns 404 for a deleted loan and does not write', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', status: 'overdue', deleted_at: '2026-11-01T00:00:00.000Z', updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') { Object.assign(loan, r.body); return { status: 200, body: [{ ...loan }] }; }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'deleted' } });
+  assert.equal(res.statusCode, 404);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(calls.some(c => c.method === 'PATCH' || c.table === 'audit_log'), false);
 });
 
 test('ledger POST sync: audit_log update/soft_delete rejected as no-op, unknown table reported, rest still applied', async () => {

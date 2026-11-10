@@ -11,6 +11,8 @@ import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers
 import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
+import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
+import { commitLoanStatus } from './_lib/loan-status.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -62,12 +64,78 @@ async function getState(req, res) {
     const seen = new Set(bank_tx.map(r => r.id));
     bankTx = bank_tx.concat(since.filter(r => !seen.has(r.id)));
   }
+  // Missing ledger_attention must not fail the book. ready:false means the
+  // browser keeps that staff member's acknowledgements until the migration is applied.
+  let attention = { ready: false, rows: [], viewer: '' };
+  try {
+    const who = staffIdentity(req);
+    attention = await listAttention(who && who.email);
+  } catch { attention = { ready: false, rows: [], viewer: '' }; }
   json(res, 200, {
     clients, loans, employees, applications, audit_log, petty_cash, bank_tx: bankTx, expenses,
     settings: settings || null,
     ledger_book: book ? { updated_at: book.updated_at } : null,
+    attention,
     server_time: new Date().toISOString()
   }, req);
+}
+
+async function postLoanStatus(req, res) {
+  const body = await readBody(req, 8192);
+  const who = staffIdentity(req);
+  const result = await commitLoanStatus({
+    loanId: body && body.loanId,
+    status: body && body.status,
+    note: body && body.note,
+    by: (who && (who.displayName || who.email)) || 'staff',
+    updatedBy: (who && who.email) || 'staff',
+    instalmentsPaid: body && body.instalmentsPaid,
+    requestId: body && body.requestId
+  });
+  return json(res, 200, result, req);
+}
+
+async function postAttention(req, res) {
+  const who = staffIdentity(req);
+  if (!who || !who.email) return json(res, 200, { ready: false, saved: 0 }, req);
+  const body = await readBody(req, 65536);
+  const items = cleanAttentionItems(body);
+  const result = await saveAttention(who.email, items);
+  return json(res, 200, result, req);
+}
+
+// Status columns, and the compare-and-set token, change only through POST /loan-status.
+// A queued sync or a book replace must not put them back. A brand-new loan still
+// needs a starting point, and that starting point is chosen here, not by the client.
+const LOAN_STATUS_FIELDS = ['status', 'status_at', 'instalments_paid', 'paid_dates', 'updated_at', 'updated_by'];
+
+function stripLoanStatus(row) {
+  LOAN_STATUS_FIELDS.forEach(k => { delete row[k]; });
+  return row;
+}
+
+function applyNewLoanDefaults(row) {
+  stripLoanStatus(row);
+  const now = new Date().toISOString();
+  row.status = 'issued';
+  row.status_at = now;
+  row.instalments_paid = 0;
+  row.paid_dates = [];
+  row.updated_at = now;
+  row.updated_by = null;
+  return row;
+}
+
+function shapeLoanWrites(rows, existingIds) {
+  return rows.map(row => existingIds.has(row.id) ? stripLoanStatus(row) : applyNewLoanDefaults(row));
+}
+
+async function prepareLoanWrites(rows, kind) {
+  if (kind === 'update') return rows.map(stripLoanStatus);
+  if (kind === 'insert') return rows.map(applyNewLoanDefaults);
+  const found = await select('loans', { select: 'id' });
+  const existing = new Set((found || []).map(r => r && r.id).filter(Boolean));
+  return shapeLoanWrites(rows, existing);
 }
 
 function rowsOf(op) {
@@ -93,12 +161,13 @@ async function applyOp(op) {
     throw new HttpError(400, `${kind || '(none)'} not allowed on ${table}`);
   }
   if (kind === 'upsert' || kind === 'insert') {
-    const rows = rowsOf(op).map(r => {
+    let rows = rowsOf(op).map(r => {
       const row = pick(table, r);
       if (rule.singleton) row.id = rule.singleton;
       requireId(row);
       return row;
     });
+    if (table === 'loans') rows = await prepareLoanWrites(rows, kind);
     if (kind === 'insert' && !rule.ignoreDuplicates && !rule.singleton) {
       const out = await insert(table, rows);
       return out.length;
@@ -108,8 +177,9 @@ async function applyOp(op) {
   }
   if (kind === 'update') {
     const id = rule.singleton || requireId(op);
-    const patch = pick(table, op.patch || {});
+    let patch = pick(table, op.patch || {});
     delete patch.id;
+    if (table === 'loans') patch = stripLoanStatus(patch);
     if (!Object.keys(patch).length) return 0;
     if (rule.singleton) {
       const out = await upsert(table, [{ id, ...patch }], 'id');
@@ -141,6 +211,10 @@ async function replaceLoans(rows) {
     return row;
   });
   const existing = await select('loans', { select: 'id,deleted_at' });
+  const existingIds = new Set((existing || []).map(r => r && r.id).filter(Boolean));
+  // Same rule as sync: an existing loan keeps its status and compare-and-set
+  // columns. A loan id the book has never stored gets the server defaults.
+  const prepared = shapeLoanWrites(incoming, existingIds);
   const now = new Date().toISOString();
   let n = 0;
   for (const row of existing) {
@@ -149,8 +223,8 @@ async function replaceLoans(rows) {
       n++;
     }
   }
-  if (incoming.length) await upsert('loans', incoming, 'id');
-  return n + incoming.length;
+  if (prepared.length) await upsert('loans', prepared, 'id');
+  return n + prepared.length;
 }
 
 async function postSync(req, res) {
@@ -415,6 +489,14 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'state' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getState(req, res);
+  }
+  if (head === 'attention' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postAttention(req, res);
+  }
+  if (head === 'loan-status' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postLoanStatus(req, res);
   }
   if (head === 'sync' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
