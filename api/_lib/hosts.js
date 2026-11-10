@@ -4,8 +4,9 @@
 // Staff hosts may open Ledger and the staff APIs. They may not open Quik1.
 // Borrower hosts may open Quik1 and /api/quik1. They may not open Ledger or staff APIs.
 // Open hosts are local dev: both apps work there.
-// vercel.json hides /ledger unless the host is staff or local, and hides /quik1
-// on a staff host. wrap() refuses a borrower host on staff APIs and a staff host on /api/quik1.
+// vercel.json redirects (not rewrites) hide these pages. Rewrites run after the
+// filesystem, so a rewrite never replaces ledger/index.html or quik1/index.html.
+// Redirects run first. wrap() still refuses the cross-host APIs.
 // Host values are matched as the Host header presents them, including a local port.
 
 export const STAFF_HOSTS = [
@@ -26,7 +27,22 @@ export const OPEN_HOSTS = [
   '127.0.0.1:3000'
 ];
 
-// Pages and APIs a non-staff host must never receive. vercel.json rewrites these to /api/denied.
+// Static pages. These are redirects in vercel.json because the files already exist.
+export const STAFF_PAGES = [
+  '/ledger',
+  '/ledger/',
+  '/ledger/:path*'
+];
+
+export const BORROWER_PAGES = [
+  '/quik1',
+  '/quik1/',
+  '/quik1/:path*',
+  '/app'
+];
+
+// Pages and APIs a non-staff host must never receive. API paths are rewrites;
+// the pages above are redirects so they win over the static files.
 export const STAFF_PATHS = [
   '/ledger',
   '/ledger/',

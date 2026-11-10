@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { STAFF_HOSTS, BORROWER_HOSTS, OPEN_HOSTS, STAFF_PATHS, BORROWER_PATHS, apiRole, apiSideAllowed } from '../api/_lib/hosts.js';
+import { STAFF_HOSTS, BORROWER_HOSTS, OPEN_HOSTS, STAFF_PATHS, BORROWER_PATHS, STAFF_PAGES, BORROWER_PAGES, apiRole, apiSideAllowed } from '../api/_lib/hosts.js';
 
 const vercel = JSON.parse(fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 const denied = vercel.rewrites.filter(r => r.destination === '/api/denied');
@@ -18,6 +18,28 @@ test('vercel.json repeats the allow-list and does not send every host to Ledger'
     assert.equal(BORROWER_HOSTS.includes(host), false);
   }
   assert.equal(vercel.redirects.some(r => r.source === '/' && r.destination === '/ledger/'), false);
+
+  // Static files are served before rewrites, so the cross-host pages must be redirects.
+  // After deploy, without following the redirect:
+  //   curl -sI https://quik1.app/ledger/            -> 307, location: /api/denied, not 200
+  //   curl -sI https://quik1ledger.com/quik1/       -> 307, location: /api/denied, not 200
+  //   curl -sI https://quik1ledger.com/ledger/      -> 200
+  //   curl -sI https://quik1.app/quik1/             -> 200
+  const pageDeny = vercel.redirects.filter(r => r.destination === '/api/denied');
+  const staffPageDeny = pageDeny.filter(r => r.missing);
+  assert.deepEqual(staffPageDeny.map(r => r.source).sort(), [...STAFF_PAGES].sort());
+  for (const rule of staffPageDeny) {
+    assert.equal(rule.permanent, false);
+    assert.deepEqual(hostValues(rule, 'missing').sort(), [...STAFF_HOSTS, ...OPEN_HOSTS].sort());
+  }
+  const borrowerPageDeny = pageDeny.filter(r => r.has);
+  const pagesByHost = new Map();
+  for (const rule of borrowerPageDeny) {
+    const host = hostValues(rule, 'has')[0];
+    pagesByHost.set(host, [...(pagesByHost.get(host) || []), rule.source]);
+  }
+  assert.deepEqual([...pagesByHost.keys()].sort(), [...STAFF_HOSTS].sort());
+  for (const sources of pagesByHost.values()) assert.deepEqual(sources.sort(), [...BORROWER_PAGES].sort());
 
   const borrowerRoot = vercel.rewrites.filter(r => r.source === '/' && r.destination === '/quik1/index.html');
   assert.deepEqual(borrowerRoot.map(r => hostValues(r, 'has')[0]).sort(), [...BORROWER_HOSTS].sort());
