@@ -201,14 +201,19 @@ export async function createInvite(req, clientId, now = Date.now()) {
 export async function revokeInvite(inviteId) {
   if (!isSafeId(inviteId)) throw new HttpError(400, 'bad id');
   const nowIso = new Date().toISOString();
-  const rows = await patchWhere('q1_invites', {
-    id: eq(inviteId),
-    redeemed_at: 'is.null',
-    revoked_at: 'is.null'
-  }, { revoked_at: nowIso });
-  if (!rows.length) {
-    const row = await selectOne('q1_invites', { select: 'id', id: eq(inviteId) });
-    if (!row) throw new HttpError(404, 'Invite not found');
+  try {
+    const rows = await patchWhere('q1_invites', {
+      id: eq(inviteId),
+      redeemed_at: 'is.null',
+      revoked_at: 'is.null'
+    }, { revoked_at: nowIso });
+    if (!rows.length) {
+      const row = await selectOne('q1_invites', { select: 'id', id: eq(inviteId) });
+      if (!row) throw new HttpError(404, 'Invite not found');
+    }
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
   }
   return { ok: true };
 }
@@ -318,47 +323,53 @@ export async function redeemInvite(req, body) {
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
 
-  const row = await selectOne('q1_invites', {
-    select: 'id,client_id,expires_at,revoked_at,redeemed_at',
-    code_hash: eq(hashInviteCode(code))
-  });
-  if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
-  await liveClient(row.client_id);
-
-  const pinHash = await hashPin(pin);
-  const nowIso = new Date().toISOString();
-  const consumed = await patchWhere('q1_invites', {
-    id: eq(row.id),
-    redeemed_at: 'is.null',
-    revoked_at: 'is.null',
-    expires_at: 'gt.' + nowIso
-  }, { redeemed_at: nowIso });
-  if (!consumed.length) throw new HttpError(410, 'This invite is no longer valid');
-
-  let borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id',
-    client_id: eq(row.client_id)
-  });
-  if (borrower) {
-    await update('q1_borrowers', { id: borrower.id }, {
-      pin_hash: pinHash,
-      failed_attempts: 0,
-      locked_at: null,
-      updated_at: nowIso
+  try {
+    const row = await selectOne('q1_invites', {
+      select: 'id,client_id,expires_at,revoked_at,redeemed_at',
+      code_hash: eq(hashInviteCode(code))
     });
-  } else {
-    const id = 'qb_' + randomBytes(16).toString('hex');
-    await insert('q1_borrowers', [{
-      id,
-      client_id: row.client_id,
-      pin_hash: pinHash,
-      failed_attempts: 0,
-      locked_at: null
-    }]);
-    borrower = { id, client_id: row.client_id };
+    if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
+    await liveClient(row.client_id);
+
+    const pinHash = await hashPin(pin);
+    const nowIso = new Date().toISOString();
+    const consumed = await patchWhere('q1_invites', {
+      id: eq(row.id),
+      redeemed_at: 'is.null',
+      revoked_at: 'is.null',
+      expires_at: 'gt.' + nowIso
+    }, { redeemed_at: nowIso });
+    if (!consumed.length) throw new HttpError(410, 'This invite is no longer valid');
+
+    let borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id',
+      client_id: eq(row.client_id)
+    });
+    if (borrower) {
+      await update('q1_borrowers', { id: borrower.id }, {
+        pin_hash: pinHash,
+        failed_attempts: 0,
+        locked_at: null,
+        updated_at: nowIso
+      });
+    } else {
+      const id = 'qb_' + randomBytes(16).toString('hex');
+      await insert('q1_borrowers', [{
+        id,
+        client_id: row.client_id,
+        pin_hash: pinHash,
+        failed_attempts: 0,
+        locked_at: null
+      }]);
+      borrower = { id, client_id: row.client_id };
+    }
+    const { minted, accountRef } = await openSession(borrower);
+    return { accountRef, cookies: authCookies(minted, accountRef, req) };
+  } catch (err) {
+    // Missing auth tables must not mint a session.
+    if (missingTable(err)) throw notSetUp();
+    throw err;
   }
-  const { minted, accountRef } = await openSession(borrower);
-  return { accountRef, cookies: authCookies(minted, accountRef, req) };
 }
 
 export async function loginBorrower(req, body) {
@@ -371,31 +382,46 @@ export async function loginBorrower(req, body) {
     await burnPinTime(pin);
     rejectPin();
   }
-  const borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
-    id: eq(accountRef)
-  });
-  if (!borrower) {
-    await burnPinTime(pin);
-    rejectPin();
+  try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      id: eq(accountRef)
+    });
+    if (!borrower) {
+      await burnPinTime(pin);
+      rejectPin();
+    }
+    if (isLocked(borrower)) lockedError();
+    const ok = await verifyPin(pin, borrower.pin_hash);
+    if (!ok) await noteFailure(borrower);
+    try { await liveClient(borrower.client_id); }
+    catch (e) {
+      if (e instanceof HttpError && e.status === 404) rejectPin();
+      throw e;
+    }
+    const { minted, accountRef: ref } = await openSession(borrower);
+    return { accountRef: ref, cookies: authCookies(minted, ref, req) };
+  } catch (err) {
+    // No borrower table means there is no account. Same answer as a bad PIN, and no cookie.
+    if (missingTable(err)) {
+      await burnPinTime(pin);
+      rejectPin();
+    }
+    throw err;
   }
-  if (isLocked(borrower)) lockedError();
-  const ok = await verifyPin(pin, borrower.pin_hash);
-  if (!ok) await noteFailure(borrower);
-  try { await liveClient(borrower.client_id); }
-  catch (e) {
-    if (e instanceof HttpError && e.status === 404) rejectPin();
-    throw e;
-  }
-  const { minted, accountRef: ref } = await openSession(borrower);
-  return { accountRef: ref, cookies: authCookies(minted, ref, req) };
 }
 
 export async function logoutBorrower(req) {
   const sess = readSession(req);
   if (sess) {
     const nowIso = new Date().toISOString();
-    await patchWhere('q1_sessions', { id: eq(sess.sid), revoked_at: 'is.null' }, { revoked_at: nowIso });
+    try {
+      await patchWhere('q1_sessions', { id: eq(sess.sid), revoked_at: 'is.null' }, { revoked_at: nowIso });
+    } catch (err) {
+      // The browser cookie still has to die. A missing table is already signed out.
+      // Any other failure stays an error so a live session is not forgotten server-side.
+      if (!missingTable(err)) throw err;
+    }
   }
   return { cookies: [clearSessionCookie(requestIsSecure(req))] };
 }

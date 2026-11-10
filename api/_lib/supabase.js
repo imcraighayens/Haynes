@@ -47,8 +47,8 @@ async function request(method, table, query, { body, prefer, headers } = {}) {
   let data = null;
   if (text) { try { data = JSON.parse(text); } catch { data = null; } }
   if (!res.ok) {
-    // Surface the PostgREST error code (e.g. 23505 duplicate, 42P01 missing table) but never
-    // its message/details, which can echo row values.
+    // Surface the PostgREST error code (23505 duplicate, 42P01 missing relation, PGRST205
+    // table absent from the schema cache) but never its message/details, which can echo row values.
     const code = data && typeof data === 'object' && data.code ? String(data.code) : String(res.status);
     const err = new HttpError(res.status === 404 ? 502 : (res.status >= 500 ? 502 : 502), `Database error ${code}`);
     err.code = code; err.upstream = res.status;
