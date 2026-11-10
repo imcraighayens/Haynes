@@ -127,6 +127,46 @@ export function idHmac(digits) {
   return createHmac('sha256', key).update(clean, 'utf8').digest('hex');
 }
 
+// South African cellphone, stored only as a keyed HMAC. 082…, 27…, and 9 digits
+// after +27 all become 27 plus 9 digits. This is not an unsalted hash.
+export function normaliseCell(raw) {
+  let digits = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.length === 10 && digits.startsWith('0')) digits = '27' + digits.slice(1);
+  if (digits.length === 9) digits = '27' + digits;
+  if (!/^27\d{9}$/.test(digits)) return '';
+  return digits;
+}
+
+export function phoneHmac(raw) {
+  const key = hmacKey();
+  const digits = normaliseCell(raw);
+  if (!key || !digits) return null;
+  return createHmac('sha256', key).update('phone:' + digits, 'utf8').digest('hex');
+}
+
+export async function stampClientIdentity(clientId, raw) {
+  if (!clientId || !raw || typeof raw !== 'object') return;
+  const patch = {};
+  if (raw.id_number != null && String(raw.id_number).trim() !== '') {
+    const mac = idHmac(raw.id_number);
+    if (mac) patch.id_hmac = mac;
+  }
+  if (raw.phone != null && String(raw.phone).trim() !== '') {
+    const mac = phoneHmac(raw.phone);
+    if (mac) patch.phone_hmac = mac;
+  }
+  if (!Object.keys(patch).length) return;
+  try {
+    await update('clients', { id: clientId }, patch);
+  } catch (err) {
+    const code = err && err.code ? String(err.code) : '';
+    const msg = String((err && err.message) || '');
+    if (code === '42703' || code === '42P01' || /42703|42P01|PGRST204|PGRST205/.test(msg)) return;
+    throw err;
+  }
+}
+
 export async function storeBorrowerId(borrowerId, raw) {
   const digits = normaliseSaId(raw);
   if (!digits) throw new HttpError(400, 'ID number is not valid');

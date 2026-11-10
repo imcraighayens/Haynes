@@ -4,6 +4,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
+import { idHmac, phoneHmac, luhnOk } from '../../api/_lib/sa-id.js';
 
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
@@ -161,6 +162,30 @@ test('a loan already on another client is not moved', async () => {
   assert.equal(res.json().committed, false);
   assert.equal(fake.db.loans.find(l => l.mandate_id === 'M-TAKEN').client_id, 'c_keep');
   assert.equal(fake.db.clients.some(c => c.ref === 'NP-400'), false);
+});
+
+test('a committed import stamps both HMACs when the key is set', async () => {
+  const body = '910101480008';
+  let said = '';
+  for (let check = 0; check <= 9; check++) {
+    const id = body + String(check);
+    if (luhnOk(id)) said = id;
+  }
+  const phone = '0825550101';
+  const key = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
+  process.env.QUIK1_ID_HMAC_KEY = key;
+  const csv = 'NuPay reference,Name,ID number,Cell\nNP-HMAC,Sample Client,' + said + ',' + phone + '\n';
+  try {
+    const res = await call({ body: { csv, commit: true } });
+    assert.equal(res.statusCode, 200, res.body);
+    const client = fake.db.clients.find(c => c.ref === 'NP-HMAC');
+    assert.equal(client.id_hmac, idHmac(said));
+    assert.equal(client.phone_hmac, phoneHmac(phone));
+    assert.equal(res.body.includes(said), false);
+    assert.equal(res.body.includes(client.id_hmac), false);
+  } finally {
+    delete process.env.QUIK1_ID_HMAC_KEY;
+  }
 });
 
 test('a file with no loan columns does not write a loan', async () => {

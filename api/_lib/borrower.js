@@ -1,7 +1,8 @@
 // Staff invites and borrower PIN sign-in.
 // A new device is confirmed by an email link when borrower email is live.
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
-// An ID number is never used to look anyone up.
+// An ID number is never used to look anyone up. ID and cellphone
+// sign-in, when used, matches a keyed HMAC on the client row.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
@@ -83,18 +84,24 @@ export async function guardAuth(req, res) {
 
 const ATTEMPT_KEEP_MS = 90 * 24 * 3600 * 1000;
 
-async function noteAttempt(borrowerId, kind, req) {
+async function noteAttempt(borrowerId, kind, req, subjectHash) {
+  const row = {
+    id: 'qa_' + randomBytes(8).toString('hex'),
+    borrower_id: borrowerId || null,
+    kind,
+    ip_hash: authIpHash(clientIp(req) || 'unknown'),
+    expires_at: new Date(Date.now() + ATTEMPT_KEEP_MS).toISOString()
+  };
+  if (subjectHash) row.subject_hash = subjectHash;
   try {
-    await insert('q1_auth_attempts', [{
-      id: 'qa_' + randomBytes(8).toString('hex'),
-      borrower_id: borrowerId || null,
-      kind,
-      ip_hash: authIpHash(clientIp(req) || 'unknown'),
-      expires_at: new Date(Date.now() + ATTEMPT_KEEP_MS).toISOString()
-    }]);
+    await insert('q1_auth_attempts', [row]);
   } catch {
     throw new HttpError(503, 'Server not configured');
   }
+}
+
+export async function logAuthAttempt(borrowerId, kind, req, subjectHash) {
+  return noteAttempt(borrowerId, kind, req, subjectHash);
 }
 
 export function hashInviteCode(code) {
@@ -256,6 +263,18 @@ async function lockUntilRedeem(clientId, nowIso) {
   });
   await revokeSessions(borrower.id, nowIso);
   await revokeDevices(borrower.id, nowIso);
+  await revokePasskeys(borrower.id, nowIso);
+}
+
+async function revokePasskeys(borrowerId, nowIso) {
+  try {
+    await patchWhere('q1_webauthn_credentials', {
+      borrower_id: eq(borrowerId),
+      revoked_at: 'is.null'
+    }, { revoked_at: nowIso });
+  } catch (err) {
+    if (!missingTable(err)) throw err;
+  }
 }
 
 export async function createInvite(req, clientId, now = Date.now()) {
@@ -450,15 +469,16 @@ function deviceTtlMs() {
 
 async function trustDevice(borrowerId, now = Date.now()) {
   const token = randomBytes(32).toString('hex');
+  const id = 'qd_' + randomBytes(8).toString('hex');
   const nowIso = new Date(now).toISOString();
   await insert('q1_devices', [{
-    id: 'qd_' + randomBytes(8).toString('hex'),
+    id,
     borrower_id: borrowerId,
     token_hash: hashDeviceToken(token),
     last_seen_at: nowIso,
     expires_at: new Date(now + deviceTtlMs()).toISOString()
   }]);
-  return token;
+  return { token, id };
 }
 
 async function deviceRecognised(req, borrowerId) {
@@ -473,7 +493,8 @@ async function deviceRecognised(req, borrowerId) {
   if (!row.expires_at || new Date(row.expires_at).getTime() <= Date.now()) return '';
   const nowIso = new Date().toISOString();
   await update('q1_devices', { id: row.id }, { revoked_at: nowIso });
-  return trustDevice(borrowerId);
+  const next = await trustDevice(borrowerId);
+  return next.token;
 }
 
 export function authCookies(minted, accountRef, req, deviceToken) {
@@ -502,55 +523,60 @@ export async function redeemInvite(req, body, res) {
   }
 
   try {
-    const row = await selectOne('q1_invites', {
-      select: 'id,client_id,expires_at,revoked_at,redeemed_at',
-      code_hash: eq(hashInviteCode(code))
-    });
-    if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
-    await liveClient(row.client_id);
+  const row = await selectOne('q1_invites', {
+    select: 'id,client_id,expires_at,revoked_at,redeemed_at',
+    code_hash: eq(hashInviteCode(code))
+  });
+  if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
+  await liveClient(row.client_id);
 
-    const pinHash = await hashPin(pin);
-    const nowIso = new Date().toISOString();
-    const consumed = await patchWhere('q1_invites', {
-      id: eq(row.id),
-      redeemed_at: 'is.null',
-      revoked_at: 'is.null',
-      expires_at: 'gt.' + nowIso
-    }, { redeemed_at: nowIso });
-    if (!consumed.length) throw new HttpError(410, 'This invite is no longer valid');
+  const pinHash = await hashPin(pin);
+  const nowIso = new Date().toISOString();
+  const consumed = await patchWhere('q1_invites', {
+    id: eq(row.id),
+    redeemed_at: 'is.null',
+    revoked_at: 'is.null',
+    expires_at: 'gt.' + nowIso
+  }, { redeemed_at: nowIso });
+  if (!consumed.length) throw new HttpError(410, 'This invite is no longer valid');
 
-    let borrower = await selectOne('q1_borrowers', {
-      select: 'id,client_id',
-      client_id: eq(row.client_id)
+  let borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id',
+    client_id: eq(row.client_id)
+  });
+  if (borrower) {
+    await update('q1_borrowers', { id: borrower.id }, {
+      pin_hash: pinHash,
+      failed_attempts: 0,
+      locked_at: null,
+      device_reset_until: null,
+      updated_at: nowIso
     });
-    if (borrower) {
-      await update('q1_borrowers', { id: borrower.id }, {
-        pin_hash: pinHash,
-        failed_attempts: 0,
-        locked_at: null,
-        device_reset_until: null,
-        updated_at: nowIso
-      });
-    } else {
-      const id = 'qb_' + randomBytes(16).toString('hex');
-      await insert('q1_borrowers', [{
-        id,
-        client_id: row.client_id,
-        pin_hash: pinHash,
-        failed_attempts: 0,
-        locked_at: null
-      }]);
-      borrower = { id, client_id: row.client_id };
-    }
-    await revokeDevices(borrower.id, nowIso);
-    const deviceToken = await trustDevice(borrower.id);
-    const { minted, accountRef } = await openSession(borrower);
-    return { accountRef, cookies: authCookies(minted, accountRef, req, deviceToken) };
+  } else {
+    const id = 'qb_' + randomBytes(16).toString('hex');
+    await insert('q1_borrowers', [{
+      id,
+      client_id: row.client_id,
+      pin_hash: pinHash,
+      failed_attempts: 0,
+      locked_at: null
+    }]);
+    borrower = { id, client_id: row.client_id };
+  }
+  await revokeDevices(borrower.id, nowIso);
+  const device = await trustDevice(borrower.id);
+  const { minted, accountRef } = await openSession(borrower);
+  return { accountRef, cookies: authCookies(minted, accountRef, req, device.token) };
   } catch (err) {
-    // Missing auth tables must not mint a session.
     if (missingTable(err)) throw notSetUp();
     throw err;
   }
+}
+
+export async function startBorrowerSession(borrower, req, now = Date.now()) {
+  const device = await trustDevice(borrower.id, now);
+  const { minted, accountRef } = await openSession(borrower, now);
+  return { accountRef, deviceId: device.id, cookies: authCookies(minted, accountRef, req, device.token) };
 }
 
 function ttlMinutes() {
@@ -623,7 +649,7 @@ async function assertVerifyBudget(borrowerId) {
     order: 'created_at.desc'
   });
   if (latest && latest.created_at && Date.now() - new Date(latest.created_at).getTime() < verifyCooldownMs()) {
-    throw new HttpError(429, 'Wait before requesting another code');
+    throw new HttpError(429, 'Wait before requesting another link');
   }
   const since = new Date(Date.now() - 3600 * 1000).toISOString();
   const n = await count('q1_otp_challenges', { borrower_id: eq(borrowerId), created_at: 'gte.' + since });
@@ -734,18 +760,19 @@ export async function consumeEmailLink(req, body) {
 }
 
 async function finishVerified(req, borrower) {
-  const deviceToken = await trustDevice(borrower.id);
+  const device = await trustDevice(borrower.id);
   const { minted, accountRef } = await openSession(borrower);
   const secure = requestIsSecure(req);
   return {
     accountRef,
-    cookies: [...authCookies(minted, accountRef, req, deviceToken), clearPendingCookie(secure)]
+    cookies: [...authCookies(minted, accountRef, req, device.token), clearPendingCookie(secure)]
   };
 }
 
-function deviceMatches(req, challenge) {
+export function deviceMatches(req, challenge) {
   const pending = readPendingDevice(req);
-  return !!(pending && challenge && challenge.device_hash && hashToken(pending) === challenge.device_hash);
+  if (!pending || !challenge || typeof challenge.device_hash !== 'string') return false;
+  return sigEqual(hashToken(pending), challenge.device_hash);
 }
 
 export async function loginBorrower(req, body, res) {
@@ -756,8 +783,6 @@ export async function loginBorrower(req, body, res) {
   try {
     await assertAttemptBudget(req, res);
   } catch (err) {
-    // The attempt log is required once borrower auth exists. If that schema is
-    // absent entirely, this is the same as a bad PIN and must not set a cookie.
     if (err instanceof HttpError && err.status === 503 && await relationMissing('q1_borrowers')) {
       await burnPinTime(pin);
       rejectPin();
@@ -805,16 +830,15 @@ export async function loginBorrower(req, body, res) {
         device_reset_until: 'gt.' + nowIso
       }, { device_reset_until: null, updated_at: nowIso });
       if (claimed.length) {
-        const token = await trustDevice(borrower.id);
+        const trusted = await trustDevice(borrower.id);
         const { minted, accountRef: ref } = await openSession(borrower);
-        return { accountRef: ref, cookies: authCookies(minted, ref, req, token) };
+        return { accountRef: ref, cookies: authCookies(minted, ref, req, trusted.token) };
       }
       // Email off: do not mint a verify ticket or start a challenge.
       if (!borrowerEmailLive(req)) deviceNotLinked();
     }
     return offerVerification(req, borrower);
   } catch (err) {
-    // No borrower table means there is no account. Same answer as a bad PIN, and no cookie.
     if (missingTable(err)) {
       await burnPinTime(pin);
       rejectPin();
@@ -834,6 +858,7 @@ export async function resetBorrowerDevices(req, clientId) {
   const emailLive = !!(borrower && canEmailNewDevice(req, address));
   if (borrower) {
     await revokeDevices(borrower.id, nowIso);
+    await revokePasskeys(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);
     await revokeSessions(borrower.id, nowIso);
     await update('q1_borrowers', { id: borrower.id }, {
@@ -855,7 +880,7 @@ export async function resetBorrowerDevices(req, clientId) {
       customer: '—',
       amount: 0,
       by,
-      comment: 'Revoked every open Quik1 session and trusted device for ' + (client.ref || 'a client') + '. The PIN was not changed.' + windowNote
+      comment: 'Revoked every open Quik1 session, passkey, and trusted device for ' + (client.ref || 'a client') + '. The PIN was not changed.' + windowNote
     }], { returning: false });
   } catch (err) {
     if (!missingTable(err)) throw err;
@@ -868,20 +893,22 @@ export async function logoutBorrower(req) {
   const nowIso = new Date().toISOString();
   if (sess) {
     try {
-      await patchWhere('q1_sessions', { id: eq(sess.sid), revoked_at: 'is.null' }, { revoked_at: nowIso });
+      if (!(await relationMissing('q1_sessions'))) {
+        await patchWhere('q1_sessions', { id: eq(sess.sid), revoked_at: 'is.null' }, { revoked_at: nowIso });
+      }
     } catch (err) {
-      // The browser cookie still has to die. A missing table is already signed out.
-      // Any other failure stays an error so a live session is not forgotten server-side.
       if (!missingTable(err)) throw err;
     }
   }
   const known = readKnownDevice(req);
   if (known) {
     try {
-      await patchWhere('q1_devices', {
-        token_hash: eq(hashDeviceToken(known)),
-        revoked_at: 'is.null'
-      }, { revoked_at: nowIso });
+      if (!(await relationMissing('q1_devices'))) {
+        await patchWhere('q1_devices', {
+          token_hash: eq(hashDeviceToken(known)),
+          revoked_at: 'is.null'
+        }, { revoked_at: nowIso });
+      }
     } catch (err) {
       if (!missingTable(err)) throw err;
     }

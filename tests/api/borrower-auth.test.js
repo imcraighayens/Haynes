@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { hashPin, verifyPin } from '../../api/_lib/pin.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
-import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
+import { mintBorrowerToken, deviceCookie, DEVICE_MAX_AGE } from '../../api/_lib/quik1-session.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
-import { authIpHash } from '../../api/_lib/borrower.js';
+import { authIpHash, deviceMatches } from '../../api/_lib/borrower.js';
 import { decryptId } from '../../api/_lib/sa-id.js';
 
 const UNLINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
@@ -675,6 +675,30 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(oldKnown.length > 0, true);
   });
 
+  test('logout revokes the device when the session table is missing', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(redeemed.statusCode, 200, redeemed.body);
+    const session = sessionToken(redeemed);
+    const known = knownCookie(redeemed);
+    assert.match(session, /\./);
+    assert.match(known, /^q1_known=/);
+    assert.equal(fake.db.q1_devices.some(row => !row.revoked_at), true);
+    delete fake.db.q1_sessions;
+    const out = await call(quik1, {
+      method: 'POST', path: ['logout'],
+      headers: { cookie: 'q1_session=' + encodeURIComponent(session) + '; ' + known }
+    });
+    assert.equal(out.statusCode, 200, out.body);
+    assert.equal(fake.db.q1_devices.every(row => row.revoked_at), true);
+    assert.match(String(out.headers['set-cookie']), /q1_known=;/);
+    assert.match(String(out.headers['set-cookie']), /q1_session=/);
+  });
+
   test('a signed-in borrower can store an SA ID encrypted, and the client only sees a mask', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -1100,6 +1124,67 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(page.includes("pinPhase==='email'?'Check your email'"), true);
   });
 
+  test('borrower B cannot consume borrower A’s device-reset flag', async () => {
+    const inviteA = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemedA = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteA.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const inviteB = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_B }
+    });
+    const redeemedB = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteB.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    const refA = redeemedA.json().accountRef;
+    const refB = redeemedB.json().accountRef;
+    const reset = await call(ledger, {
+      method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(reset.statusCode, 200, reset.body);
+    const row = id => fake.db.q1_borrowers.find(borrower => borrower.id === id);
+    const flagA = row(refA).device_reset_until;
+    assert.ok(flagA);
+    assert.ok(!row(refB).device_reset_until);
+
+    const wrongPin = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refB, pin: PIN_OK } });
+    assert.equal(wrongPin.statusCode, 401);
+    assert.equal(wrongPin.body.includes(PIN_OK), false);
+    assert.equal(row(refA).device_reset_until, flagA);
+
+    const asB = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refB, pin: PIN_NEXT } });
+    assert.equal(asB.statusCode, 403, asB.body);
+    assert.equal(asB.json().code, 'device_not_linked');
+    assert.equal(asB.json().verifyToken, undefined);
+    assert.equal(cookieHeader(asB).includes('q1_session='), false);
+    assert.equal(row(refA).device_reset_until, flagA);
+    assert.ok(!row(refB).device_reset_until);
+
+    const sameInvite = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_B }
+    });
+    const sameRedeem = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      body: { code: sameInvite.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(sameRedeem.statusCode, 200, sameRedeem.body);
+    assert.equal(row(refA).device_reset_until, flagA);
+    const samePin = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refB, pin: PIN_OK } });
+    assert.equal(samePin.statusCode, 403, samePin.body);
+    assert.equal(samePin.json().code, 'device_not_linked');
+    assert.equal(samePin.json().verifyToken, undefined);
+    assert.equal(cookieHeader(samePin).includes('q1_session='), false);
+    assert.equal(row(refA).device_reset_until, flagA);
+
+    const claimed = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refA, pin: PIN_OK } });
+    assert.equal(claimed.statusCode, 200, claimed.body);
+    assert.equal(claimed.json().verifyRequired, undefined);
+    assert.match(knownCookie(claimed), /^q1_known=/);
+    assert.equal(row(refA).device_reset_until, null);
+    assert.equal(claimed.json().accountRef, refA);
+  });
+
   test('email and PIN flags stay unset in the example env', () => {
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const env = fs.readFileSync(path.join(root, '.env.example'), 'utf8');
@@ -1111,5 +1196,55 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.match(env, /^# QUIK1_ID_KEY=/m);
     assert.equal(src.includes('sms.js'), false);
     assert.equal(src.includes('TWILIO_'), false);
+  });
+
+  test('verify routes are rate limited before the link is checked', async () => {
+    process.env.QUIK1_AUTH_RATE_LIMIT = '3';
+    authLimiter.reset();
+    const ip = { 'x-forwarded-for': '198.51.100.21' };
+    try {
+      for (let i = 0; i < 3; i++) {
+        const res = await call(quik1, { method: 'POST', path: ['verify'], headers: ip, body: {} });
+        assert.notEqual(res.statusCode, 429);
+      }
+      const blocked = await call(quik1, { method: 'POST', path: ['verify'], headers: ip, body: {} });
+      assert.equal(blocked.statusCode, 429);
+      const emailIp = { 'x-forwarded-for': '198.51.100.22' };
+      authLimiter.reset();
+      for (let i = 0; i < 3; i++) {
+        const res = await call(quik1, { method: 'POST', path: ['verify', 'email'], headers: emailIp, body: { token: 'ab'.repeat(32) } });
+        assert.notEqual(res.statusCode, 429);
+      }
+      const blockedEmail = await call(quik1, { method: 'POST', path: ['verify', 'email'], headers: emailIp, body: { token: 'cd'.repeat(32) } });
+      assert.equal(blockedEmail.statusCode, 429);
+    } finally {
+      delete process.env.QUIK1_AUTH_RATE_LIMIT;
+      authLimiter.reset();
+    }
+  });
+
+  test('the magic-link hash is cleared before the token is posted', () => {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const quik = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
+    const start = quik.indexOf("const link=/^#verify=");
+    const strip = quik.indexOf('history.replaceState', start);
+    const post = quik.indexOf('this.consumeEmailLink(token)', start);
+    assert.ok(start > 0 && strip > start && post > strip);
+    assert.equal(quik.includes('keepSms'), false);
+    assert.equal(quik.includes("pinPhase==='sms'"), false);
+  });
+
+  test('device match uses a length-safe compare and the device cookie lasts 90 days', () => {
+    const token = 'ab'.repeat(32);
+    const hash = createHash('sha256').update(token, 'utf8').digest('hex');
+    const req = { headers: { cookie: 'q1_pending=' + token } };
+    assert.equal(deviceMatches(req, { device_hash: hash }), true);
+    assert.equal(deviceMatches(req, { device_hash: '0'.repeat(64) }), false);
+    assert.equal(deviceMatches(req, { device_hash: 'abc' }), false);
+    assert.equal(deviceMatches(req, { device_hash: '' }), false);
+    const baked = deviceCookie('qb_' + 'cd'.repeat(16), true);
+    assert.match(baked, new RegExp('Max-Age=' + DEVICE_MAX_AGE + '(;|$)'));
+    assert.equal(DEVICE_MAX_AGE, 90 * 24 * 3600);
+    assert.equal(baked.includes('Max-Age=34560000'), false);
   });
 });
