@@ -3343,7 +3343,8 @@ class Component extends DCLogic {
     const pinConfirm=String(base.tempPin2||'');
     const cleared=Object.assign({}, base, {tempPin:'', tempPin2:'', pinMsg:'', busy:base.busy});
     this.setState({q1Invite:cleared});
-    const fail=()=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, {tempPin:'', tempPin2:'', pinMsg:'Could not set a temporary PIN.'})}));
+    const inviteLock="Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
+    const fail=(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, {tempPin:'', tempPin2:'', pinMsg:(e&&e.status===409)?inviteLock:'Could not set a temporary PIN.'})}));
     if(!id) return fail();
     this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
       const status=(j&&j.pinStatus)||'Temporary PIN set';

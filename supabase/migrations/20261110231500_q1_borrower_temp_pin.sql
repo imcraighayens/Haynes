@@ -87,10 +87,14 @@ create table if not exists public.q1_temp_pin_sets (
   id text primary key,
   client_id text not null,
   actor text not null,
+  unlocked boolean not null default false,
   created_at timestamptz not null default now(),
   constraint q1_temp_pin_sets_client_len check (char_length(client_id) between 1 and 80),
   constraint q1_temp_pin_sets_actor_len check (char_length(actor) between 1 and 120)
 );
+
+alter table public.q1_temp_pin_sets
+  add column if not exists unlocked boolean not null default false;
 
 create index if not exists q1_temp_pin_sets_actor_created_idx
   on public.q1_temp_pin_sets (actor, created_at desc);
@@ -104,5 +108,7 @@ revoke all on table public.q1_temp_pin_sets from public, anon, authenticated;
 
 comment on table public.q1_temp_pin_sets is
   'Staff temporary-PIN sets, for the per-staff and per-client limit. No PIN and no hash.';
+comment on column public.q1_temp_pin_sets.unlocked is
+  'True only when this set cleared a failed-attempt lockout. Never a PIN or a hash.';
 
 commit;

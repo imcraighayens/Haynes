@@ -24,6 +24,7 @@ import {
 const INVITE_CODE = /^[0-9a-f]{64}$/;
 const ACCOUNT_REF = /^qb_[0-9a-f]{32}$/;
 const LOCKED_PLACEHOLDER = 'locked';
+export const TEMP_PIN_INVITE_LOCK = "Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
 const UNSET_PIN = 'unset';
 const TEMP_PIN_TTL_MS = 72 * 3600 * 1000;
 const TEMP_PIN_LIMIT = 5;
@@ -483,6 +484,47 @@ function lockedError() {
 function lockActive(borrower, now = Date.now()) {
   if (!borrower || !borrower.locked_at) return false;
   return new Date(borrower.locked_at).getTime() + lockoutMs() > now;
+}
+
+// Failed-attempt lockout only. The invite/revoke sentinel is pin_hash 'locked', and that is not this.
+function failedAttemptLocked(borrower, now = Date.now()) {
+  if (!borrower || borrower.pin_hash === LOCKED_PLACEHOLDER) return false;
+  if (typeof borrower.pin_hash !== 'string' || !borrower.pin_hash.startsWith('scrypt$')) return false;
+  if ((borrower.failed_attempts || 0) >= maxPinAttempts() && !borrower.locked_at) return true;
+  return lockActive(borrower, now);
+}
+
+// Revoke and a new invite both leave pin_hash 'locked'. A lock with no scrypt PIN is the same refusal.
+function accessLocked(row) {
+  if (!row) return false;
+  if (row.pin_hash === LOCKED_PLACEHOLDER) return true;
+  const scrypt = typeof row.pin_hash === 'string' && row.pin_hash.startsWith('scrypt$');
+  return !scrypt && !!row.locked_at;
+}
+
+function tempPinPatch(row, pinHash, expires, nowIso) {
+  if (accessLocked(row)) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
+  const scrypt = !!(row && typeof row.pin_hash === 'string' && row.pin_hash.startsWith('scrypt$'));
+  const patch = {
+    temp_pin_hash: pinHash,
+    temp_pin_expires_at: expires,
+    temp_pin_spent_hash: null,
+    pin_change_hash: null,
+    pin_change_expires_at: null,
+    updated_at: nowIso
+  };
+  const unlocked = failedAttemptLocked(row);
+  if (!row) {
+    patch.pin_hash = UNSET_PIN;
+    patch.failed_attempts = 0;
+    patch.locked_at = null;
+  } else if (unlocked) {
+    patch.failed_attempts = 0;
+    patch.locked_at = null;
+  } else if (!scrypt && row.pin_hash !== LOCKED_PLACEHOLDER) {
+    patch.pin_hash = UNSET_PIN;
+  }
+  return { patch, unlocked };
 }
 
 async function clearExpiredLock(borrower, now = Date.now()) {
@@ -985,28 +1027,26 @@ export async function setTemporaryPin(req, res, body) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   const pin = chosenPair(body || {});
   const client = await liveClient(body && typeof body.clientId === 'string' ? body.clientId : '');
+  let existing = null;
+  try {
+    existing = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      client_id: eq(client.id)
+    });
+  } catch (err) {
+    if (schemaMissing(err)) throw migrationPending();
+    throw err;
+  }
+  // Refuse before any patch or audit row. pin_hash 'locked' is what lockUntilRedeem and revokeAccess write.
+  if (accessLocked(existing)) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
   const actor = await assertTempPinRate(req, res, client.id);
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const expires = new Date(now + TEMP_PIN_TTL_MS).toISOString();
   try {
     const pinHash = await hashPin(pin);
-    let borrower = await selectOne('q1_borrowers', {
-      select: 'id,client_id,pin_hash',
-      client_id: eq(client.id)
-    });
-    const active = !!(borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$'));
-    const patch = {
-      temp_pin_hash: pinHash,
-      temp_pin_expires_at: expires,
-      temp_pin_spent_hash: null,
-      pin_change_hash: null,
-      pin_change_expires_at: null,
-      failed_attempts: 0,
-      locked_at: null,
-      updated_at: nowIso
-    };
-    if (!active) patch.pin_hash = UNSET_PIN;
+    let borrower = existing;
+    let { patch, unlocked } = tempPinPatch(borrower, pinHash, expires, nowIso);
     if (!borrower) {
       const id = 'qb_' + randomBytes(16).toString('hex');
       try {
@@ -1019,13 +1059,13 @@ export async function setTemporaryPin(req, res, body) {
       } catch (err) {
         if (!err || err.code !== '23505') throw err;
         borrower = await selectOne('q1_borrowers', {
-          select: 'id,client_id,pin_hash',
+          select: 'id,client_id,pin_hash,failed_attempts,locked_at',
           client_id: eq(client.id)
         });
         if (!borrower) throw err;
-        const stillActive = typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$');
-        if (stillActive) delete patch.pin_hash;
-        else patch.pin_hash = UNSET_PIN;
+        const next = tempPinPatch(borrower, pinHash, expires, nowIso);
+        patch = next.patch;
+        unlocked = next.unlocked;
         await update('q1_borrowers', { id: borrower.id }, patch);
       }
     } else {
@@ -1037,7 +1077,8 @@ export async function setTemporaryPin(req, res, body) {
     await insert('q1_temp_pin_sets', [{
       id: 'qt_' + randomBytes(8).toString('hex'),
       client_id: client.id,
-      actor
+      actor,
+      unlocked: unlocked === true
     }]);
     const who = staffIdentity(req);
     const by = who && who.email ? String(who.email).slice(0, 80) : actor;
@@ -1058,7 +1099,9 @@ export async function setTemporaryPin(req, res, body) {
     return {
       ok: true,
       pinStatus: borrowerPinStatus({
-        pin_hash: active ? borrower.pin_hash : UNSET_PIN,
+        pin_hash: borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')
+          ? borrower.pin_hash
+          : UNSET_PIN,
         temp_pin_hash: pinHash,
         temp_pin_expires_at: expires
       }, now)
