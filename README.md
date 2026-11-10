@@ -213,8 +213,9 @@ copy is the source of truth and wins on the next load.
   (one repeated digit, or a straight run such as 123456) are refused. Returning visits
   on a recognised device send the account reference plus that PIN. A new device needs
   a single-use email link when `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, and
-  `QUIK1_EMAIL_API_KEY` are set. Leave them unset: the phone tells the client that staff
-  can reset the device in Ledger, and no message is sent. Five failed PIN attempts lock
+  `QUIK1_EMAIL_API_KEY` are set, and never on a production host. Leave them unset:
+  no link is issued, and the phone says "This phone isn't linked yet. Please contact
+  EcoLoans and we'll reset your access." Five failed PIN attempts lock
   the account for 15 minutes (`QUIK1_LOCKOUT_MINUTES`); a new staff invite clears the
   lock immediately. A 4-digit PIN already on file still signs in until the next invite.
   Borrower book routes, including `GET /api/quik1/me` and available credit, answer 401
