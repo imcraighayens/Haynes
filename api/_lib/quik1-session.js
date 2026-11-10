@@ -7,6 +7,9 @@ import { header } from './http.js';
 
 export const SESSION_COOKIE = 'q1_session';
 export const DEVICE_COOKIE = 'q1_device';
+export const KNOWN_COOKIE = 'q1_known';
+export const PENDING_COOKIE = 'q1_pending';
+export const KNOWN_TTL_SECONDS = 90 * 24 * 3600;
 
 export function sessionSecret() {
   const s = process.env.QUIK1_SESSION_SECRET;
@@ -76,6 +79,16 @@ export function readDeviceRef(req) {
   return /^qb_[0-9a-f]{32}$/.test(v) ? v : '';
 }
 
+export function readKnownDevice(req) {
+  const v = cookies(req)[KNOWN_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
+export function readPendingDevice(req) {
+  const v = cookies(req)[PENDING_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
 export function requestIsSecure(req) {
   const proto = (header(req, 'x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
   if (proto === 'https') return true;
@@ -106,4 +119,20 @@ export function clearSessionCookie(secure = true) {
 
 export function deviceCookie(accountRef, secure = true) {
   return cookie(DEVICE_COOKIE, accountRef, { maxAge: 400 * 24 * 3600, secure });
+}
+
+export function knownDeviceCookie(token, secure = true) {
+  return cookie(KNOWN_COOKIE, token, { maxAge: KNOWN_TTL_SECONDS, secure });
+}
+
+export function clearKnownCookie(secure = true) {
+  return cookie(KNOWN_COOKIE, '', { clear: true, secure });
+}
+
+export function pendingDeviceCookie(token, maxAge, secure = true) {
+  return cookie(PENDING_COOKIE, token, { maxAge: Math.max(1, maxAge | 0), secure });
+}
+
+export function clearPendingCookie(secure = true) {
+  return cookie(PENDING_COOKIE, '', { clear: true, secure });
 }

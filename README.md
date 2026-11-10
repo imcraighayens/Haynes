@@ -209,13 +209,23 @@ copy is the source of truth and wins on the next load.
   the Vercel env var and pasting the new value in Settings.
 * **Quik1 borrowers sign in with a PIN they choose.** Staff create a single-use invite
   from a client row (`POST /api/ledger/quik1-invites`). The client opens the link, enters a
-  4-digit PIN twice, and the server stores only a salted scrypt hash. Returning visits send
-  the account reference saved on the phone plus that PIN. Five failures lock the account
-  until staff issue a new invite. `GET /api/quik1/me` returns that client's name, bank, ref,
-  and loan totals only when the httpOnly session is valid. With no session the response is
-  an empty profile and zero balances. The PIN is not derived from an ID number, and these
-  routes never look one up. `QUIK1_SESSION_SECRET` (32+ characters) must be set or redeem
-  and sign-in answer 503.
+  6-digit PIN twice, and the server stores only a salted scrypt hash. Weak patterns
+  (one repeated digit, or a straight run such as 123456) are refused. Returning visits
+  on a recognised device send the account reference plus that PIN. A new device needs
+  a single-use email link when `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, and
+  `QUIK1_EMAIL_API_KEY` are set. Leave them unset: the phone tells the client that staff
+  can reset the device in Ledger, and no message is sent. Five failed PIN attempts lock
+  the account for 15 minutes (`QUIK1_LOCKOUT_MINUTES`); a new staff invite clears the
+  lock immediately. A 4-digit PIN already on file still signs in until the next invite.
+  Borrower book routes, including `GET /api/quik1/me` and available credit, answer 401
+  with no session. A signed-in borrower can submit an SA ID (`POST /api/quik1/identity`).
+  It is stored as AES-256-GCM ciphertext under `QUIK1_ID_KEY` and the client receives
+  only the last four digits. After that post succeeds, the phone's local signup keeps
+  those four digits and drops the rest. Public signup still ignores an ID number.
+  `QUIK1_BORROWER_PIN=1` is the live switch on every host, next to `QUIK1_SESSION_SECRET`
+  (32+ characters). Leave either unset and redeem and sign-in answer 503. On production,
+  `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must also be non-empty. A preview needs only the
+  flag and the session secret.
 * **Public application routes are insert-only.** `/api/quik1/applications`, signups, requests,
   and repayments have no auth, are rate-limited per IP,
   caps bodies at 16 KB, whitelists every field, and can only insert a new row or

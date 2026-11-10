@@ -6,6 +6,7 @@ import { select, selectOne, insert, update, count, eq } from './supabase.js';
 import { isSafeId, cleanText, parseAmount, num } from './validate.js';
 import { accountFromLoans, statementsFromLoans, publicProfile, unidentified } from './quik1-book.js';
 import { readSession } from './quik1-session.js';
+import { maskForBorrower } from './sa-id.js';
 import { decodeDocument, uploadPrivate, signPrivate } from './storage.js';
 
 const LOAN_COLS = 'id,ref,client_id,principal,status,schedule,instalment_amount,instalments_paid,paid_dates,purpose,issued_on,deleted_at';
@@ -37,7 +38,11 @@ async function optionalRows(table, query) {
 async function sessionRow(table, query) {
   try { return await selectOne(table, query); }
   catch (err) {
-    if (missingTable(err)) throw new HttpError(401, 'Sign in required');
+    if (missingTable(err)) {
+      const signedOut = new HttpError(401, 'Sign in required');
+      signedOut.code = err.code || '42P01';
+      throw signedOut;
+    }
     throw err;
   }
 }
@@ -133,19 +138,20 @@ export async function borrowerBook(req) {
   let who;
   try { who = await requireBorrower(req); }
   catch (err) {
-    // No session, or the borrower tables are not applied yet. The public
-    // home stays the signed-out app instead of a 500.
-    if (err instanceof HttpError && (err.status === 401 || missingTable(err))) return unidentified();
+    // A missing auth table keeps the public home up. A missing or revoked
+    // session stays 401, and so do book routes that call requireBorrower directly.
+    if (missingTable(err)) return unidentified();
     throw err;
   }
   const loans = await loansOf(who.client.id);
-  const [applications, messages] = await Promise.all([
+  const [applications, messages, idMasked] = await Promise.all([
     applicationsOf(who.client.id),
-    messagesOf(who.client.id)
+    messagesOf(who.client.id),
+    maskForBorrower(who.borrower.id)
   ]);
   return {
     identified: true,
-    profile: publicProfile(who.client),
+    profile: { ...publicProfile(who.client), idMasked: idMasked || '' },
     account: accountFromLoans(loans),
     statements: statementsFromLoans(loans),
     applications: applications.map(publicApplication),
