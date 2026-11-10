@@ -1,5 +1,6 @@
 // Staff invites and borrower PIN sign-in.
-// A new device is confirmed by an email link when email is configured.
+// A new device is confirmed by an email link when borrower email is live.
+// When it is not, that sign-in fails closed: no sender call, no link, no challenge.
 // An ID number is never used to look anyone up.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
@@ -11,7 +12,7 @@ import { staffIdentity } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
 import { clientIp, authLimiter } from './ratelimit.js';
-import { emailSender } from './email.js';
+import { borrowerEmailLive, emailSender } from './email.js';
 import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice, readPendingDevice,
   sessionCookie, deviceCookie, knownDeviceCookie, clearKnownCookie, clearSessionCookie,
@@ -353,6 +354,20 @@ function rejectPin() {
   throw new HttpError(401, 'PIN not accepted');
 }
 
+const DEVICE_NOT_LINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
+
+function deviceNotLinked() {
+  throw new HttpError(403, DEVICE_NOT_LINKED, { code: 'device_not_linked', deviceNotLinked: true });
+}
+
+// True only when a new device can be confirmed by email. borrowerEmailLive is the gate:
+// a test sender installed while that is false is not called and does not count as live.
+function canEmailNewDevice(req, address) {
+  if (!borrowerEmailLive(req) || !address) return false;
+  const mail = emailSender(req);
+  return !!(mail && mail.enabled);
+}
+
 function lockedError() {
   throw new HttpError(423, 'This account is locked. Wait and try again, or ask your loan officer for a new invite.');
 }
@@ -587,6 +602,7 @@ async function clientEmail(clientId) {
 }
 
 function offerVerification(req, borrower) {
+  if (!borrowerEmailLive(req)) deviceNotLinked();
   const mail = emailSender(req);
   return clientEmail(borrower.client_id).then(email => {
     const ready = !!(mail.enabled && email);
@@ -648,6 +664,7 @@ export async function issueVerification(req, body) {
     id: eq(accountRef)
   });
   if (!borrower) throw new HttpError(401, 'Sign in again');
+  if (!borrowerEmailLive(req)) deviceNotLinked();
   const to = await clientEmail(borrower.client_id);
   const mail = emailSender(req);
   if (!mail.enabled || !to) throw new HttpError(503, 'Email verification unavailable');
@@ -762,6 +779,9 @@ export async function loginBorrower(req, body, res) {
     if (!borrower) {
       await burnPinTime(pin);
       await noteAttempt(null, 'pin', req);
+      // Same status, body, and PIN-check cost as a real account on a new device
+      // when email cannot be sent. A wrong PIN on a real account stays 401.
+      if (!borrowerEmailLive(req)) deviceNotLinked();
       rejectPin();
     }
     await clearExpiredLock(borrower);
@@ -779,8 +799,7 @@ export async function loginBorrower(req, body, res) {
       return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
     }
     const address = await clientEmail(borrower.client_id);
-    const mail = emailSender(req);
-    if (!(mail.enabled && address)) {
+    if (!canEmailNewDevice(req, address)) {
       const nowIso = new Date().toISOString();
       const claimed = await patchWhere('q1_borrowers', {
         id: eq(borrower.id),
@@ -791,6 +810,8 @@ export async function loginBorrower(req, body, res) {
         const { minted, accountRef: ref } = await openSession(borrower);
         return { accountRef: ref, cookies: authCookies(minted, ref, req, token) };
       }
+      // Email off: do not mint a verify ticket or start a challenge.
+      if (!borrowerEmailLive(req)) deviceNotLinked();
     }
     return offerVerification(req, borrower);
   } catch (err) {
@@ -811,8 +832,7 @@ export async function resetBorrowerDevices(req, clientId) {
     client_id: eq(client.id)
   });
   const address = borrower ? await clientEmail(client.id) : '';
-  const mail = emailSender(req);
-  const emailLive = !!(mail.enabled && address);
+  const emailLive = !!(borrower && canEmailNewDevice(req, address));
   if (borrower) {
     await revokeDevices(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);

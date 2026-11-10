@@ -63,7 +63,7 @@ browser, in git, or in the staff UI.
 | `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
 | `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
 | `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
-| `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent, and the phone tells the client that staff can reset the device in Ledger. These are not the staff voice credentials. |
+| `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent. The phone says "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access." These are not the staff voice credentials. |
 | `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to exactly `1` next to `QUIK1_SESSION_SECRET`. `true`, `yes`, `on`, and a spaced `1` stay off. Leave unset and sign-in stays off. |
 | `QUIK1_ID_KEY` | Exactly 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this matches that pattern. A preview can sign in without it. |
 | `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
@@ -117,8 +117,9 @@ earlier tables. Do not apply it from the app, and do not re-run the 7 Nov applic
 migrations. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must each be exactly 64 hex characters
 before production PIN sign-in will run, and the same rule applies before a signed-in borrower
 can store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
-`QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then asks the client
-to contact staff, who reset the device from Ledger. The PIN is not changed. Leave
+`QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then says
+"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."
+No link is issued. Staff can still reset the device from Ledger. The PIN is not changed. Leave
 `QUIK1_BORROWER_PIN` unset until that sign-in should be live.
 
 If the repo's commit history says the migration was already applied by Claude through the
