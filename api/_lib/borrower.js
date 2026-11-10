@@ -779,9 +779,8 @@ export async function loginBorrower(req, body, res) {
     if (!borrower) {
       await burnPinTime(pin);
       await noteAttempt(null, 'pin', req);
-      // Same status, body, and PIN-check cost as a real account on a new device
-      // when email cannot be sent. A wrong PIN on a real account stays 401.
-      if (!borrowerEmailLive(req)) deviceNotLinked();
+      // Unknown accounts stay a generic refusal, including when email is off.
+      // device_not_linked is only for a known account after verifyPin succeeds.
       rejectPin();
     }
     await clearExpiredLock(borrower);

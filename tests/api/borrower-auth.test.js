@@ -983,7 +983,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
   });
 
-  test('email off, a new device fails closed and matches an unknown borrower', async () => {
+  test('email off, an unknown account matches a wrong PIN, and only a correct PIN on a new device is device_not_linked', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
@@ -1003,16 +1003,20 @@ describe('borrower auth', { concurrency: false }, () => {
     const started = process.hrtime.bigint();
     const unknown = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: unknownRef, pin: PIN_OK } });
     const mid = process.hrtime.bigint();
-    const known = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    const wrong = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_BAD } });
     const ended = process.hrtime.bigint();
-    assertDeviceNotLinked(unknown);
-    assertDeviceNotLinked(known);
-    assert.deepEqual(unknown.json(), known.json());
-    assert.deepEqual(Object.keys(unknown.json()).sort(), Object.keys(known.json()).sort());
+    assert.equal(unknown.statusCode, 401);
+    assert.equal(wrong.statusCode, 401);
+    assert.deepEqual(unknown.json(), { error: 'PIN not accepted' });
+    assert.deepEqual(wrong.json(), unknown.json());
+    assert.equal(unknown.headers['set-cookie'], undefined);
+    assert.equal(wrong.headers['set-cookie'], undefined);
     const unknownMs = Number(mid - started) / 1e6;
-    const knownMs = Number(ended - mid) / 1e6;
-    const ratio = Math.max(unknownMs, knownMs) / Math.max(1, Math.min(unknownMs, knownMs));
-    assert.ok(ratio < 4, `unknown ${unknownMs.toFixed(1)}ms vs new device ${knownMs.toFixed(1)}ms`);
+    const wrongMs = Number(ended - mid) / 1e6;
+    const ratio = Math.max(unknownMs, wrongMs) / Math.max(1, Math.min(unknownMs, wrongMs));
+    assert.ok(ratio < 4, `unknown ${unknownMs.toFixed(1)}ms vs wrong PIN ${wrongMs.toFixed(1)}ms`);
+    const fresh = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assertDeviceNotLinked(fresh);
     assert.equal(sends.length, 0);
     assert.equal(fake.db.q1_otp_challenges.length, challenges);
     assert.equal(fake.db.q1_sessions.length, sessions);
