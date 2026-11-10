@@ -418,6 +418,7 @@ export function loanToConsole(row) {
     nextDue: (paid < n && sched[idx + 1]) ? sched[idx + 1] : null,
     sched,
     issued: row.issued_on ? labelOf(row.issued_on) : undefined,
+    statusAt: row.status_at || '',
     issuedBy: row.issued_by || undefined,
     employeeId: row.officer_id || undefined,
     paidDates: Array.isArray(row.paid_dates) ? row.paid_dates.filter(Boolean).map(labelOf) : []
@@ -456,6 +457,10 @@ function fromCloud(payload) {
   data.expenses = arr(payload.expenses);
   data.settings = payload.settings ? [payload.settings] : [];
   data.ledger_book = payload.ledger_book ? [payload.ledger_book] : [];
+  const attention = payload.attention && typeof payload.attention === 'object' ? payload.attention : null;
+  data.attention = attention && Array.isArray(attention.rows)
+    ? { ready: attention.ready === true, rows: attention.rows, viewer: String(attention.viewer || '') }
+    : { ready: false, rows: [], viewer: '' };
   return data;
 }
 function looksLikeState(p) { return !!p && typeof p === 'object' && (Array.isArray(p.clients) || Array.isArray(p.loans) || Array.isArray(p.employees)); }
@@ -850,7 +855,8 @@ export class LedjaaDB {
     return {
       clients: this.rows('clients').map(row => clientToConsole(row, (users[row.officer_id] || {}).name)),
       loans: this.rows('loans').map(loanToConsole),
-      employees: this.rows('users').filter(u => u.role !== 'client').map(u => userToConsole(u, this.staffMetrics(u.id).book_value))
+      employees: this.rows('users').filter(u => u.role !== 'client').map(u => userToConsole(u, this.staffMetrics(u.id).book_value)),
+      attention: this.data.attention || { ready: false, rows: [], viewer: '' }
     };
   }
 }

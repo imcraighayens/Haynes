@@ -11,6 +11,7 @@ import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers
 import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
+import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -62,12 +63,29 @@ async function getState(req, res) {
     const seen = new Set(bank_tx.map(r => r.id));
     bankTx = bank_tx.concat(since.filter(r => !seen.has(r.id)));
   }
+  // Missing ledger_attention must not fail the book. ready:false means the
+  // browser keeps that staff member's acknowledgements until the migration is applied.
+  let attention = { ready: false, rows: [], viewer: '' };
+  try {
+    const who = staffIdentity(req);
+    attention = await listAttention(who && who.email);
+  } catch { attention = { ready: false, rows: [], viewer: '' }; }
   json(res, 200, {
     clients, loans, employees, applications, audit_log, petty_cash, bank_tx: bankTx, expenses,
     settings: settings || null,
     ledger_book: book ? { updated_at: book.updated_at } : null,
+    attention,
     server_time: new Date().toISOString()
   }, req);
+}
+
+async function postAttention(req, res) {
+  const who = staffIdentity(req);
+  if (!who || !who.email) return json(res, 200, { ready: false, saved: 0 }, req);
+  const body = await readBody(req, 65536);
+  const items = cleanAttentionItems(body);
+  const result = await saveAttention(who.email, items);
+  return json(res, 200, result, req);
 }
 
 function rowsOf(op) {
@@ -415,6 +433,10 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'state' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
     return getState(req, res);
+  }
+  if (head === 'attention' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postAttention(req, res);
   }
   if (head === 'sync' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');

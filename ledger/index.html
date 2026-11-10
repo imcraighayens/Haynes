@@ -30,6 +30,7 @@
 </script>
 <style>x-dc{display:none!important}</style>
 <script src="./ledger-sync.js"></script>
+<script type="module" src="./attention.js"></script>
 </head>
 <body>
 <script>window.__ledgerSplashAt = Date.now();</script>
@@ -1521,7 +1522,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         <div style="width:520px;max-width:92vw;max-height:82vh;overflow-y:auto;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;box-shadow:var(--modalShadow);animation:modalIn .26s cubic-bezier(.2,.8,.2,1)">
           <div style="padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;border-radius:14px;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--red)"><svg width="19" height="19" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg></div>
-            <div><div style="font:700 15px 'Plus Jakarta Sans',sans-serif">{{ attnCount }} accounts need attention</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Overdue or due today — attend or acknowledge to continue.</div></div>
+            <div><div style="font:700 15px 'Plus Jakarta Sans',sans-serif">{{ attnHeading }}</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Overdue or due today — attend or acknowledge to continue.</div></div>
         </div>
           <div style="padding:6px 14px">
             <sc-for list="{{ attnRows }}" as="a" hint-placeholder-count="3">
@@ -2877,6 +2878,49 @@ class Component extends DCLogic {
       this.setState(p=>({twilio:{configured:!!(j&&j.configured), mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}}));
     },()=>{ this.setState(p=>({twilio:{configured:false, mins:(p.twilio&&p.twilio.mins)||0, sms:(p.twilio&&p.twilio.sms)||0}})); });
   }
+  staffEmail(){
+    if (this._staffEmail) return this._staffEmail;
+    try {
+      const s = window.__ledger && window.__ledger.staff;
+      if (s && s.email) return String(s.email).trim().toLowerCase();
+    } catch (e) {}
+    return 'local';
+  }
+  localAttention(){
+    try {
+      const all = JSON.parse(localStorage.getItem('ledjaa.attention.v1') || '{}');
+      const mine = all && all[this.staffEmail()];
+      return mine && typeof mine === 'object' ? mine : {};
+    } catch (e) { return {}; }
+  }
+  writeLocalAttention(map){
+    try {
+      const all = JSON.parse(localStorage.getItem('ledjaa.attention.v1') || '{}') || {};
+      all[this.staffEmail()] = map;
+      localStorage.setItem('ledjaa.attention.v1', JSON.stringify(all));
+    } catch (e) {}
+  }
+  mergeAttention(server){
+    const out = Object.assign({}, this.localAttention());
+    if (server && server.ready && Array.isArray(server.rows)) {
+      server.rows.forEach(r => { if (r && r.loan_id && r.marker) out[r.loan_id] = String(r.marker); });
+    }
+    return out;
+  }
+  rememberAttention(pairs){
+    const map = Object.assign({}, (this.state && this.state.attended) || {});
+    (pairs || []).forEach(p => { if (p && p.loanId && p.marker) map[p.loanId] = p.marker; });
+    this.writeLocalAttention(map);
+    this.setState({ attended: map, attentionOpen: false });
+    try {
+      const sync = window.__ledger;
+      if (sync && typeof sync.api === 'function' && pairs && pairs.length) sync.api('POST', '/attention', { items: pairs }).catch(() => {});
+    } catch (e) {}
+  }
+  todayIso(){
+    const d = this.today();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
   signedInProf(actor){
     var staff=null;
     try{ staff=window.__ledger&&window.__ledger.staff; }catch(e){}
@@ -2891,15 +2935,21 @@ class Component extends DCLogic {
       if(actor) m.db.setActor(actor.id);
       const s = m.db.toConsoleState();
       this.csvLock(m, s);
+      const fromServer = !!(m.db.sync && m.db.sync.source === 'cloud');
+      const attention = s.attention || { ready:false, rows:[] };
+      if (attention.viewer) this._staffEmail = String(attention.viewer).trim().toLowerCase();
       if(s.clients.length){
         const keep = this.state.clients.reduce((o,c)=>{ o[c.id]=c.contract; return o; }, {});
         this.setState({
           clients: s.clients.map((c,i)=>({...c, contract: keep[c.id] || {no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
-          loans: s.loans.map(l=>({...l, ret:(l.ret==null?35:l.ret)})), employees: s.employees, dbReady:true,
-          prof: this.signedInProf(actor)
+          loans: s.loans.map(l=>({...l, ret:(l.ret==null?35:l.ret), statusAt:l.statusAt||l.status_at||''})), employees: s.employees, dbReady:true,
+          prof: this.signedInProf(actor),
+          attended: this.mergeAttention(attention),
+          attentionFromServer: fromServer,
+          attentionOpen: true
         });
         setTimeout(()=>this.maybeBrief(), 350);
-      } else this.setState({dbReady:true, prof: this.signedInProf(actor)});
+      } else this.setState({dbReady:true, prof: this.signedInProf(actor), attentionFromServer:false, attentionOpen:false, attended:{}});
     }).catch(e=>{ console.warn('Shared data layer unavailable:', e); this.setState({dbReady:false, dbError:true}); });
   }
   // Uploaded CSV figures are authoritative. Restore principal + instalment from the seed (the CSV) wherever they drifted.
@@ -4357,8 +4407,14 @@ class Component extends DCLogic {
         tipStyle:this.cssObj('position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);white-space:nowrap;background:var(--ink);color:var(--bg);border-radius:8px;padding:5px 8px;font:600 9.5px \'Plus Jakarta Sans\',sans-serif;opacity:0;pointer-events:none;transition:opacity .14s ease;z-index:8;box-shadow:var(--shadow)')}); }
     const selLoans = (st.calSelected && dueByDay[st.calSelected]) ? dueByDay[st.calSelected] : [];
     const calAgreements = selLoans.slice(0,3).map(l=>{ const c=clientById(l.clientId), sm=this.statusMeta(l.status); return {customer:c.name, ref:l.ref, master:(c.contract?c.contract.no:'—'), dueAmountFmt: fmt(this.dueAmt(l)), statusLabel:sm.label, statusStyle:sm.style, open:()=>this.setState({modal:'history',modalId:l.id})}; });
-    const attnBase = st.loans.filter(l=>(l.status==='overdue'||l.status==='duetoday') && !st.attended[l.id]);
-    const attnRows = attnBase.map(l=>{ const c=clientById(l.clientId); const note=l.status==='overdue'?'Overdue since '+l.due:'Due today'; return {customer:c.name, ref:l.ref, note, amountFmt:fmt(l.amount), dot:(l.status==='overdue'?'var(--red)':'var(--amber)'), open:()=>this.setState({attentionOpen:false, modal:'history', modalId:l.id}), resolve:()=>{ this.logAdd({ref:l.ref, customer:c.name, amount:l.amount, type:'ATTENDED', date:this.todayStamp(), by:st.prof.name, comment:'Opened from needs-attention'}); this.setState(p=>({attended:{...p.attended,[l.id]:true}, attentionOpen:false, route:'clientview', clientViewId:c.id, revealed:false, cliEdit:null})); }}; });
+    const attnLib = (typeof window!=='undefined' && window.LedgerAttention) || null;
+    const todayIso = this.todayIso();
+    const attnBase = (st.attentionFromServer ? st.loans : []).filter(l=>{
+      if(l.status!=='overdue' && l.status!=='duetoday') return false;
+      if(!attnLib) return false;
+      return !attnLib.ackHolds((st.attended||{})[l.id], l, todayIso);
+    });
+    const attnRows = attnBase.map(l=>{ const c=clientById(l.clientId); const note=attnLib.attentionNote(l, todayIso); const marker=attnLib.overdueMarker(l, todayIso); return {customer:c.name, ref:l.ref, note, amountFmt:fmt(l.amount), dot:(l.status==='overdue'?'var(--red)':'var(--amber)'), open:()=>this.setState({attentionOpen:false, modal:'history', modalId:l.id}), resolve:()=>{ this.logAdd({ref:l.ref, customer:c.name, amount:l.amount, type:'ATTENDED', date:this.todayStamp(), by:st.prof.name, comment:'Opened from needs-attention'}); const map=Object.assign({}, st.attended, {[l.id]:marker}); this.writeLocalAttention(map); this.setState({attended:map, attentionOpen:false, route:'clientview', clientViewId:c.id, revealed:false, cliEdit:null}); try{ const sync=window.__ledger; if(sync&&typeof sync.api==='function'&&marker) sync.api('POST','/attention',{items:[{loanId:l.id, marker:marker}]}).catch(()=>{}); }catch(e){} }}; });
     const statOpen = st.loans.filter(l=>l.status!=='paid' && l.status!=='written off');
     const instOf = l => this.dueAmt(l);
     const upcoming = [];
@@ -4844,7 +4900,7 @@ class Component extends DCLogic {
             if(u){ localStorage.setItem('ledjaa.reel', JSON.stringify({...c, fb:u, fbAt:new Date().toISOString()})); } else { const {fb,fbAt,fbTitle,...rest}=c; localStorage.setItem('ledjaa.reel', JSON.stringify(rest)); }
             this.setState({reelPlay:false}); this.loadReel(true); } }; })(), newsList, newsChips, newsMsg, newsMsgOn: !!newsMsg, newsStamp, newsDotStyle, newsRefresh:()=>this.loadNews(true), newsBrief: nw.brief||'', newsBriefOn: !!nw.brief, gridRef, dragOn, dragStart, dragOver, dragDrop, dragEnd, toggleArrange, arrangeLabel, arrangeBtnStyle, slideTitle, slideLegendA, slideLegendB, slideLegendBCol, slideLegendStyle, slideTrackStyle, slideDots, slidePrev, slideNext, statusSplit, topExposure,
       statusTotalLabel: st.loans.length + (st.loans.length===1?' LOAN':' LOANS'),
-      topExposureHas: topExposure.length>0, attnCount: attnBase.length, attnEmpty: attnBase.length===0,
+      topExposureHas: topExposure.length>0, attnCount: attnBase.length, attnHeading: attnLib ? attnLib.attentionHeading(attnBase.length) : '', attnEmpty: attnBase.length===0,
       calDows:['SUN','MON','TUE','WED','THU','FRI','SAT'], calCells,
       ...(()=>{ const list=st.calView==='list';
         const cn=id=>((st.clients||[]).find(c=>c.id===id)||{}).name||'—';
@@ -4867,7 +4923,7 @@ class Component extends DCLogic {
       calNone: !!st.calSelected && selLoans.length===0,
       calPrev:()=>this.setState(p=>{ let m=p.calMonth-1,y=p.calYear; if(m<0){m=11;y--;} return {calMonth:m,calYear:y,calSelected:null}; }),
       calNext:()=>this.setState(p=>{ let m=p.calMonth+1,y=p.calYear; if(m>11){m=0;y++;} return {calMonth:m,calYear:y,calSelected:null}; }),
-      attentionShow: st.attentionOpen && attnBase.length>0, attnDismiss:()=>this.setState({attentionOpen:false}),
+      attentionShow: !!(st.attentionFromServer && st.attentionOpen && attnBase.length>0), attnDismiss:()=>this.rememberAttention(attnBase.map(l=>({loanId:l.id, marker:attnLib.overdueMarker(l, todayIso)}))),
       attnCountStyle: this.cssObj("font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);background:var(--red);border-radius:99px;padding:2px 9px"),
       isClients: st.route==='clients', isEmployees: st.route==='ledger' && st.ledgerUnlocked && st.admPane==='employees',
       isLogbook: st.route==='logbook' || st.admPane==='logbook', isPetty: st.route==='petty' || st.admPane==='petty', isNewLoan: st.route==='newloan', isAddClient: st.route==='addclient',

@@ -72,7 +72,8 @@ test('ledger GET state: shape, parallel per-table selects with service headers, 
   const res = await call({ path: ['state'] });
   assert.equal(res.statusCode, 200);
   const s = res.json();
-  assert.deepEqual(Object.keys(s).sort(), ['applications', 'audit_log', 'bank_tx', 'clients', 'employees', 'expenses', 'ledger_book', 'loans', 'petty_cash', 'server_time', 'settings'].sort());
+  assert.deepEqual(Object.keys(s).sort(), ['applications', 'attention', 'audit_log', 'bank_tx', 'clients', 'employees', 'expenses', 'ledger_book', 'loans', 'petty_cash', 'server_time', 'settings'].sort());
+  assert.deepEqual(s.attention, { ready: true, rows: [], viewer: '' });
   assert.equal(s.clients.length, 2, 'deleted rows are included; the client filters');
   assert.equal(s.settings, null, 'no org row yet → null');
   assert.deepEqual(s.ledger_book, { updated_at: '2026-10-28T10:00:00Z' });
@@ -87,6 +88,37 @@ test('ledger GET state: shape, parallel per-table selects with service headers, 
     assert.equal(c.headers.Authorization, 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY);
     assert.equal(c.method, 'GET');
   }
+});
+
+test('ledger GET state: a missing attention table does not fail the book', async () => {
+  stubFetch(r => r.table === 'ledger_attention' ? { status: 404, body: { code: '42P01', message: 'relation does not exist' } } : { status: 200, body: tableRows[r.table] || [] });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json().attention, { ready: false, rows: [], viewer: '' });
+});
+
+test('ledger POST attention: stores one marker per staff email and loan, and ignores a missing table', async () => {
+  const { mintStaffSession } = await import('../../api/_lib/auth.js');
+  const { token } = mintStaffSession(Date.now(), { email: 'staff@test.invalid', displayName: 'Test Staff' });
+  const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+  stubFetch(r => ({ status: 200, body: r.method === 'POST' ? (r.body || []) : [] }));
+  const saved = await call({ method: 'POST', path: ['attention'], headers, body: { items: [
+    { loanId: 'l_test_902', marker: 'overdue|2026-08-01|2026-10-02T08:00:00.000Z' },
+    { loanId: 'not a loan', marker: 'overdue||' },
+    { loanId: 'l_test_902', marker: 'nope' }
+  ] } });
+  assert.equal(saved.statusCode, 200);
+  assert.equal(saved.json().ready, true);
+  assert.equal(saved.json().saved, 1);
+  const write = calls.find(c => c.table === 'ledger_attention' && c.method === 'POST');
+  assert.equal(write.body.length, 1);
+  assert.equal(write.body[0].staff_email, 'staff@test.invalid');
+  assert.equal(write.body[0].loan_id, 'l_test_902');
+  assert.equal(write.body[0].id, 'staff@test.invalid:l_test_902');
+  stubFetch(r => r.table === 'ledger_attention' ? { status: 404, body: { code: '42P01', message: 'relation does not exist' } } : { status: 200, body: [] });
+  const missing = await call({ method: 'POST', path: ['attention'], headers, body: { items: [{ loanId: 'l_test_902', marker: 'overdue|2026-08-01|' }] } });
+  assert.equal(missing.statusCode, 200);
+  assert.deepEqual(missing.json(), { ready: false, saved: 0 });
 });
 
 test('ledger GET state: survives a missing ledger_book table (pre-migration)', async () => {

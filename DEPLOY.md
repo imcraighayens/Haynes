@@ -123,6 +123,12 @@ to contact staff, who reset the device from Ledger. The PIN is not changed. Leav
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.
 
+Then paste and run `supabase/migrations/20261110103000_ledger_attention.sql`. That file adds
+the staff acknowledgement table for the "accounts need attention" popup. Do not apply it from
+the app. Until it is applied, an acknowledgement is kept in that browser for the signed-in
+staff email, and it still clears when the loan's overdue episode changes. After it is applied,
+the same acknowledgement is stored per staff email and loan.
+
 ## 4. Connect LEDGER
 
 1. Open `https://<project>.vercel.app/ledger/` (the project URL is on the Vercel deployment page;
