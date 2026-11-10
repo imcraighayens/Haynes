@@ -18,7 +18,7 @@ test('the staff shell is a short nav and the dashboard leads with today', () => 
 
 test('loan and client collections are tables with a search, status text, and paging', () => {
   assert.match(html, /role="table" aria-label="Loan book"/);
-  assert.match(html, /data-col="ref">REF NUMBER/);
+  assert.match(html, /data-col="ref">Ref number/);
   assert.match(html, /Days overdue/);
   assert.match(html, /Needs action/);
   assert.match(html, /All clear/);

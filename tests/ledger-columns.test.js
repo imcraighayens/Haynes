@@ -19,8 +19,8 @@ test('loan list and the other sheets clip refs instead of overlapping the next c
   const row = html.indexOf('class="book-line" sc-camel-on-click="{{ l.openClient }}"');
   assert.ok(head > 0 && row > head);
   const book = html.slice(head, row + 800);
-  assert.match(book, /data-col="ref">REF NUMBER/);
-  assert.match(book, /data-col="customer">CUSTOMER/);
+  assert.match(book, /data-col="ref">Ref number/);
+  assert.match(book, /data-col="customer">Customer/);
   assert.match(book, /data-col="ref" title="\{\{ l\.ref \}\}"/);
   assert.match(book, /data-col="customer" title="\{\{ l\.customer \}\}"/);
   assert.match(html, /class="cell-clip" title="\{\{ c\.ref \}\}"/);
@@ -56,7 +56,7 @@ test('a long reference stays in its column at desktop and phone widths', { skip:
         await pageWaitFor(page, () => {
           const cell = document.querySelector('[data-col="ref"][title="' + 'SYNREF00028W9SXXXXLONG' + '"]');
           if (!cell) return false;
-          return window.innerWidth < 700 || /REF NUMBER/.test(document.body.innerText);
+          return window.innerWidth < 700 || /Ref number/.test(document.body.innerText);
         }, null, { timeoutMs: 8000 });
         const geom = await page.evaluate((ref) => {
           const cell = document.querySelector('[data-col="ref"][title="' + ref + '"]');
