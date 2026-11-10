@@ -13,7 +13,11 @@ export const KNOWN_TTL_SECONDS = 90 * 24 * 3600;
 
 export function sessionSecret() {
   const s = process.env.QUIK1_SESSION_SECRET;
-  return typeof s === 'string' && s.trim().length >= 32 ? s.trim() : '';
+  if (typeof s !== 'string') return '';
+  const trimmed = s.trim();
+  // Whitespace-only is missing. Fewer than 32 characters stays off.
+  if (trimmed.length < 32) return '';
+  return trimmed;
 }
 
 export function sessionTtlMs() {
