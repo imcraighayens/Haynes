@@ -339,6 +339,8 @@ test('ledger POST sync: whitelist drops unknown columns, strips NCR/fee settings
   assert.equal(created.instalments_paid, 0);
   assert.deepEqual(created.paid_dates, []);
   assert.match(created.status_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(created.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(created.updated_by, null);
   assert.equal(created.bogus, undefined);
 
   assert.equal(audit.headers.Prefer, 'resolution=ignore-duplicates,return=representation');
@@ -387,6 +389,100 @@ test('ledger POST sync strips loan status fields on update and on an existing up
   ] } });
   assert.equal(empty.json().results[0].count, 0);
   assert.equal(calls.some(c => c.method === 'PATCH'), false);
+});
+
+test('sync does not rewind updated_at or updated_by, and a new loan gets server stamps', async () => {
+  stubFetch(r => {
+    if (r.method === 'GET' && r.table === 'loans') return { status: 200, body: [{ id: 'l1' }] };
+    if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l1', ...r.body }] };
+    return { status: 200, body: r.body || [] };
+  });
+  const updated = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l1', patch: { purpose: 'School fees', updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' } }
+  ] } });
+  assert.equal(updated.statusCode, 200);
+  const patch = calls.find(c => c.method === 'PATCH').body;
+  assert.deepEqual(patch, { purpose: 'School fees' });
+  calls.length = 0;
+  const again = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l1', ref: 'SYN-1', client_id: 'c1', principal: 100, updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser', status: 'paid' }] }
+  ] } });
+  assert.equal(again.statusCode, 200);
+  const kept = calls.find(c => c.table === 'loans' && c.method === 'POST').body[0];
+  assert.equal(kept.ref, 'SYN-1');
+  assert.equal(kept.updated_at, undefined);
+  assert.equal(kept.updated_by, undefined);
+  assert.equal(kept.status, undefined);
+  calls.length = 0;
+  const created = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'insert', rows: [{ id: 'l_new', ref: 'SYN-2', client_id: 'c1', principal: 40, updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser', status: 'paid' }] }
+  ] } });
+  assert.equal(created.statusCode, 200);
+  const fresh = calls.find(c => c.table === 'loans' && c.method === 'POST').body[0];
+  assert.equal(fresh.status, 'issued');
+  assert.equal(fresh.updated_by, null);
+  assert.match(fresh.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.notEqual(fresh.updated_at, '2020-01-01T00:00:00.000Z');
+});
+
+test('replace_book keeps status columns on an existing loan and defaults them on a new one', async () => {
+  process.env.LEDGER_MANAGER_PIN = 'fixture-manager-pin';
+  try {
+    stubFetch(r => {
+      if (r.method === 'GET') return { status: 200, body: [{ id: 'l_keep', deleted_at: null }, { id: 'l_gone', deleted_at: '2026-01-01T00:00:00.000Z' }] };
+      if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l_keep', deleted_at: '2026-11-10T00:00:00.000Z' }] };
+      return { status: 200, body: r.body || [] };
+    });
+    const rows = [
+      { id: 'l_keep', ref: 'SYN-1', client_id: 'c1', principal: 100, purpose: 'School fees', status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 4, paid_dates: ['2020-01-01'], updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' },
+      { id: 'l_new', ref: 'SYN-2', client_id: 'c1', principal: 50, status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 9, paid_dates: ['2020-01-01'], updated_at: '2020-01-01T00:00:00.000Z', updated_by: 'browser' }
+    ];
+    const viaSync = await call({ method: 'POST', path: ['sync'], body: { ops: [
+      { table: 'loans', op: 'replace_book', manager_pin: 'fixture-manager-pin', rows }
+    ] } });
+    assert.equal(viaSync.statusCode, 200);
+    assert.equal(viaSync.json().ok, true);
+    const posted = calls.find(c => c.table === 'loans' && c.method === 'POST').body;
+    const kept = posted.find(r => r.id === 'l_keep');
+    const created = posted.find(r => r.id === 'l_new');
+    assert.equal(kept.purpose, 'School fees');
+    assert.equal(kept.deleted_at, null);
+    assert.equal(kept.status, undefined);
+    assert.equal(kept.status_at, undefined);
+    assert.equal(kept.instalments_paid, undefined);
+    assert.equal(kept.paid_dates, undefined);
+    assert.equal(kept.updated_at, undefined);
+    assert.equal(kept.updated_by, undefined);
+    assert.equal(created.status, 'issued');
+    assert.equal(created.instalments_paid, 0);
+    assert.deepEqual(created.paid_dates, []);
+    assert.equal(created.updated_by, null);
+    assert.match(created.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+    assert.notEqual(created.updated_at, '2020-01-01T00:00:00.000Z');
+    assert.equal(created.deleted_at, null);
+    calls.length = 0;
+    const viaDestructive = await call({ method: 'POST', path: ['destructive'], body: { action: 'replace_book', pin: 'fixture-manager-pin', rows } });
+    assert.equal(viaDestructive.statusCode, 200);
+    const again = calls.find(c => c.table === 'loans' && c.method === 'POST').body.find(r => r.id === 'l_keep');
+    assert.equal(again.status, undefined);
+    assert.equal(again.updated_at, undefined);
+    assert.equal(again.updated_by, undefined);
+  } finally {
+    delete process.env.LEDGER_MANAGER_PIN;
+  }
+});
+
+test('loan-status returns 404 for a deleted loan and does not write', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', status: 'overdue', deleted_at: '2026-11-01T00:00:00.000Z', updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') { Object.assign(loan, r.body); return { status: 200, body: [{ ...loan }] }; }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'deleted' } });
+  assert.equal(res.statusCode, 404);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(calls.some(c => c.method === 'PATCH' || c.table === 'audit_log'), false);
 });
 
 test('ledger POST sync: audit_log update/soft_delete rejected as no-op, unknown table reported, rest still applied', async () => {

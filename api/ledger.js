@@ -104,10 +104,10 @@ async function postAttention(req, res) {
   return json(res, 200, result, req);
 }
 
-// These four columns change only through POST /loan-status. A queued sync from an
-// old tab must not put them back. A brand-new loan still needs a starting point,
-// and that starting point is chosen here, not by the client.
-const LOAN_STATUS_FIELDS = ['status', 'status_at', 'instalments_paid', 'paid_dates'];
+// Status columns, and the compare-and-set token, change only through POST /loan-status.
+// A queued sync or a book replace must not put them back. A brand-new loan still
+// needs a starting point, and that starting point is chosen here, not by the client.
+const LOAN_STATUS_FIELDS = ['status', 'status_at', 'instalments_paid', 'paid_dates', 'updated_at', 'updated_by'];
 
 function stripLoanStatus(row) {
   LOAN_STATUS_FIELDS.forEach(k => { delete row[k]; });
@@ -121,7 +121,13 @@ function applyNewLoanDefaults(row) {
   row.status_at = now;
   row.instalments_paid = 0;
   row.paid_dates = [];
+  row.updated_at = now;
+  row.updated_by = null;
   return row;
+}
+
+function shapeLoanWrites(rows, existingIds) {
+  return rows.map(row => existingIds.has(row.id) ? stripLoanStatus(row) : applyNewLoanDefaults(row));
 }
 
 async function prepareLoanWrites(rows, kind) {
@@ -129,7 +135,7 @@ async function prepareLoanWrites(rows, kind) {
   if (kind === 'insert') return rows.map(applyNewLoanDefaults);
   const found = await select('loans', { select: 'id' });
   const existing = new Set((found || []).map(r => r && r.id).filter(Boolean));
-  return rows.map(row => existing.has(row.id) ? stripLoanStatus(row) : applyNewLoanDefaults(row));
+  return shapeLoanWrites(rows, existing);
 }
 
 function rowsOf(op) {
@@ -205,6 +211,10 @@ async function replaceLoans(rows) {
     return row;
   });
   const existing = await select('loans', { select: 'id,deleted_at' });
+  const existingIds = new Set((existing || []).map(r => r && r.id).filter(Boolean));
+  // Same rule as sync: an existing loan keeps its status and compare-and-set
+  // columns. A loan id the book has never stored gets the server defaults.
+  const prepared = shapeLoanWrites(incoming, existingIds);
   const now = new Date().toISOString();
   let n = 0;
   for (const row of existing) {
@@ -213,8 +223,8 @@ async function replaceLoans(rows) {
       n++;
     }
   }
-  if (incoming.length) await upsert('loans', incoming, 'id');
-  return n + incoming.length;
+  if (prepared.length) await upsert('loans', prepared, 'id');
+  return n + prepared.length;
 }
 
 async function postSync(req, res) {
