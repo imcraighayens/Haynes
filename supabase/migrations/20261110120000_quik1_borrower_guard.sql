@@ -34,6 +34,9 @@ alter table public.q1_borrowers
   add column if not exists id_hmac text;
 
 alter table public.q1_borrowers
+  add column if not exists device_reset_until timestamptz;
+
+alter table public.q1_borrowers
   drop constraint if exists q1_borrowers_id_ciphertext_fmt;
 
 alter table public.q1_borrowers
@@ -172,6 +175,8 @@ comment on column public.q1_borrowers.id_ciphertext is
   'Versioned AES-256-GCM ciphertext of an SA ID, bound to this borrower. The key is not stored here.';
 comment on column public.q1_borrowers.id_hmac is
   'HMAC-SHA256 of the SA ID under QUIK1_ID_HMAC_KEY. Used to reject a duplicate. Not an unsalted hash.';
+comment on column public.q1_borrowers.device_reset_until is
+  'If this is still in the future, the next correct PIN on an unrecognised device is trusted once and the timestamp is cleared. A wrong PIN does not clear it.';
 comment on table public.q1_devices is
   'Recognised Quik1 device. token_hash is SHA-256 of the httpOnly cookie. expires_at is the server TTL. The token is not stored.';
 comment on table public.q1_otp_challenges is

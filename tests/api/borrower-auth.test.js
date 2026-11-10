@@ -28,6 +28,7 @@ const PIN_BAD = '135791';
 const PIN_NEXT = '802468';
 const SA_ID = '9912314800084';
 const ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const HMAC_KEY = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
 
 process.env.SUPABASE_URL = URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
@@ -125,6 +126,7 @@ describe('borrower auth', { concurrency: false }, () => {
     delete process.env.TWILIO_AUTH_TOKEN;
     delete process.env.TWILIO_FROM;
     delete process.env.QUIK1_ID_KEY;
+    delete process.env.QUIK1_ID_HMAC_KEY;
     fake.reset();
     process.env.QUIK1_BORROWER_PIN = '1';
     restore();
@@ -626,6 +628,13 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(fake.db.q1_borrowers[0].id_ciphertext, undefined);
 
     process.env.QUIK1_ID_KEY = ID_KEY;
+    const noHmac = await call(quik1, { method: 'POST', path: ['identity'], headers: session, body: { idNumber: SA_ID } });
+    assert.equal(noHmac.statusCode, 503);
+    assert.match(noHmac.json().error, /ID storage is not configured/);
+    assert.equal(noHmac.body.includes(SA_ID), false);
+    assert.equal(fake.db.q1_borrowers[0].id_ciphertext, undefined);
+    assert.equal(fake.db.q1_borrowers[0].id_hmac, undefined);
+    process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
     const badId = '9912314800085';
     const bad = await call(quik1, { method: 'POST', path: ['identity'], headers: session, body: { idNumber: badId } });
     assert.equal(bad.statusCode, 400);
@@ -645,7 +654,8 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(home.body.includes(SA_ID), false);
     assert.equal(home.body.includes(stored), false);
     delete process.env.QUIK1_ID_KEY;
-    assert.equal(decryptId(stored), '');
+    delete process.env.QUIK1_ID_HMAC_KEY;
+    assert.equal(decryptId(stored, redeemed.json().accountRef), '');
   });
 
   test('auth attempts from one address are rate limited', async () => {
@@ -772,15 +782,56 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     assert.equal(reset.statusCode, 200, reset.body);
     assert.equal(fake.db.q1_devices.every(row => row.revoked_at), true);
+    assert.equal(fake.db.q1_sessions.every(row => row.revoked_at), true);
     assert.equal(fake.db.audit_log.some(row => row.type === 'QUIK1 DEVICE RESET' && row.ref === 'EC-901'), true);
     assert.equal(JSON.stringify(fake.db.audit_log).includes(PIN_OK), false);
-    const again = await call(quik1, {
-      method: 'POST', path: ['login'],
-      headers: { cookie: knownCookie(redeemed) },
-      body: { accountRef: redeemed.json().accountRef, pin: PIN_OK }
+    const oldHome = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
+    assert.equal(oldHome.statusCode, 401);
+  });
+
+  test('a device reset trusts one new phone on the next correct PIN', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(again.json().verifyRequired, true);
-    assert.equal(again.json().contactStaff, true);
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const pinHash = fake.db.q1_borrowers[0].pin_hash;
+    const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
+    assert.equal(home.statusCode, 200);
+    const reset = await call(ledger, {
+      method: 'POST', path: ['quik1-devices', 'reset'],
+      headers: staffHeaders(),
+      body: { clientId: CLIENT_A }
+    });
+    assert.equal(reset.statusCode, 200, reset.body);
+    const until = new Date(fake.db.q1_borrowers[0].device_reset_until).getTime();
+    assert.ok(until > Date.now() + 23 * 3600 * 1000 && until < Date.now() + 25 * 3600 * 1000);
+    const closed = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
+    assert.equal(closed.statusCode, 401);
+    const wrong = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_BAD } });
+    assert.equal(wrong.statusCode, 401);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
+    const next = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(next.statusCode, 200, next.body);
+    assert.equal(next.json().verifyRequired, undefined);
+    assert.match(knownCookie(next), /^q1_known=/);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, pinHash);
+    const second = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(second.json().verifyRequired, true);
+    assert.equal(second.json().contactStaff, true);
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() - 60 * 1000).toISOString();
+    const expired = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(expired.json().verifyRequired, true);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
+    fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
+    fake.db.q1_borrowers[0].failed_attempts = 5;
+    const locked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(locked.statusCode, 423);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
   });
 
   test('email and PIN flags stay unset in the example env', () => {

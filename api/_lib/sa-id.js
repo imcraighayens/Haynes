@@ -130,14 +130,15 @@ export function idHmac(digits) {
 export async function storeBorrowerId(borrowerId, raw) {
   const digits = normaliseSaId(raw);
   if (!digits) throw new HttpError(400, 'ID number is not valid');
+  if (!idKey() || !hmacKey()) throw new HttpError(503, 'ID storage is not configured');
   const stored = encryptId(digits, borrowerId);
-  if (!stored) throw new HttpError(503, 'Server not configured');
+  const mac = idHmac(digits);
+  if (!stored || !mac) throw new HttpError(503, 'ID storage is not configured');
   const patch = {
     id_ciphertext: stored,
+    id_hmac: mac,
     updated_at: new Date().toISOString()
   };
-  const mac = idHmac(digits);
-  if (mac) patch.id_hmac = mac;
   try {
     await update('q1_borrowers', { id: borrowerId }, patch);
   } catch (err) {

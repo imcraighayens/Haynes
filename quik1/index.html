@@ -2824,7 +2824,7 @@ input,button,textarea{font-family:inherit}
       const tl=[
         {label:'Application submitted',meta:'Sent to applications@ecoloans.co.za',done:true},
         {label:'Admin review',meta:ok?'Approved':no?'Not approved':'Usually within 1 business hour',done:ok||no,cur:!ok&&!no},
-        {label:'Account active',meta:ok?'You can borrow now':'We will SMS you',done:ok}];
+        {label:'Account active',meta:ok?'You can borrow now':'We will be in touch',done:ok}];
       return {
         isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
         suStep:step, suStep2:step===2, suStep3:step===3,
@@ -2854,7 +2854,7 @@ input,button,textarea{font-family:inherit}
         suDoneTitle:ok?'You are approved':no?'We could not approve this account':'Thanks, we are reviewing your account',
         suDoneBody:ok?'Your account is active. Sign in with your number and PIN to apply for your first loan.'
           :no?'Our team could not verify the details supplied. Email applications@ecoloans.co.za and we will help.'
-          :'Your details are with our team at applications@ecoloans.co.za. We will SMS you as soon as your account is approved.',
+          :'Your details are with our team at applications@ecoloans.co.za. We will be in touch as soon as your account is approved.',
         suTimeline:tl.map((t,i)=>({...t,bg:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):'transparent',bd:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):t.cur?'#FDD10D':'rgba(255,255,255,.25)',tick:t.done?1:0,ink:t.done||t.cur?'#FFFFFF':'rgba(255,255,255,.55)',line:i<2?'rgba(255,255,255,.07)':'transparent'})),
         suDoneCta:ok?'Sign in':no?'Back to start':'Back to start',
         suDoneBg:ok?'#FDD10D':'transparent', suDoneInk:ok?'#0B0620':'#FFFFFF', suDoneBorder:ok?'0':'1.5px solid rgba(255,255,255,.22)',
@@ -3415,8 +3415,7 @@ input,button,textarea{font-family:inherit}
           }
           if(!r.ok){
             const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
-            const keepSms=this.state.pinPhase==='sms';
-            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:keepSms?'sms':(this.state.inviteCode?'choose':'sign'), pinNote:msg});
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:this.state.inviteCode?'choose':'sign', pinNote:msg});
             return;
           }
           const accountRef=j&&typeof j.accountRef==='string'?j.accountRef:'';
@@ -3872,7 +3871,7 @@ input,button,textarea{font-family:inherit}
           acControls:[
             {label:fz?'Unfreeze':'Freeze',path:'M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9',go:()=>this.setState({cardFrozen:!fz}),on:fz},
             {label:rv?'Hide details':'Show details',path:'M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM12 14.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Z',go:()=>this.setState({cardReveal:!rv}),on:rv},
-            {label:'Replace card',path:'M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6M17.7 3v3.4h-3.4M6.3 21v-3.4h3.4',go:()=>this.setState({sentNote:'Replacement card requested. We will SMS you when it ships.'}),on:false}
+            {label:'Replace card',path:'M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6M17.7 3v3.4h-3.4M6.3 21v-3.4h3.4',go:()=>this.setState({sentNote:'Replacement card requested. We will be in touch when it ships.'}),on:false}
           ].map(c=>({...c,bg:c.on?'#FDD10D':'var(--q-tile)',bd:c.on?'#FDD10D':'rgba(var(--q-fg),.08)',ink:c.on?'#0B0620':'var(--q-ink)',icon:c.on?'#0B0620':'var(--q-accent)'})),
           acList:[
             {name:'Quik1 Credit',meta:'Q1-'+(idd.slice(-6)||'000000')+' · Limit '+this.money(LIMIT),status:fz?'Frozen':'Active',path:'M3.8 7.4h16.4v10.2a1.4 1.4 0 0 1-1.4 1.4H5.2a1.4 1.4 0 0 1-1.4-1.4ZM3.8 11h16.4M7.4 15h3'},
@@ -4078,7 +4077,7 @@ input,button,textarea{font-family:inherit}
           const su=(ls.signups||[]).find(u=>String(u.phone||'').replace(/\D/g,'').slice(-9)===s.liPhone);
           const demo={phone:'824319077',id:String(s.profile.idnum||'').replace(/\D/g,'')};
           if(su&&su.idnum!==s.liId) return toast('Details do not match','That ID number is not linked to this mobile number.');
-          if(su&&su.status==='Pending review') return toast('Account still in review','Your sign-up is with applications@ecoloans.co.za. We will SMS you once it is approved.','wait');
+          if(su&&su.status==='Pending review') return toast('Account still in review','Your sign-up is with applications@ecoloans.co.za. We will be in touch once it is approved.','wait');
           if(su&&su.status==='Declined') return toast('Account not approved','This sign-up was declined. Email applications@ecoloans.co.za for help.');
           if(!su&&s.liPhone===demo.phone&&s.liId!==demo.id) return toast('Details do not match','That ID number is not linked to this mobile number.');
           if(!su&&s.liPhone!==demo.phone) return toast('No account found','We could not find an account for +27 '+s.liPhone+'. Tap Sign up to create one.');

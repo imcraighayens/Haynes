@@ -30,7 +30,7 @@ const DOC_BODY_CAP = 2 * 1024 * 1024;
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
 const DEFAULT_REVIEWER = 'applications@ecoloans.co.za';
 const PENDING_STATUS = 'Pending review';
-const PENDING_NOTE = 'Your sign-up is in review. We will SMS you once a person has decided.';
+const PENDING_NOTE = 'Your sign-up is in review. We will be in touch once a person has decided.';
 // Extra fields from the app record we keep (whitelisted) under meta.raw for staff context.
 // SA ID numbers are not accepted here, even under another key.
 const RAW_KEYS = ['source', 'status', 'employment', 'payday', 'estIncome', 'estExpenses'];

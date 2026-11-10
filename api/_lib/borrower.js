@@ -715,7 +715,7 @@ export async function loginBorrower(req, body, res) {
     rejectPin();
   }
   const borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+    select: 'id,client_id,pin_hash,failed_attempts,locked_at,device_reset_until',
     id: eq(accountRef)
   });
   if (!borrower) {
@@ -733,9 +733,20 @@ export async function loginBorrower(req, body, res) {
     throw e;
   }
   const rotated = await deviceRecognised(req, borrower.id);
-  if (!rotated) return offerVerification(req, borrower);
-  const { minted, accountRef: ref } = await openSession(borrower);
-  return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
+  if (rotated) {
+    const { minted, accountRef: ref } = await openSession(borrower);
+    return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
+  }
+  if (borrower.device_reset_until && new Date(borrower.device_reset_until).getTime() > Date.now()) {
+    const token = await trustDevice(borrower.id);
+    await update('q1_borrowers', { id: borrower.id }, {
+      device_reset_until: null,
+      updated_at: new Date().toISOString()
+    });
+    const { minted, accountRef: ref } = await openSession(borrower);
+    return { accountRef: ref, cookies: authCookies(minted, ref, req, token) };
+  }
+  return offerVerification(req, borrower);
 }
 
 export async function resetBorrowerDevices(req, clientId) {
@@ -748,6 +759,11 @@ export async function resetBorrowerDevices(req, clientId) {
   if (borrower) {
     await revokeDevices(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);
+    await revokeSessions(borrower.id, nowIso);
+    await update('q1_borrowers', { id: borrower.id }, {
+      device_reset_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      updated_at: nowIso
+    });
   }
   const who = staffIdentity(req);
   const by = who && (who.displayName || who.email) ? String(who.displayName || who.email).slice(0, 80) : 'ledger';
