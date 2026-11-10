@@ -2,76 +2,1113 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "redirects": [
-    { "source": "/", "destination": "/ledger/", "permanent": false },
-    { "source": "/ledger", "destination": "/ledger/", "permanent": false },
-    { "source": "/app", "destination": "/quik1/", "permanent": false }
+    {
+      "source": "/ledger",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/ledger/",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/ledger/:path*",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.app"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/api/ledger/:path*", "destination": "/api/ledger?path=:path*" },
-    { "source": "/api/q1/:path*", "destination": "/api/q1?path=:path*" },
-    { "source": "/api/quik1/:path*", "destination": "/api/quik1?path=:path*" },
-    { "source": "/api/ecoloans/:path*", "destination": "/api/ecoloans?path=:path*" },
-    { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
-    { "source": "/manifest.webmanifest", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/manifest.webmanifest" },
-    { "source": "/sw.js", "has": [{ "type": "host", "value": "quik1.app" }], "destination": "/quik1/sw.js" },
-    { "source": "/sw.js", "has": [{ "type": "host", "value": "www.quik1.app" }], "destination": "/quik1/sw.js" }
+    {
+      "source": "/ledger",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/ledger/",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/ledger/:path*",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/ledger",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/ledger/:path*",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/q1",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/q1/:path*",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/q1-assistant",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/q1-assistant/:path*",
+      "missing": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        },
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "localhost"
+        },
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        },
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.app"
+        }
+      ],
+      "destination": "/quik1/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "localhost:3000"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "127.0.0.1:3000"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/api/ledger/:path*",
+      "destination": "/api/ledger?path=:path*"
+    },
+    {
+      "source": "/api/q1/:path*",
+      "destination": "/api/q1?path=:path*"
+    },
+    {
+      "source": "/api/quik1/:path*",
+      "destination": "/api/quik1?path=:path*"
+    },
+    {
+      "source": "/api/ecoloans/:path*",
+      "destination": "/api/ecoloans?path=:path*"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.app"
+        }
+      ],
+      "destination": "/quik1/manifest.webmanifest"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/manifest.webmanifest"
+    },
+    {
+      "source": "/sw.js",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.app"
+        }
+      ],
+      "destination": "/quik1/sw.js"
+    },
+    {
+      "source": "/sw.js",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/sw.js"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
       ]
     },
     {
       "source": "/ledger/([0-9a-f-]{36})\\.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
       ]
     },
     {
       "source": "/quik1/([0-9a-f-]{36})\\.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
       ]
     },
     {
       "source": "/(ledger|quik1)/(react|react-dom)\\.production\\.min\\.js",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
       ]
     },
     {
       "source": "/(ledger|quik1)/(.*)\\.(woff2|png|webp)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
       ]
     },
     {
       "source": "/quik1/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
       ]
     },
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
       ]
     },
     {
       "source": "/quik1/manifest.webmanifest",
       "headers": [
-        { "key": "Content-Type", "value": "application/manifest+json" }
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
+        }
       ]
     }
   ]

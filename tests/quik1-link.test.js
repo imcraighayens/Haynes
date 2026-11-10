@@ -187,7 +187,8 @@ test('signups: status transitions Pending review → Approved when the server de
   const post = calls.find(c => c.method === 'POST');
   assert.equal(post.url, API + '/signups');
   assert.equal(post.body.id, id);
-  assert.equal(post.body.idnum, SIGNUP.idnum);
+  assert.equal(post.body.idnum, undefined);
+  assert.equal(Link.getState().signups[0].idnum, SIGNUP.idnum);
 
   await timers.advance(6000);
   assert.equal(Link.getState().signups[0].status, 'Pending review');

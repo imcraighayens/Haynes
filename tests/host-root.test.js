@@ -18,7 +18,8 @@ test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in cop
   assert.ok(link > pin, 'quik1-link.js is also after the base');
   assert.ok(quik.includes('x-dc{display:none!important}'));
   assert.match(quik, /Enter your PIN/);
-  assert.match(quik, /Use your first four digits to sign in\. That is the first four digits of your ID number\./);
+  assert.match(quik, /Enter the 4-digit PIN you chose\. It is not your ID number\./);
+  assert.doesNotMatch(quik, /first four digits of your ID number/);
 });
 
 test('ledger asks for staff sign-in when /state is 401', () => {
@@ -31,6 +32,6 @@ test('ledger asks for staff sign-in when /state is 401', () => {
   assert.match(sync, /L\.needsUnlock = !!\(e && e\.status === 401\)/);
   assert.match(sync, /needsUnlock: false/);
   assert.match(sync, /L\.login = login/);
-  assert.match(sync, /api\('POST', '\/unlock'/);
+  assert.doesNotMatch(sync, /\/unlock/);
   assert.match(sync, /api\('POST', '\/login'/);
 });

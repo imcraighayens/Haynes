@@ -313,47 +313,17 @@ test('ledger GET state: once the newest bank_tx window is full, every movement s
   assert.ok(s.bank_tx.some(t => t.id === 'old1'));
 });
 
-test('ledger unlock: same-origin session cookie loads /state; anonymous and cross-site stay 401', async () => {
-  const saved = process.env.LEDGER_UNLOCK_PIN;
+test('ledger unlock is gone and a borrower host cannot call staff routes', async () => {
   const probe = 'unit-test-unlock';
-  process.env.LEDGER_UNLOCK_PIN = probe;
   const same = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin' };
-  try {
-    const cross = await call({ method: 'POST', path: ['unlock'], auth: false, body: { pin: probe } });
-    assert.equal(cross.statusCode, 403);
-
-    delete process.env.LEDGER_UNLOCK_PIN;
-    process.env.__keepEnv = '1';
-    const unconfigured = await call({ method: 'POST', path: ['unlock'], auth: false, headers: same, body: { pin: probe } });
-    delete process.env.__keepEnv;
-    process.env.LEDGER_UNLOCK_PIN = probe;
-    assert.equal(unconfigured.statusCode, 503);
-
-    const wrong = await call({ method: 'POST', path: ['unlock'], auth: false, headers: same, body: { pin: 'nope' } });
-    assert.equal(wrong.statusCode, 401);
-    assert.equal(wrong.headers['set-cookie'], undefined);
-
-    const ok = await call({ method: 'POST', path: ['unlock'], auth: false, headers: same, body: { pin: probe } });
-    assert.equal(ok.statusCode, 200);
-    const setCookie = String(ok.headers['set-cookie'] || '');
-    assert.equal(setCookie.includes('HttpOnly'), true);
-    assert.equal(setCookie.includes('Secure'), true);
-    assert.equal(setCookie.includes(probe), false, 'the unlock value is not echoed');
-    const m = /ledger_staff=([^;]+)/.exec(setCookie);
-    assert.equal(Boolean(m), true);
-    const cookie = 'ledger_staff=' + m[1];
-
-    const anon = await call({ path: ['state'], auth: false, headers: same });
-    assert.equal(anon.statusCode, 401);
-    const authed = await call({ path: ['state'], auth: false, headers: { ...same, cookie } });
-    assert.equal(authed.statusCode, 200);
-    assert.ok(Array.isArray(authed.json().clients));
-    const foreign = await call({ path: ['state'], auth: false, headers: { origin: 'https://evil.example', host: 'quik1ledger.com', 'sec-fetch-site': 'cross-site', cookie } });
-    assert.equal(foreign.statusCode, 401);
-  } finally {
-    if (saved == null) delete process.env.LEDGER_UNLOCK_PIN; else process.env.LEDGER_UNLOCK_PIN = saved;
-    delete process.env.__keepEnv;
-  }
+  const gone = await call({ method: 'POST', path: ['unlock'], auth: false, headers: same, body: { pin: probe } });
+  assert.equal(gone.statusCode, 404);
+  assert.equal(gone.headers['set-cookie'], undefined);
+  assert.equal(String(gone.body).includes(probe), false);
+  const borrowerHost = await call({ path: ['state'], headers: { host: 'quik1.app' } });
+  assert.equal(borrowerHost.statusCode, 404);
+  const staffHost = await call({ path: ['state'], headers: { host: 'quik1ledger.com' } });
+  assert.equal(staffHost.statusCode, 200);
 });
 
 test('ledger GET state: no second bank_tx query while the newest window is not full or no opening balance is set', async () => {

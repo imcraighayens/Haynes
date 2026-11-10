@@ -1,6 +1,7 @@
 // HTTP plumbing shared by every function: JSON responses, body parsing with a size cap,
 // path parsing for Vercel catch-all routes, and the error wrapper that guarantees a caller
 // only ever sees `{error}` with a 4xx/5xx — never a stack trace, never the service key.
+import { apiRole, apiSideAllowed } from './hosts.js';
 
 export class HttpError extends Error {
   constructor(status, message, extra) {
@@ -140,6 +141,10 @@ export function requireEnv(names) {
 export function wrap(tag, fn) {
   return async function handler(req, res) {
     try {
+      // Same host lists as vercel.json. A borrower host never runs a staff route, and a staff host never runs Quik1.
+      if (!apiSideAllowed(apiRole(header(req, 'x-forwarded-host'), header(req, 'host')), tag)) {
+        throw new HttpError(404, 'Not found');
+      }
       if (req.method === 'OPTIONS') { json(res, 204, undefined, req); return; }
       await fn(req, res);
     } catch (e) {

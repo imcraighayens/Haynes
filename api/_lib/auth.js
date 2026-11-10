@@ -64,23 +64,21 @@ function sessionSecret() {
   return createHmac('sha256', key).update('ledger-staff-session-v1').digest();
 }
 
-// v1.{exp}.{nonce}.{sig} is an unnamed session (legacy unlock PIN).
-// v2.{exp}.{nonce}.{claims}.{sig} records the Supabase staff user. `claims` is base64url JSON
+// v2.{exp}.{nonce}.{claims}.{sig} is the only staff session. `claims` is base64url JSON
 // {email, name} and is covered by the HMAC, so it cannot be swapped without LEDGER_KEY.
+// There is no unnamed session and no unlock PIN. Email + password login is the only minter.
 export function mintStaffSession(now = Date.now(), staff = null) {
   const secret = sessionSecret();
   if (!secret) throw new HttpError(503, 'Server not configured');
+  const email = staff && staff.email ? String(staff.email).trim().toLowerCase() : '';
+  if (!email || email.length > 254) throw new HttpError(401, 'Unauthorized');
   const exp = now + SESSION_TTL_MS;
   const nonce = randomBytes(8).toString('hex');
-  const email = staff && staff.email ? String(staff.email).trim().toLowerCase() : '';
-  let payload = `v1.${exp}.${nonce}`;
-  if (email) {
-    const name = String(staff.displayName || '').trim().slice(0, 80);
-    const claims = Buffer.from(JSON.stringify({ email, name }), 'utf8').toString('base64url');
-    payload = `v2.${exp}.${nonce}.${claims}`;
-  }
+  const name = String(staff.displayName || '').trim().slice(0, 80);
+  const claims = Buffer.from(JSON.stringify({ email, name }), 'utf8').toString('base64url');
+  const payload = `v2.${exp}.${nonce}.${claims}`;
   const sig = createHmac('sha256', secret).update(payload).digest('base64url');
-  return { token: `${payload}.${sig}`, exp, email: email || null };
+  return { token: `${payload}.${sig}`, exp, email };
 }
 
 export function parseStaffToken(token, now = Date.now()) {
@@ -88,28 +86,24 @@ export function parseStaffToken(token, now = Date.now()) {
   const secret = sessionSecret();
   if (!secret) return null;
   const parts = token.split('.');
-  const version = parts[0];
-  if (version !== 'v1' && version !== 'v2') return null;
-  const expectLen = version === 'v1' ? 4 : 5;
-  if (parts.length !== expectLen) return null;
+  if (parts[0] !== 'v2' || parts.length !== 5) return null;
   const exp = Number(parts[1]);
   if (!Number.isFinite(exp) || exp < now) return null;
-  const payload = parts.slice(0, expectLen - 1).join('.');
+  const payload = parts.slice(0, 4).join('.');
   const expected = createHmac('sha256', secret).update(payload).digest('base64url');
-  const got = parts[expectLen - 1];
+  const got = parts[4];
   if (expected.length !== got.length) return null;
   try {
     if (!timingSafeEqual(Buffer.from(expected), Buffer.from(got))) return null;
   } catch {
     return null;
   }
-  if (version === 'v1') return { version, exp, email: null, displayName: '' };
   let claims;
   try { claims = JSON.parse(Buffer.from(parts[3], 'base64url').toString('utf8')); } catch { return null; }
   const email = claims && typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : '';
   if (!email || email.length > 254) return null;
   const displayName = claims && typeof claims.name === 'string' ? claims.name.trim().slice(0, 80) : '';
-  return { version, exp, email, displayName };
+  return { version: 'v2', exp, email, displayName };
 }
 
 export function verifyStaffSession(token, now = Date.now()) {
@@ -135,20 +129,6 @@ export function staffCookieHeader(token, exp, { clear = false } = {}) {
     `Max-Age=${maxAge}`
   ];
   return parts.join('; ');
-}
-
-export function unlockPinExpected() {
-  // Server-only PIN for POST /unlock. The Admin screen signs in with email and password
-  // and does not send this. Empty disables the unlock session (Bearer LEDGER_KEY still works).
-  // The value is never rendered in the staff UI.
-  return String(process.env.LEDGER_UNLOCK_PIN || '').trim();
-}
-
-export function verifyUnlockPin(pin) {
-  const expected = unlockPinExpected();
-  if (!expected) throw new HttpError(503, 'Unlock PIN not configured');
-  if (!safeEqual(String(pin || '').slice(0, 128), expected)) throw new HttpError(401, 'Unauthorized');
-  return true;
 }
 
 const PRODUCTION_HOSTS = new Set(['quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app']);
@@ -197,11 +177,10 @@ export async function requireStaff(req) {
   const bearerOk = safeEqual(token || '\u0000', expected);
   if (bearerOk) return true;
 
-  // Same-origin cookie session. v1 is the legacy unlock PIN. v2 is a named staff user who must
-  // still be an active public.employees row. Cross-site cookies are never enough on their own.
+  // Same-origin cookie session. Only a named v2 staff user who is still an active
+  // public.employees row. Cross-site cookies are never enough on their own.
   if (isSameOrigin(req)) {
     const parsed = parseStaffToken(parseCookies(req)[STAFF_COOKIE] || '');
-    if (parsed && parsed.version === 'v1') return true;
     if (parsed && parsed.email && await isAllowlistedEmployee(parsed.email)) return true;
   }
   throw new HttpError(401, 'Unauthorized');

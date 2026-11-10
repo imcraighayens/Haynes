@@ -21,7 +21,7 @@ function jsonResponse(status, body) {
 }
 
 // Boots the script in a vm context with stubbed window/localStorage/fetch/document.
-async function boot({ local = {}, state = null, stateStatus = 200, sync } = {}) {
+async function boot({ local = {}, state = null, stateStatus = 200, sync, withGate = false } = {}) {
   const localStorage = new FakeStorage();
   for (const [k, v] of Object.entries(local)) localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
   const calls = [];
@@ -29,13 +29,41 @@ async function boot({ local = {}, state = null, stateStatus = 200, sync } = {}) 
     calls.push({ url, init });
     if (/\/state$/.test(url)) return jsonResponse(stateStatus, state);
     if (/\/sync$/.test(url)) { const ops = JSON.parse(init.body).ops || []; const results = sync ? sync(ops) : ops.map(() => ({ count: 1 })); return jsonResponse(200, { ok: results.every(r => !r.error), results }); }
+    if (/\/login$/.test(url)) return jsonResponse(401, { error: 'Unauthorized' });
     return jsonResponse(404, {});
   };
   const head = { children: [], appendChild(el) { this.children.push(el); } };
-  const document = { readyState: 'complete', head, createElement: (tag) => ({ tagName: tag }), addEventListener() {}, removeEventListener() {} };
+  const ids = {};
+  let gate = null;
+  if (withGate) {
+    const parent = { removeChild(node) { node.removed = true; } };
+    gate = { attrs: { 'data-gate': 'splash' }, parentNode: parent, removed: false, getAttribute(k) { return this.attrs[k]; }, setAttribute(k, v) { this.attrs[k] = v; } };
+    const splash = { hidden: false };
+    const panel = { hidden: true };
+    const email = { value: '', focus() {} };
+    const pass = { value: '' };
+    const err = { hidden: true, textContent: '' };
+    const btn = { disabled: false };
+    const form = { __bound: false, addEventListener(type, fn) { if (type === 'submit') this.onsubmit = fn; } };
+    ids['ledger-gate'] = gate;
+    ids['ledger-splash'] = splash;
+    ids['ledger-login'] = panel;
+    ids['ledger-email'] = email;
+    ids['ledger-pass'] = pass;
+    ids['ledger-login-error'] = err;
+    ids['ledger-login-submit'] = btn;
+    ids['ledger-login-form'] = form;
+  }
+  const document = {
+    readyState: 'complete', head,
+    createElement: (tag) => ({ tagName: tag }),
+    getElementById: withGate ? (id) => ids[id] || null : undefined,
+    addEventListener() {}, removeEventListener() {}
+  };
   const window = {
     localStorage, Storage: FakeStorage, document, fetch, console: { info() {} },
     location: { origin: ORIGIN }, setTimeout, clearTimeout, AbortController, addEventListener() {},
+    __ledgerSplashAt: Date.now()
   };
   window.window = window;
   vm.createContext(window);
@@ -44,7 +72,7 @@ async function boot({ local = {}, state = null, stateStatus = 200, sync } = {}) 
   const read = (k) => JSON.parse(localStorage.getItem(k));
   const plain = (v) => JSON.parse(JSON.stringify(v)); // objects built inside the vm realm have a foreign prototype
   const queue = () => plain(window.__ledger._.queue());
-  return { window, L: window.__ledger, localStorage, calls, head, read, plain, queue };
+  return { window, L: window.__ledger, localStorage, calls, head, read, plain, queue, gate, ids };
 }
 
 const STATE = {
@@ -72,10 +100,9 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key or st
   assert.equal(calls[0].init.credentials, 'include');
   assert.match(String(calls[0].url), /\/state$/);
   assert.equal(await L.state, null);
-  assert.equal(L.needsUnlock, false, 'an empty 200 is not an auth challenge');
+  assert.equal(L.needsUnlock, true, 'no book means the console stays behind the staff login');
   assert.match(L.error, /no staff session|no key|HTTP 401|Unauthorized/i);
-  assert.equal(head.children.length, 1);
-  assert.equal(head.children[0].src, 'c53b361c-bb83-4c37-90f5-7116b8407f79.js');
+  assert.equal(head.children.length, 0, 'the book runtime is not injected without a session');
   assert.equal(read('q1.apps'), null, 'q1.apps untouched without a key');
   // No cloud state: the saved book must still exist with empty lists, or the console's
   // constructor keeps its built-in demo book (c1 'EC-032'…, l1 'ECL-094'…) and dbPush would
@@ -83,19 +110,42 @@ test('seeds ledjaa.supabase when absent and boots local-only without a key or st
   assert.deepEqual(read('evoltConsoleV4'), { clients: [], loans: [], logbook: [], petty: [], employees: [], applications: [] });
 });
 
-test('a 401 from /state asks for the server unlock; other failures do not', async () => {
+test('a 401 shows the splash login and a confirmed book dismisses it', async () => {
+  const denied = await boot({ stateStatus: 401, state: { error: 'Unauthorized' }, withGate: true });
+  assert.equal(denied.gate.attrs['data-gate'], 'login');
+  assert.equal(denied.ids['ledger-splash'].hidden, true);
+  assert.equal(denied.ids['ledger-login'].hidden, false);
+  assert.equal(denied.gate.removed, false);
+  assert.equal(denied.head.children.length, 0);
+  denied.ids['ledger-email'].value = 'staff@example.com';
+  denied.ids['ledger-pass'].value = 'wrong-password';
+  denied.ids['ledger-login-form'].onsubmit({ preventDefault() {} });
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(denied.ids['ledger-login-error'].hidden, false);
+  assert.match(denied.ids['ledger-login-error'].textContent, /Sign-in failed/);
+  assert.equal(denied.ids['ledger-pass'].value, '');
+
+  const authed = await boot({ state: STATE, withGate: true });
+  assert.equal(authed.L.needsUnlock, false);
+  assert.equal(authed.gate.removed, true);
+  assert.equal(authed.head.children.length, 1);
+  assert.equal(authed.head.children[0].src, 'c53b361c-bb83-4c37-90f5-7116b8407f79.js');
+});
+
+test('a 401 or a failed state fetch keeps the book behind the login', async () => {
   const denied = await boot({ stateStatus: 401, state: { error: 'Unauthorized' } });
   assert.equal(denied.L.needsUnlock, true);
   assert.match(denied.L.error, /HTTP 401/);
   assert.equal(await denied.L.state, null);
-  assert.equal(denied.head.children.length, 1, 'the console still boots so the existing passcode can render');
+  assert.equal(denied.head.children.length, 0, 'a 401 does not paint the book');
 
   const staleKey = await boot({ local: { 'ledjaa.supabase': { url: ORIGIN + '/api/ledger', key: 'stale-key' } }, stateStatus: 401, state: { error: 'Unauthorized' } });
   assert.equal(staleKey.L.needsUnlock, true, 'a rejected stored key is still no staff session');
   assert.equal(staleKey.calls[0].init.headers.Authorization, 'Bearer stale-key');
 
   const down = await boot({ stateStatus: 503, state: { error: 'Server not configured' } });
-  assert.equal(down.L.needsUnlock, false);
+  assert.equal(down.L.needsUnlock, true, 'a server error is not a staff session');
+  assert.equal(down.head.children.length, 0);
   assert.match(down.L.error, /HTTP 503/);
 
   const ok = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state: STATE });
@@ -326,12 +376,13 @@ test('mirrors petty, bank tx, expenses, bank and org writes as the right ops', a
   assert.deepEqual(read('ledjaa.sync.queue'), []);
 });
 
-test('a failed or slow state fetch falls back to local-only and still injects the runtime', async () => {
+test('a failed or slow state fetch keeps the local book queued and does not inject the runtime', async () => {
   const sv0 = { clients: [], loans: [], logbook: [{ ref: 'X', customer: 'Y', amount: 1, type: 'T', date: '2 OCT 2026', by: 'me', comment: '' }], petty: [] };
   const { L, head, read, localStorage } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0 }, state: { error: 'nope' }, stateStatus: 503 });
   assert.equal(await L.state, null);
   assert.match(L.error, /HTTP 503/);
-  assert.equal(head.children.length, 1);
+  assert.equal(L.needsUnlock, true);
+  assert.equal(head.children.length, 0);
   assert.equal(L._.queue().length, 0, 'offline boot queues nothing it cannot diff');
   assert.ok(read('evoltConsoleV4').logbook[0].id, 'local entries still get ids');
   // writes after an offline boot are still mirrored

@@ -143,10 +143,15 @@ test('quik1 POST applications: database-backed throttles (per hour, per phone pe
 });
 
 test('quik1 POST applications: the stored row stays small (docs and raw extras are capped)', async () => {
-  const body = { ...appRecord, docs: Array(10).fill('d'.repeat(120)), employment: 'e'.repeat(120), payday: 'p'.repeat(120), idnum: 'i'.repeat(120) };
+  const idnum = '9001015009087';
+  const body = { ...appRecord, docs: Array(10).fill('d'.repeat(120)), employment: 'e'.repeat(120), payday: 'p'.repeat(120), idnum, idNumber: idnum, id_number: idnum };
   const res = await call({ method: 'POST', path: ['applications'], body });
   assert.equal(res.statusCode, 201);
   const row = calls.find(c => c.method === 'POST').body[0];
+  assert.equal(row.id_number, undefined);
+  assert.equal(row.meta.raw.idnum, undefined);
+  assert.equal(JSON.stringify(row).includes(idnum), false);
+  assert.equal(row.status, 'new');
   assert.equal(row.meta.docs.length, 5); assert.ok(row.meta.docs.every(d => d.length <= 80));
   assert.ok(Object.values(row.meta.raw).every(v => String(v).length <= 60));
   assert.ok(JSON.stringify(row).length < 1200, 'well under the 2.9 KB a flooded row used to weigh');
@@ -185,25 +190,33 @@ test('quik1 GET applications/:id: status mapping and decision shape', async () =
   assert.equal((await call({ path: ['applications', 'bad id!'] })).statusCode, 400);
 });
 
-test('quik1 POST signups: auto-approved immediately, GET returns the decision', async () => {
-  const before = Date.now();
-  const su = { id: 'su_0123456789ab', name: 'Thandi Mokoena', idnum: '9001015009087', phone: '+27 82 441 0912', email: 'thandi@example.com', employment: 'Full-time', employer: 'Sibanye', income: 18500, payday: '25th', status: 'Pending review' };
+test('quik1 POST signups: pending review, SA ID is not stored, GET returns that status', async () => {
+  const su = { id: 'su_0123456789ab', name: 'Thandi Mokoena', idnum: '9001015009087', idNumber: '9001015009087', phone: '+27 82 441 0912', email: 'thandi@example.com', employment: 'Full-time', employer: 'Sibanye', income: 18500, payday: '25th', status: 'Approved' };
   const res = await call({ method: 'POST', path: ['signups'], body: su });
   assert.equal(res.statusCode, 201, res.body);
   const out = res.json();
-  assert.equal(out.id, 'su_0123456789ab'); assert.equal(out.status, 'Approved'); assert.equal(out.by, 'auto'); assert.equal(out.note, 'Auto-approved by Quik1 bridge');
-  assert.ok(out.decidedAt >= before);
+  assert.equal(out.id, 'su_0123456789ab');
+  assert.equal(out.status, 'Pending review');
+  assert.equal(out.by, null);
+  assert.equal(out.decidedAt, null);
+  assert.match(out.note, /in review/);
+  assert.equal(res.body.includes('9001015009087'), false);
   const row = calls.find(c => c.method === 'POST').body[0];
   assert.equal(calls.find(c => c.method === 'POST').url.pathname, '/rest/v1/q1_signups');
-  assert.equal(row.status, 'Approved'); assert.equal(row.decided_by, 'auto'); assert.equal(row.id_number, '9001015009087');
+  assert.equal(row.status, 'Pending review');
+  assert.equal(row.decided_by, undefined);
+  assert.equal(row.id_number, undefined);
+  assert.equal(JSON.stringify(row).includes('9001015009087'), false);
   assert.equal(row.phone, '+27 82 441 0912'); assert.equal(row.reviewer, 'applications@ecoloans.co.za'); assert.equal(row.income, 18500);
   assert.equal((await call({ method: 'POST', path: ['signups'], body: { ...su, name: '' } })).statusCode, 400);
   const gen = await call({ method: 'POST', path: ['signups'], body: { ...su, id: 'SU-2041' } });
   assert.match(gen.json().id, /^su_[0-9a-f]{12}$/);
 
-  stubFetch(() => ({ status: 200, body: [{ id: 'su_0123456789ab', status: 'Approved', decided_at: '2026-10-29T10:00:00Z', decided_by: 'auto', note: 'Auto-approved by Quik1 bridge' }] }));
+  stubFetch(() => ({ status: 200, body: [{ id: 'su_0123456789ab', status: 'Pending review', decided_at: null, decided_by: null, note: out.note }] }));
   const got = await call({ path: ['signups', 'su_0123456789ab'] });
-  assert.deepEqual(got.json(), { id: 'su_0123456789ab', status: 'Approved', decidedAt: Date.parse('2026-10-29T10:00:00Z'), by: 'auto', note: 'Auto-approved by Quik1 bridge' });
+  assert.equal(got.json().status, 'Pending review');
+  assert.equal(got.json().by, null);
+  assert.equal(got.json().decidedAt, null);
   stubFetch(() => ({ status: 200, body: [] }));
   assert.equal((await call({ path: ['signups', 'su_ffffffffffff'] })).statusCode, 404);
 });
@@ -232,9 +245,9 @@ test('quik1 POST requests and GET repayments/:key', async () => {
 });
 
 test('quik1: routing — 404 unknown, 405 wrong method, never DELETE, no auth header needed', async () => {
-  assert.equal((await call({ path: ['loans'] })).statusCode, 404);
+  assert.equal((await call({ path: ['loans'] })).statusCode, 401);
   assert.equal((await call({ method: 'DELETE', path: ['applications', 'ap_0123456789ab'] })).statusCode, 405);
-  assert.equal((await call({ method: 'GET', path: ['applications'] })).statusCode, 405);
+  assert.equal((await call({ method: 'GET', path: ['applications'] })).statusCode, 401);
   assert.equal((await call({ method: 'PATCH', path: ['applications', 'ap_0123456789ab'], body: { status: 'approved' } })).statusCode, 405, 'customers cannot decide');
   assert.equal((await call({ method: 'GET', path: ['requests', 'rq_0123456789ab'] })).statusCode, 405);
   assert.ok(!calls.some(c => c.method === 'DELETE' || c.method === 'PATCH'));

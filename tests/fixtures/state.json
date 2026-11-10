@@ -69,5 +69,8 @@
   "ledger_book": [],
   "q1_signups": [],
   "q1_requests": [],
-  "q1_repayments": []
+  "q1_repayments": [],
+  "q1_borrowers": [],
+  "q1_invites": [],
+  "q1_sessions": []
 }

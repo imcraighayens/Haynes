@@ -196,7 +196,7 @@
   function retryable(r) { return r.retryable === true || (r.retryable == null && /unreachable|Internal error/i.test(String(r.error || ''))); }
   function flush() {
     if (flushing || !pending.length) return Promise.resolve();
-    // Bearer key OR same-origin staff cookie (minted by unlock) can flush; 401 keeps the queue.
+    // Bearer key OR same-origin staff cookie (minted by email login) can flush; 401 keeps the queue.
     flushing = true;
     var batch = pending.splice(0, MAX_BATCH);
     inflight = batch; persistQueue();
@@ -222,6 +222,46 @@
   function rememberExpenses(list) { known.expenses = {}; list.forEach(function (e) { if (e && e.id) known.expenses[e.id] = stableJSON(expToRow(e)); }); }
 
   function clientRefNum(ref) { var m = String(ref || '').match(/(\d+)\s*$/); return m ? parseInt(m[1], 10) : 0; }
+
+  // Quik1 rows from the book join the inbox. Local-only rows stay. Same id: the book wins on status.
+  function appToConsole(row) {
+    var meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
+    var docs = Array.isArray(meta.docs) ? meta.docs.map(function (d) { return typeof d === 'string' ? d : str(d && d.name, 'Document'); }) : [];
+    var when = row && row.created_at ? new Date(row.created_at) : null;
+    return {
+      id: 'qk_' + str(row.id),
+      extId: str(row.id),
+      name: str(row.name, 'Applicant'),
+      phone: str(row.phone, '—'),
+      email: str(row.email, '—'),
+      idNumber: str(row.id_number, '—'),
+      amount: num(row.amount),
+      term: parseInt(row.term_months, 10) || 1,
+      purpose: str(row.purpose, 'Personal'),
+      employer: str(row.employer, '—'),
+      jobTitle: str(row.job_title, '—'),
+      income: num(row.net_income),
+      bank: str(row.bank, '—'),
+      docs: docs,
+      status: str(row.status, 'new'),
+      source: row.client_id ? 'Quik1 · existing client' : 'Quik1 app',
+      submitted: when && !isNaN(when) ? labelOf(when).toUpperCase() : '',
+      existingClientId: row.client_id || null
+    };
+  }
+  function mergeApplications(local, remote) {
+    var seen = {}, out = [], i, row, mapped, prev;
+    (Array.isArray(local) ? local : []).forEach(function (a) { if (a && a.id && !seen[a.id]) { seen[a.id] = a; out.push(a); } });
+    (Array.isArray(remote) ? remote : []).forEach(function (r) {
+      if (!r || !r.id || String(r.source || '') !== 'quik1') return;
+      mapped = appToConsole(r);
+      prev = seen[mapped.id];
+      if (!prev) { seen[mapped.id] = mapped; out.push(mapped); return; }
+      for (i = 0; i < out.length; i++) if (out[i] && out[i].id === mapped.id) out[i] = Object.assign({}, prev, mapped);
+      seen[mapped.id] = Object.assign({}, prev, mapped);
+    });
+    return out;
+  }
 
   // The console's constructor only discards its built-in demo book when the saved state has
   // `clients` and `loans` ([] is truthy, so empty arrays are enough). The hosted console must
@@ -285,6 +325,7 @@
     petty.sort(function (a, b) { return String(b.iso || '').localeCompare(String(a.iso || '')); });
 
     var payload = Object.assign(ensureBook(sv).book, { logbook: logbook, petty: petty });
+    payload.applications = mergeApplications(payload.applications, st && st.applications);
     seedSeq(payload, 'loanSeq', st && st.loans);
     seedSeq(payload, 'clientSeq', st && st.clients);
     writeJSON(KEYS.console, payload);
@@ -388,8 +429,21 @@
   function injectRuntime() {
     return new Promise(function (resolve) {
       whenParsed(function () {
-        try { var d = W.document, s = d.createElement('script'); s.src = RUNTIME_SRC; (d.head || d.documentElement).appendChild(s); } catch (e) { info('runtime injection failed', e); }
-        resolve();
+        var finished = false;
+        function finish() { if (finished) return; finished = true; resolve(); }
+        try {
+          var d = W.document, s = d.createElement('script');
+          s.src = RUNTIME_SRC;
+          s.onload = finish;
+          s.onerror = finish;
+          (d.head || d.documentElement).appendChild(s);
+          // The unit-test document never loads the script. A real browser fires onload.
+          if (typeof W.HTMLElement !== 'function') finish();
+          else {
+            var fallback = setTimeout(finish, 8000);
+            if (fallback && typeof fallback.unref === 'function') fallback.unref();
+          }
+        } catch (e) { info('runtime injection failed', e); finish(); }
       });
     });
   }
@@ -411,20 +465,6 @@
     return [];
   }
 
-  // Server-only PIN. POST /api/ledger/unlock mints the same cookie. The Admin screen does not send it.
-  function unlock(pin) {
-    return api('POST', '/unlock', { pin: String(pin || '') }, { timeoutMs: 8000 }).then(function () {
-      return fetchState().then(function (st) {
-        applyBootState(st);
-        if (st && st.clients) {
-          try {
-            if (W.location && typeof W.location.reload === 'function') W.location.reload();
-          } catch (e) {}
-        }
-        return st;
-      });
-    });
-  }
   // Supabase email + password → same-origin httpOnly staff cookie. The browser never holds LEDGER_KEY.
   function login(email, password) {
     return api('POST', '/login', { email: String(email || ''), password: String(password || '') }, { timeoutMs: 20000 }).then(function (res) {
@@ -433,12 +473,10 @@
       }
       return fetchState().then(function (st) {
         applyBootState(st);
-        if (st && st.clients) {
-          try {
-            // Soft-reload so the console constructor re-reads evoltConsoleV4 seeded above.
-            if (W.location && typeof W.location.reload === 'function') W.location.reload();
-          } catch (e) {}
-        }
+        try {
+          // Reload so the gate sees the new cookie and the console reads the seeded book.
+          if (W.location && typeof W.location.reload === 'function') W.location.reload();
+        } catch (e) {}
         return res || { ok: true };
       });
     });
@@ -453,26 +491,112 @@
     return api('POST', '/lock', {}, { timeoutMs: 5000 }).catch(function () { return null; });
   }
 
-  L.unlock = unlock;
   L.login = login;
   L.lock = lock;
+
+  // The splash is in the HTML, visible before this script finishes. Hold it briefly,
+  // then either reveal the staff login or drop the gate once the console can paint.
+  var SPLASH_MS = 900;
+  function gateRoot() {
+    try { return W.document && W.document.getElementById && W.document.getElementById('ledger-gate'); }
+    catch (e) { return null; }
+  }
+  function afterSplash(fn) {
+    whenParsed(function () {
+      var root = gateRoot();
+      if (!root) { fn(); return; }
+      var at = Number(W.__ledgerSplashAt) || Date.now();
+      var wait = Math.max(0, at + SPLASH_MS - Date.now());
+      setTimeout(fn, wait);
+    });
+  }
+  function revealLogin() {
+    return new Promise(function (resolve) {
+      afterSplash(function () {
+        var root = gateRoot();
+        var doc = W.document;
+        if (root && doc && doc.getElementById) {
+          root.setAttribute('data-gate', 'login');
+          var splash = doc.getElementById('ledger-splash');
+          var panel = doc.getElementById('ledger-login');
+          if (splash) splash.hidden = true;
+          if (panel) panel.hidden = false;
+          try {
+            var email = doc.getElementById('ledger-email');
+            if (email && email.focus) email.focus();
+          } catch (e) {}
+        }
+        resolve();
+      });
+    });
+  }
+  function dismissGate() {
+    return new Promise(function (resolve) {
+      afterSplash(function () {
+        var root = gateRoot();
+        if (root && root.parentNode) root.parentNode.removeChild(root);
+        resolve();
+      });
+    });
+  }
+  function showLoginError(text) {
+    var doc = W.document;
+    if (!doc || !doc.getElementById) return;
+    var errEl = doc.getElementById('ledger-login-error');
+    if (!errEl) return;
+    errEl.hidden = false;
+    errEl.textContent = text;
+  }
+  function bindLogin() {
+    var doc = W.document;
+    if (!doc || !doc.getElementById) return;
+    var form = doc.getElementById('ledger-login-form');
+    if (!form || form.__bound) return;
+    form.__bound = true;
+    form.addEventListener('submit', function (ev) {
+      if (ev && ev.preventDefault) ev.preventDefault();
+      var emailEl = doc.getElementById('ledger-email');
+      var passEl = doc.getElementById('ledger-pass');
+      var btn = doc.getElementById('ledger-login-submit');
+      var email = emailEl ? String(emailEl.value || '').trim() : '';
+      var pass = passEl ? String(passEl.value || '') : '';
+      if (!email || !pass) { showLoginError('Enter your staff email and password.'); return; }
+      var errEl = doc.getElementById('ledger-login-error');
+      if (errEl) errEl.hidden = true;
+      if (btn) btn.disabled = true;
+      login(email, pass).then(function () {}, function () {
+        if (btn) btn.disabled = false;
+        if (passEl) passEl.value = '';
+        showLoginError('Sign-in failed. Check the email and password.');
+      });
+    });
+  }
 
   function boot() {
     var c = seedCfg();
     restoreQueue();
     if (c.key) { try { seedQ1Apps(c.key); } catch (e) { info('q1.apps seed failed', e); } }
-    // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after unlock.
+    try { whenParsed(bindLogin); } catch (e) {}
+    // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after email login.
+    // No confirmed book means no session. The console stays uninjected so clients, loans,
+    // and NuPay never paint. The splash then becomes the staff login.
     L.state = fetchState();
     L.booted = L.state.then(function (st) {
-      if (!st && !c.key) L.error = L.error || 'no staff session — sign in under Admin, or Connect under Settings';
+      if (!st) {
+        L.needsUnlock = true;
+        if (!c.key) L.error = L.error || 'no staff session — sign in under Admin, or Connect under Settings';
+        applyBootState(st);
+        hookStorage();
+        return revealLogin();
+      }
+      L.needsUnlock = false;
       applyBootState(st);
-      var who = st ? fetchStaff() : Promise.resolve();
-      return who.then(function () {
+      return fetchStaff().then(function () {
         hookStorage();
         return injectRuntime();
-      });
-    }).then(function () { if (pending.length) scheduleFlush(0); });
-    try { W.addEventListener && W.addEventListener('online', function () { if (pending.length) scheduleFlush(0); }); } catch (e) {}
+      }).then(function () { return dismissGate(); });
+    }).then(function () { if (pending.length && !L.needsUnlock) scheduleFlush(0); });
+    try { W.addEventListener && W.addEventListener('online', function () { if (pending.length && !L.needsUnlock) scheduleFlush(0); }); } catch (e) {}
   }
 
   // Internals exposed for unit tests only.

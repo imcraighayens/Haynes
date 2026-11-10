@@ -47,8 +47,8 @@ async function request(method, table, query, { body, prefer, headers } = {}) {
   let data = null;
   if (text) { try { data = JSON.parse(text); } catch { data = null; } }
   if (!res.ok) {
-    // Surface the PostgREST error code (e.g. 23505 duplicate, 42P01 missing table) but never
-    // its message/details, which can echo row values.
+    // Surface the PostgREST error code (23505 duplicate, 42P01 missing relation, PGRST205
+    // table absent from the schema cache) but never its message/details, which can echo row values.
     const code = data && typeof data === 'object' && data.code ? String(data.code) : String(res.status);
     const err = new HttpError(res.status === 404 ? 502 : (res.status >= 500 ? 502 : 502), `Database error ${code}`);
     err.code = code; err.upstream = res.status;
@@ -141,6 +141,12 @@ export async function update(table, match, patch) {
   if (!match || !Object.keys(match).length) throw new HttpError(400, 'update needs a match');
   const query = {};
   for (const [k, v] of Object.entries(match)) query[k] = eq(v);
+  return patchWhere(table, query, patch);
+}
+
+// query values are already PostgREST filters (`eq.id`, `is.null`, `gt.timestamp`).
+export async function patchWhere(table, query, patch) {
+  if (!query || !Object.keys(query).length) throw new HttpError(400, 'update needs a match');
   const { data } = await request('PATCH', table, query, { body: patch, prefer: 'return=representation' });
   return Array.isArray(data) ? data : [];
 }

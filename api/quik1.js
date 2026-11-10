@@ -15,13 +15,24 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
+import { redeemInvite, loginBorrower, logoutBorrower, borrowerHome } from './_lib/borrower.js';
+import {
+  borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
+  createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument,
+  previewClients, previewBook
+} from './_lib/borrower-book.js';
+import { requireStaff } from './_lib/auth.js';
+import { previewViewAsAllowed } from './_lib/quik1-flags.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+const DOC_BODY_CAP = 2 * 1024 * 1024;
 const REF_BASE = 1085; // the local Quik1Link numbered applications from AP-1085
-const AUTO_NOTE = 'Auto-approved by Quik1 bridge';
 const DEFAULT_REVIEWER = 'applications@ecoloans.co.za';
+const PENDING_STATUS = 'Pending review';
+const PENDING_NOTE = 'Your sign-up is in review. We will SMS you once a person has decided.';
 // Extra fields from the app record we keep (whitelisted) under meta.raw for staff context.
-const RAW_KEYS = ['source', 'status', 'employment', 'payday', 'estIncome', 'estExpenses', 'idnum'];
+// SA ID numbers are not accepted here, even under another key.
+const RAW_KEYS = ['source', 'status', 'employment', 'payday', 'estIncome', 'estExpenses'];
 const RAW_MAX = 60;      // short labels only; the row must stay small (it rides in every /state)
 const DOCS_MAX = 5;
 const DOC_NAME_MAX = 80;
@@ -82,7 +93,6 @@ async function postApplication(req, res, body) {
     name,
     phone,
     email: cleanEmail(body.email) || null,
-    id_number: cleanText(body.idNumber ?? body.id_number ?? body.idnum, 20) || null,
     amount,
     term_months: parseTerm(body.term ?? body.term_months),
     purpose: cleanText(body.purpose, 120) || 'Personal',
@@ -119,12 +129,12 @@ async function postSignup(req, res, body) {
   const name = cleanText(body.name, 120);
   if (!name) throw new HttpError(400, 'name is required');
   const id = wellFormedClientId(body.id, 'su') || newId('su');
-  const now = new Date().toISOString();
+  // Pending until a person decides. An SA ID number in the body is ignored so an older
+  // app build still gets this screen instead of a 400. The number is not stored.
   const row = {
     id,
-    status: 'Approved', // auto-approval policy: the customer proceeds immediately
+    status: PENDING_STATUS,
     name,
-    id_number: cleanText(body.idnum ?? body.idNumber ?? body.id_number, 20) || null,
     phone: cleanPhone(body.phone) || null,
     email: cleanEmail(body.email) || null,
     employment: cleanText(body.employment, 80) || null,
@@ -132,13 +142,11 @@ async function postSignup(req, res, body) {
     income: Math.max(0, num(body.income, 0)),
     payday: cleanText(body.payday, 40) || null,
     reviewer: DEFAULT_REVIEWER,
-    decided_at: now,
-    decided_by: 'auto',
-    note: AUTO_NOTE,
+    note: PENDING_NOTE,
     meta: { submittedAt: toMs(body.submittedAt) || Date.now(), client: 'quik1' }
   };
   await upsert('q1_signups', [row], 'id', { ignoreDuplicates: true, returning: false });
-  json(res, 201, { id, status: row.status, decidedAt: toMs(now), by: row.decided_by, note: row.note }, req);
+  json(res, 201, { id, status: row.status, decidedAt: null, by: null, note: row.note }, req);
 }
 
 async function getSignup(req, res, id) {
@@ -231,6 +239,32 @@ async function postBorrowerQ1(req, res) {
   json(res, 200, { reply: result.reply, go: result.go, connected: true }, req);
 }
 
+function setCookies(res, list) {
+  if (list && list.length) res.setHeader('Set-Cookie', list.length === 1 ? list[0] : list);
+}
+
+async function postRedeem(req, res) {
+  const out = await redeemInvite(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postBorrowerLogin(req, res) {
+  const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+}
+
+async function postBorrowerLogout(req, res) {
+  const out = await logoutBorrower(req);
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true }, req);
+}
+
+async function getMe(req, res) {
+  json(res, 200, await borrowerHome(req), req);
+}
+
 export default wrap('quik1', async (req, res) => {
   requireEnv(ENV);
   const rl = publicLimiter.check(clientIp(req));
@@ -244,7 +278,30 @@ export default wrap('quik1', async (req, res) => {
 
   if (head === 'applications') {
     if (!id && method === 'POST') return postApplication(req, res, await readBody(req, PUBLIC_BODY_CAP));
+    if (!id && method === 'GET') return json(res, 200, await borrowerApplications(req), req);
     if (id && method === 'GET') return getApplication(req, res, id);
+  } else if (head === 'withdrawals') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return json(res, 201, await createWithdrawal(req, await readBody(req, PUBLIC_BODY_CAP)), req);
+  } else if (head === 'documents') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return json(res, 201, await attachDocument(req, await readBody(req, DOC_BODY_CAP)), req);
+  } else if (head === 'loans') {
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    if (!id) return json(res, 200, await borrowerLoans(req), req);
+    if (rest.length) throw new HttpError(404, 'Not found');
+    return json(res, 200, await borrowerLoan(req, id), req);
+  } else if (head === 'statements') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, await borrowerStatements(req), req);
+  } else if (head === 'messages') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method === 'GET' || method === 'HEAD') return json(res, 200, await borrowerMessages(req), req);
+    if (method === 'POST') return json(res, 201, await postBorrowerMessage(req, await readBody(req, PUBLIC_BODY_CAP)), req);
+    throw new HttpError(405, 'Method not allowed');
   } else if (head === 'signups') {
     if (!id && method === 'POST') return postSignup(req, res, await readBody(req, PUBLIC_BODY_CAP));
     if (id && method === 'GET') return getSignup(req, res, id);
@@ -258,6 +315,32 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerQ1(req, res);
+  } else if (head === 'invites') {
+    if (id !== 'redeem' || rest.length) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postRedeem(req, res);
+  } else if (head === 'login') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postBorrowerLogin(req, res);
+  } else if (head === 'logout') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postBorrowerLogout(req, res);
+  } else if (head === 'preview') {
+    if (!previewViewAsAllowed(req)) throw new HttpError(404, 'Not found');
+    await requireStaff(req);
+    if (!id && (method === 'GET' || method === 'HEAD')) {
+      return json(res, 200, { enabled: true, clients: await previewClients() }, req);
+    }
+    if (id && !rest.length && (method === 'GET' || method === 'HEAD')) {
+      return json(res, 200, await previewBook(id), req);
+    }
+    throw new HttpError(405, 'Method not allowed');
+  } else if (head === 'me') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method !== 'GET' && method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return getMe(req, res);
   } else {
     throw new HttpError(404, 'Not found');
   }
