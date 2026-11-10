@@ -64,9 +64,12 @@ browser, in git, or in the staff UI.
 | `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
 | `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
 | `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent, and the phone tells the client that staff can reset the device in Ledger. These are not the staff voice credentials. |
-| `QUIK1_ID_KEY` | Optional. 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Leave unset until that intake is turned on. |
+| `QUIK1_ID_KEY` | Optional. 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower, and an ID already stored on a Ledger client, application, or signup. Leave unset until that storage is turned on. |
 | `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
 | `QUIK1_ID_HMAC_KEY` | Optional. Separate 64-hex HMAC key so the same ID cannot be stored twice. Leave unset. |
+| `QUIK1_BANK_KEY` | Optional. 64 hex characters. Encrypts a Ledger account number (`clients.account_no`, and account numbers on Quik1 or Loop application rows). Not the ID key. Leave unset. |
+| `QUIK1_BANK_KEY_PREVIOUS` | Optional. Previous bank-detail key, used only to read older ciphertext. Leave unset. |
+| `QUIK1_BANK_HMAC_KEY` | Optional. Separate 64-hex HMAC key for account numbers. Leave unset. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -114,6 +117,37 @@ migrations. `QUIK1_ID_KEY` is required only when a signed-in borrower submits an
 Leave `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, `QUIK1_EMAIL_API_KEY`, and
 `QUIK1_BORROWER_PIN` unset. A new phone then asks the client to contact staff, who reset
 the device from Ledger. The PIN is not changed.
+
+Then paste and run `supabase/migrations/20261110180000_ledger_secret_columns.sql`.
+It only adds ciphertext, HMAC and last-4 columns for Ledger ID numbers and bank
+account numbers. It does not encrypt or clear the existing plaintext, and it does
+not set any key. Stop if it says `public.clients` or `public.applications` is missing.
+
+The backfill is a separate Node script. It is dry-run unless you pass `--commit`.
+Set the four keys below in the environment of the shell that runs it (the same
+values the server will use). Do not put the keys in SQL, and do not commit them.
+
+1. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` — SA IDs on `clients`, `applications` and `q1_signups`, plus ID numbers still sitting on `quik1.applications` and `loop.applications` when those tables exist.
+2. `QUIK1_BANK_KEY` and `QUIK1_BANK_HMAC_KEY` — `clients.account_no`, and `bank_account_no` on those Quik1 and Loop application tables.
+
+Generate each with `openssl rand -hex 32`. Then, from the repo root, with
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` already exported:
+
+```
+node scripts/backfill-ledger-secrets.js
+node scripts/backfill-ledger-secrets.js --commit
+```
+
+The first command writes nothing. The second encrypts each pending value and, in
+that same update, sets the plaintext column to null. Run it again whenever you
+need to: a row that is already sealed is left alone. A value the script cannot
+seal is left in plaintext and counted as `skipped`.
+
+Until those keys are set, a staff read of a row that still has an ID or an
+account number answers 503, and a write of either value answers 503. Reads that
+do not ask for the secret show the last four digits only. Leave the keys unset
+until you intend to serve that data. The script itself refuses to start when a
+key is missing, and it does not connect first.
 
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.

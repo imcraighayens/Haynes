@@ -31,6 +31,9 @@ const seed = {
 const fake = createFakePostgrest(seed);
 let restore = () => {};
 const ledger = (await import('../../api/ledger.js')).default;
+const { decryptClientId } = await import('../../api/_lib/ledger-secrets.js');
+const ID_KEY = 'ab'.repeat(32);
+const HMAC_KEY = 'cd'.repeat(32);
 
 function makeRes() {
   const res = {
@@ -75,7 +78,13 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
   process.env.LEDGER_KEY = STAFF;
 });
-afterEach(() => { restore(); });
+afterEach(() => {
+  restore();
+  delete process.env.QUIK1_ID_KEY;
+  delete process.env.QUIK1_ID_HMAC_KEY;
+  delete process.env.QUIK1_BANK_KEY;
+  delete process.env.QUIK1_BANK_HMAC_KEY;
+});
 
 test('a signed-out request cannot import', async () => {
   const res = await call({ headers: { authorization: '' }, body: { csv: CSV, commit: false } });
@@ -100,6 +109,8 @@ test('dry-run previews creates and does not write', async () => {
 });
 
 test('commit dedupes on the NuPay reference, keeps every schedule date, and stays quiet about ID and phone', async () => {
+  process.env.QUIK1_ID_KEY = ID_KEY;
+  process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
   const res = await call({ body: { csv: CSV, commit: true } });
   assert.equal(res.statusCode, 200, res.body);
   const body = res.json();
@@ -109,7 +120,10 @@ test('commit dedupes on the NuPay reference, keeps every schedule date, and stay
   assert.ok(client);
   assert.equal(client.id, 'c_nupay_np_100');
   assert.equal(client.name, 'Sample Client');
-  assert.equal(client.id_number, FAKE_ID);
+  assert.equal(client.id_number, null);
+  assert.match(client.id_ciphertext, /^v1\./);
+  assert.equal(String(client.id_ciphertext).includes(FAKE_ID), false);
+  assert.equal(decryptClientId(client.id_ciphertext, client.id), FAKE_ID);
   assert.equal(client.phone, FAKE_PHONE);
   assert.equal(client.bank, 'Example Bank');
   assert.equal(client.mystery, undefined);

@@ -3,14 +3,13 @@
 // rotation. QUIK1_ID_HMAC_KEY is a separate HMAC key for duplicate detection.
 // All three stay unset until intake is turned on. Plaintext is not logged and
 // is not returned to the client.
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { HttpError } from './http.js';
 import { selectOne, update, eq } from './supabase.js';
+import { keyFromEnv, openSealed, sealBytes } from './field-seal.js';
 
 function keyFrom(name) {
-  const raw = String(process.env[name] || '').trim();
-  if (!/^[0-9a-fA-F]{64}$/.test(raw)) return null;
-  return Buffer.from(raw, 'hex');
+  return keyFromEnv(name);
 }
 
 export function idKey() {
@@ -59,56 +58,22 @@ export function maskId(digits) {
   return '*********' + digits.slice(-4);
 }
 
-function seal(digits, borrowerId, key, version) {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(aadFor(borrowerId));
-  const ct = Buffer.concat([cipher.update(digits, 'utf8'), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return [version, iv.toString('base64url'), tag.toString('base64url'), ct.toString('base64url')].join('.');
-}
-
-function openWith(ivB, tagB, ctB, borrowerId, key) {
-  let iv;
-  let tag;
-  let ct;
-  try {
-    iv = Buffer.from(ivB, 'base64url');
-    tag = Buffer.from(tagB, 'base64url');
-    ct = Buffer.from(ctB, 'base64url');
-  } catch {
-    return '';
-  }
-  if (iv.length !== 12 || tag.length !== 16 || ct.length < 1) return '';
-  try {
-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(aadFor(borrowerId));
-    decipher.setAuthTag(tag);
-    const plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
-    return normaliseSaId(plain);
-  } catch {
-    return '';
-  }
-}
-
 export function encryptId(digits, borrowerId) {
   const key = idKey();
   const clean = normaliseSaId(digits);
   if (!key || !clean || !borrowerId) return null;
-  return seal(clean, borrowerId, key, 'v1');
+  return sealBytes(clean, aadFor(borrowerId), key, 'v1');
 }
 
 export function decryptId(stored, borrowerId) {
   if (!borrowerId || typeof stored !== 'string') return '';
-  const parts = stored.split('.');
-  if (parts.length !== 4 || !/^v\d+$/.test(parts[0])) return '';
   const keys = [];
   const current = idKey();
   const previous = previousIdKey();
   if (current) keys.push(current);
   if (previous) keys.push(previous);
   for (const key of keys) {
-    const plain = openWith(parts[1], parts[2], parts[3], borrowerId, key);
+    const plain = normaliseSaId(openSealed(stored, aadFor(borrowerId), [key]));
     if (plain) return plain;
   }
   return '';

@@ -7,6 +7,7 @@ import { isSafeId, cleanText, parseAmount, num } from './validate.js';
 import { accountFromLoans, statementsFromLoans, publicProfile, unidentified } from './quik1-book.js';
 import { readSession } from './quik1-session.js';
 import { maskForBorrower } from './sa-id.js';
+import { presentLedgerRow } from './ledger-secrets.js';
 import { decodeDocument, uploadPrivate, signPrivate } from './storage.js';
 
 const LOAN_COLS = 'id,ref,client_id,principal,status,schedule,instalment_amount,instalments_paid,paid_dates,purpose,issued_on,deleted_at';
@@ -324,7 +325,7 @@ export async function staffFeed() {
     threads[row.client_id] = bucket;
   }
   return {
-    applications: (applications || []).map(consoleApplication),
+    applications: (applications || []).map(row => consoleApplication(presentLedgerRow('applications', row, { reveal: true }))),
     threads: Object.values(threads)
   };
 }

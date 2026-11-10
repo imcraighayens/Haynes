@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { HttpError } from './http.js';
 import { select, upsert, insert } from './supabase.js';
 import { pick, cleanText, cleanPhone, cleanEmail, num, loanStatusToDb, isSafeId, toIsoDate } from './validate.js';
+import { ensureUniqueIds, sealWrite } from './ledger-secrets.js';
 
 const MAX_ROWS = 2000;
 const REF_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/;
@@ -531,7 +532,11 @@ export async function runNupayImport(csv, { commit = false, actor = 'staff' } = 
     safe.committed = false;
     return safe;
   }
-  if (plan.clientRows.length) await upsert('clients', plan.clientRows, 'id', { returning: false });
+  if (plan.clientRows.length) {
+    const sealed = plan.clientRows.map(row => sealWrite('clients', row));
+    await ensureUniqueIds(sealed);
+    await upsert('clients', sealed, 'id', { returning: false });
+  }
   if (plan.loanRows.length) await upsert('loans', plan.loanRows, 'id', { returning: false });
   const who = cleanText(actor, 80) || 'staff';
   try {

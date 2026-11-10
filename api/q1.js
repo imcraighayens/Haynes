@@ -6,6 +6,7 @@ import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, S
 import { requireStaff } from './_lib/auth.js';
 import { select, selectOne, update, eq } from './_lib/supabase.js';
 import { APPLICATION_STATUS, applicationStatusToDb, isSafeId, num } from './_lib/validate.js';
+import { presentLedgerRow } from './_lib/ledger-secrets.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const LIST_LIMIT = 200;
@@ -32,7 +33,7 @@ async function listApplications(req, res) {
     query.status = eq(status);
   }
   const rows = await select('applications', query);
-  json(res, 200, rows.map(augment), req);
+  json(res, 200, rows.map(row => augment(presentLedgerRow('applications', row, { reveal: true }))), req);
 }
 
 async function patchApplication(req, res, id) {
@@ -55,7 +56,7 @@ async function patchApplication(req, res, id) {
     : { status, decided_at: null, decided_by: null, decision: null }; // reopened / under review
   const rows = await update('applications', { id, source: 'quik1' }, patch);
   if (!rows.length) throw new HttpError(404, 'Application not found');
-  json(res, 200, augment(rows[0]), req);
+  json(res, 200, augment(presentLedgerRow('applications', rows[0], { reveal: true })), req);
 }
 
 export default wrap('q1', async (req, res) => {
@@ -72,7 +73,7 @@ export default wrap('q1', async (req, res) => {
     if (!isSafeId(id)) throw new HttpError(400, 'bad application id');
     const row = await selectOne('applications', { select: '*', id: eq(id), source: eq('quik1') });
     if (!row) throw new HttpError(404, 'Application not found');
-    return json(res, 200, augment(row), req);
+    return json(res, 200, augment(presentLedgerRow('applications', row, { reveal: true })), req);
   }
   throw new HttpError(405, 'Method not allowed');
 });

@@ -10,6 +10,7 @@ import { selectOne, count, upsert, eq } from './_lib/supabase.js';
 import {
   wellFormedClientId, cleanText, cleanPhone, cleanEmail, parseAmount, parseTerm, num, toMs
 } from './_lib/validate.js';
+import { sealWrite } from './_lib/ledger-secrets.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
 const SOURCE = 'ecoloan_web';
@@ -153,7 +154,7 @@ async function postApplication(req, res, body) {
       raw: rawExtras(body, loanType)
     }
   };
-  await upsert('applications', [row], 'id', { ignoreDuplicates: true, returning: false });
+  await upsert('applications', [sealWrite('applications', row)], 'id', { ignoreDuplicates: true, returning: false });
   json(res, 201, { id, ref: row.ref, status: 'new' }, req);
 }
 

@@ -9,6 +9,7 @@ const ENV = { SUPABASE_URL: 'https://db.test.supabase.co', SUPABASE_SERVICE_ROLE
 Object.assign(process.env, ENV);
 
 const handler = (await import('../../api/ecoloans.js')).default;
+const { decryptStored } = await import('../../api/_lib/ledger-secrets.js');
 const { ecoloansLimiter, CORS_ORIGINS } = await import('../../api/ecoloans.js');
 const { publicLimiter } = await import('../../api/_lib/ratelimit.js');
 const quik1 = (await import('../../api/quik1.js')).default;
@@ -63,6 +64,11 @@ beforeEach(() => {
   delete process.env.ECOLOANS_PHONE_DAILY_CAP;
   delete process.env.ALLOWED_ORIGIN;
   delete process.env.QUIK1_HOURLY_CAP;
+  delete process.env.QUIK1_ID_KEY;
+  delete process.env.QUIK1_ID_HMAC_KEY;
+  delete process.env.QUIK1_ID_KEY_PREVIOUS;
+  delete process.env.QUIK1_BANK_KEY;
+  delete process.env.QUIK1_BANK_HMAC_KEY;
   stubDb();
 });
 
@@ -122,7 +128,20 @@ test('POST applications: site fields land on applications as source ecoloan_web,
 });
 
 test('POST applications: canonical names, numeric income, business loan type, id number', async () => {
-  const res = await call({ method: 'POST', path: ['applications'], body: {
+  let res = await call({ method: 'POST', path: ['applications'], body: {
+    id: 'ew_0123456789ab', name: 'Amahle Dlamini', phone: '0730001122', email: 'not-an-email',
+    amount: 15000, term_months: 2, why: 'Stock', income: 'R 18 500', takeHome: 'R20 000 to R50 000',
+    loanType: 'business', aWork: 'Amahle Spaza', aReg: '2023/848161/07', aInd: 'Retail',
+    ayears: '1 to 3 years', employment: 'Self-employed', aPay: 'Month end', bank: 'FNB',
+    province: 'Gauteng', idNumber: '9001015009087'
+  } });
+  assert.equal(res.statusCode, 503, res.body);
+  assert.equal(res.json().error, 'ID storage is not configured');
+  assert.equal(res.body.includes('9001015009087'), false);
+
+  process.env.QUIK1_ID_KEY = 'ab'.repeat(32);
+  process.env.QUIK1_ID_HMAC_KEY = 'cd'.repeat(32);
+  res = await call({ method: 'POST', path: ['applications'], body: {
     id: 'ew_0123456789ab', name: 'Amahle Dlamini', phone: '0730001122', email: 'not-an-email',
     amount: 15000, term_months: 2, why: 'Stock', income: 'R 18 500', takeHome: 'R20 000 to R50 000',
     loanType: 'business', aWork: 'Amahle Spaza', aReg: '2023/848161/07', aInd: 'Retail',
@@ -131,15 +150,20 @@ test('POST applications: canonical names, numeric income, business loan type, id
   } });
   assert.equal(res.statusCode, 201, res.body);
   assert.deepEqual(res.json(), { id: 'ew_0123456789ab', ref: 'EW-1097', status: 'new' });
+  assert.equal(res.body.includes('9001015009087'), false);
   const row = inserted();
   assert.equal(row.email, null);
+  assert.equal(row.id_number, null);
+  assert.match(row.id_ciphertext, /^v1\./);
+  assert.equal(String(row.id_ciphertext).includes('9001015009087'), false);
+  assert.equal(decryptStored('applications', 'id', row.id_ciphertext, row.id), '9001015009087');
+  assert.equal(row.id_last4, '9087');
   assert.equal(row.amount, 15000);
   assert.equal(row.term_months, 2);
   assert.equal(row.purpose, 'Stock');
   assert.equal(row.net_income, 18500, 'numeric income wins; the band stays beside it');
   assert.equal(row.meta.takeHome, 'R20 000 to R50 000');
   assert.equal(row.employer, 'Amahle Spaza');
-  assert.equal(row.id_number, '9001015009087');
   assert.equal(row.meta.province, 'Gauteng');
   assert.deepEqual(row.meta.raw, {
     loanType: 'business', employment: 'Self-employed', payday: 'Month end',

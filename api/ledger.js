@@ -11,6 +11,7 @@ import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers
 import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
+import { ensureUniqueIds, presentLedgerRow, sealWrite } from './_lib/ledger-secrets.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -62,8 +63,12 @@ async function getState(req, res) {
     const seen = new Set(bank_tx.map(r => r.id));
     bankTx = bank_tx.concat(since.filter(r => !seen.has(r.id)));
   }
+  // Staff session already checked. The mask is the default for every other reader.
   json(res, 200, {
-    clients, loans, employees, applications, audit_log, petty_cash, bank_tx: bankTx, expenses,
+    clients: (clients || []).map(row => presentLedgerRow('clients', row, { reveal: true })),
+    loans, employees,
+    applications: (applications || []).map(row => presentLedgerRow('applications', row, { reveal: true })),
+    audit_log, petty_cash, bank_tx: bankTx, expenses,
     settings: settings || null,
     ledger_book: book ? { updated_at: book.updated_at } : null,
     server_time: new Date().toISOString()
@@ -97,8 +102,9 @@ async function applyOp(op) {
       const row = pick(table, r);
       if (rule.singleton) row.id = rule.singleton;
       requireId(row);
-      return row;
+      return sealWrite(table, row);
     });
+    if (table === 'clients') await ensureUniqueIds(rows);
     if (kind === 'insert' && !rule.ignoreDuplicates && !rule.singleton) {
       const out = await insert(table, rows);
       return out.length;
@@ -108,7 +114,8 @@ async function applyOp(op) {
   }
   if (kind === 'update') {
     const id = rule.singleton || requireId(op);
-    const patch = pick(table, op.patch || {});
+    const patch = sealWrite(table, { ...pick(table, op.patch || {}), id });
+    if (table === 'clients') await ensureUniqueIds([patch]);
     delete patch.id;
     if (!Object.keys(patch).length) return 0;
     if (rule.singleton) {
