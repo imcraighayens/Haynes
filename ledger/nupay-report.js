@@ -13,7 +13,7 @@ import {
 
 export { PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders };
 
-const MAX_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 
 let bookOverride = null;
@@ -28,12 +28,13 @@ export function withinTolerance(a, b) {
 
 export function pifQuotes(original) {
   const base = Number(original);
-  const pif = round2(base * PIF.rate);
+  const percent = base * PIF.rate;
+  const fee = Math.max(percent, PIF.flat);
   return {
-    pif,
-    byRate: round2(base * (1 + PIF.rate)),
-    byFlat: round2(base + PIF.flat),
-    floor: Math.max(pif, PIF.flat)
+    pif: round2(fee),
+    percent: round2(percent),
+    debit: round2(base + fee),
+    usesFloor: percent < PIF.flat
   };
 }
 
@@ -94,7 +95,7 @@ export function classifyStatus(value) {
 
 export function statusLabel(kind) {
   return {
-    success: 'Success', failed: 'Failed', tracking: 'In Tracking', reversed: 'Reversed',
+    success: 'Success', failed: 'Failed', tracking: 'In tracking', reversed: 'Reversed',
     disputed: 'Disputed', cancelled: 'Cancelled', future: 'Future', other: 'Other'
   }[kind] || (kind ? 'Other' : 'Blank');
 }
@@ -419,8 +420,7 @@ export function amountsAgree(row, instalment) {
   }
   const candidate = row.debitAmount != null ? row.debitAmount : row.instalmentAmount;
   if (candidate != null) {
-    const ok = withinTolerance(candidate, quotes.byRate) || withinTolerance(candidate, quotes.byFlat);
-    return { ok, checked: true, compared: 'formula', expectedRate: quotes.byRate, expectedFlat: quotes.byFlat, actual: candidate };
+    return { ok: withinTolerance(candidate, quotes.debit), checked: true, compared: 'formula', expected: quotes.debit, actual: candidate };
   }
   return { ok: true, checked: false };
 }
@@ -577,7 +577,10 @@ export function previewLoan(loan, rows) {
       notes.push({ applied: false, text: 'This status does not count as paid.' });
     }
   }
-  return { instalments_paid: paidCount, paid_dates: paidDates.slice().sort(), notes };
+  const paidOut = paidDates.slice().sort();
+  const bookDates = loan.paidDates.slice().sort();
+  const unchanged = paidCount === loan.instalmentsPaid && paidOut.length === bookDates.length && paidOut.every((d, i) => d === bookDates[i]);
+  return { instalments_paid: paidCount, paid_dates: paidOut, notes, unchanged };
 }
 
 function emptyReport(extra) {
@@ -649,7 +652,9 @@ function finish(rows, book, meta) {
       dateOk: !!date.ok,
       sourceFile: row.sourceFile,
       sourceRole: row.sourceRole,
-      fileName: outcome === 'unknown' ? row.fileName : ''
+      fileName: outcome === 'unknown' ? row.fileName : '',
+      nupayAmount: row.debitAmount != null ? row.debitAmount : row.originalAmount != null ? row.originalAmount : row.instalmentAmount,
+      bookAmount: found.loan ? found.loan.instalmentAmount : null
     };
     publicRows.push(item);
   }
@@ -884,6 +889,8 @@ export function readLiveBook() {
 
 function currentBook() { return bookOverride || readLiveBook(); }
 
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 function money(n) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   const v = round2(n);
@@ -895,6 +902,51 @@ function money(n) {
   return (neg ? '-R ' : 'R ') + grouped + (c ? '.' + String(c).padStart(2, '0') : '');
 }
 
+function labelDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return iso ? String(iso) : '—';
+  return (+m[3]) + ' ' + MONTH_LABELS[+m[2] - 1] + ' ' + m[1];
+}
+
+function fmtDates(dates) {
+  const labels = (dates || []).map(labelDate).filter(d => d && d !== '—');
+  if (!labels.length) return 'none';
+  if (labels.length <= 4) return labels.join(', ');
+  return labels.length + ' dates · next ' + labels[0] + ' · last ' + labels[labels.length - 1];
+}
+
+function bookStatusLabel(status) {
+  const raw = String(status || '').trim();
+  const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
+  const named = {
+    settled_early: 'Settled early', written_off: 'Written off', paid: 'Paid', issued: 'Issued',
+    overdue: 'Overdue', duetoday: 'Due today', settled: 'Settled'
+  };
+  if (named[key]) return named[key];
+  if (!raw) return '';
+  const words = raw.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function outcomeClass(kind) {
+  if (kind === 'success') return 'is-ok';
+  if (kind === 'reversed' || kind === 'failed') return 'is-bad';
+  if (kind === 'disputed') return 'is-warn';
+  return 'is-neutral';
+}
+
+function matchClass(outcome) {
+  if (outcome === 'matched') return 'is-ok';
+  if (outcome === 'mismatched') return 'is-warn';
+  return 'is-neutral';
+}
+
+function matchLabel(outcome) {
+  if (outcome === 'matched') return 'Matched';
+  if (outcome === 'mismatched') return 'Mismatched';
+  return 'Unknown';
+}
+
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -902,66 +954,63 @@ function el(tag, className, text) {
   return node;
 }
 
-function fmtList(dates) {
-  return dates && dates.length ? dates.join(', ') : 'none';
+function acceptedFile(name) {
+  return /\.(csv|xlsx|zip)$/i.test(String(name || ''));
 }
 
 const CSS = `
-#nupay-report-open{position:fixed;right:16px;bottom:16px;z-index:75;border:1px solid var(--line2,#3a3933);background:var(--panel,#0c0c0a);color:var(--ink,#f5f4ee);font:700 12px/1 'Plus Jakarta Sans',system-ui,sans-serif;letter-spacing:.04em;border-radius:999px;padding:10px 14px;cursor:pointer;box-shadow:var(--cardLift,0 8px 20px rgba(0,0,0,.35))}
-#nupay-report-open:hover{border-color:var(--acc,#c3f53c)}
-#nupay-report-scrim{position:fixed;inset:0;z-index:140;background:rgba(2,2,12,.72);overflow:auto;padding:18px 12px;box-sizing:border-box;display:flex;justify-content:center;align-items:safe center}
-#nupay-report-scrim[hidden]{display:none}
-.np-sheet{width:min(860px,100%);margin:18px auto;background:var(--panel,#0c0c0a);color:var(--ink,#f5f4ee);border:1px solid var(--line,#2a2a25);border-radius:16px;padding:16px 16px 18px;box-sizing:border-box;font:500 13px/1.45 'Plus Jakarta Sans',system-ui,sans-serif}
-.np-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.np-kicker{font:700 10px/1.2 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--accText,#d9a066)}
-.np-title{font:700 18px/1.2 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-top:4px}
-.np-note{color:var(--mut,#b3b0a4);font-size:12.5px;margin:6px 0 0}
-.np-x{border:0;background:transparent;color:var(--dim,#8a8778);font-size:18px;cursor:pointer;padding:0 4px}
-.np-file{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
-.np-file input{max-width:100%;color:var(--ink,#f5f4ee);font:500 12px 'Plus Jakarta Sans',sans-serif}
-.np-btn{border:1px solid var(--line2,#3a3933);background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border-radius:10px;padding:8px 12px;font:700 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+body.nupay-open{overflow:hidden}
+body.nupay-open [aria-label="Ask Q1"],
+body.nupay-open dc-import{display:none !important}
+#nupay-report-scrim{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;overflow:hidden;background:#0c0c0a;background:var(--panel,#0c0c0a);color:var(--ink,#f5f4ee);font:500 14px/1.45 'Plus Jakarta Sans',system-ui,sans-serif}
+#nupay-report-scrim[hidden]{display:none !important}
+.np-bar{flex:none;display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0c0c0a;background:var(--panel,#0c0c0a);border-bottom:1px solid var(--line,#2a2a25);position:sticky;top:0;z-index:2}
+.np-title{margin:0;font:700 18px/1.2 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em}
+.np-preview-badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 10px;font:700 12px 'Plus Jakarta Sans',sans-serif;background:var(--accSoft,rgba(217,160,102,.16));color:var(--accText,#d9a066)}
+.np-bar-gap{flex:1}
+.np-btn{appearance:none;border:1px solid var(--line2,#3a3933);background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border-radius:10px;min-height:40px;padding:8px 14px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.np-btn:focus-visible,.np-choose:focus-visible,.np-drop:focus-within{outline:2px solid #f3e27a;outline-offset:2px}
+.np-btn:disabled{opacity:.45;cursor:default}
 .np-btn.primary{background:var(--acc,#c3f53c);color:var(--accInk,#101408);border-color:transparent}
-.np-msg{margin-top:10px;color:var(--amber,#dbb26a);font-size:12.5px}
-.np-map{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
-.np-map label{display:flex;flex-direction:column;gap:4px;font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:var(--dim,#8a8778)}
-.np-map select{background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border:1px solid var(--line2,#3a3933);border-radius:8px;padding:7px 8px;font:500 12px 'Plus Jakarta Sans',sans-serif}
-.np-sum{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
-.np-sum b{font:700 16px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums}
-.np-sum span{color:var(--mut,#b3b0a4);font-size:12px}
-.np-status{width:100%;border-collapse:collapse;margin-top:8px;font-size:12.5px}
-.np-status th,.np-status td{text-align:left;padding:4px 8px 4px 0;border-bottom:1px solid var(--line,#2a2a25);font-weight:500}
-.np-loan{margin-top:12px;padding-top:10px;border-top:1px solid var(--line,#2a2a25)}
-.np-loan h3{margin:0;font:700 14px 'Plus Jakarta Sans',sans-serif}
-.np-meta{color:var(--mut,#b3b0a4);font-size:12px;margin-top:3px}
-.np-book{margin-top:6px;font-size:12.5px}
-.np-pay{display:grid;grid-template-columns:7.2rem 6.6rem 6.4rem minmax(0,1fr);gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line,#2a2a25);font-size:12.5px}
-.np-flag{color:var(--dim,#8a8778)}
-.np-flag.bad{color:var(--amber,#dbb26a)}
-.np-flag.ok{color:var(--green,#8fb98a)}
+.np-scroll{flex:1;min-height:0;overflow:auto;background:#0c0c0a;background:var(--panel,#0c0c0a);padding:16px}
+.np-drop{border:1px dashed var(--line2,#3a3933);border-radius:12px;padding:22px 16px;text-align:center;background:var(--panel2,#111110)}
+.np-drop.is-hot{border-color:var(--acc,#c3f53c)}
+.np-drop h3{margin:0 0 6px;font:700 16px 'Plus Jakarta Sans',sans-serif}
+.np-drop p{margin:0;color:var(--mut,#b3b0a4)}
+.np-choose{margin-top:12px}
+.np-state{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--panel2,#111110);border:1px solid var(--line,#2a2a25)}
+.np-state.is-error{border-color:#ffb4a8;color:#ffe1d8}
+.np-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.np-tile{display:flex;flex-direction:column;align-items:flex-start;background:var(--panel2,#111110);border:1px solid var(--line2,#3a3933);border-radius:10px;padding:12px;min-height:84px}
+.np-tile .act-k{font:600 12px 'Plus Jakarta Sans',sans-serif;color:#e7e2d6}
+.np-tile .act-n{font:700 28px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px;color:#f7f4ee}
+.np-tile .act-s{font:500 13px 'Plus Jakarta Sans',sans-serif;color:#ddd8cc;margin-top:2px}
+.np-status{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+.np-status th,.np-status td{text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid var(--line,#2a2a25);font-weight:500}
+.np-loan{margin-top:16px;padding-top:12px;border-top:1px solid var(--line,#2a2a25)}
+.np-loan h3{margin:0;font:700 16px 'Plus Jakarta Sans',sans-serif}
+.np-meta{margin:4px 0 0;color:var(--mut,#b3b0a4);font-size:13px}
+.np-book{margin-top:8px;font-size:14px}
+.np-pay{display:grid;grid-template-columns:8.5rem 7rem auto auto minmax(0,1fr);gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line,#2a2a25)}
+.np-k{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.np-pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font:700 12px 'Plus Jakarta Sans',sans-serif;border:1px solid transparent}
+.np-pill.is-ok{background:var(--greenSoft,rgba(143,185,138,.16));color:var(--green,#8fb98a)}
+.np-pill.is-bad{background:var(--redSoft,rgba(224,138,118,.16));color:#ffb4a8}
+.np-pill.is-warn{background:var(--amberSoft,rgba(219,178,106,.16));color:var(--amber,#dbb26a)}
+.np-pill.is-neutral{background:var(--panel2,#111110);color:var(--mut,#b3b0a4);border-color:var(--line2,#3a3933)}
+.np-diff{margin:4px 0 0;font-size:13px;color:var(--amber,#dbb26a)}
 .np-preview{margin-top:8px;padding:8px 10px;border:1px dashed var(--line2,#3a3933);border-radius:10px;background:var(--panel2,#111110)}
-.np-preview strong{font:700 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--accText,#d9a066)}
+.np-map{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+.np-map label{display:flex;flex-direction:column;gap:4px;font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
+.np-map select{background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border:1px solid var(--line2,#3a3933);border-radius:8px;padding:8px;font:500 14px 'Plus Jakarta Sans',sans-serif}
 @media (max-width:640px){
-  #nupay-report-scrim{padding:0;align-items:stretch}
-  .np-sheet{border-radius:0;min-height:100%;margin:0}
-  .np-sum,.np-pay,.np-book{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-  .np-file input{width:100%}
+  .np-tiles{grid-template-columns:1fr 1fr}
+  .np-tile:last-child{grid-column:1 / -1}
+  .np-pay{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 0}
+  .np-k{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;display:block;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
+  .np-bar{flex-wrap:wrap}
 }
 `;
-
-const MAP_FIELDS = [
-  ['contractReference', 'Contract reference'],
-  ['mandateId', 'Mandate ID'],
-  ['clientReference', 'Client reference'],
-  ['actionDate', 'Action / transaction date'],
-  ['debitAmount', 'Amount / debit'],
-  ['originalAmount', 'Original amount'],
-  ['pifValue', 'PIF value'],
-  ['instalmentAmount', 'Instalment amount'],
-  ['status', 'Status'],
-  ['reason', 'Reason / response'],
-  ['instalmentNumber', 'Instalment number'],
-  ['name', 'Name on the file']
-];
 
 function mount(host) {
   if (!host || host.dataset.nupayReady) return;
@@ -970,88 +1019,169 @@ function mount(host) {
   style.textContent = CSS;
   document.head.appendChild(style);
 
-  const openBtn = el('button', '', 'NuPay report');
-  openBtn.id = 'nupay-report-open';
-  openBtn.type = 'button';
-  host.appendChild(openBtn);
-
   const scrim = el('div', '');
   scrim.id = 'nupay-report-scrim';
   scrim.hidden = true;
+  scrim.tabIndex = -1;
   scrim.setAttribute('role', 'dialog');
   scrim.setAttribute('aria-modal', 'true');
-  scrim.setAttribute('aria-label', 'NuPay transaction report');
-  const sheet = el('div', 'np-sheet');
-  scrim.appendChild(sheet);
+  scrim.setAttribute('aria-labelledby', 'nupay-title');
   document.body.appendChild(scrim);
 
-  let pending = null;
+  const bar = el('div', 'np-bar');
+  const title = el('h2', 'np-title', 'NuPay transaction report');
+  title.id = 'nupay-title';
+  const badge = el('span', 'np-preview-badge', 'Preview only');
+  const gap = el('div', 'np-bar-gap');
+  const exp = el('button', 'np-btn', 'Export CSV');
+  exp.type = 'button';
+  exp.id = 'nupay-report-export';
+  exp.disabled = true;
+  const closeBtn = el('button', 'np-btn', 'Close');
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Close NuPay report');
+  bar.append(title, badge, gap, exp, closeBtn);
+
+  const scroll = el('div', 'np-scroll');
+  scroll.id = 'nupay-report-scroll';
+  scrim.append(bar, scroll);
+
+  let opener = null;
   let lastReport = null;
+  let pending = null;
   let loadedName = '';
 
-  function close() { scrim.hidden = true; openBtn.hidden = false; }
-  function open() { scrim.hidden = false; openBtn.hidden = true; }
-  openBtn.addEventListener('click', open);
-  scrim.addEventListener('click', ev => { if (ev.target === scrim) close(); });
-  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !scrim.hidden) close(); });
-
-  function headerLine() {
-    sheet.appendChild(el('div', 'np-kicker', 'REPORTS · PREVIEW ONLY'));
-    const top = el('div', 'np-top');
-    const title = el('div', '');
-    title.appendChild(el('div', 'np-title', 'NuPay transaction report'));
-    title.appendChild(el('p', 'np-note', 'The file stays in this browser. Nothing is uploaded, saved, or written to the book.'));
-    const x = el('button', 'np-x', '✕');
-    x.type = 'button';
-    x.setAttribute('aria-label', 'Close');
-    x.addEventListener('click', close);
-    top.appendChild(title);
-    top.appendChild(x);
-    sheet.appendChild(top);
+  function focusables() {
+    return [...scrim.querySelectorAll('button, input, select, a, [href], [tabindex]:not([tabindex="-1"])')].filter(node => !node.disabled && !node.hidden);
   }
+  function onKey(ev) {
+    if (scrim.hidden) return;
+    if (ev.key === 'Escape') { ev.preventDefault(); close(); return; }
+    if (ev.key !== 'Tab') return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  }
+  function open(from) {
+    opener = from && from.focus ? from : document.activeElement;
+    scrim.hidden = false;
+    document.body.classList.add('nupay-open');
+    document.querySelectorAll('[aria-label="Ask Q1"], dc-import').forEach(node => { node.dataset.nupayHide = node.style.display; node.style.display = 'none'; });
+    closeBtn.focus();
+  }
+  function close() {
+    scrim.hidden = true;
+    document.body.classList.remove('nupay-open');
+    document.querySelectorAll('[data-nupay-hide]').forEach(node => { node.style.display = node.dataset.nupayHide || ''; delete node.dataset.nupayHide; });
+    if (opener && opener.focus) opener.focus();
+  }
+  closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.addEventListener('click', ev => {
+    const tab = ev.target && ev.target.closest && ev.target.closest('[data-report-tab="nupay"]');
+    if (tab) open(tab);
+  });
 
-  function draw(report, message) {
-    sheet.textContent = '';
-    headerLine();
-    const fileRow = el('div', 'np-file');
-    fileRow.appendChild(el('div', 'np-note', 'CSV, XLSX, or a MandateReport zip'));
+  function setExport(on) { exp.disabled = !on; }
+  exp.addEventListener('click', () => { if (lastReport && lastReport.rows && lastReport.rows.length) downloadCsv(lastReport); });
+
+  function drawShell() {
+    scroll.textContent = '';
+    const drop = el('div', 'np-drop');
+    drop.id = 'nupay-drop';
+    drop.appendChild(el('h3', '', 'Upload a NuPay file'));
+    drop.appendChild(el('p', '', 'CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.'));
+    const choose = el('button', 'np-btn primary np-choose', 'Choose file');
+    choose.type = 'button';
+    choose.id = 'nupay-choose';
     const input = document.createElement('input');
     input.id = 'nupay-report-file';
     input.type = 'file';
     input.accept = '.csv,.xlsx,.zip,text/csv';
+    input.hidden = true;
+    input.setAttribute('aria-label', 'NuPay file');
+    choose.addEventListener('click', () => input.click());
     input.addEventListener('change', () => {
       const file = input.files && input.files[0];
       if (file) readFile(file);
+      input.value = '';
     });
-    fileRow.appendChild(input);
-    if (loadedName) fileRow.appendChild(el('div', 'np-note', loadedName));
-    if (lastReport && lastReport.rows && lastReport.rows.length) {
-      const exp = el('button', 'np-btn', 'Download match report (CSV)');
-      exp.type = 'button';
-      exp.id = 'nupay-report-export';
-      exp.addEventListener('click', () => downloadCsv(lastReport));
-      fileRow.appendChild(exp);
-    }
-    sheet.appendChild(fileRow);
-    if (message) sheet.appendChild(el('div', 'np-msg', message));
-    if (report && report.needsMapping) drawMap(report);
-    if (report && report.summary && report.rows && report.rows.length) drawSummary(report);
-    if (report && report.groups) drawGroups(report.groups);
+    drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.classList.add('is-hot'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-hot'));
+    drop.addEventListener('drop', ev => {
+      ev.preventDefault();
+      drop.classList.remove('is-hot');
+      const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (file) readFile(file);
+    });
+    drop.append(choose, input);
+    if (loadedName) drop.appendChild(el('p', '', loadedName));
+    scroll.appendChild(drop);
+    const state = el('div', '');
+    state.id = 'nupay-state';
+    scroll.appendChild(state);
+    const results = el('div', '');
+    results.id = 'nupay-results';
+    scroll.appendChild(results);
+    return { state, results };
   }
 
-  function drawMap(report) {
+  function showState(kind, text) {
+    const state = document.getElementById('nupay-state');
+    if (!state) return;
+    state.textContent = '';
+    if (!text) return;
+    const box = el('div', 'np-state' + (kind === 'error' ? ' is-error' : ''), text);
+    box.id = kind === 'error' ? 'nupay-error' : 'nupay-note';
+    if (kind === 'error') box.setAttribute('role', 'alert');
+    else box.setAttribute('role', 'status');
+    state.appendChild(box);
+  }
+
+  function render(report, message, kind) {
+    const parts = drawShell();
+    showState(kind || (message ? 'error' : ''), message || '');
+    setExport(!!(report && report.rows && report.rows.length));
+    if (report && report.needsMapping) drawMap(parts.results, report);
+    if (report && report.rows && report.rows.length) {
+      drawTiles(parts.results, report);
+      drawGroups(parts.results, report.groups || []);
+    } else if (report && report.empty && !message) {
+      showState('empty', 'This file has no rows.');
+    }
+  }
+
+  function drawMap(root, report) {
     const box = el('div', 'np-map');
     box.id = 'nupay-report-map';
-    box.appendChild(el('p', 'np-note', 'Headers were not recognised. Choose the columns, then read the file again. This still changes nothing on the book.'));
-    for (const [field, label] of MAP_FIELDS) {
+    box.appendChild(el('p', 'np-meta', 'These headers were not recognised. Choose the columns. This still changes nothing on the book.'));
+    const fields = [
+      ['contractReference', 'Contract reference'],
+      ['mandateId', 'Mandate ID'],
+      ['clientReference', 'Client reference'],
+      ['actionDate', 'Action date'],
+      ['debitAmount', 'Amount'],
+      ['originalAmount', 'Original amount'],
+      ['pifValue', 'PIF value'],
+      ['instalmentAmount', 'Instalment amount'],
+      ['status', 'Status'],
+      ['reason', 'Reason'],
+      ['instalmentNumber', 'Instalment number'],
+      ['name', 'Name on the file']
+    ];
+    fields.forEach(([field, label]) => {
       const lab = el('label', '', label);
       const sel = document.createElement('select');
       sel.dataset.field = field;
+      sel.setAttribute('aria-label', label);
       const blank = document.createElement('option');
       blank.value = '';
       blank.textContent = 'Skip';
       sel.appendChild(blank);
-      report.headers.forEach((header, index) => {
+      (report.headers || []).forEach((header, index) => {
         const opt = document.createElement('option');
         opt.value = String(index);
         opt.textContent = header || ('Column ' + (index + 1));
@@ -1059,44 +1189,34 @@ function mount(host) {
       });
       lab.appendChild(sel);
       box.appendChild(lab);
-    }
+    });
     const go = el('button', 'np-btn primary', 'Use this mapping');
     go.type = 'button';
     go.addEventListener('click', () => {
       if (!pending) return;
       const mapping = {};
-      box.querySelectorAll('select[data-field]').forEach(sel => {
-        if (sel.value !== '') mapping[sel.dataset.field] = Number(sel.value);
-      });
+      box.querySelectorAll('select[data-field]').forEach(sel => { if (sel.value !== '') mapping[sel.dataset.field] = Number(sel.value); });
       try {
         const next = analyseGrid(pending.grid, currentBook(), { mapping, sourceName: pending.fileName });
         lastReport = next;
-        pending.grid = next.needsMapping ? pending.grid : null;
-        draw(next, next.needsMapping ? 'Pick at least Contract reference, Mandate ID, or Client reference.' : '');
+        render(next, next.needsMapping ? 'Pick at least a contract reference, mandate ID, or client reference.' : '', next.needsMapping ? 'error' : '');
       } catch (err) {
-        draw(null, 'Could not read that mapping.');
+        render(null, 'That file could not be read.', 'error');
       }
     });
     box.appendChild(go);
-    sheet.appendChild(box);
+    root.appendChild(box);
   }
 
-  function drawSummary(report) {
-    const box = el('div', 'np-sum');
-    box.id = 'nupay-report-summary';
-    const bits = [
-      ['Matched', report.summary.matched],
-      ['Mismatched', report.summary.mismatched],
-      ['Unknown', report.summary.unknown]
-    ];
-    for (const [label, count] of bits) {
-      const item = el('div', '');
-      item.appendChild(el('div', '', label));
-      item.appendChild(el('b', '', String(count)));
-      box.appendChild(item);
-    }
-    const hint = el('span', '', 'Matched: loan, amount, and date agree. Mismatched: loan found, amount or date does not. Unknown: no loan.');
-    box.appendChild(hint);
+  function drawTiles(root, report) {
+    const tiles = el('div', 'np-tiles');
+    tiles.id = 'nupay-report-summary';
+    [['Matched', report.summary.matched, 'Loan, amount, and date agree'], ['Mismatched', report.summary.mismatched, 'Loan found, amount or date does not'], ['Unknown', report.summary.unknown, 'No loan on the book']].forEach(([label, count, sub]) => {
+      const tile = el('div', 'np-tile');
+      tile.append(el('span', 'act-k', label), el('span', 'act-n', String(count)), el('span', 'act-s', sub));
+      tiles.appendChild(tile);
+    });
+    root.appendChild(tiles);
     if (report.summary.byStatus.length) {
       const table = document.createElement('table');
       table.className = 'np-status';
@@ -1105,59 +1225,57 @@ function mount(host) {
       table.appendChild(head);
       report.summary.byStatus.forEach(bucket => {
         const tr = document.createElement('tr');
-        tr.appendChild(el('td', '', bucket.status));
-        tr.appendChild(el('td', '', String(bucket.count)));
-        tr.appendChild(el('td', '', money(bucket.amount)));
+        tr.append(el('td', '', bucket.status), el('td', '', String(bucket.count)), el('td', '', money(bucket.amount)));
         table.appendChild(tr);
       });
-      box.appendChild(table);
+      root.appendChild(table);
     }
-    sheet.appendChild(box);
   }
 
-  function drawGroups(groups) {
-    const wrap = el('div', '');
-    wrap.id = 'nupay-report-loans';
-    groups.forEach(group => wrap.appendChild(group.unknown ? unknownBlock(group) : loanBlock(group)));
-    sheet.appendChild(wrap);
+  function pill(text, cls) {
+    const node = el('span', 'np-pill ' + cls, text);
+    return node;
   }
 
   function payRow(row) {
     const line = el('div', 'np-pay');
-    line.appendChild(el('div', '', row.actionDate || '—'));
-    const amount = row.debitAmount != null ? row.debitAmount : row.originalAmount != null ? row.originalAmount : row.instalmentAmount;
-    line.appendChild(el('div', '', money(amount)));
-    line.appendChild(el('div', '', row.statusLabel || '—'));
-    const flag = row.outcome === 'matched' ? 'Matched' : row.outcome === 'mismatched' ? 'Mismatched' : 'Unknown';
-    const why = !row.amountOk ? 'Amount differs from the book.' : !row.dateOk ? 'Date is not on the schedule.' : '';
-    line.appendChild(el('div', 'np-flag ' + (row.outcome === 'matched' ? 'ok' : 'bad'), why ? flag + ' · ' + why : flag));
-    return line;
+    const date = el('div', '');
+    date.append(el('span', 'np-k', 'Date'), document.createTextNode(labelDate(row.actionDate)));
+    const amount = el('div', '');
+    const shown = row.nupayAmount != null ? row.nupayAmount : row.debitAmount;
+    amount.append(el('span', 'np-k', 'Amount'), document.createTextNode(money(shown)));
+    const outcome = el('div', '');
+    outcome.append(el('span', 'np-k', 'Outcome'), pill(row.statusLabel || '—', outcomeClass(row.statusKind)));
+    const match = el('div', '');
+    match.append(el('span', 'np-k', 'Match'), pill(matchLabel(row.outcome), matchClass(row.outcome)));
+    line.append(date, amount, outcome, match);
+    const wrap = el('div', '');
+    wrap.appendChild(line);
+    if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
+      wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
+    }
+    return wrap;
   }
 
   function loanBlock(group) {
     const block = el('section', 'np-loan');
-    const who = group.clientName || 'Client';
-    const title = el('h3', '', (group.ref || 'Loan') + ' · ' + who);
-    block.appendChild(title);
-    const tags = [group.status || 'on book'];
-    if (group.settled) tags.push('settled');
-    if (group.writtenOff) tags.push('written off');
-    if (group.deleted) tags.push('soft-deleted');
-    block.appendChild(el('div', 'np-meta', tags.join(' · ')));
+    block.appendChild(el('h3', '', (group.ref || 'Loan') + ' · ' + (group.clientName || 'Client')));
+    const label = bookStatusLabel(group.status);
+    if (label) block.appendChild(el('p', 'np-meta', label));
     const book = el('div', 'np-book');
-    book.appendChild(el('div', '', 'Book instalments paid: ' + group.instalmentsPaid));
-    book.appendChild(el('div', '', 'Paid dates: ' + fmtList(group.paidDates)));
-    book.appendChild(el('div', '', 'Schedule: ' + fmtList(group.schedule)));
+    book.appendChild(el('div', '', 'Instalments paid: ' + group.instalmentsPaid));
+    book.appendChild(el('div', '', 'Paid dates: ' + fmtDates(group.paidDates)));
+    book.appendChild(el('div', '', 'Schedule: ' + fmtDates(group.schedule)));
     book.appendChild(el('div', '', 'Outstanding: ' + money(group.outstanding) + (group.instalmentAmount != null ? ' · instalment ' + money(group.instalmentAmount) : '')));
     block.appendChild(book);
-    group.rows.forEach(row => block.appendChild(payRow(row)));
+    (group.rows || []).forEach(row => block.appendChild(payRow(row)));
     if (group.preview) {
       const preview = el('div', 'np-preview');
-      preview.appendChild(el('strong', '', 'PREVIEW ONLY'));
-      preview.appendChild(el('div', '', 'Nothing is applied. instalments paid ' + group.instalmentsPaid + ' → ' + group.preview.instalments_paid + '.'));
-      preview.appendChild(el('div', '', 'Paid dates ' + fmtList(group.paidDates) + ' → ' + fmtList(group.preview.paid_dates) + '.'));
-      const changed = group.preview.notes.filter(n => n.applied).map(n => n.text);
-      if (changed.length) preview.appendChild(el('div', 'np-meta', changed.join(' ')));
+      if (group.preview.unchanged) preview.appendChild(el('div', '', 'No change'));
+      else {
+        preview.appendChild(el('div', '', 'Instalments paid ' + group.instalmentsPaid + ' → ' + group.preview.instalments_paid));
+        preview.appendChild(el('div', '', 'Paid dates ' + fmtDates(group.paidDates) + ' → ' + fmtDates(group.preview.paid_dates)));
+      }
       block.appendChild(preview);
     }
     return block;
@@ -1165,13 +1283,21 @@ function mount(host) {
 
   function unknownBlock(group) {
     const block = el('section', 'np-loan');
+    block.id = 'nupay-unknown';
     block.appendChild(el('h3', '', 'Unknown'));
-    block.appendChild(el('div', 'np-meta', 'No loan on the loaded book.'));
-    group.rows.forEach(row => {
-      if (row.fileName) block.appendChild(el('div', 'np-meta', row.fileName));
+    block.appendChild(el('p', 'np-meta', 'No loan on the loaded book.'));
+    (group.rows || []).forEach(row => {
+      if (row.fileName) block.appendChild(el('p', 'np-meta', row.fileName));
       block.appendChild(payRow(row));
     });
     return block;
+  }
+
+  function drawGroups(root, groups) {
+    const wrap = el('div', '');
+    wrap.id = 'nupay-report-loans';
+    groups.forEach(group => wrap.appendChild(group.unknown ? unknownBlock(group) : loanBlock(group)));
+    root.appendChild(wrap);
   }
 
   function downloadCsv(report) {
@@ -1188,26 +1314,37 @@ function mount(host) {
   }
 
   async function readFile(file) {
-    if (file.size > MAX_BYTES) {
+    if (!acceptedFile(file.name)) {
       lastReport = null;
-      draw(null, 'That file is too large to read in the browser.');
+      loadedName = file.name;
+      setExport(false);
+      render(null, 'Use a CSV, XLSX, or NuPay zip.', 'error');
       return;
     }
+    if (file.size > MAX_BYTES) {
+      lastReport = null;
+      loadedName = file.name;
+      render(null, 'That file is over 10 MB.', 'error');
+      return;
+    }
+    loadedName = file.name;
+    render(null, 'Reading the file…', 'status');
     try {
       const buf = await file.arrayBuffer();
-      loadedName = file.name;
       const report = await analyseBuffer(buf, file.name, currentBook());
       lastReport = report;
       if (report.needsMapping) {
-        const grid = await gridFromFile(buf, file.name);
-        pending = { grid, fileName: file.name };
-      } else pending = null;
-      const msg = report.error ? report.error : report.empty ? 'No rows in that file.' : '';
-      draw(report, msg);
+        pending = { grid: await gridFromFile(buf, file.name), fileName: file.name };
+        render(report, 'Pick at least a contract reference, mandate ID, or client reference.', 'error');
+      } else {
+        pending = null;
+        const msg = report.error ? 'That file could not be read.' : '';
+        render(report, msg, report.error ? 'error' : '');
+      }
     } catch (err) {
       lastReport = null;
       pending = null;
-      draw(null, 'Could not read that file.');
+      render(null, 'That file could not be read.', 'error');
     }
   }
 
@@ -1221,7 +1358,7 @@ function mount(host) {
     return csv ? parseCsv(new TextDecoder().decode(csv.bytes)) : [];
   }
 
-  draw(null, '');
+  render(null, '');
   const api = typeof window !== 'undefined' ? window.NuPayReport || {} : {};
   api.open = open;
   api.close = close;
@@ -1231,7 +1368,7 @@ function mount(host) {
 
 function boot() {
   if (typeof document === 'undefined') return;
-  const host = document.getElementById('nupay-report-mount');
-  if (host) mount(host);
+  const host = document.getElementById('nupay-report-mount') || document.body;
+  mount(host);
 }
 boot();

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import {
   PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders,
-  parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance,
+  parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance, amountsAgree,
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
   reportToCsv, previewLoan, normalizeLoan
 } from '../ledger/nupay-report.js';
@@ -158,13 +158,38 @@ test('PIF is 2.234 percent of the original with an R10.93 floor, both configurab
   assert.equal(PIF.flat, 10.93);
   assert.equal(PIF.tolerance, 0.05);
   const big = pifQuotes(1350);
+  assert.equal(big.usesFloor, false);
   assert.equal(big.pif, 30.16);
-  assert.equal(big.byRate, 1380.16);
+  assert.equal(big.debit, 1380.16);
   const small = pifQuotes(400);
-  assert.equal(small.byFlat, 410.93);
-  assert.equal(small.floor, 10.93);
+  assert.equal(small.usesFloor, true);
+  assert.equal(small.pif, 10.93);
+  assert.equal(small.debit, 410.93);
   assert.equal(withinTolerance(1380.16, 1380.21), true);
   assert.equal(withinTolerance(1380.16, 1380.22), false);
+});
+
+test('the expected debit uses the R10.93 floor below about R489 and 2.234% above it', () => {
+  const below = pifQuotes(400);
+  assert.equal(below.debit, 410.93);
+  assert.equal(amountsAgree({ debitAmount: 410.93 }, 400).ok, true);
+  assert.equal(amountsAgree({ debitAmount: 410.98 }, 400).ok, true);
+  assert.equal(amountsAgree({ debitAmount: 410.99 }, 400).ok, false);
+  assert.equal(amountsAgree({ debitAmount: 408.94 }, 400).ok, false);
+  const above = pifQuotes(1350);
+  assert.equal(above.debit, 1380.16);
+  assert.equal(amountsAgree({ debitAmount: 1380.16 }, 1350).ok, true);
+  assert.equal(amountsAgree({ debitAmount: 1380.11 }, 1350).ok, true);
+  assert.equal(amountsAgree({ debitAmount: 1380.10 }, 1350).ok, false);
+  assert.equal(amountsAgree({ debitAmount: 1360.93 }, 1350).ok, false);
+  const atFloor = pifQuotes(489);
+  assert.equal(atFloor.usesFloor, true);
+  assert.equal(atFloor.debit, 499.93);
+  const aboveFloor = pifQuotes(490);
+  assert.equal(aboveFloor.usesFloor, false);
+  assert.equal(aboveFloor.debit, 500.95);
+  assert.equal(amountsAgree({ debitAmount: 499.93 }, 489).ok, true);
+  assert.equal(amountsAgree({ debitAmount: 489 + 10.93 }, 490).ok, false);
 });
 
 test('matching uses contract, then mandate, then client reference, including settled and deleted loans', () => {
@@ -218,7 +243,8 @@ test('a date off the schedule is a mismatch, and a debit is not compared with th
   assert.equal(report.rows[1].amountOk, false);
   assert.equal(report.rows[2].outcome, 'matched');
   assert.equal(report.rows[3].outcome, 'matched');
-  assert.equal(report.rows[4].outcome, 'matched');
+  assert.equal(report.rows[4].outcome, 'mismatched');
+  assert.equal(report.rows[4].amountOk, false);
 });
 
 test('Success adds a paid date, reversals remove one, and the other statuses do not pay', () => {
@@ -247,7 +273,7 @@ test('Success adds a paid date, reversals remove one, and the other statuses do 
   const statuses = Object.fromEntries(report.summary.byStatus.map(s => [s.status, s.count]));
   assert.equal(statuses.Success, 1);
   assert.equal(statuses.Failed, 1);
-  assert.equal(statuses['In Tracking'], 1);
+  assert.equal(statuses['In tracking'], 1);
   assert.equal(statuses.Future, 1);
   assert.equal(statuses.Cancelled, 1);
   assert.equal(statuses.Reversed, 1);
@@ -319,7 +345,7 @@ test('the page mounts the report without a write path', () => {
   assert.equal(src.includes('localStorage'), false);
   assert.equal(src.includes('fetch('), false);
   assert.equal(src.includes('indexedDB'), false);
-  assert.match(src, /PREVIEW ONLY/);
+  assert.match(src, /Preview only/);
   assert.match(src, /Nothing is uploaded/);
   assert.equal(/apply to the book/i.test(src), false);
 });
