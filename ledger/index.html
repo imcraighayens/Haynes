@@ -385,6 +385,10 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 .admin-screen[data-adm="cash"] .adm-block-staff,.admin-screen[data-adm="cash"] .adm-block-settings,.admin-screen[data-adm="staff"] .adm-block-cash,.admin-screen[data-adm="staff"] .adm-block-settings,.admin-screen[data-adm="staff"] .adm-settings-card,.admin-screen[data-adm="settings"] .adm-block-cash,.admin-screen[data-adm="settings"] .adm-staff-card{display:none !important}
 .subnav [role="tab"]{display:inline-flex;align-items:center;justify-content:center}
 .markets-grid{height:auto !important;min-height:640px;grid-auto-rows:minmax(260px,auto) !important}
+.ledger-main.is-reports{overflow:auto !important}
+.news-card.is-empty{grid-row:span 1 !important;height:auto !important;min-height:0 !important}
+.news-empty{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:8px;font-size:14px;color:#e4dfd4}
+.bar-val{font:600 10px 'Plus Jakarta Sans',sans-serif;color:#f7f4ee;text-align:center;line-height:1.2;white-space:normal}
 .admin-screen div[style*="min-height:172px"]{min-height:0 !important;padding:12px 14px !important;border-radius:12px !important;gap:6px !important}
 [data-screen-label="Clients"] .clip-row{height:44px !important;min-height:44px !important;max-height:44px !important;padding-top:0 !important;padding-bottom:0 !important;align-items:center;box-sizing:border-box}
 [data-screen-label="Applications inbox"] .clip-row,[data-screen-label="Logbook"] .clip-row,[data-screen-label="Employees"] .clip-row{padding-top:8px !important;padding-bottom:8px !important;min-height:44px}
@@ -453,6 +457,12 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
   .admin-screen .admin-stats{display:flex !important;flex-direction:column !important;flex-wrap:nowrap !important;overflow:visible !important;width:100% !important;min-width:0}
   .admin-screen .admin-stats>div{flex:1 1 auto !important;width:100% !important;min-width:0 !important;max-width:100% !important}
   .admin-screen .admin-stats>div div{white-space:normal !important;overflow-wrap:anywhere}
+  .markets-grid{display:flex !important;flex-direction:column !important;height:auto !important;min-height:0 !important;grid-auto-rows:auto !important}
+  .markets-grid>[data-card]{width:100% !important;height:auto !important;min-height:0 !important;grid-column:auto !important;grid-row:auto !important;overflow:visible !important}
+  .news-chips{flex-wrap:nowrap !important;overflow-x:auto}
+  .cal-dow{letter-spacing:0 !important;font-size:11px !important}
+  .cal-head{flex-wrap:wrap !important;overflow:visible !important}
+  .expect-title{white-space:normal !important;overflow:visible !important;text-overflow:clip !important}
 }
 @media (max-width:820px) and (max-height:700px){
   .act-tiles{grid-template-columns:1fr 1fr}
@@ -482,16 +492,19 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
   </div>
 </div>
   <div class="ledger-scrim" sc-camel-on-click="{{ closeDrawer }}"></div>
-  <div class="ledger-main" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+  <div class="ledger-main {{ mainCls }}" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
     <div class="ledger-top">
       <div class="ledger-nav-btn" role="button" tabindex="0" data-kbd="1" aria-label="Open menu" sc-camel-on-click="{{ openDrawer }}">Menu</div>
       <div class="ledger-top-title">{{ pageTitle }}</div>
     </div>
     <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ false }}"><p id="q1-gate-note-global" class="sr-only">Quik1 invites are switched off until launch.</p></sc-if>
+    <sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;padding:16px 16px 0;font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">Reports</div>
+    </sc-if>
     <sc-if value="{{ showStrip }}" hint-placeholder-val="{{ false }}">
     <div class="ledger-kpis" style="flex:none;padding:12px 16px 0;box-sizing:border-box">
       <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:16px;background:var(--panel);overflow:hidden;margin-bottom:10px;position:relative;transition:box-shadow .22s ease, transform .22s ease" style-hover="transform:translateY(-5px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
-        <div sc-camel-on-click="{{ tkNext }}" title="Switch strip: markets / clients / book" style="position:absolute;left:0;top:0;bottom:0;z-index:2;display:flex;align-items:center;gap:6px;padding:0 12px 0 14px;background:var(--acc);color:var(--accInk);font:700 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;cursor:pointer;user-select:none;transition:filter .22s ease" style-hover="filter:brightness(1.08)"><span>{{ tkLabel }}</span><svg width="11" height="11" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.75"><path d="M17 2l4 4-4 4"></path><path d="M3 6h18"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 18H3"></path></svg></div>
+        <div sc-camel-on-click="{{ tkNext }}" title="Switch strip: markets / clients / book" style="position:absolute;left:0;top:0;bottom:0;z-index:2;display:flex;align-items:center;gap:6px;padding:0 12px 0 14px;background:var(--acc);color:var(--accInk);font:700 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;cursor:pointer;user-select:none;transition:filter .22s ease" style-hover="filter:brightness(1.08)"><span>{{ tkLabel }}</span><span style="font-weight:600;letter-spacing:.04em">{{ tkNote }}</span><svg width="11" height="11" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.75"><path d="M17 2l4 4-4 4"></path><path d="M3 6h18"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 18H3"></path></svg></div>
         <div style="padding:9px 20px 9px 96px;overflow:hidden">
           <div style="display:flex;gap:34px;width:max-content;animation:ticker 34s linear infinite">
             <sc-for list="{{ ticker }}" as="t" hint-placeholder-count="8"><div style="display:flex;align-items:center;gap:9px;font:500 12px 'Plus Jakarta Sans',sans-serif;white-space:nowrap"><span style="color:var(--mut)">{{ t.sym }}</span><span style="color:var(--ink)">{{ t.val }}</span><span style="{{ t.dStyle }}">{{ t.delta }}</span></div></sc-for>
@@ -543,7 +556,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div style="{{ dashWrapStyle }}" data-screen-label="Dashboard">
         <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;overflow:hidden">
-            <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;flex:none">{{ screenTitle }}</div>
+            <sc-if value="{{ showPageHeading }}" hint-placeholder-val="{{ true }}"><div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;flex:none">{{ screenTitle }}</div></sc-if>
             <div class="page-date-full" style="color:#e4dfd4;font-weight:600;font-size:13px;letter-spacing:.04em;white-space:nowrap;min-width:0">{{ screenSub }}</div>
             <div class="page-date-short">{{ screenSubShort }}</div>
           </div>
@@ -616,19 +629,22 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           </div>
           <div ref="{{ gridRef }}" class="markets-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
 
-<div data-card="0" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;grid-row:span 2;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
+<div data-card="0" class="{{ newsCardCls }}" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;grid-row:span 2;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none">
                 <div style="display:flex;align-items:center;gap:7px;min-width:0"><div style="{{ newsDotStyle }}"></div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.11em;white-space:nowrap">MARKET NEWS</div></div>
                 <div style="display:flex;align-items:center;gap:8px;flex:none"><div style="font:600 9px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.07em;white-space:nowrap">{{ newsStamp }}</div><div sc-camel-on-click="{{ newsRefresh }}" title="Refresh" style="width:20px;height:20px;border-radius:7px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut)" style-hover="color:var(--ink);background:var(--hover)"><svg width="10" height="10" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></div></div>
               </div>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;flex:none">
+              <div class="news-chips" style="display:flex;gap:5px;flex-wrap:wrap;flex:none">
                 <sc-for list="{{ newsChips }}" as="c" hint-placeholder-count="4"><div sc-camel-on-click="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}</div></sc-for>
               </div>
               <sc-if value="{{ newsBriefOn }}" hint-placeholder-val="{{ false }}">
                 <div title="{{ newsBrief }}" style="flex:none;font-size:11px;line-height:1.45;color:var(--mut);padding:7px 10px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);box-sizing:border-box;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden"><div style="height:2.9em;overflow:hidden;line-height:1.45"><span style="font:700 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--accText)">AI BRIEF · </span>{{ newsBrief }}</div></div>
               </sc-if>
               <sc-if value="{{ newsMsgOn }}" hint-placeholder-val="{{ false }}">
-                <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;color:var(--mut);padding:0 10px">{{ newsMsg }}</div>
+                <div class="news-empty">
+                  <div>{{ newsMsg }}</div>
+                  <button type="button" class="pager-btn" sc-camel-on-click="{{ newsRefresh }}">Retry</button>
+                </div>
               </sc-if>
               <sc-if value="{{ reelOn }}" hint-placeholder-val="{{ false }}">
                 <div style="flex:1 1 0;min-height:64px;position:relative;border-radius:14px;overflow:hidden;background:#05060a;color:#fff">
@@ -696,7 +712,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div sc-camel-on-click="{{ goLedger }}" style="font-size:11px;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap;flex:none" style-hover="color:var(--ink)">Ledger →</div>
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;border-top:1px solid var(--line);padding-top:6px">
-                <div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ slideTitle }}</div>
+                <div class="expect-title" style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ slideTitle }}</div>
                 <div style="display:flex;align-items:center;gap:7px;flex:none">
                   <div style="display:flex;align-items:center;gap:4px"><sc-for list="{{ slideDots }}" as="d" hint-placeholder-count="3"><div sc-camel-on-click="{{ d.go }}" title="{{ d.title }}" style="{{ d.style }}"></div></sc-for></div>
                   <div sc-camel-on-click="{{ slidePrev }}" style="width:20px;height:20px;flex:none;border-radius:7px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut);transition:background .2s ease,color .2s ease" style-hover="background:var(--hover);color:var(--ink)"><svg width="10" height="10" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></div>
@@ -705,14 +721,18 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               </div>
               <div style="overflow:hidden;min-width:0;flex:1;min-height:48px">
                 <div style="{{ slideTrackStyle }}">
-                  <div style="flex:none;width:100%;min-width:0;display:flex;align-items:flex-end;gap:7px;height:100%;box-sizing:border-box">
+                  <div style="flex:none;width:100%;min-width:0;display:flex;align-items:stretch;gap:8px;height:100%;box-sizing:border-box">
+                    <div style="display:flex;flex-direction:column;justify-content:space-between;flex:none;font:600 10px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;padding-bottom:18px"><div>{{ chartMax }}</div><div>{{ chartMid }}</div><div>R 0</div></div>
+                    <div style="flex:1;min-width:0;display:flex;align-items:flex-end;gap:7px;height:100%">
                     <sc-for list="{{ attnChart }}" as="b" hint-placeholder-count="6">
-                      <div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;position:relative">
+                      <div style="flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;position:relative">
+                        <div class="bar-val">{{ b.amountFmt }}</div>
                         <div style="{{ b.tipStyle }}" class="barTip"><div style="font:700 11px 'Plus Jakarta Sans',sans-serif">{{ b.amountFmt }}</div><div style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;opacity:.75">{{ b.countLabel }}</div></div>
                         <div style="width:100%;flex:1;min-height:0;display:flex;align-items:flex-end"><div style="{{ b.barStyle }}" style-hover="{{ b.barHover }}"><div style="{{ b.riskStyle }}"></div></div></div>
                         <div style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;flex:none">{{ b.label }}</div>
                       </div>
                     </sc-for>
+                    </div>
                   </div>
                   <div style="flex:none;width:100%;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px">
                     <div style="display:flex;height:12px;width:100%;border-radius:99px;overflow:hidden;background:var(--panel3);flex:none">
@@ -744,7 +764,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             </div>
 
             <div data-card="2" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift), inset 0 1px 0 rgba(255,255,255,.08);background:var(--calGlass);backdrop-filter:var(--calGlassBlur);-webkit-backdrop-filter:var(--calGlassBlur);border:1px solid var(--calGlassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0.14s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none">
+              <div class="cal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none">
                 <div sc-camel-on-click="{{ calPrev }}" style="width:22px;height:22px;flex:none;border-radius:8px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut);font-size:13px" style-hover="color:var(--ink);border-color:var(--accText)">‹</div>
                 <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden"><div style="font:700 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.02em;white-space:nowrap;flex:none">{{ calLabel }}</div><div sc-camel-on-click="{{ openSelectedDay }}" title="{{ calSelSub }}" style="display:flex;align-items:baseline;gap:5px;min-width:0;padding:3px 9px;border-radius:99px;background:var(--panel2);border:1px solid var(--line2);cursor:pointer;overflow:hidden" style-hover="border-color:var(--accText)"><span style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.07em;white-space:nowrap">{{ calSelLabelUp }}</span><span style="font:700 11px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ calSelTotalFmt }}</span></div></div>
                 <div sc-camel-on-click="{{ calNext }}" style="width:22px;height:22px;flex:none;border-radius:8px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--mut);font-size:13px" style-hover="color:var(--ink);border-color:var(--accText)">›</div>
@@ -756,7 +776,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               </div>
               <sc-if value="{{ calGridOn }}" hint-placeholder-val="{{ true }}">
               <div style="display:grid;min-width:0;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;flex:none">
-                <sc-for list="{{ calDows }}" as="d" hint-placeholder-count="7"><div style="text-align:center;font:700 8px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--mut);background:var(--panel3);border-radius:7px;padding:3px 0">{{ d }}</div></sc-for>
+                <sc-for list="{{ calDows }}" as="d" hint-placeholder-count="7"><div class="cal-dow" style="text-align:center;font:700 8px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--mut);background:var(--panel3);border-radius:7px;padding:3px 0">{{ d }}</div></sc-for>
               </div>
               <div style="display:grid;min-width:0;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:minmax(14px,1fr);gap:3px;flex:1;min-height:0">
                 <sc-for list="{{ calCells }}" as="c" hint-placeholder-count="35"><div sc-camel-on-click="{{ c.pick }}" style="{{ c.style }}" style-hover="transform:translateY(-1px);filter:brightness(1.25)">{{ c.day }}<sc-if value="{{ c.has }}" hint-placeholder-val="{{ false }}"><div style="{{ c.tipStyle }}" class="barTip">{{ c.dueTip }}</div><div style="{{ c.badgeStyle }}">{{ c.count }}</div></sc-if></div></sc-for>
@@ -2383,7 +2403,9 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <sc-if value="{{ q1Setup }}" hint-placeholder-val="{{ false }}"><div style="font:600 13px 'Plus Jakarta Sans',sans-serif;color:var(--amber);line-height:1.5">Quik1 access not set up yet</div></sc-if>
               <sc-if value="{{ q1Ready }}" hint-placeholder-val="{{ false }}">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">STATUS</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1Status }}</div></div>
-                <div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div>
+                <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><p id="q1-dialog-gate" class="gate-note">Quik1 invites are switched off until launch.</p></sc-if>
+                <sc-if value="{{ q1CopyNote }}" hint-placeholder-val="{{ false }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div></sc-if>
+                <sc-if value="{{ q1PlainNote }}" hint-placeholder-val="{{ true }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. A new link works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open the link and choose a new one.</div></sc-if>
                 <sc-if value="{{ q1ExpOn }}" hint-placeholder-val="{{ false }}"><div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-bottom:12px">Expires {{ q1Exp }}</div></sc-if>
                 <sc-if value="{{ q1HasCode }}" hint-placeholder-val="{{ false }}">
                   <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
@@ -2392,10 +2414,13 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   </div>
                 </sc-if>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled aria-describedby="q1-dialog-gate">Give Quik1 access</button></sc-if>
                   <sc-if value="{{ q1CanGrant }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Give Quik1 access</div></sc-if>
+                  <sc-if value="{{ q1CanSendNew }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Send new link</div></sc-if>
                   <sc-if value="{{ q1CanResend }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Resend invite</div></sc-if>
-                  <sc-if value="{{ q1CanReset }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" aria-label="Reset device" sc-camel-on-click="{{ q1ResetDevices }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Reset device</div></sc-if>
+                  <sc-if value="{{ q1CanReset }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;max-width:280px"><div role="button" tabindex="0" data-kbd="1" aria-label="Reset device" sc-camel-on-click="{{ q1ResetDevices }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Reset device</div><div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;line-height:1.4">Signs the client out of their phone; they set up again with a new link.</div></div></sc-if>
                   <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke invite</div></sc-if>
+                  <sc-if value="{{ q1CanRevokeAccess }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke access</div></sc-if>
                 </div>
               </sc-if>
               <sc-if value="{{ q1ErrOn }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);margin-top:10px">{{ q1Err }}</div></sc-if>
@@ -2895,7 +2920,7 @@ class Component extends DCLogic {
       navCollapsed: (()=>{ try{ return localStorage.getItem('ledjaa.navCollapsed')==='1'; }catch(e){ return false; } })(),
       theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'dark'; }catch(e){ return 'dark'; } })(), route:'dashboard', filter:'all', q:'',
       menuId:null, modal:null, modalId:null, modalStack:[], dueBriefDay:null, dueBriefAuto:false, delPin:'', delPinErr:false, toast:null, attentionOpen:true, attended:{}, smsOpen:false, smsText:'',
-      calMonth:8, calYear:2026, calSelected:23, cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
+      calMonth:(()=>{ const d=new Date(); return d.getMonth(); })(), calYear:(()=>{ const d=new Date(); return d.getFullYear(); })(), calSelected:(()=>{ const d=new Date(); return d.getDate(); })(), cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
       ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
       clients: clients.map((c,i)=>({...c, contract:{no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
       loans, logbook, petty, contractVault:[], txnSeq:1041,
@@ -4763,6 +4788,7 @@ class Component extends DCLogic {
     }
     const ticker = tkData.map(a=>({sym:a[0],val:a[1],delta:a[2]||'',dStyle:this.cssObj('color:'+(String(a[2]||'').charAt(0)==='+'?'var(--green)':String(a[2]||'').charAt(0)==='-'?'var(--red)':'var(--dim)'))}));
     const tkLabel = tkMode==='clients'?'CLIENTS':tkMode==='performance'?'BOOK':'MARKETS';
+    const tkNote = 'Indicative';
     const tkNext = ()=>{ const order=['markets','clients','performance']; this.setState({tickerMode: order[(order.indexOf(tkMode)+1)%3]}); };
     const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const parseDue = str => { const m=String(str).match(/(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/); if(!m) return null; const mi=MONTHS.findIndex(x=>x.toLowerCase()===m[2].slice(0,3).toLowerCase()); return {d:+m[1],mo:mi,y:+m[3]}; };
@@ -4826,6 +4852,8 @@ class Component extends DCLogic {
         tipStyle: this.cssObj('position:absolute;bottom:26px;'+(k===mKeys[0]?'left:0;':(k===mKeys[mKeys.length-1]?'right:0;':'left:50%;transform:translateX(-50%);'))+'white-space:nowrap;background:var(--ink);color:var(--bg);border-radius:10px;padding:6px 9px;opacity:0;pointer-events:none;transition:opacity .14s ease;z-index:6;box-shadow:var(--shadow)')
       }; });
     const attnChartHas = mKeys.length > 0;
+    const chartMax = fmt(mMax);
+    const chartMid = fmt(Math.round(mMax/2));
     // --- secondary graphs on the EXPECTED RETURN card ---
     const gLive = st.loans.filter(l=>l.status!=='paid' && l.status!=='written off');
     const gPrin = gLive.reduce((s,l)=>s+this.lentNum(l),0);
@@ -4900,7 +4928,7 @@ class Component extends DCLogic {
       imgStyle:this.cssObj('width:100%;height:100%;'+bgOf(n.img))}));
     const newsChips = [['all','ALL'],['markets','MARKETS'],['stocks','STOCKS'],['fuel','FUEL'],['global','WORLD']].map(([k,l])=>({label:l, pick:()=>this.setState({newsCat:k}),
       style:this.cssObj("padding:4px 8px;border-radius:99px;font:600 9px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;white-space:nowrap;cursor:pointer;user-select:none;transition:background .2s ease,color .2s ease;"+(nCat===k?'background:var(--acc);color:var(--accInk);border:1px solid transparent':'border:1px solid var(--line2);color:var(--mut)'))}));
-    const newsMsg = nw.loading && !(nw.items||[]).length ? 'Loading headlines…' : nw.err && !(nw.items||[]).length ? nw.err+' Tap refresh to retry.' : (!nItems.length && (nw.items||[]).length ? 'No '+nCat+' headlines in the latest pull.' : '');
+    const newsMsg = nw.loading && !(nw.items||[]).length ? 'Loading headlines…' : nw.err && !(nw.items||[]).length ? nw.err : (!nItems.length && (nw.items||[]).length ? 'No '+nCat+' headlines in the latest pull.' : '');
     const newsStamp = nw.loading ? 'UPDATING…' : nw.at ? 'LIVE · '+ago(nw.at) : '';
     const newsDotStyle = this.cssObj('width:6px;height:6px;border-radius:99px;flex:none;background:'+(nw.err&&!(nw.items||[]).length?'var(--red)':'var(--green)')+';box-shadow:0 0 0 3px '+(nw.err&&!(nw.items||[]).length?'var(--redSoft)':'var(--greenSoft)'));
     const slideDefs = [
@@ -5289,9 +5317,11 @@ class Component extends DCLogic {
       storageBarStyle: this.cssObj('height:100%;border-radius:99px;background:var(--acc);width:'+Math.min(100,Math.round((180+st.clients.length*3*45+st.clients.length*20+st.contractVault.length*30)/1024/10*100))+'%'),
       ...this.roleVals(),
       dashWrapStyle: this.cssObj('box-sizing:border-box;padding:16px clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:12px;animation:fadeUp .2s ease;'+(st.route==='dashboard'||st.route==='loans'||st.route==='collections'?'height:100%;overflow:hidden;min-height:0':'')),
+      mainCls: st.route==='reports' ? 'is-reports' : '',
       isDash: st.route==='dashboard'||st.route==='loans'||st.route==='collections'||st.route==='reports',
       isDashboard: st.route==='dashboard', isLoans: st.route==='loans'||st.route==='collections',
       isMarkets: st.route==='reports', showStrip: st.route==='reports',
+      showPageHeading: st.route!=='reports',
       isBookTools: st.route==='loans', isLoanAction: st.route==='dashboard'||st.route==='loans',
       isLoanMenu: st.route==='loans', loanMoreOpen: !!(st.loanMore && st.route==='loans'),
       toggleLoanMore: ()=>this.setState(p=>({loanMore:!p.loanMore})),
@@ -5346,7 +5376,7 @@ class Component extends DCLogic {
         const reportTabs = [['markets','Markets'],['audit','Audit']].map(([id,label])=>({label, style:tabStyle(reportHere===id), go:()=>this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null})}));
         return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isAccess: st.route==='access' && accessHere==='invites' };
       })(),
-      ticker, tkLabel, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
+      ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
       ...(()=>{ const rl=st.reel; if(!rl) return {reelOn:false, reelPlaying:false, reelIdle:false};
         const playing=st.reelPlay===true;
         const when = rl.at ? new Date(String(rl.at).replace(' ','T')).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}).toUpperCase() : 'TODAY';
@@ -5369,7 +5399,7 @@ class Component extends DCLogic {
           reelSetFb:()=>{ const c=this.reelCfg(); const v=window.prompt('Paste a Facebook reel link from The Economist (leave empty to go back to the automatic daily video):', c.fb||''); if(v===null) return;
             const u=v.trim(); if(u && !/facebook\.com|fb\.watch/i.test(u)){ alert('That is not a Facebook link.'); return; }
             if(u){ localStorage.setItem('ledjaa.reel', JSON.stringify({...c, fb:u, fbAt:new Date().toISOString()})); } else { const {fb,fbAt,fbTitle,...rest}=c; localStorage.setItem('ledjaa.reel', JSON.stringify(rest)); }
-            this.setState({reelPlay:false}); this.loadReel(true); } }; })(), newsList, newsChips, newsMsg, newsMsgOn: !!newsMsg, newsStamp, newsDotStyle, newsRefresh:()=>this.loadNews(true), newsBrief: nw.brief||'', newsBriefOn: !!nw.brief, gridRef, dragOn, dragStart, dragOver, dragDrop, dragEnd, toggleArrange, arrangeLabel, arrangeBtnStyle, slideTitle, slideLegendA, slideLegendB, slideLegendBCol, slideLegendStyle, slideTrackStyle, slideDots, slidePrev, slideNext, statusSplit, topExposure,
+            this.setState({reelPlay:false}); this.loadReel(true); } }; })(), newsList, newsChips, newsMsg, newsMsgOn: !!newsMsg, newsCardCls: 'news-card'+(newsMsg?' is-empty':''), newsStamp, newsDotStyle, newsRefresh:()=>this.loadNews(true), newsBrief: nw.brief||'', newsBriefOn: !!nw.brief, gridRef, dragOn, dragStart, dragOver, dragDrop, dragEnd, toggleArrange, arrangeLabel, arrangeBtnStyle, slideTitle, slideLegendA, slideLegendB, slideLegendBCol, slideLegendStyle, slideTrackStyle, slideDots, slidePrev, slideNext, statusSplit, topExposure,
       statusTotalLabel: st.loans.length + (st.loans.length===1?' LOAN':' LOANS'),
       topExposureHas: topExposure.length>0, attnCount: attnBase.length, attnHeading: attnLib ? attnLib.attentionHeading(attnBase.length) : '', attnEmpty: attnBase.length===0,
       calDows:['SUN','MON','TUE','WED','THU','FRI','SAT'], calCells,
@@ -6515,7 +6545,15 @@ class Component extends DCLogic {
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
-        q1HasCode: !!(q.code||q.link), q1CanGrant: !setup && !q.busy && !(q.code||q.link), q1CanResend: !setup && !q.busy && !!(q.code||q.link), q1CanRevoke: !setup && !q.busy && canAct,
+        q1HasCode: !!(q.code||q.link),
+        q1GateOff: !this.borrowerGateOn(),
+        q1CopyNote: this.borrowerGateOn() && !!(q.code||q.link),
+        q1PlainNote: this.borrowerGateOn() && !(q.code||q.link),
+        q1CanGrant: this.borrowerGateOn() && !setup && !q.busy && q.access!=='pin' && q.access!=='locked' && !(q.code||q.link),
+        q1CanSendNew: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
+        q1CanResend: this.borrowerGateOn() && !setup && !q.busy && q.access!=='pin' && q.access!=='locked' && !!(q.code||q.link),
+        q1CanRevoke: this.borrowerGateOn() && !setup && !q.busy && canAct && q.access!=='pin' && q.access!=='locked',
+        q1CanRevokeAccess: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
         q1CanReset: !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
         q1Link: q.link||'', q1Code: q.code||'', q1ExpOn: !!q.expiresAt, q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
         q1CopyLink:()=>this.copyQuik1('link'),
