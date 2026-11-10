@@ -283,56 +283,51 @@ test('maps audit_log rows to console logbook entries and back', async () => {
   assert.equal(L._.queue().length, 0, 'nothing to re-queue when local was empty');
 });
 
-test('keeps local logbook entries the DB lacks, re-queues them, and never duplicates on repeat writes', async () => {
-  const localEntry = { ref: 'ECL-200', customer: 'Local Only', amount: 300, type: 'LOAN ADDED', date: '1 OCT 2026', by: 'Craig Moatshe', comment: 'offline' };
-  // same content as audit row al_db_1 (by name instead of employee id) — a pre-bridge browser holds these
-  const legacyDup = { ref: 'ECL-112', customer: 'Thabo M', amount: 1250.5, type: 'PAYMENT RECEIVED', date: '15 OCT 2026', by: 'Craig Moatshe', comment: 'Inst 2' };
-  const sv0 = { clients: [{ id: 'c1' }], loans: [], logbook: [localEntry, legacyDup], petty: [], applications: [{ id: 'a9' }] };
-  const { L, localStorage, read, queue } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0 }, state: STATE });
+test('a stale local book does not resurrect old audit rows or override a loan status', async () => {
+  const stale = [
+    { ref: 'ECL-200', customer: 'Local Only', amount: 300, type: 'LOAN ADDED', date: '1 OCT 2026', by: 'Craig Moatshe', comment: 'offline' },
+    { ref: 'ECL-112', customer: 'Thabo M', amount: 1250.5, type: 'PAYMENT RECEIVED', date: '15 OCT 2026', by: 'Craig Moatshe', comment: 'Inst 2' },
+    { ref: 'SYN-1', customer: 'Synthetic Borrower', amount: 10, type: 'MANDATE REJECTED', date: '1 NOV 2026', by: 'Staff', comment: 'old' },
+    { ref: 'SYN-1', customer: 'Synthetic Borrower', amount: 10, type: 'DEBIT FAILED', date: '2 NOV 2026', by: 'Staff', comment: 'old' },
+    { ref: 'SYN-1', customer: 'Synthetic Borrower', amount: 10, type: 'LOAN UPDATED', date: '3 NOV 2026', by: 'Staff', comment: 'old' }
+  ];
+  const state = { ...STATE, loans: [{ id: 'l_server', ref: 'SYN-1', status: 'overdue', client_id: 'c_nupay_15' }] };
+  const sv0 = {
+    clients: [{ id: 'c1' }],
+    loans: [{ id: 'l_server', ref: 'SYN-1', status: 'paid' }],
+    logbook: stale,
+    petty: [],
+    applications: [{ id: 'a9' }]
+  };
+  const queued = [{ table: 'loans', op: 'upsert', rows: [{ id: 'l_server', status: 'paid' }] }, { table: 'audit_log', op: 'insert', rows: [{ id: 'al_old', type: 'DEBIT FAILED', ref: 'SYN-1' }] }];
+  const { L, localStorage, read, queue } = await boot({
+    local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0, 'ledjaa.sync.queue': queued },
+    state
+  });
 
-  let sv = read('evoltConsoleV4');
-  assert.equal(sv.logbook.length, 3, 'DB rows + the local extra; the legacy duplicate is matched by content');
-  assert.equal(sv.logbook.filter((e) => e.ref === 'ECL-112').length, 1);
+  const sv = read('evoltConsoleV4');
+  assert.equal(sv.logbook.length, 2, 'only the server audit rows remain');
+  assert.equal(sv.logbook.some((e) => e.type === 'DEBIT FAILED' || e.type === 'LOAN ADDED'), false);
+  assert.deepEqual(sv.loans, [], 'the stale paid snapshot is not the book');
   assert.deepEqual(sv.applications, [{ id: 'a9' }], 'local applications kept');
   assert.deepEqual(sv.clients, [{ id: 'c1' }], 'local clients untouched');
-  const extra = sv.logbook.find((e) => e.ref === 'ECL-200');
-  assert.ok(extra.id.startsWith('al_'), 'derived id');
+  assert.equal(queue().some((op) => op.table === 'audit_log' || op.table === 'loans'), false);
+
+  const fresh = { ref: 'ECL-113', customer: 'Synthetic Borrower', amount: 750, type: 'PAYMENT RECEIVED', date: '29 OCT 2026', by: 'Craig Moatshe', comment: 'Inst 1' };
+  localStorage.setItem('evoltConsoleV4', JSON.stringify({ ...sv, logbook: [fresh, ...sv.logbook] }));
   let q = queue();
   assert.equal(q.length, 1);
-  assert.equal(q[0].table, 'audit_log'); assert.equal(q[0].op, 'insert'); assert.equal(q[0].rows[0].id, extra.id); assert.equal(q[0].rows[0].by, 'Craig Moatshe');
-
-  // the console persists its in-memory state: DB-seeded entries carry their ids, the entry added
-  // in-memory does not (logAdd never sets one) → ids are re-derived identically, nothing new queued
-  localStorage.setItem('evoltConsoleV4', JSON.stringify({ ...sv, logbook: sv.logbook.map((e) => (e.ref === 'ECL-200' ? localEntry : e)) }));
-  assert.equal(L._.queue().length, 1, 'ids are re-derived identically, nothing new queued');
-
-  // logAdd prepends a new entry → exactly one more insert
-  const fresh = { ref: 'ECL-113', customer: 'New One', amount: 750, type: 'PAYMENT RECEIVED', date: '29 OCT 2026', by: 'Craig Moatshe', comment: 'Inst 1' };
-  const persisted = { ...sv, logbook: [fresh, ...sv.logbook] };
-  localStorage.setItem('evoltConsoleV4', JSON.stringify(persisted));
-  q = queue();
-  assert.equal(q.length, 2);
-  const op = q[1];
+  const op = q[0];
   assert.equal(op.table, 'audit_log'); assert.equal(op.op, 'insert');
-  assert.equal(op.rows[0].ref, 'ECL-113'); assert.equal(op.rows[0].amount, 750); assert.equal(op.rows[0].type, 'PAYMENT RECEIVED');
-  assert.match(op.rows[0].at, /^\d{4}-\d{2}-\d{2}T/);
-  const stored = read('evoltConsoleV4');
-  assert.equal(stored.logbook[0].id, op.rows[0].id, 'derived id injected into the stored entry');
-  assert.equal(stored.logbook[0].ref, 'ECL-113');
-
-  // repeat the identical write → still 2 ops
-  localStorage.setItem('evoltConsoleV4', JSON.stringify(persisted));
+  assert.equal(op.rows[0].ref, 'ECL-113');
+  assert.match(op.rows[0].id, /^al_/);
   localStorage.setItem('evoltConsoleV4', JSON.stringify(read('evoltConsoleV4')));
-  assert.equal(L._.queue().length, 2, 'no duplicate audit_log ops');
-
-  // a second identical-looking entry on the same day is a different record
-  localStorage.setItem('evoltConsoleV4', JSON.stringify({ ...persisted, logbook: [fresh, ...persisted.logbook] }));
+  assert.equal(L._.queue().length, 1, 'the same content id is not queued twice');
+  const again = { ...fresh };
+  localStorage.setItem('evoltConsoleV4', JSON.stringify({ ...read('evoltConsoleV4'), logbook: [again, ...read('evoltConsoleV4').logbook] }));
   q = queue();
-  assert.equal(q.length, 3);
-  assert.notEqual(q[2].rows[0].id, q[1].rows[0].id);
-
-  // queue is persisted for offline recovery
-  assert.equal(read('ledjaa.sync.queue').length, 3);
+  assert.equal(q.length, 2, 'a second same-day entry is a different record');
+  assert.notEqual(q[1].rows[0].id, q[0].rows[0].id);
 });
 
 test('mirrors petty, bank tx, expenses, bank and org writes as the right ops', async () => {

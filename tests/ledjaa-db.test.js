@@ -333,9 +333,27 @@ test('a failed sync keeps the queue, backs off and persists it', async () => {
   assert.equal(db.sync.pending, 0);
 });
 
+test('a cloud boot drops a queued loan status and audit replay', async () => {
+  const raw = JSON.parse(localStorage.getItem('ledjaa.db.queue') || '{"ops":[]}');
+  raw.ops = [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l_paid', status: 'paid' }] },
+    { table: 'audit_log', op: 'insert', rows: [{ id: 'al_old', type: 'DEBIT FAILED', ref: 'SYN-1' }] },
+  ];
+  localStorage.setItem('ledjaa.db.queue', JSON.stringify(raw));
+  db.queue = [];
+  db._inflight = [];
+  await db._boot();
+  assert.equal(db.sync.source, 'cloud');
+  assert.equal(db.queue.some(op => op.table === 'loans' || op.table === 'audit_log'), false);
+  assert.equal(db.find('loans', 'l_paid').status, 'paid', 'the server row is not rewritten by the dropped queue');
+});
+
 test('a staff session with no bearer key still posts the loan update', async () => {
   const prev = globalThis.__ledger;
   calls.length = 0;
+  db.queue = [];
+  db._inflight = [];
+  db._holdUntil = 0;
   globalThis.__ledger = {
     cfg: () => ({ key: '', url: 'https://ledger.test/api/ledger' }),
     api: (method, path, body) => globalThis.fetch('https://ledger.test/api/ledger' + path, { method, body: JSON.stringify(body) })

@@ -55,3 +55,17 @@ join public.loans l
  and l.deleted_at is null
 where l.status is distinct from m.audit_status
 order by m.at desc;
+
+-- The 5 Nov rebuild left audit_log with one row. A later boot pushed a stale
+-- browser log back, so old PAYMENT RECEIVED, MANDATE REJECTED, DEBIT FAILED
+-- and LOAN UPDATED rows reappeared. This SELECT only lists those types.
+-- It does not delete anything.
+select id, at, type, ref, customer, amount, by
+from public.audit_log
+where type in ('PAYMENT RECEIVED', 'MANDATE REJECTED', 'DEBIT FAILED', 'LOAN UPDATED')
+order by at;
+
+-- NOT RUN. Do not execute the statement below. It is a cleanup sketch only.
+-- Uncommenting it would delete existing audit rows. Leave them in place.
+-- delete from public.audit_log
+-- where type in ('PAYMENT RECEIVED', 'MANDATE REJECTED', 'DEBIT FAILED', 'LOAN UPDATED');

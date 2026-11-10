@@ -540,6 +540,9 @@ export class LedjaaDB {
       try { console.info('[ledjaa-db] cloud state unavailable (' + this.sync.lastError + ') — using ' + this.sync.source + ' tables'); } catch (e) { }
     }
     this._loadQueue();
+    // A queue saved by an older page can replay loan statuses and audit rows over the
+    // book just loaded from the server. Drop those. New edits after this boot queue again.
+    if (payload) this.discardStaleReplay();
     if (this.queue.length) this._scheduleFlush(400);
     return this;
   }
@@ -712,6 +715,12 @@ export class LedjaaDB {
   _saveQueue() {
     this.sync.pending = this.queue.length + this._inflight.length;
     lsSet(QUEUE_KEY, JSON.stringify({ v: 1, savedAt: nowIso(), ops: [...this._inflight, ...this.queue] }));
+  }
+  discardStaleReplay() {
+    const drop = op => op && (op.table === 'loans' || op.table === 'audit_log');
+    this.queue = this.queue.filter(op => !drop(op));
+    this._inflight = this._inflight.filter(op => !drop(op));
+    this._saveQueue();
   }
   _loadQueue() {
     try { const p = JSON.parse(lsGet(QUEUE_KEY) || 'null'); if (p && Array.isArray(p.ops)) this.queue = p.ops.concat(this.queue); } catch (e) { }
