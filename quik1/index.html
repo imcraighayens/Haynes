@@ -49,6 +49,16 @@
   /* The document does not scroll. 100% alone stops above the iOS home
      indicator, so the clip box is at least the large viewport. The shell
      below is what the dock anchors to — not this percentage height. */
+  :root {
+    --q-safe-top: 0px;
+    --q-safe-bottom: 0px;
+  }
+  @supports (padding-top: env(safe-area-inset-top)) {
+    :root {
+      --q-safe-top: env(safe-area-inset-top, 0px);
+      --q-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+  }
   html, body {
     background: #000000;
     width: 100%;
@@ -121,7 +131,7 @@
   }
   html.q-standalone .q-bleed { object-fit: cover; }
   html.q-standalone .q-pad { padding: 0 !important; }
-  #quik1-ios-hint { position: fixed; z-index: 80; left: 16px; right: 16px; top: calc(12px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: #0B0620; color: #fff; border: 1px solid rgba(253,209,13,.55); box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 500 14px/1.4 Ubuntu, sans-serif; }
+  #quik1-ios-hint { position: fixed; z-index: 80; left: 16px; right: 16px; top: calc(12px + var(--q-safe-top, env(safe-area-inset-top, 0px))); display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 16px; background: #0B0620; color: #fff; border: 1px solid rgba(253,209,13,.55); box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 500 14px/1.4 Ubuntu, sans-serif; }
   #quik1-ios-hint[hidden] { display: none; }
   #quik1-ios-hint p { margin: 0; flex: 1; }
   #quik1-ios-hint button { flex: 0 0 auto; border: 0; border-radius: 999px; background: #FDD10D; color: #0B0620; font: 700 13px/1 Ubuntu, sans-serif; padding: 8px 12px; cursor: pointer; }
@@ -153,7 +163,7 @@
 <body>
 <style>
 #q1-view-as[hidden]{display:none !important}
-#q1-view-as{position:fixed;z-index:90;left:12px;right:12px;top:calc(8px + env(safe-area-inset-top));display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:#0B0620;color:#fff;border:1px solid rgba(253,209,13,.5);font:600 12px/1.3 Ubuntu,sans-serif}
+#q1-view-as{position:fixed;z-index:90;left:12px;right:12px;top:calc(8px + var(--q-safe-top, env(safe-area-inset-top, 0px)));display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:14px;background:#0B0620;color:#fff;border:1px solid rgba(253,209,13,.5);font:600 12px/1.3 Ubuntu,sans-serif}
 #q1-view-as select{flex:1;min-width:0;background:#1C2029;color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px}
 #q1-view-as button{border:0;border-radius:8px;background:#FDD10D;color:#0B0620;font:700 12px Ubuntu,sans-serif;padding:6px 10px}
 </style>
@@ -476,7 +486,7 @@ input,button,textarea{font-family:inherit}
       <div class="q-bleed" style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;overflow:hidden">
         <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
         <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
-        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:calc(24px + env(safe-area-inset-top)) calc(34px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(34px + env(safe-area-inset-left));box-sizing:border-box">
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:calc(24px + var(--q-safe-top, env(safe-area-inset-top, 0px))) calc(34px + env(safe-area-inset-right)) calc(24px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px))) calc(34px + env(safe-area-inset-left));box-sizing:border-box">
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="position:relative;z-index:1;width:168px;height:auto;display:block">
         <div style="position:relative;z-index:1;display:flex;gap:5px">
           <span style="width:9px;height:9px;border-radius:50%;background:#FDD10D;animation:q-dot 1.5s cubic-bezier(.4,0,.2,1) infinite"></span>
@@ -1369,7 +1379,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Estimate (no signup) ──────────────────────────────── -->
     <sc-if value="{{ isEstimate }}">
-      <div style="flex:1;min-height:0;overflow-y:auto;background:#000000;color:#FFFFFF;padding:26px 28px 54px;display:flex;flex-direction:column;gap:22px;animation:{{ pageAnim }}">
+      <div data-q-safe-header="estimate" style="flex:1;min-height:0;overflow-y:auto;background:#000000;color:#FFFFFF;padding:calc(26px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 28px calc(54px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)));display:flex;flex-direction:column;gap:22px;animation:{{ pageAnim }}">
         <div style="display:flex;align-items:center;gap:12px">
           <button sc-camel-on-click="{{ onLeaveEstimate }}" aria-label="Back" style="flex:0 0 auto;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
             <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#FFFFFF;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
@@ -1443,7 +1453,7 @@ input,button,textarea{font-family:inherit}
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
       <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + env(safe-area-inset-top))">
+        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
@@ -1578,11 +1588,11 @@ input,button,textarea{font-family:inherit}
     <!-- ── Sign up ───────────────────────────────────────────── -->
     <sc-if value="{{ isSignup }}">
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="flex:0 0 auto;padding:16px 22px 0;display:flex;flex-direction:column;gap:16px">
+        <div data-q-safe-header="register" style="flex:0 0 auto;padding:calc(16px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 22px 0;display:flex;flex-direction:column;gap:16px">
           <div style="display:flex;align-items:center;gap:12px">
-            <button sc-camel-on-click="{{ onSuBack }}" aria-label="Back" style="flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;font-size:14px;font-weight:600;color:#FFFFFF;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
-              <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#FFFFFF;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
-              Back
+            <button sc-camel-on-click="{{ onSuBack }}" aria-label="Back" style="flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;-webkit-appearance:none;appearance:none;font-family:inherit;font-size:14px;font-weight:600;line-height:1;white-space:nowrap;color:#FFFFFF;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
+              <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;flex:0 0 auto;fill:none;stroke:#FFFFFF;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
+              <span style="display:block;white-space:nowrap;line-height:1;letter-spacing:0">Back</span>
             </button>
             <span style="flex:1;display:flex;flex-direction:column;gap:1px">
               <span style="font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.55)">Step {{ suStep }} of 3</span>
@@ -1667,7 +1677,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Sign-up pending ───────────────────────────────────── -->
     <sc-if value="{{ isSignupPending }}">
-      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:22px;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;padding:48px 24px 46px;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+      <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:22px;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;padding:calc(48px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 24px calc(46px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
         <span style="width:64px;height:64px;border-radius:50%;background:{{ suStatusBg }};display:grid;place-items:center">
           <svg sc-camel-view-box="0 0 24 24" style="width:28px;height:28px;fill:none;stroke:{{ suStatusInk }};stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="{{ suStatusIcon }}"></path></svg>
         </span>
@@ -1695,7 +1705,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── App bar ───────────────────────────────────────────── -->
     <sc-if value="{{ showAppBar }}">
-      <div style="flex:0 0 auto;position:relative;z-index:30;padding:calc(34px + env(safe-area-inset-top)) 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
+      <div data-q-safe-header="home" style="flex:0 0 auto;position:relative;z-index:30;padding:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 18px 12px;background:{{ hdrWrapBg }};transition:background .5s cubic-bezier(.33,1,.68,1)">
       <div style="display:flex;align-items:center;gap:10px">
           <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;background:#FDD10D;box-shadow:{{ hdrFloat }},0 0 0 2px rgba(255,255,255,.12);transform:translateY(-3px);display:grid;place-items:center;font-size:14px;font-weight:700;color:#0B0620;background-image:{{ photoCss }};background-size:cover;background-position:center">
             <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">{{ avatarLetters }}</sc-if>
@@ -1724,11 +1734,11 @@ input,button,textarea{font-family:inherit}
     <!-- ── Application flow ──────────────────────────────────── -->
     <sc-if value="{{ inFlow }}">
       <div style="flex:1;display:flex;flex-direction:column;min-height:0;background:{{ flowBg }}">
-        <div style="flex:0 0 auto;padding:8px 24px 14px;display:flex;flex-direction:column;gap:12px">
+        <div data-q-safe-header="flow" style="flex:0 0 auto;padding:calc(8px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 24px 14px;display:flex;flex-direction:column;gap:12px">
           <div style="display:flex;align-items:center;gap:12px">
-            <button sc-camel-on-click="{{ nav.back }}" aria-label="Back" style="height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;font-size:14px;font-weight:600;color:{{ fInk }};border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)" style-hover="filter:brightness(1.06)">
-              <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:{{ fInk }};stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
-              Back
+            <button sc-camel-on-click="{{ nav.back }}" aria-label="Back" style="height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;-webkit-appearance:none;appearance:none;font-family:inherit;font-size:14px;font-weight:600;line-height:1;white-space:nowrap;color:{{ fInk }};border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)" style-hover="filter:brightness(1.06)">
+              <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;flex:0 0 auto;fill:none;stroke:{{ fInk }};stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
+              <span style="display:block;white-space:nowrap;line-height:1;letter-spacing:0">Back</span>
             </button>
             <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
               <span style="font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:{{ fMute }};white-space:nowrap">Step {{ stepNum }} of {{ stepTotal }}</span>
@@ -2063,7 +2073,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Decision ──────────────────────────────────────────── -->
     <sc-if value="{{ isDeciding }}">
-      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px;background:#000000;color:#FFFFFF;padding:0 30px;animation:{{ pageAnim }}">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px;background:#000000;color:#FFFFFF;padding:var(--q-safe-top, env(safe-area-inset-top, 0px)) 30px var(--q-safe-bottom, env(safe-area-inset-bottom, 0px));animation:{{ pageAnim }}">
         <div style="width:56px;height:56px;border-radius:50%;border:3px solid rgba(253,209,13,.25);border-top-color:#FDD10D;animation:q-spin .9s linear infinite"></div>
         <h2 style="margin:0;font-size:34px;font-weight:700;letter-spacing:-.035em;line-height:1.05">Reading your<br>statement<span style="color:#FDD10D">.</span></h2>
         <div style="display:flex;flex-direction:column;gap:12px">
@@ -2076,7 +2086,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Offer ─────────────────────────────────────────────── -->
     <sc-if value="{{ isOffer }}">
-      <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 24px 128px;animation:{{ pageAnim }}">
+      <div data-q-safe-header="offer" style="flex:1;min-height:0;overflow-y:auto;padding:calc(14px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 24px calc(128px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)));animation:{{ pageAnim }}">
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:74px;height:auto;display:block;margin-bottom:14px">
         <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:{{ offerBadgeBg }};font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:{{ offerBadgeInk }}">{{ offerBadge }}</span>
         <h2 style="margin:16px 0 0;font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1.02;color:#0B0620">{{ approvedLine }}<br>{{ approvedAmountLabel }}<span style="color:#FDD10D">.</span></h2>
@@ -4189,8 +4199,8 @@ input,button,textarea{font-family:inherit}
         ctaArrow:ctaValid?YEL:'rgba(11,6,32,.35)',
         ctaCursor:ctaValid?'pointer':'not-allowed',
         flowPadBottom:onTabScreen?'calc(180px + env(safe-area-inset-bottom))':'calc(128px + env(safe-area-inset-bottom))',
-        wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'calc(34px + env(safe-area-inset-top))',
-        panelTop:hdrOn?'calc(96px + env(safe-area-inset-top))':'0px', showDrawerHead:!hdrOn,
+        wide, showSidebar:false, showAppBar:hdrOn, showFlowLogo:!hdrOn, drawerHeadTop:'calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))',
+        panelTop:hdrOn?'calc(96px + var(--q-safe-top, env(safe-area-inset-top, 0px)))':'0px', showDrawerHead:!hdrOn,
         hdrMenuOn:pOpen?0:1, hdrCloseOn:(pOpen&&!SHEETS.includes(s.screen))?1:0, hdrBackOn:(pOpen&&SHEETS.includes(s.screen)&&s.closing!=='panel')?1:0,
         hdrMenuLabel:!pOpen?'Menu':SHEETS.includes(s.screen)?'Back to menu':'Close',
         onHeaderMenu:()=>{ if(!pOpen) return this.setState({menuOpen:true}); if(!SHEETS.includes(s.screen)) return this.dismiss('panel',{menuOpen:false}); return this.switchPanel('home',true); }, showTabBar:onTabScreen,

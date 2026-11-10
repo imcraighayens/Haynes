@@ -16,8 +16,14 @@ function newId(prefix) {
   return prefix + '_' + randomBytes(8).toString('hex');
 }
 
+// supabase.js copies PostgREST's `code` onto the error and rewrites the message to
+// "Database error <code>", so the original "schema cache" sentence is not visible here.
+// Postgres reports a missing relation as 42P01. PostgREST reports PGRST205 when that
+// relation is not in its schema cache. Other codes stay real errors.
 function missingTable(err) {
-  return !!(err && (err.code === '42P01' || /42P01/.test(String(err.message || ''))));
+  const code = err && err.code ? String(err.code) : '';
+  const msg = String((err && err.message) || '');
+  return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
 }
 
 async function optionalRows(table, query) {
@@ -28,17 +34,30 @@ async function optionalRows(table, query) {
   }
 }
 
+// A missing auth table is not a session. Any other database error still fails the request.
+async function sessionRow(table, query) {
+  try { return await selectOne(table, query); }
+  catch (err) {
+    if (missingTable(err)) {
+      const signedOut = new HttpError(401, 'Sign in required');
+      signedOut.code = err.code || '42P01';
+      throw signedOut;
+    }
+    throw err;
+  }
+}
+
 export async function requireBorrower(req) {
   const sess = readSession(req);
   if (!sess) throw new HttpError(401, 'Sign in required');
-  const session = await selectOne('q1_sessions', {
+  const session = await sessionRow('q1_sessions', {
     select: 'id,borrower_id,client_id,expires_at,revoked_at',
     id: eq(sess.sid)
   });
   if (!session || session.revoked_at) throw new HttpError(401, 'Sign in required');
   if (session.borrower_id !== sess.bid || session.client_id !== sess.cid) throw new HttpError(401, 'Sign in required');
   if (new Date(session.expires_at).getTime() <= Date.now()) throw new HttpError(401, 'Sign in required');
-  const borrower = await selectOne('q1_borrowers', {
+  const borrower = await sessionRow('q1_borrowers', {
     select: 'id,client_id',
     id: eq(sess.bid)
   });
@@ -119,7 +138,8 @@ export async function borrowerBook(req) {
   let who;
   try { who = await requireBorrower(req); }
   catch (err) {
-    // A missing borrower table keeps the public home up. A missing session is 401.
+    // A missing auth table keeps the public home up. A missing or revoked
+    // session stays 401, and so do book routes that call requireBorrower directly.
     if (missingTable(err)) return unidentified();
     throw err;
   }
