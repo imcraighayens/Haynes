@@ -22,11 +22,20 @@ begin
     raise exception
       'Stop. public.applications does not exist. Apply the ledger bridge before this file.';
   end if;
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'clients'
+      and column_name = 'id_hmac'
+  ) then
+    raise exception 'apply #37 clients migration first';
+  end if;
 end $$;
 
--- public.clients: SA ID and the debit-order account number.
+-- public.clients: SA ID ciphertext and the debit-order account number.
+-- id_hmac already exists. The #37 clients migration owns that column and its index.
 alter table public.clients add column if not exists id_ciphertext text;
-alter table public.clients add column if not exists id_hmac text;
 alter table public.clients add column if not exists id_last4 text;
 alter table public.clients add column if not exists account_ciphertext text;
 alter table public.clients add column if not exists account_hmac text;
@@ -51,9 +60,6 @@ alter table public.clients drop constraint if exists clients_account_last4_fmt;
 alter table public.clients add constraint clients_account_last4_fmt
   check (account_last4 is null or account_last4 ~ '^[0-9]{4}$');
 
-create unique index if not exists clients_id_hmac_uidx
-  on public.clients (id_hmac)
-  where id_hmac is not null;
 create index if not exists clients_id_number_pending_idx
   on public.clients (id)
   where id_number is not null;
@@ -64,7 +70,7 @@ create index if not exists clients_account_no_pending_idx
 comment on column public.clients.id_ciphertext is
   'Versioned AES-256-GCM of id_number, bound to this client. The key is not stored here. Plaintext stays until the node backfill clears it.';
 comment on column public.clients.id_hmac is
-  'HMAC-SHA256 of a valid SA ID under QUIK1_ID_HMAC_KEY. Duplicate clients are rejected. Not an unsalted hash.';
+  'HMAC-SHA256 of a valid SA ID under QUIK1_ID_HMAC_KEY. Owned by the #37 clients migration. The ledger backfill fills it only when it is null.';
 comment on column public.clients.id_last4 is
   'Last four digits of the ID. Safe to show. Not enough to reconstruct the ID.';
 comment on column public.clients.account_ciphertext is

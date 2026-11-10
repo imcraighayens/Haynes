@@ -85,8 +85,17 @@ export async function runBackfill({ db, commit = false, batchSize = DEFAULT_BATC
           }
           patch[field.column] = null;
           patch[field.cipher] = sealed.ciphertext;
-          patch[field.hmac] = sealed.hmac;
           patch[field.last4] = sealed.last4;
+          // public.clients.id_hmac belongs to the #37 clients migration.
+          // Fill it only while it is null, with idHmac (QUIK1_ID_HMAC_KEY and
+          // the same SA ID normalisation as stampClientIdentity).
+          const reuseClientIdHmac = target.schema === 'public' && target.table === 'clients' && field.hmac === 'id_hmac';
+          const hmacAlready = row[field.hmac] != null && String(row[field.hmac]).trim() !== '';
+          if (reuseClientIdHmac) {
+            if (!hmacAlready && sealed.hmac) patch[field.hmac] = sealed.hmac;
+          } else {
+            patch[field.hmac] = sealed.hmac;
+          }
           touched = true;
           if (field.kind === 'bank') accounts += 1;
           else ids += 1;

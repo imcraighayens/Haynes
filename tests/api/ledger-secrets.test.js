@@ -166,8 +166,9 @@ function memoryDb(seed) {
 function sampleRows() {
   return {
     'public.clients': [
-      { id: 'c1', id_number: ID, account_no: ACCOUNT },
+      { id: 'c1', id_number: ID, account_no: ACCOUNT, id_hmac: null },
       { id: 'c2', account_no: 'not-an-account' },
+      { id: 'c3', id_number: OTHER_ID, id_hmac: 'already-stamped-by-37' },
       { id: 'c0', name: 'already', id_number: null, id_ciphertext: 'v1.already.sealed.value' }
     ],
     'public.applications': [
@@ -195,7 +196,7 @@ test('backfill dry-run writes nothing and commit seals then nulls plaintext', as
   assert.ok(clientLists.length >= 2, 'clients are paged');
   assert.equal(clientLists[0].limit, 1);
   const clients = dry.tables.find(table => table.schema === 'public' && table.table === 'clients');
-  assert.equal(clients.ids, 1);
+  assert.equal(clients.ids, 2);
   assert.equal(clients.accounts, 1);
   assert.equal(clients.skipped, 1);
   assert.equal(dry.tables.find(table => table.schema === 'loop').missing, true);
@@ -212,6 +213,10 @@ test('backfill dry-run writes nothing and commit seals then nulls plaintext', as
   assert.equal(decryptClientAccount(c1.account_ciphertext, 'c1'), ACCOUNT);
   assert.equal(c1.id_hmac, idHmac(ID));
   assert.equal(c1.id_last4, '0084');
+  const c3 = db.rows('public', 'clients').find(row => row.id === 'c3');
+  assert.equal(c3.id_number, null);
+  assert.equal(c3.id_hmac, 'already-stamped-by-37');
+  assert.equal(db.patches.find(patch => patch.id === 'c3').patch.id_hmac, undefined);
   assert.equal(c1.account_last4, '2802');
   const c2 = db.rows('public', 'clients').find(row => row.id === 'c2');
   assert.equal(c2.account_no, 'not-an-account');
