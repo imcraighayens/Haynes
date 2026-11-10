@@ -3030,11 +3030,14 @@ class Component extends DCLogic {
           schedule: (l.sched&&l.sched.length) ? l.sched.map(d=>this.dbIso(d)||d) : ((row&&row.schedule)||undefined),
           issued_on: l.issued ? this.dbIso(l.issued) : ((row&&row.issued_on)||null), issued_by: l.issuedBy||(row&&row.issued_by)||null,
           employee_id: l.employeeId||(row&&row.employee_id)||null, mandate_id: l.mandate||(row&&row.mandate_id)||null };
-        patch.instalments_paid = l.paidInst||0;
-        if(row){ delete patch.principal; delete patch.instalment; delete patch.return_rate_pct;
+        if(row){
+          // status, status_at, instalments_paid and paid_dates are written only by
+          // POST /api/ledger/loan-status. A local sync must not put them back.
+          delete patch.status; delete patch.instalments_paid;
+          delete patch.principal; delete patch.instalment; delete patch.return_rate_pct;
           if(patch.schedule && JSON.stringify(patch.schedule)===JSON.stringify(row.schedule)) delete patch.schedule;
           db.update('loans', l.id, patch); }
-        else db.insert('loans', {id:l.id, ...patch, application_id:null, term_months:(patch.schedule&&patch.schedule.length)||1, instalments_paid:0, initiation_fee:0, service_fee:0,
+        else db.insert('loans', {id:l.id, ...patch, application_id:null, term_months:(patch.schedule&&patch.schedule.length)||1, instalments_paid:l.paidInst||0, initiation_fee:0, service_fee:0,
           disbursed_on:patch.issued_on||null, parent_loan_id:null, relation:'original', written_off_at:null,
           write_off_reason:null, written_off_by:null, officer_id:null, branch_id:null,
           created_at:new Date().toISOString(), deleted_at:null});
@@ -3646,7 +3649,7 @@ class Component extends DCLogic {
       const row=res&&res.loan;
       const mapped=row&&this.ldbMod&&this.ldbMod.loanToConsole?this.ldbMod.loanToConsole(row):null;
       if(!res||res.updated!==1||!mapped||!row||row.status==null) return fail();
-      this.setState(p=>({loans:p.loans.map(x=>x.id===id?{...x, ...mapped, serverStatus:mapped.status, statusAt:row.status_at||mapped.statusAt||''}:x)}));
+      this.setState(p=>({loans:p.loans.map(x=>x.id===id?{...x, ...mapped, serverStatus:mapped.status, statusAt:row.status_at||'', paidInst:Number(row.instalments_paid)||0, paidDates:Array.isArray(row.paid_dates)?row.paid_dates.slice():[]}:x)}));
       const audit=res.audit;
       if(audit&&audit.id) this.logAdd({id:audit.id, ref:audit.ref, customer:audit.customer, amount:audit.amount, type:audit.type, date:this.todayStamp(), by:audit.by, comment:audit.comment||note||''});
       if(!this._bsQuiet) this.toast((row.ref||l.ref)+' → '+this.statusMeta(mapped.status).label);

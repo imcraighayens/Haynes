@@ -49,7 +49,10 @@ export async function commitLoanStatus({ loanId, status, note, by, updatedBy, in
     throw new HttpError(409, 'The loan was not updated');
   }
   const fresh = await selectOne('loans', { select: '*', id: eq(id) });
-  if (!fresh || fresh.status !== next) throw new HttpError(409, 'The loan was not updated');
+  const paidDates = fresh && Array.isArray(fresh.paid_dates) ? fresh.paid_dates.filter(Boolean) : [];
+  const paidCount = fresh ? Number(fresh.instalments_paid) || 0 : 0;
+  if (!fresh || fresh.status !== next || !fresh.status_at) throw new HttpError(409, 'The loan was not updated');
+  if (CLOSED.has(next) && (paidCount < 1 || !paidDates.length)) throw new HttpError(409, 'The loan was not updated');
   const client = loan.client_id
     ? await selectOne('clients', { select: 'id,name', id: eq(loan.client_id) })
     : null;

@@ -16,6 +16,7 @@ test('the attention popup is wired to the server book and a per-staff acknowledg
   assert.match(html, /attentionNote\(l, todayIso\)/);
   assert.match(html, /POST','\/loan-status'/);
   assert.match(html, /Could not save the loan status/);
+  assert.match(html, /delete patch\.status; delete patch\.instalments_paid/);
   assert.match(html, /commitLoanStatus\(mLoanRaw\.id/);
   assert.match(html, /commitLoanStatus\(l\.id, s, 'Changed from client workspace'\)/);
   assert.match(html, /rememberAttention\(\[\{loanId:l\.id/);

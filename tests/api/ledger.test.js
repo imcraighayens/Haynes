@@ -138,6 +138,9 @@ test('loan-status updates public.loans and audit_log together, and puts the loan
   const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Marked paid' } });
   assert.equal(res.statusCode, 200);
   assert.equal(res.json().loan.status, 'paid');
+  assert.ok(res.json().loan.status_at);
+  assert.ok(res.json().loan.instalments_paid >= 1);
+  assert.equal(res.json().loan.paid_dates.length, 1);
   assert.equal(loan.status, 'paid');
   const audit = calls.find(c => c.table === 'audit_log' && c.method === 'POST');
   assert.ok(audit);
