@@ -315,6 +315,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
 ::placeholder{color:var(--dim)}
 
 *{scrollbar-width:none;-ms-overflow-style:none}*::-webkit-scrollbar{width:0;height:0;display:none}
+/* Shared tracks so a long reference cannot paint into the next column. */
+.book-scroll{overflow:auto;background:var(--panel3);flex:1;min-height:0;min-width:0}
+.book-table{display:grid;grid-template-columns:minmax(9rem,1.15fr) minmax(7.5rem,1.7fr) minmax(5.5rem,.85fr) minmax(6.5rem,.95fr) minmax(5.25rem,.8fr) minmax(6.75rem,1fr) 2.75rem;column-gap:12px;row-gap:8px;align-items:center;width:100%;min-width:44rem;padding:0 0 10px;box-sizing:border-box}
+.book-line{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;align-items:center;min-width:0;padding:12px 16px;box-sizing:border-box}
+.book-line>*{min-width:0;max-width:100%;overflow:hidden}
+.book-head{position:sticky;top:0;z-index:2;font:700 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:#e8e8f0;background:#05050c;border-bottom:1px solid var(--line2);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);text-align:center}
+.book-head .is-left{text-align:left}
+.cell-clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.clip-row>*{min-width:0;overflow:hidden}
 </style><template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" sc-camel-view-box="0 0 100 100"><rect width="100" height="100" fill="#0b0d10"></rect><text x="50" y="64" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="40" fill="#c6f24e">L</text></svg></template>
 </helmet>
 <div style="display:flex;height:100vh;background:var(--appbg);color:var(--ink);overflow:hidden">
@@ -575,24 +584,22 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           </div></sc-for>
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0;transition:box-shadow .22s ease">
-          <div style="overflow-x:auto;overflow-y:hidden;background:var(--panel3);flex:1;min-height:0;display:flex;flex-direction:column">
-          <div style="width:max-content;min-width:100%;flex:1;min-height:0;display:flex;flex-direction:column">
-          <div style="display:grid;grid-template-columns:104px minmax(150px,1.5fr) 108px 120px 104px 124px 44px;column-gap:10px;padding:14px 29px;font:700 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:#e8e8f0;background:#05050c;border-bottom:1px solid var(--line2);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);text-align:center;position:sticky;top:0;z-index:2"><div>REF NUMBER</div><div style="text-align:left">CUSTOMER</div><div style="text-align:left">LENT</div><div>RETURN</div><div>STATUS</div><div>LOAN DUE</div><div>ACTION</div></div>
-          <div style="padding:10px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain">
+          <div class="book-scroll">
+          <div class="book-table">
+          <div class="book-line book-head"><div class="cell-clip" data-col="ref">REF NUMBER</div><div class="cell-clip is-left" data-col="customer">CUSTOMER</div><div class="cell-clip is-left">LENT</div><div class="cell-clip">RETURN</div><div class="cell-clip">STATUS</div><div class="cell-clip">LOAN DUE</div><div>ACTION</div></div>
           <sc-for list="{{ loanRows }}" as="l" hint-placeholder-count="6">
-            <div sc-camel-on-click="{{ l.openClient }}" title="Open client account" style="{{ l.rowStyle }}" style-hover="background:var(--rowHover);border-color:var(--rowHoverLine);box-shadow:inset 3px 0 0 var(--acc)">
-              <div sc-camel-on-click="{{ l.openClient }}" style="font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--mut);text-align:center">{{ l.ref }}</div>
-              <div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.3;cursor:pointer;color:var(--accText);text-align:left;text-wrap:pretty" sc-camel-on-click="{{ l.openClient }}" style-hover="opacity:.7">{{ l.customer }}</div>
-              <div sc-camel-on-click="{{ l.lentClick }}" title="{{ l.lentTitle }}" style="text-align:left"><div style="{{ l.lentStyle }}">{{ l.lentFmt }}</div></div>
-              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div style="font:700 16px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--blue);white-space:nowrap">{{ l.returnFmt }}</div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.04em;margin-top:3px;white-space:nowrap">{{ l.debitNote }}</div></div>
-              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div style="{{ l.statusStyle }}">{{ l.statusLabel }}</div></div>
-              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div style="{{ l.dueStyle }}">{{ l.dueFmt }}</div><div style="font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;margin-top:3px;white-space:nowrap">{{ l.instLabel }}</div><div style="font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;white-space:nowrap">{{ l.nextLabel }}</div></div>
+            <div class="book-line" sc-camel-on-click="{{ l.openClient }}" title="Open client account" style="{{ l.rowStyle }}" style-hover="background:var(--rowHover);border-color:var(--rowHoverLine);box-shadow:inset 3px 0 0 var(--acc)">
+              <div class="cell-clip" data-col="ref" title="{{ l.ref }}" sc-camel-on-click="{{ l.openClient }}" style="font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--mut);text-align:center">{{ l.ref }}</div>
+              <div class="cell-clip" data-col="customer" title="{{ l.customer }}" style="font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.3;cursor:pointer;color:var(--accText);text-align:left" sc-camel-on-click="{{ l.openClient }}" style-hover="opacity:.7">{{ l.customer }}</div>
+              <div sc-camel-on-click="{{ l.lentClick }}" title="{{ l.lentTitle }}" style="text-align:left"><div class="cell-clip" style="{{ l.lentStyle }}">{{ l.lentFmt }}</div></div>
+              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div class="cell-clip" style="font:700 16px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--blue)">{{ l.returnFmt }}</div><div class="cell-clip" style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.04em;margin-top:3px">{{ l.debitNote }}</div></div>
+              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div class="cell-clip" style="{{ l.statusStyle }}">{{ l.statusLabel }}</div></div>
+              <div sc-camel-on-click="{{ l.openClient }}" style="text-align:center"><div class="cell-clip" style="{{ l.dueStyle }}">{{ l.dueFmt }}</div><div class="cell-clip" style="font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;margin-top:3px">{{ l.instLabel }}</div><div class="cell-clip" style="font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">{{ l.nextLabel }}</div></div>
               <div sc-camel-on-click="{{ l.toggleMenu }}" style="justify-self:center;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:16px;border-radius:10px;cursor:pointer;transition:background .1s ease, color .1s ease" style-hover="color:var(--ink);background:var(--line)" style-active="color:var(--accInk);background:var(--acc)">⋮</div>
           </div>
           </sc-for>
-        </div>
-        </div>
-        </div>
+          </div>
+          </div>
       </div>
         </sc-if>
     </div>
@@ -605,12 +612,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <div sc-camel-on-click="{{ goAddClient }}" style="padding:8px 17px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">ADD CLIENT</div>
       </div>
         <div style="box-shadow:var(--cardLift), inset 0 1px 0 rgba(255,255,255,.08);background:var(--calGlass);backdrop-filter:var(--calGlassBlur);-webkit-backdrop-filter:var(--calGlassBlur);border:1px solid var(--calGlassLine);border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
-          <div style="display:grid;grid-template-columns:36px 96px minmax(140px,1.3fr) 150px 110px 110px;column-gap:12px;min-width:680px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div>#</div><div>REF</div><div>CUSTOMER</div><div>ID NUMBER</div><div>ADDED</div><div>OFFICER</div></div>
+          <div class="clip-row" style="display:grid;grid-template-columns:36px minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,150px) minmax(0,110px) minmax(0,110px);column-gap:12px;min-width:680px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div>#</div><div>REF</div><div>CUSTOMER</div><div>ID NUMBER</div><div>ADDED</div><div>OFFICER</div></div>
           <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="5">
-            <div sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:36px 96px minmax(140px,1.3fr) 150px 110px 110px;column-gap:12px;min-width:680px;padding:12px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
-              <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim);font-variant-numeric:tabular-nums">{{ c.num }}</div><div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.ref }}</div>
+            <div class="clip-row" sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:36px minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,150px) minmax(0,110px) minmax(0,110px);column-gap:12px;min-width:680px;padding:12px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
+              <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim);font-variant-numeric:tabular-nums">{{ c.num }}</div><div class="cell-clip" title="{{ c.ref }}" style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.ref }}</div>
               <div>
-                <div style="font-weight:500">{{ c.name }}</div>
+                <div class="cell-clip" title="{{ c.name }}" style="font-weight:500">{{ c.name }}</div>
                 <div sc-camel-on-click="{{ c.invite }}" style="margin-top:4px;display:inline-flex;padding:3px 8px;border-radius:8px;border:1px solid var(--line2);font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--accText);cursor:pointer">Give Quik1 access</div>
               </div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.idMasked }}</div>
@@ -731,10 +738,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <div sc-camel-on-click="{{ openAddEmployee }}" style="padding:8px 17px;border-radius:10px;background:var(--acc);font-size:12.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap" style-hover="filter:brightness(1.08)">INVITE EMPLOYEE</div>
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
-          <div style="display:grid;grid-template-columns:minmax(160px,1.3fr) 130px 120px 110px 96px 34px;column-gap:12px;min-width:640px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div>NAME</div><div>BOOK VALUE</div><div>ROLE</div><div>ADDED</div><div>STATUS</div></div>
+          <div class="clip-row" style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,130px) minmax(0,120px) minmax(0,110px) minmax(0,96px) 34px;column-gap:12px;min-width:640px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div>NAME</div><div>BOOK VALUE</div><div>ROLE</div><div>ADDED</div><div>STATUS</div></div>
           <sc-for list="{{ employeeRows }}" as="e" hint-placeholder-count="4">
-            <div sc-camel-on-click="{{ e.edit }}" style="display:grid;grid-template-columns:minmax(160px,1.3fr) 130px 120px 110px 96px 34px;column-gap:12px;min-width:640px;padding:12px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
-              <div style="font-weight:500">{{ e.name }}<div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px">{{ e.email }}</div></div>
+            <div class="clip-row" sc-camel-on-click="{{ e.edit }}" style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,130px) minmax(0,120px) minmax(0,110px) minmax(0,96px) 34px;column-gap:12px;min-width:640px;padding:12px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
+              <div style="font-weight:500"><div class="cell-clip" title="{{ e.name }}">{{ e.name }}</div><div class="cell-clip" title="{{ e.email }}" style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px">{{ e.email }}</div></div>
               <div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif">{{ e.bookFmt }}</div>
               <div><span style="{{ e.roleStyle }}">{{ e.role }}</span></div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ e.added }}</div>
@@ -762,11 +769,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <div style="margin-left:auto;font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">{{ lgCount }}</div>
         </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
-          <div style="display:grid;grid-template-columns:88px minmax(120px,1.1fr) 96px 130px 100px minmax(150px,1.4fr);column-gap:12px;min-width:760px;padding:11px 18px;font:700 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:#e8e8f0;background:#05050c;border-bottom:1px solid var(--line2);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);position:sticky;top:0;z-index:2;border-radius:12px 12px 0 0"><div>#</div><div>REF</div><div>CUSTOMER</div><div>AMOUNT</div><div>CHANGE</div><div>DATE</div><div>COMMENT</div></div>
+          <div class="clip-row" style="display:grid;grid-template-columns:minmax(7.5rem,1.1fr) minmax(0,1.2fr) minmax(0,96px) minmax(0,130px) minmax(0,100px) minmax(0,1.4fr);column-gap:12px;min-width:760px;padding:11px 18px;font:700 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:#e8e8f0;background:#05050c;border-bottom:1px solid var(--line2);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);position:sticky;top:0;z-index:2;border-radius:12px 12px 0 0"><div>REF</div><div>CUSTOMER</div><div>AMOUNT</div><div>CHANGE</div><div>DATE</div><div>COMMENT</div></div>
           <sc-for list="{{ logRows }}" as="g" hint-placeholder-count="7">
-            <div style="display:grid;grid-template-columns:88px minmax(120px,1.1fr) 96px 130px 100px minmax(150px,1.4fr);column-gap:12px;min-width:760px;padding:12px 18px;font-size:12.5px;border-top:1px solid var(--line);align-items:center">
-              <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ g.ref }}</div>
-              <div style="font-weight:500">{{ g.customer }}</div>
+            <div class="clip-row" style="display:grid;grid-template-columns:minmax(7.5rem,1.1fr) minmax(0,1.2fr) minmax(0,96px) minmax(0,130px) minmax(0,100px) minmax(0,1.4fr);column-gap:12px;min-width:760px;padding:12px 18px;font-size:12.5px;border-top:1px solid var(--line);align-items:center">
+              <div class="cell-clip" title="{{ g.ref }}" style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ g.ref }}</div>
+              <div class="cell-clip" title="{{ g.customer }}" style="font-weight:500">{{ g.customer }}</div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif">{{ g.amountFmt }}</div>
               <div style="{{ g.typeStyle }}">{{ g.type }}</div>
               <div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ g.date }}</div>
@@ -1081,11 +1088,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
           <sc-for list="{{ appFilters }}" as="f" hint-placeholder-count="4"><div sc-camel-on-click="{{ f.go }}" style="{{ f.style }}">{{ f.label }} <span style="opacity:.6">{{ f.count }}</span></div></sc-for>
       </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
-          <div style="display:grid;grid-template-columns:16px minmax(150px,1.4fr) 110px 130px 130px 104px;column-gap:12px;min-width:720px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div></div><div>APPLICANT</div><div>AMOUNT</div><div>PURPOSE / TERM</div><div>SUBMITTED</div><div>STATUS</div></div>
+          <div class="clip-row" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div></div><div>APPLICANT</div><div>AMOUNT</div><div>PURPOSE / TERM</div><div>SUBMITTED</div><div>STATUS</div></div>
           <sc-for list="{{ appRows }}" as="a" hint-placeholder-count="4">
-            <div sc-camel-on-click="{{ a.open }}" style="display:grid;grid-template-columns:16px minmax(150px,1.4fr) 110px 130px 130px 104px;column-gap:12px;min-width:720px;padding:13px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
+            <div class="clip-row" sc-camel-on-click="{{ a.open }}" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:13px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
               <div style="{{ a.dotStyle }}"></div>
-              <div><div style="font-weight:600">{{ a.name }}</div><div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px">{{ a.tagline }}</div></div>
+              <div><div class="cell-clip" title="{{ a.name }}" style="font-weight:600">{{ a.name }}</div><div class="cell-clip" style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px">{{ a.tagline }}</div></div>
               <div style="font:600 12.5px 'Plus Jakarta Sans',sans-serif">{{ a.amountFmt }}</div>
               <div style="font-size:12px;color:var(--mut)">{{ a.purpose }} · {{ a.termFmt }}</div>
               <div style="font:400 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ a.submitted }}</div>
@@ -1627,7 +1634,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:10px">CLIENT'S OTHER LOANS</div>
               <div style="border:1px solid var(--line);border-radius:12px;margin-bottom:18px;max-height:184px;overflow-y:auto">
                 <sc-for list="{{ mOtherLoans }}" as="o" hint-placeholder-count="2">
-                  <div style="display:grid;grid-template-columns:78px 1fr auto auto;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line)"><div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ o.ref }}</div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif">{{ o.amountFmt }}</div><div style="font:400 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">{{ o.dueYr }}</div><div style="font:500 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ o.statusLabel }}</div></div>
+                  <div class="clip-row" style="display:grid;grid-template-columns:minmax(7.5rem,1.2fr) minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line)"><div class="cell-clip" title="{{ o.ref }}" style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ o.ref }}</div><div class="cell-clip" style="font:500 11.5px 'Plus Jakarta Sans',sans-serif">{{ o.amountFmt }}</div><div class="cell-clip" style="font:400 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">{{ o.dueYr }}</div><div class="cell-clip" style="font:500 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ o.statusLabel }}</div></div>
                 </sc-for>
                 <sc-if value="{{ mNoOthers }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;font-size:12px;color:var(--dim)">No other loans on record</div></sc-if>
             </div>
@@ -1705,7 +1712,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin:2px 0 10px">ALL LOANS · {{ mCliLoanCount }}</div>
               <div style="border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px">
                 <sc-for list="{{ mCliLoans }}" as="l" hint-placeholder-count="2">
-                  <div sc-camel-on-click="{{ l.open }}" style="display:grid;grid-template-columns:92px 1fr 116px 76px;align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--line);cursor:pointer" style-hover="background:var(--hover)"><div style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ l.ref }}</div><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif">{{ l.amountFmt }}</div><div style="{{ l.statusStyle }}">{{ l.statusLabel }}</div><div style="font:400 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);text-align:right">{{ l.dueFmt }}</div></div>
+                  <div class="clip-row" sc-camel-on-click="{{ l.open }}" style="display:grid;grid-template-columns:minmax(7.5rem,1.1fr) minmax(0,1fr) minmax(0,116px) minmax(0,76px);align-items:center;gap:8px;padding:11px 14px;border-top:1px solid var(--line);cursor:pointer" style-hover="background:var(--hover)"><div class="cell-clip" title="{{ l.ref }}" style="font:400 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ l.ref }}</div><div class="cell-clip" style="font:500 12.5px 'Plus Jakarta Sans',sans-serif">{{ l.amountFmt }}</div><div class="cell-clip" style="{{ l.statusStyle }}">{{ l.statusLabel }}</div><div class="cell-clip" style="font:400 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);text-align:right">{{ l.dueFmt }}</div></div>
                 </sc-for>
                 <sc-if value="{{ mCliNoLoans }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;font-size:12px;color:var(--dim)">No loans on record</div></sc-if>
             </div>
@@ -1728,11 +1735,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
                 <div style="background:var(--panel);padding:13px 15px"><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.12em">PAYMENTS</div><div style="font:700 19px 'Plus Jakarta Sans',sans-serif;margin-top:5px">{{ dbCount }}</div></div>
             </div>
               <div style="border:1px solid var(--line);border-radius:16px;overflow:hidden">
-                <div style="display:grid;grid-template-columns:minmax(0,1fr) 104px 120px;column-gap:10px;padding:10px 15px;background:var(--panel);font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em"><div>CLIENT</div><div>REF</div><div style="text-align:right">RETURN DUE</div></div>
+                <div class="clip-row" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(7.5rem,11rem) minmax(0,8rem);column-gap:12px;padding:10px 15px;background:var(--panel);font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em"><div>CLIENT</div><div>REF</div><div style="text-align:right">RETURN DUE</div></div>
                 <sc-for list="{{ dbRows }}" as="r" hint-placeholder-count="3">
-                  <div sc-camel-on-click="{{ r.open }}" style="display:grid;grid-template-columns:minmax(0,1fr) 104px 120px;column-gap:10px;align-items:center;padding:12px 15px;border-top:1px solid var(--line);cursor:pointer" style-hover="background:var(--hover)">
-                    <div><div style="font-size:13.5px;font-weight:600">{{ r.customer }}</div><div style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.05em;margin-top:2px">{{ r.bank }}</div></div>
-                    <div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ r.ref }}</div>
+                  <div class="clip-row" sc-camel-on-click="{{ r.open }}" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(7.5rem,11rem) minmax(0,8rem);column-gap:12px;align-items:center;padding:12px 15px;border-top:1px solid var(--line);cursor:pointer" style-hover="background:var(--hover)">
+                    <div><div class="cell-clip" title="{{ r.customer }}" style="font-size:13.5px;font-weight:600">{{ r.customer }}</div><div class="cell-clip" style="font:500 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.05em;margin-top:2px">{{ r.bank }}</div></div>
+                    <div class="cell-clip" title="{{ r.ref }}" style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ r.ref }}</div>
                     <div style="text-align:right"><div style="{{ r.amountStyle }}">{{ r.amountFmt }}</div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em;margin-top:2px">{{ r.instLabel }}</div></div>
                     <div style="grid-column:1 / -1;display:flex;gap:6px;flex-wrap:wrap;margin-top:9px"><sc-for list="{{ r.picks }}" as="p" hint-placeholder-count="4"><div sc-camel-on-click="{{ p.pick }}" style="{{ p.style }}">{{ p.label }}</div></sc-for></div>
                 </div>
@@ -4547,7 +4554,7 @@ class Component extends DCLogic {
           return {due:ds[k], no:(l.instDone||0)+k+1, tot:(l.instDone||0)+ds.length, s}; })();
         const smv = mv ? this.statusMeta(mv.s) : sm;
         return {...l, customer:c.name,
-          rowStyle:this.cssObj('display:grid;grid-template-columns:104px minmax(150px,1.5fr) 108px 120px 104px 124px 44px;column-gap:10px;padding:15px 18px;align-items:center;cursor:pointer;border-radius:16px;border:1px solid transparent;background:'+(()=>{ const base=alt?'var(--panel2)':'var(--panel)';
+          rowStyle:this.cssObj('cursor:pointer;border-radius:16px;border:1px solid transparent;background:'+(()=>{ const base=alt?'var(--panel2)':'var(--panel)';
             const failed=l.status==='overdue'||!!staleIds[l.id];
             if(failed) return 'linear-gradient(90deg, rgba(255,69,58,.32) 0%, rgba(255,69,58,.12) 45%, '+base+' 100%)';
             if(l.status!=='issued'&&l.status!=='duetoday') return base;
