@@ -47,7 +47,7 @@ async function call({ method = 'POST', path = ['nupay-clients'], headers = {}, b
     method,
     query: { path },
     url: '/api/ledger/' + path.join('/'),
-    headers: { host: 'ledger.test', 'x-forwarded-proto': 'https', authorization: 'Bearer ' + STAFF, ...headers },
+    headers: { host: 'localhost', 'x-forwarded-proto': 'https', authorization: 'Bearer ' + STAFF, ...headers },
     body
   };
   const res = makeRes();

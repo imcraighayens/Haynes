@@ -71,6 +71,7 @@ function dbRoute(extra) {
     if (rec.host !== 'db.test.supabase.co') return extra ? extra(rec) : { status: 200, body: { ok: true } };
     if (rec.table === 'applications') return { status: 200, body: [APP] };
     if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 10000 }] };
+    if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
     return { status: 200, body: [] };
   };
 }
@@ -132,7 +133,7 @@ describe('q1 assistant', { concurrency: 1 }, () => {
   });
 
   test('same-origin staff cookie is enough; cross-site cookie is 401', async () => {
-    const { token } = mintStaffSession();
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
     const cookie = 'ledger_staff=' + encodeURIComponent(token);
     const same = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie };
     const ok = await callStaff({ auth: false, headers: same, body: { message: "What's in the bank?", data: DATA } });

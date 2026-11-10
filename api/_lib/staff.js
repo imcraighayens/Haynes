@@ -1,4 +1,4 @@
-// Staff sign-in against the Ledger Supabase project (https://rcektqecduuzqqmcsgat.supabase.co).
+// Staff sign-in. GoTrue is called at process.env.SUPABASE_URL. There is no project URL in this file.
 // GoTrue checks the password. The allowlist is public.employees (active row, case-insensitive
 // email) — the same rule as auth_signup_allowlist. There is no second password table and no
 // invented address for the open second slot. LEDGER_KEY is not a staff password.
@@ -31,6 +31,8 @@ function displayNameOf(user) {
 // { ok:true, staff:{email, displayName} } or { ok:false, status }.
 // Allowlist misses and rejected credentials both come back as 401. The GoTrue error body is dropped.
 export async function signInStaff(email, password) {
+  const projectUrl = String(process.env.SUPABASE_URL || '').trim();
+  if (!projectUrl) return { ok: false, status: 503 };
   const submitted = normEmail(email);
   const pw = password == null ? '' : String(password);
   if (!pw || pw.length > 1024) return { ok: false, status: 401 };

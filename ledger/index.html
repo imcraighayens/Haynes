@@ -2646,8 +2646,8 @@ class Component extends DCLogic {
     try{ const sv = JSON.parse(localStorage.getItem('evoltConsoleV4')||'null'); if(sv && sv.clients && sv.loans){ const th=this.state.theme; Object.assign(this.state, sv); this.state.theme=th; } }catch(e){}
     // The page gate owns signed-out visitors. This console is only injected after
     // /state succeeds. A saved ledgerUnlocked flag does not load the book.
-    // A named session replaces the demo profile. POST /api/ledger/unlock stays
-    // server-only; this screen does not send a passcode.
+    // A named session replaces the demo profile.
+    // Staff sign in with email and password. There is no unlock PIN.
     try{
       const gate=window.__ledger;
       if(gate&&gate.needsUnlock){

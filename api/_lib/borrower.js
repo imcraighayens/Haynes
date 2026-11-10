@@ -9,6 +9,7 @@ import { hashPin, verifyPin, isPin } from './pin.js';
 import { borrowerBook } from './borrower-book.js';
 import { staffIdentity } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
+import { apiRole } from './hosts.js';
 import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef,
   sessionCookie, deviceCookie, clearSessionCookie, requestIsSecure
@@ -36,6 +37,8 @@ export function hashInviteCode(code) {
 function inviteLink(req, code) {
   const rawHost = (header(req, 'x-forwarded-host') || header(req, 'host') || '').split(',')[0].trim().toLowerCase();
   const host = /^[a-z0-9.-]+(?::\d{1,5})?$/.test(rawHost) ? rawHost : '';
+  // Staff pages do not serve /quik1, so an invite created there opens on the borrower site.
+  if (host && apiRole(host, '') === 'staff') return `https://quik1.app/quik1/#invite=${code}`;
   const rawProto = (header(req, 'x-forwarded-proto') || 'https').split(',')[0].trim().toLowerCase();
   const proto = rawProto === 'http' ? 'http' : 'https';
   const origin = host ? `${proto}://${host}` : '';

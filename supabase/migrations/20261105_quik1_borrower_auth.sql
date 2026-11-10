@@ -1,5 +1,5 @@
 -- Quik1 borrower sign-in. Additive only. Do not run this from the app.
--- Apply it once in the Supabase SQL editor for ledger-ecoloans (rcektqecduuzqqmcsgat).
+-- Apply it once in the Supabase SQL editor for ledger-ecoloans (project ref from SUPABASE_URL).
 --
 -- Borrowers are rows in this project, not auth.users. The sign-up trigger
 -- auth_signup_allowlist refuses any email that is not an active employee, and
