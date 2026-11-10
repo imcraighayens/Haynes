@@ -98,9 +98,16 @@
     return { queue: [], dead: {} };
   }
   function writeOutbox(o) { try { w.localStorage.setItem(OUTBOX_KEY, JSON.stringify(o)); } catch (e) {} }
+  // The phone may still keep an ID number for its own screens. The public API must not receive one.
+  var ID_KEYS = { idnum: 1, idNumber: 1, id_number: 1, saId: 1, nationalId: 1 };
+  function postedBody(rec) {
+    var body = {}, k;
+    for (k in rec) if (Object.prototype.hasOwnProperty.call(rec, k) && !ID_KEYS[k]) body[k] = rec[k];
+    return body;
+  }
   function enqueue(kind, rec) {
     var o = readOutbox();
-    o.queue = o.queue.filter(function (q) { return q.id !== rec.id; }).concat([{ kind: kind, id: rec.id, body: rec, tries: 0, nextAt: 0 }]);
+    o.queue = o.queue.filter(function (q) { return q.id !== rec.id; }).concat([{ kind: kind, id: rec.id, body: postedBody(rec), tries: 0, nextAt: 0 }]);
     delete o.dead[rec.id];
     writeOutbox(o);
   }

@@ -196,7 +196,7 @@
   function retryable(r) { return r.retryable === true || (r.retryable == null && /unreachable|Internal error/i.test(String(r.error || ''))); }
   function flush() {
     if (flushing || !pending.length) return Promise.resolve();
-    // Bearer key OR same-origin staff cookie (minted by unlock) can flush; 401 keeps the queue.
+    // Bearer key OR same-origin staff cookie (minted by email login) can flush; 401 keeps the queue.
     flushing = true;
     var batch = pending.splice(0, MAX_BATCH);
     inflight = batch; persistQueue();
@@ -465,20 +465,6 @@
     return [];
   }
 
-  // Server-only PIN. POST /api/ledger/unlock mints the same cookie. The Admin screen does not send it.
-  function unlock(pin) {
-    return api('POST', '/unlock', { pin: String(pin || '') }, { timeoutMs: 8000 }).then(function () {
-      return fetchState().then(function (st) {
-        applyBootState(st);
-        if (st && st.clients) {
-          try {
-            if (W.location && typeof W.location.reload === 'function') W.location.reload();
-          } catch (e) {}
-        }
-        return st;
-      });
-    });
-  }
   // Supabase email + password → same-origin httpOnly staff cookie. The browser never holds LEDGER_KEY.
   function login(email, password) {
     return api('POST', '/login', { email: String(email || ''), password: String(password || '') }, { timeoutMs: 20000 }).then(function (res) {
@@ -505,7 +491,6 @@
     return api('POST', '/lock', {}, { timeoutMs: 5000 }).catch(function () { return null; });
   }
 
-  L.unlock = unlock;
   L.login = login;
   L.lock = lock;
 
@@ -592,7 +577,7 @@
     restoreQueue();
     if (c.key) { try { seedQ1Apps(c.key); } catch (e) { info('q1.apps seed failed', e); } }
     try { whenParsed(bindLogin); } catch (e) {}
-    // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after unlock.
+    // Always attempt /state: Bearer key from Settings OR same-origin staff cookie after email login.
     // No confirmed book means no session. The console stays uninjected so clients, loans,
     // and NuPay never paint. The splash then becomes the staff login.
     L.state = fetchState();

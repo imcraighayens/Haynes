@@ -65,7 +65,7 @@ async function call(handler, { method = 'GET', path = [], url, headers = {}, bod
     method,
     query: { path, ...query },
     url: url || '/api/' + path.join('/'),
-    headers: { host: 'quik1.test', 'x-forwarded-proto': 'https', 'x-forwarded-for': '203.0.113.' + (++ipSeq % 200), ...headers },
+    headers: { host: handler === ledger ? 'localhost' : 'quik1.test', 'x-forwarded-proto': 'https', 'x-forwarded-for': '203.0.113.' + (++ipSeq % 200), ...headers },
     body
   };
   const res = makeRes();
@@ -131,11 +131,11 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(denied.statusCode, 401);
 
     const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: { ...staffHeaders(), host: 'quik1.test' }, body: { clientId: CLIENT_A }
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(created.statusCode, 201);
     const body = created.json();
-    const linkOk = typeof body.link === 'string' && /^https:\/\/quik1\.test\/quik1\/#invite=[0-9a-f]{64}$/.test(body.link);
+    const linkOk = typeof body.link === 'string' && /^https:\/\/localhost\/quik1\/#invite=[0-9a-f]{64}$/.test(body.link);
     assert.equal(linkOk, true);
     assert.equal(body.clientRef, 'EC-901');
     assert.equal(body.clientId, undefined);
@@ -404,6 +404,16 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(res.statusCode, 503);
   });
 
+  test('an invite created on the staff host opens on the borrower site', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'],
+      headers: { ...staffHeaders(), host: 'quik1ledger.com' },
+      body: { clientId: CLIENT_A }
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    assert.match(created.json().link, /^https:\/\/quik1\.app\/quik1\/#invite=[0-9a-f]{64}$/);
+  });
+
   test('live PIN stays off without the flag and on a production host', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -417,13 +427,21 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(held.statusCode, 503);
     assert.equal(fake.db.q1_borrowers.length, 0);
 
-    for (const host of ['quik1.app', 'www.quik1.app', 'quik1ledger.com', 'www.quik1ledger.com']) {
+    for (const host of ['quik1.app', 'www.quik1.app']) {
       const blocked = await call(quik1, {
         method: 'POST', path: ['invites', 'redeem'],
         headers: { host },
         body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
       });
       assert.equal(blocked.statusCode, 503, host);
+    }
+    for (const host of ['quik1ledger.com', 'www.quik1ledger.com']) {
+      const blocked = await call(quik1, {
+        method: 'POST', path: ['invites', 'redeem'],
+        headers: { host },
+        body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+      });
+      assert.equal(blocked.statusCode, 404, host);
     }
     assert.equal(fake.db.q1_borrowers.length, 0);
 

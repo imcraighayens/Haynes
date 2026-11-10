@@ -14,7 +14,7 @@ cash, bank, expenses, settings) is saved to the same database and comes back on 
 on any machine.
 
 Hosting: Vercel (static files + `api/` functions, no build step). Database: Supabase project
-`ledger-ecoloans` (`rcektqecduuzqqmcsgat`). First-time setup is in [DEPLOY.md](DEPLOY.md); the
+`ledger-ecoloans` (project ref comes from `SUPABASE_URL`, not from this file). First-time setup is in [DEPLOY.md](DEPLOY.md); the
 engineering contract is in [docs/BRIDGE-SPEC.md](docs/BRIDGE-SPEC.md).
 
 ## Rule zero: the apps are design-frozen
@@ -231,13 +231,11 @@ copy is the source of truth and wins on the next load.
   (camera/mic/geolocation off — neither app uses them) and `frame-ancestors 'self'`, which
   stops other sites framing the apps while leaving LEDGER's own YouTube embed untouched.
 
-## What is auto-approved, and why
+## What waits for a person
 
-**Quik1 sign-ups** are stored with `status: 'Approved'` immediately (`decided_by: 'auto'`).
-The Quik1 design shows a "Pending review" screen that only clears when a reviewer approves,
-and nothing in LEDGER reviews sign-ups; without auto-approval every new customer would wait
-forever. A sign-up only creates a login identity — it grants no money. **Loan applications are
-never auto-approved**: every one waits for a staff decision in LEDGER.
+**Quik1 sign-ups** are stored as `Pending review`. The app already shows that screen, and it
+stays there until someone decides. Public `/api/quik1` routes do not store an SA ID number.
+**Loan applications** are stored as `new` (`Needs decision`) and wait for a staff decision.
 
 ## What is not touched
 

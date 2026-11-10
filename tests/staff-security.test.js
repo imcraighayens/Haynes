@@ -27,10 +27,10 @@ describe('shipped ledger HTML', () => {
     const api = fs.readFileSync(new URL('../api/ledger.js', import.meta.url), 'utf8');
     const sync = fs.readFileSync(new URL('../ledger/ledger-sync.js', import.meta.url), 'utf8');
     assert.match(api, /head === 'unlock'/);
-    assert.match(api, /verifyUnlockPin/);
+    assert.doesNotMatch(api, /verifyUnlockPin|LEDGER_UNLOCK_PIN/);
     assert.match(api, /head === 'login'/);
-    assert.match(sync, /api\('POST', '\/unlock'/);
-    assert.match(sync, /L\.unlock = unlock/);
+    assert.doesNotMatch(sync, /\/unlock/);
+    assert.doesNotMatch(sync, /L\.unlock/);
   });
 
   test('reset demo is gated and destructive actions call the server', () => {

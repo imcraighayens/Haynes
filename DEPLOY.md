@@ -26,7 +26,7 @@ functions to Node 22 (`engines.node`), so these settings are only confirmations.
 
 | Name | Value |
 | --- | --- |
-| `SUPABASE_URL` | `https://rcektqecduuzqqmcsgat.supabase.co` |
+| `SUPABASE_URL` | Supabase dashboard → **Project Settings → API → Project URL** (`https://<project-ref>.supabase.co`). Do not commit the ref. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → **Project Settings → API → Project API keys → `service_role`** (click *Reveal*). Server-only. Never paste it into either app, a browser, or git. |
 | `LEDGER_KEY` | Generate one now and keep it somewhere safe — you paste it into LEDGER in step 4: |
 
@@ -50,7 +50,6 @@ browser, in git, or in the staff UI.
 
 | Name | What it does |
 | --- | --- |
-| `LEDGER_UNLOCK_PIN` | Legacy server PIN for `POST /api/ledger/unlock`. Mints the same httpOnly staff cookie. The Admin screen does not send it and does not show a passcode. |
 | `LEDGER_MANAGER_PIN` | Required before a loan delete or a full book replace. Plain text, or `sha256:` plus the hex digest. |
 | `LEDGER_ALLOW_DEMO_RESET` | Set to `true` only on a non-production host to show Reset demo data. Production hosts and `NODE_ENV=production` keep it hidden. |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Document reader. Q1 chat answers from the book without these. If neither is set, the reader shows "Not configured". |

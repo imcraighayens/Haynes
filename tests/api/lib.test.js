@@ -8,7 +8,7 @@ import path from 'node:path';
 const KEY = 'ledger-test-key-0123456789abcdef';
 process.env.LEDGER_KEY = KEY;
 
-const { requireStaff, safeEqual, bearerToken, mintStaffSession, verifyStaffSession, isSameOrigin, staffCookieHeader, STAFF_COOKIE, verifyUnlockPin } = await import('../../api/_lib/auth.js');
+const { requireStaff, safeEqual, bearerToken, mintStaffSession, parseStaffToken, verifyStaffSession, isSameOrigin, staffCookieHeader, STAFF_COOKIE } = await import('../../api/_lib/auth.js');
 const { createLimiter, clientIp } = await import('../../api/_lib/ratelimit.js');
 const V = await import('../../api/_lib/validate.js');
 const { HttpError, readBody, pathParts, json } = await import('../../api/_lib/http.js');
@@ -188,16 +188,34 @@ test('http json: ALLOWED_ORIGIN accepts a comma-separated list of exact origins'
 });
 });
 
-test('auth: same-origin staff cookie satisfies requireStaff; cross-site cookie does not', async () => {
+test('auth: same-origin staff cookie satisfies requireStaff; cross-site cookie and an unnamed token do not', async () => {
   process.env.LEDGER_KEY = process.env.LEDGER_KEY || 'test-ledger-key-for-unit-tests-32b';
-  const { token, exp } = mintStaffSession();
+  process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://db.test.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'service-role-secret-NEVER-RETURN';
+  await assert.rejects(async () => mintStaffSession(), e => e.status === 401);
+  const staff = { email: 'craig@ecoloan.co.za', displayName: 'Craig' };
+  const { token, exp } = mintStaffSession(Date.now(), staff);
+  assert.match(token, /^v2\./);
   assert.equal(verifyStaffSession(token), true);
+  assert.equal(parseStaffToken('v1.1.abcd.sig'), null);
   const cookie = staffCookieHeader(token, exp);
   assert.ok(cookie.includes(STAFF_COOKIE + '='));
-  const same = { headers: { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'same-origin' } };
-  assert.equal(await requireStaff(same), true);
-  const cross = { headers: { origin: 'https://evil.example', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'cross-site' } };
-  await assert.rejects(() => requireStaff(cross), e => e.status === 401);
-  assert.equal(isSameOrigin(same), true);
-  assert.equal(isSameOrigin(cross), false);
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = new URL(String(url));
+    const body = u.pathname.endsWith('/employees')
+      ? [{ id: 'e1', name: 'Craig', email: staff.email, role: 'admin', active: true }]
+      : [];
+    return { ok: true, status: 200, headers: new Headers(), text: async () => JSON.stringify(body) };
+  };
+  try {
+    const same = { headers: { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'same-origin' } };
+    assert.equal(await requireStaff(same), true);
+    const cross = { headers: { origin: 'https://evil.example', host: 'quik1ledger.com', cookie: STAFF_COOKIE + '=' + encodeURIComponent(token), 'sec-fetch-site': 'cross-site' } };
+    await assert.rejects(() => requireStaff(cross), e => e.status === 401);
+    assert.equal(isSameOrigin(same), true);
+    assert.equal(isSameOrigin(cross), false);
+  } finally {
+    globalThis.fetch = prev;
+  }
 });
