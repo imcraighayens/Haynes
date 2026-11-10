@@ -591,16 +591,22 @@ function emptyReport(extra) {
     headerFields: {},
     rows: [],
     groups: [],
-    summary: { matched: 0, mismatched: 0, unknown: 0, byStatus: [] },
+    summary: { matched: 0, loanFound: 0, mismatched: 0, unknown: 0, tiles: { Matched: 0, 'Loan found': 0, Mismatched: 0, Unknown: 0 }, byStatus: [] },
     sources: []
   }, extra || {});
 }
 
+export function badgeCounts(rows) {
+  const counts = { Matched: 0, 'Loan found': 0, Mismatched: 0, Unknown: 0 };
+  for (const row of rows || []) counts[matchBadge(row).label] += 1;
+  return counts;
+}
+
 function summarise(rows) {
-  const summary = { matched: 0, mismatched: 0, unknown: 0, byStatus: [] };
+  const tiles = badgeCounts(rows);
+  const byStatus = [];
   const totals = new Map();
   for (const row of rows) {
-    summary[row.outcome] += 1;
     const label = statusLabel(row.statusKind);
     const money = row.debitAmount != null ? row.debitAmount : row.instalmentAmount != null ? row.instalmentAmount : row.originalAmount != null ? row.originalAmount : 0;
     const bucket = totals.get(label) || { status: label, count: 0, amount: 0 };
@@ -608,8 +614,15 @@ function summarise(rows) {
     bucket.amount = round2(bucket.amount + (money || 0));
     totals.set(label, bucket);
   }
-  summary.byStatus = [...totals.values()];
-  return summary;
+  totals.forEach(bucket => byStatus.push(bucket));
+  return {
+    matched: tiles.Matched,
+    loanFound: tiles['Loan found'],
+    mismatched: tiles.Mismatched,
+    unknown: tiles.Unknown,
+    tiles,
+    byStatus
+  };
 }
 
 function finish(rows, book, meta) {
@@ -829,7 +842,7 @@ function csvCell(value) {
 
 export function reportToCsv(report) {
   const header = [
-    'outcome', 'matched_on', 'loan_ref', 'book_status', 'deleted', 'settled',
+    'match', 'loan_ref', 'book_status', 'deleted', 'settled',
     'contract_reference', 'mandate_id', 'client_reference', 'action_date',
     'debit_amount', 'original_amount', 'pif_value', 'instalment_amount',
     'status', 'instalment_number', 'amount_ok', 'date_ok',
@@ -842,8 +855,7 @@ export function reportToCsv(report) {
   for (const row of (report && report.rows) || []) {
     const group = byLoan.get(row.loanId);
     const values = [
-      row.outcome,
-      row.how === 'client-ambiguous' ? '' : row.how,
+      matchBadge(row).label,
       group ? group.ref : '',
       group ? bookStatusLabel(group.status) : '',
       group && group.deleted ? 'yes' : '',
@@ -865,7 +877,7 @@ export function reportToCsv(report) {
       group ? group.paidDates.join('|') : '',
       group && group.preview ? group.preview.paid_dates.join('|') : '',
       group && group.outstanding != null ? group.outstanding : '',
-      group && group.clientName ? group.clientName : '',
+      (group && group.clientName) || row.fileName || '',
       row.sourceFile || ''
     ];
     lines.push(values.map(csvCell).join(','));
@@ -940,7 +952,7 @@ export function matchBadge(row) {
   const kind = row && row.statusKind;
   if (outcome === 'unknown') return { label: 'Unknown', tone: 'neutral' };
   if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
-  if (kind === 'success') return { label: 'Matched', tone: 'ok' };
+  if (outcome === 'matched' && kind === 'success') return { label: 'Matched', tone: 'ok' };
   return { label: 'Loan found', tone: 'neutral' };
 }
 
@@ -977,7 +989,9 @@ body.nupay-open dc-import{display:none !important}
 .np-choose{margin-top:12px}
 .np-state{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--panel2,#111110);border:1px solid var(--line,#2a2a25)}
 .np-state.is-error{border-color:#ffb4a8;color:#ffe1d8}
-.np-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.np-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.np-loaded{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line2,#3a3933);border-radius:10px;background:var(--panel2,#111110)}
+.np-loaded span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-tile{display:flex;flex-direction:column;align-items:flex-start;background:var(--panel2,#111110);border:1px solid var(--line2,#3a3933);border-radius:10px;padding:12px;min-height:84px}
 .np-tile .act-k{font:600 12px 'Plus Jakarta Sans',sans-serif;color:#e7e2d6}
 .np-tile .act-n{font:700 28px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px;color:#f7f4ee}
@@ -1002,7 +1016,6 @@ body.nupay-open dc-import{display:none !important}
 .np-map select{background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border:1px solid var(--line2,#3a3933);border-radius:8px;padding:8px;font:500 14px 'Plus Jakarta Sans',sans-serif}
 @media (max-width:640px){
   .np-tiles{grid-template-columns:1fr 1fr}
-  .np-tile:last-child{grid-column:1 / -1}
   .np-pay{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 0}
   .np-k{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;display:block;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
   .np-bar{flex-wrap:wrap}
@@ -1087,36 +1100,46 @@ function mount(host) {
 
   function drawShell() {
     scroll.textContent = '';
-    const drop = el('div', 'np-drop');
-    drop.id = 'nupay-drop';
-    drop.appendChild(el('h3', '', 'Upload a NuPay file'));
-    drop.appendChild(el('p', '', 'CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.'));
-    const choose = el('button', 'np-btn primary np-choose', 'Choose file');
-    choose.type = 'button';
-    choose.id = 'nupay-choose';
     const input = document.createElement('input');
     input.id = 'nupay-report-file';
     input.type = 'file';
     input.accept = '.csv,.xlsx,.zip,text/csv';
     input.hidden = true;
     input.setAttribute('aria-label', 'NuPay file');
-    choose.addEventListener('click', () => input.click());
     input.addEventListener('change', () => {
       const file = input.files && input.files[0];
       if (file) readFile(file);
       input.value = '';
     });
-    drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.classList.add('is-hot'); });
-    drop.addEventListener('dragleave', () => drop.classList.remove('is-hot'));
-    drop.addEventListener('drop', ev => {
-      ev.preventDefault();
-      drop.classList.remove('is-hot');
-      const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if (file) readFile(file);
-    });
-    drop.append(choose, input);
-    if (loadedName) drop.appendChild(el('p', '', loadedName));
-    scroll.appendChild(drop);
+    if (loadedName) {
+      const loaded = el('div', 'np-loaded');
+      loaded.id = 'nupay-loaded';
+      loaded.appendChild(el('span', '', loadedName));
+      const replace = el('button', 'np-btn', 'Replace file');
+      replace.type = 'button';
+      replace.addEventListener('click', () => input.click());
+      loaded.append(replace, input);
+      scroll.appendChild(loaded);
+    } else {
+      const drop = el('div', 'np-drop');
+      drop.id = 'nupay-drop';
+      drop.appendChild(el('h3', '', 'Upload a NuPay file'));
+      drop.appendChild(el('p', '', 'CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.'));
+      const choose = el('button', 'np-btn primary np-choose', 'Choose file');
+      choose.type = 'button';
+      choose.id = 'nupay-choose';
+      choose.addEventListener('click', () => input.click());
+      drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.classList.add('is-hot'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('is-hot'));
+      drop.addEventListener('drop', ev => {
+        ev.preventDefault();
+        drop.classList.remove('is-hot');
+        const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if (file) readFile(file);
+      });
+      drop.append(choose, input);
+      scroll.appendChild(drop);
+    }
     const state = el('div', '');
     state.id = 'nupay-state';
     scroll.appendChild(state);
@@ -1198,7 +1221,7 @@ function mount(host) {
         lastReport = next;
         render(next, next.needsMapping ? 'Pick at least a contract reference, mandate ID, or client reference.' : '', next.needsMapping ? 'error' : '');
       } catch (err) {
-        render(null, 'That file could not be read.', 'error');
+        render(null, (pending && pending.fileName ? pending.fileName + ' could not be read.' : 'That file could not be read.'), 'error');
       }
     });
     box.appendChild(go);
@@ -1208,7 +1231,7 @@ function mount(host) {
   function drawTiles(root, report) {
     const tiles = el('div', 'np-tiles');
     tiles.id = 'nupay-report-summary';
-    [['Matched', report.summary.matched, 'Loan, amount, and date agree'], ['Mismatched', report.summary.mismatched, 'Loan found, amount or date does not'], ['Unknown', report.summary.unknown, 'No loan on the book']].forEach(([label, count, sub]) => {
+    [['Matched', report.summary.matched, 'Success, and the loan, amount, and date agree'], ['Loan found', report.summary.loanFound, 'Not paid'], ['Mismatched', report.summary.mismatched, 'Loan found, amount or date does not'], ['Unknown', report.summary.unknown, 'No loan on the loaded book']].forEach(([label, count, sub]) => {
       const tile = el('div', 'np-tile');
       tile.append(el('span', 'act-k', label), el('span', 'act-n', String(count)), el('span', 'act-s', sub));
       tiles.appendChild(tile);
@@ -1309,6 +1332,7 @@ function mount(host) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showState('status', 'Exported ' + (report.rows || []).length + ' rows');
   }
 
   async function readFile(file) {
@@ -1316,13 +1340,13 @@ function mount(host) {
       lastReport = null;
       loadedName = file.name;
       setExport(false);
-      render(null, 'Use a CSV, XLSX, or NuPay zip.', 'error');
+      render(null, file.name + ': Use a CSV, XLSX, or NuPay zip.', 'error');
       return;
     }
     if (file.size > MAX_BYTES) {
       lastReport = null;
       loadedName = file.name;
-      render(null, 'That file is over 10 MB.', 'error');
+      render(null, file.name + ' is over 10 MB.', 'error');
       return;
     }
     loadedName = file.name;
@@ -1336,13 +1360,13 @@ function mount(host) {
         render(report, 'Pick at least a contract reference, mandate ID, or client reference.', 'error');
       } else {
         pending = null;
-        const msg = report.error ? 'That file could not be read.' : '';
+        const msg = report.error ? (file.name + ' could not be read.') : '';
         render(report, msg, report.error ? 'error' : '');
       }
     } catch (err) {
       lastReport = null;
       pending = null;
-      render(null, 'That file could not be read.', 'error');
+      render(null, file.name + ' could not be read.', 'error');
     }
   }
 

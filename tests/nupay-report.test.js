@@ -7,7 +7,7 @@ import {
   PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders,
   parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance, amountsAgree,
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
-  reportToCsv, previewLoan, normalizeLoan, matchBadge
+  reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts
 } from '../ledger/nupay-report.js';
 
 const fixture = fs.readFileSync(new URL('./fixtures/nupay/fake_Active_mandate_report.csv', import.meta.url), 'utf8');
@@ -301,6 +301,51 @@ test('only a Success row can wear the green Matched badge', () => {
   assert.deepEqual(byStatus['success:mismatched'], { label: 'Mismatched', tone: 'warn' });
   assert.deepEqual(byStatus['failed:unknown'], { label: 'Unknown', tone: 'neutral' });
   assert.equal(report.rows.find(row => row.statusKind === 'reversed').outcome, 'matched');
+});
+
+test('tile counts equal the badge counts, and a non-success is never Matched', () => {
+  const fixed = analyseText(fixture, book);
+  assert.deepEqual(fixed.summary.tiles, badgeCounts(fixed.rows));
+  assert.equal(fixed.summary.matched + fixed.summary.loanFound + fixed.summary.mismatched + fixed.summary.unknown, fixed.rows.length);
+  const id = '0000001111111';
+  const phone = '0830001111';
+  const email = 'secret.person@example.com';
+  const account = '998877665544';
+  const csv = [
+    'Contract Reference,Transaction Date,Debit Amount,Status,Id,Phone Number,Email,Acc. Number',
+    'FAKE-CR-0001,2026-02-25,1380.16,Success,' + [id, phone, email, account].join(','),
+    'FAKE-CR-0001,2026-01-25,1380.16,Reversed,' + [id, phone, email, account].join(','),
+    'FAKE-CR-0001,2026-03-25,1380.16,Failed,' + [id, phone, email, account].join(','),
+    'FAKE-CR-0001,2026-03-25,1380.16,In Tracking,' + [id, phone, email, account].join(','),
+    'FAKE-CR-0001,2026-04-25,1380.16,Future,' + [id, phone, email, account].join(','),
+    'FAKE-CR-0003,2026-05-25,410.93,Disputed,' + [id, phone, email, account].join(',')
+  ].join('\n');
+  const piiBook = {
+    loans: book.loans.map(loan => ({ ...loan, id: 'db-loan-9f3a-' + loan.id, client_id: 'db-client-9f3a-' + loan.client_id })),
+    clients: book.clients.map(client => ({ ...client, id: 'db-client-9f3a-' + client.id })),
+    mandates: []
+  };
+  const report = analyseText(csv, piiBook);
+  const counts = badgeCounts(report.rows);
+  assert.deepEqual(report.summary.tiles, counts);
+  assert.equal(counts.Matched + counts['Loan found'] + counts.Mismatched + counts.Unknown, report.rows.length);
+  const never = ['reversed', 'failed', 'tracking', 'future', 'disputed'];
+  for (const row of report.rows) {
+    if (never.includes(row.statusKind)) assert.notEqual(matchBadge(row).label, 'Matched', row.statusKind);
+  }
+  assert.equal(counts.Matched, report.rows.filter(row => row.statusKind === 'success' && row.outcome === 'matched').length);
+  const exported = reportToCsv(report);
+  const header = exported.split('\n')[0].toLowerCase();
+  for (const column of ['phone', 'email', 'account', 'loan_id', 'client_id', 'id_number', 'branch']) {
+    assert.equal(header.includes(column), false, column);
+  }
+  for (const secret of [id, phone, email, account, 'db-loan-9f3a', 'db-client-9f3a']) {
+    assert.equal(exported.includes(secret), false, secret);
+  }
+  const lines = exported.trim().split('\n').slice(1);
+  report.rows.forEach((row, index) => assert.equal(lines[index].split(',')[0], matchBadge(row).label));
+  assert.match(exported, /FAKE-LN-01/);
+  assert.match(exported, /Loan found/);
 });
 
 test('manual mapping is used when the headers are not recognised', () => {
