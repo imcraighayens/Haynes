@@ -12,6 +12,7 @@ import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDev
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
+import { commitLoanStatus } from './_lib/loan-status.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -77,6 +78,18 @@ async function getState(req, res) {
     attention,
     server_time: new Date().toISOString()
   }, req);
+}
+
+async function postLoanStatus(req, res) {
+  const body = await readBody(req, 8192);
+  const who = staffIdentity(req);
+  const result = await commitLoanStatus({
+    loanId: body && body.loanId,
+    status: body && body.status,
+    note: body && body.note,
+    by: (who && who.displayName) || 'staff'
+  });
+  return json(res, 200, result, req);
 }
 
 async function postAttention(req, res) {
@@ -437,6 +450,10 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'attention' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postAttention(req, res);
+  }
+  if (head === 'loan-status' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postLoanStatus(req, res);
   }
   if (head === 'sync' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');

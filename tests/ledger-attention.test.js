@@ -11,10 +11,12 @@ test('the attention popup is wired to the server book and a per-staff acknowledg
   assert.match(html, /src="\.\/attention\.js"/);
   assert.match(html, /\{\{ attnHeading \}\}/);
   assert.doesNotMatch(html, /\{\{ attnCount \}\} accounts need attention/);
-  assert.match(html, /attentionFromServer \? st\.loans/);
-  assert.match(html, /rememberAttention\(attnBase\.map/);
+  assert.match(html, /popupKeeps\(l\.serverStatus\)/);
+  assert.match(html, /attentionAmount\(l, todayIso\)/);
   assert.match(html, /attentionNote\(l, todayIso\)/);
-  assert.match(html, /POST','\/attention'/);
+  assert.match(html, /POST','\/loan-status'/);
+  assert.match(html, /commitLoanStatus\(mLoanRaw\.id/);
+  assert.match(html, /commitLoanStatus\(l\.id, s, 'Changed from client workspace'\)/);
 });
 
 const pw = loadPlaywright();
@@ -24,9 +26,10 @@ function seed(api) {
   loan.status = 'overdue';
   loan.schedule = [];
   loan.paid_dates = [];
-  loan.principal = 1250;
+  loan.principal = 4050;
+  loan.instalment_amount = 4140.47;
   loan.instalments_paid = 0;
-  loan.status_at = '2026-10-02T08:00:00.000Z';
+  loan.status_at = '2026-11-05T08:00:00.000Z';
   const client = api.fake.db.clients.find(c => c.id === 'c_test_2');
   client.name = 'Synthetic Borrower';
   return loan;
@@ -54,14 +57,14 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
     page.setDefaultTimeout(20000);
     try {
       await openLedger(page, api.origin);
-      await pageWaitFor(page, () => /1 account needs attention/.test(document.body.innerText) && /no due date on file/.test(document.body.innerText), null, { timeoutMs: 20000 });
+      await pageWaitFor(page, () => /1 account needs attention/.test(document.body.innerText) && /Overdue since 5 Nov 2026/.test(document.body.innerText), null, { timeoutMs: 20000 });
       const text = await page.locator('body').innerText();
       assert.match(text, /1 account needs attention/);
-      assert.match(text, /Overdue — no due date on file/);
-      assert.match(text, /Synthetic Borrower/);
-      assert.match(text, /R 1 250/);
-      assert.doesNotMatch(text, /1 accounts need attention/);
+      assert.match(text, /Overdue since 5 Nov 2026/);
+      assert.match(text, /R 4 140\.47/);
       assert.doesNotMatch(text, /Overdue since —/);
+      assert.doesNotMatch(text, /1 accounts need attention/);
+      assert.doesNotMatch(text, /ECL-902 · Overdue since 5 Nov 2026 · R 4 050/);
       assert.doesNotMatch(text, /SYN-STALE/);
       assert.doesNotMatch(text, /Stale Snapshot/);
       const closer = page.getByText('✕', { exact: true });
@@ -76,7 +79,7 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
       }
 
       await page.evaluate(() => {
-        const view = [...document.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'View' && (el.parentElement && el.parentElement.textContent || '').includes('no due date on file'));
+        const view = [...document.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'View' && (el.parentElement && el.parentElement.textContent || '').includes('Overdue since 5 Nov 2026'));
         view.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
       await pageWaitFor(page, () => /LOAN HISTORY/.test(document.body.innerText) && /ECL-902/.test(document.body.innerText), null, { timeoutMs: 8000 });
@@ -84,28 +87,21 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await pageWaitFor(page, () => /1 account needs attention/.test(document.body.innerText), null, { timeoutMs: 20000 });
       await page.evaluate(() => {
-        const attend = [...document.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'Attend' && (el.parentElement && el.parentElement.textContent || '').includes('no due date on file'));
+        const attend = [...document.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'Attend' && (el.parentElement && el.parentElement.textContent || '').includes('Overdue since 5 Nov 2026'));
         attend.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
       await pageWaitFor(page, () => !!document.querySelector('[data-screen-label="Client workspace"]') && /Synthetic Borrower/.test(document.body.innerText), null, { timeoutMs: 8000 });
 
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Synthetic Borrower/.test(document.body.innerText), null, { timeoutMs: 20000 });
-      await page.waitForTimeout(800);
-      assert.doesNotMatch(await page.locator('body').innerText(), /needs attention/);
-
-      await page.evaluate(() => localStorage.removeItem('ledjaa.attention.v1'));
-      const loan = api.fake.db.loans.find(l => l.id === 'l_test_902');
-      loan.schedule = ['2026-08-01'];
-      loan.status_at = '2026-11-01T08:00:00.000Z';
-      await page.reload({ waitUntil: 'domcontentloaded' });
-      await pageWaitFor(page, () => /Overdue since 1 Aug 2026/.test(document.body.innerText), null, { timeoutMs: 20000 });
-      await page.getByText('Acknowledge all', { exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => !/needs attention/.test(document.body.innerText), null, { timeoutMs: 8000 });
-
-      loan.status = 'paid';
-      loan.instalments_paid = 1;
-      await page.evaluate(() => localStorage.removeItem('ledjaa.attention.v1'));
+      await pageWaitFor(page, () => /1 account needs attention/.test(document.body.innerText) && /Overdue since 5 Nov 2026/.test(document.body.innerText), null, { timeoutMs: 20000 });
+      const saved = await page.evaluate(async () => {
+        const res = await window.__ledger.api('POST', '/loan-status', { loanId: 'l_test_902', status: 'paid', note: 'Marked paid in test' });
+        return { status: res && res.loan && res.loan.status, audit: !!(res && res.audit && res.audit.id) };
+      });
+      assert.equal(saved.status, 'paid');
+      assert.equal(saved.audit, true);
+      assert.equal(api.fake.db.loans.find(l => l.id === 'l_test_902').status, 'paid');
+      assert.ok(api.fake.db.audit_log.some(row => row && row.ref === 'ECL-902' && /PAID/.test(String(row.type || ''))));
       await page.reload({ waitUntil: 'domcontentloaded' });
       await pageWaitFor(page, () => !document.getElementById('ledger-gate') && (document.body.innerText || '').length > 80, null, { timeoutMs: 20000 });
       await page.waitForTimeout(800);

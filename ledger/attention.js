@@ -47,11 +47,52 @@ export function overdueMarker(loan, todayIso) {
   return status + '|' + missed + '|' + at;
 }
 
+function hasSchedule(loan) {
+  return dateList(loan, ['sched', 'schedule']).length > 0;
+}
+
+// Schedule date when one is saved. An empty schedule uses the failed-debit date,
+// then loans.status_at. A dash placeholder is never a date.
+export function overdueSince(loan, todayIso) {
+  if (hasSchedule(loan)) {
+    const missed = firstMissedDue(loan, todayIso);
+    if (missed) return missed;
+  }
+  const debit = toIso(loan && (loan.failedDebit || loan.failed_debit_on));
+  if (debit) return debit;
+  return toIso(loan && (loan.statusAt || loan.status_at));
+}
+
 export function attentionNote(loan, todayIso) {
   if (String(loan && loan.status || '').toLowerCase() === 'duetoday') return 'Due today';
-  const missed = firstMissedDue(loan, todayIso);
-  if (!missed) return 'Overdue — no due date on file';
-  return 'Overdue since ' + labelOfIso(missed);
+  const since = overdueSince(loan, todayIso);
+  const label = since ? labelOfIso(since) : '';
+  if (!label) return 'Overdue';
+  return 'Overdue since ' + label;
+}
+
+export function missedCount(loan, todayIso) {
+  const today = toIso(todayIso);
+  if (!today) return 0;
+  const paid = new Set(dateList(loan, ['paidDates', 'paid_dates']));
+  return dateList(loan, ['sched', 'schedule']).filter(d => d < today && !paid.has(d)).length;
+}
+
+// Instalment, or instalment times missed dates. Never the principal.
+export function attentionAmount(loan, todayIso) {
+  const raw = loan && (loan.retAmt != null ? loan.retAmt : loan.instalment_amount);
+  const inst = typeof raw === 'number' ? raw : parseFloat(String(raw == null ? '' : raw).replace(/[^\d.-]/g, ''));
+  if (!Number.isFinite(inst) || inst <= 0) return 0;
+  const n = Math.max(1, missedCount(loan, todayIso));
+  return Math.round(inst * n * 100) / 100;
+}
+
+// The popup follows the status last read from public.loans. Paid and settled leave.
+// A browser-only status does not.
+export function popupKeeps(serverStatus) {
+  const saved = String(serverStatus || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (saved === 'paid' || saved === 'settled' || saved === 'settled_early') return false;
+  return saved === 'overdue' || saved === 'duetoday';
 }
 
 export function attentionHeading(count) {
@@ -66,5 +107,5 @@ export function ackHolds(stored, loan, todayIso) {
   return !!current && stored === current;
 }
 
-const api = { toIso, labelOfIso, firstMissedDue, overdueMarker, attentionNote, attentionHeading, ackHolds };
+const api = { toIso, labelOfIso, firstMissedDue, overdueSince, overdueMarker, attentionNote, attentionAmount, attentionHeading, ackHolds, popupKeeps, missedCount };
 try { if (typeof window !== 'undefined') window.LedgerAttention = api; } catch (e) {}

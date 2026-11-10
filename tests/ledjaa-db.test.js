@@ -332,3 +332,23 @@ test('a failed sync keeps the queue, backs off and persists it', async () => {
   assert.equal(db.sync.status, 'ready');
   assert.equal(db.sync.pending, 0);
 });
+
+test('a staff session with no bearer key still posts the loan update', async () => {
+  const prev = globalThis.__ledger;
+  calls.length = 0;
+  globalThis.__ledger = {
+    cfg: () => ({ key: '', url: 'https://ledger.test/api/ledger' }),
+    api: (method, path, body) => globalThis.fetch('https://ledger.test/api/ledger' + path, { method, body: JSON.stringify(body) })
+  };
+  try {
+    db.update('loans', 'l_paid', { status: 'overdue' });
+    await db.flush();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://ledger.test/api/ledger/sync');
+    assert.equal(calls[0].body.ops[0].table, 'loans');
+    assert.equal(calls[0].body.ops[0].rows[0].status, 'overdue');
+    assert.equal(db.sync.pending, 0);
+  } finally {
+    globalThis.__ledger = prev;
+  }
+});

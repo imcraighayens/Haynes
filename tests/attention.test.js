@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { firstMissedDue, overdueMarker, attentionNote, attentionHeading, ackHolds } from '../ledger/attention.js';
+import { firstMissedDue, overdueSince, attentionNote, attentionAmount, attentionHeading, popupKeeps } from '../ledger/attention.js';
 
 const TODAY = '2026-11-10';
 
@@ -15,27 +15,33 @@ test('first missed date is the earliest unpaid schedule date before today', () =
   assert.equal(attentionNote(loan, TODAY), 'Overdue since 1 Sep 2026');
 });
 
-test('an overdue loan with no date does not render a dash', () => {
-  const loan = { status: 'overdue', schedule: [], paid_dates: [], due: '—', status_at: '2026-10-02T08:00:00.000Z' };
-  assert.equal(firstMissedDue(loan, TODAY), '');
-  assert.equal(attentionNote(loan, TODAY), 'Overdue — no due date on file');
-  assert.equal(overdueMarker(loan, TODAY), 'overdue||2026-10-02T08:00:00.000Z');
+test('an empty schedule uses the failed debit date, then status_at, and never a dash', () => {
+  const bare = { status: 'overdue', schedule: [], paid_dates: [], due: '—', status_at: '2026-11-05T08:00:00.000Z' };
+  assert.equal(overdueSince(bare, TODAY), '2026-11-05');
+  assert.equal(attentionNote(bare, TODAY), 'Overdue since 5 Nov 2026');
+  assert.equal(attentionNote(bare, TODAY).includes('—'), false);
+  const debit = { ...bare, failedDebit: '2026-11-03', status_at: '2026-11-05T08:00:00.000Z' };
+  assert.equal(attentionNote(debit, TODAY), 'Overdue since 3 Nov 2026');
+  assert.equal(attentionNote({ status: 'overdue', schedule: [], due: '—' }, TODAY), 'Overdue');
 });
 
-test('a console label due date is used when the schedule is empty', () => {
-  const loan = { status: 'overdue', sched: [], due: '2 Oct 2026', paidDates: [] };
-  assert.equal(firstMissedDue(loan, TODAY), '2026-10-02');
-  assert.equal(attentionNote(loan, TODAY), 'Overdue since 2 Oct 2026');
+test('the popup amount is the instalment or the arrears, not the principal', () => {
+  const one = { status: 'overdue', principal: 4050, amount: 4050, instalment_amount: 4140.47, schedule: [], paid_dates: [] };
+  assert.equal(attentionAmount(one, TODAY), 4140.47);
+  const two = { status: 'overdue', amount: 4050, retAmt: 100, schedule: ['2026-09-01', '2026-10-01', '2026-12-01'], paid_dates: [] };
+  assert.equal(attentionAmount(two, TODAY), 200);
+  assert.notEqual(attentionAmount(one, TODAY), one.principal);
 });
 
-test('acknowledgement holds until the overdue episode changes', () => {
-  const loan = { id: 'l_synth', status: 'overdue', schedule: [], due: '—', status_at: '2026-10-02T08:00:00.000Z' };
-  const marker = overdueMarker(loan, TODAY);
-  assert.equal(ackHolds(marker, loan, TODAY), true);
-  assert.equal(ackHolds(true, loan, TODAY), false);
-  assert.equal(ackHolds(marker, { ...loan, status: 'paid' }, TODAY), false);
-  assert.equal(ackHolds(marker, { ...loan, status_at: '2026-11-01T08:00:00.000Z' }, TODAY), false);
+test('the popup keeps a loan until the saved status is paid or settled', () => {
+  assert.equal(popupKeeps('overdue'), true);
+  assert.equal(popupKeeps('duetoday'), true);
+  assert.equal(popupKeeps('paid'), false);
+  assert.equal(popupKeeps('settled_early'), false);
+  assert.equal(popupKeeps('settled'), false);
+  assert.equal(popupKeeps(''), false);
   assert.equal(attentionNote({ status: 'duetoday', due: TODAY }, TODAY), 'Due today');
+  assert.equal(firstMissedDue({ schedule: ['2026-08-01'], paid_dates: [], due: '—' }, TODAY), '2026-08-01');
 });
 
 test('the attention heading is singular for one account', () => {

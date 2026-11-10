@@ -121,6 +121,38 @@ test('ledger POST attention: stores one marker per staff email and loan, and ign
   assert.deepEqual(missing.json(), { ready: false, saved: 0 });
 });
 
+test('loan-status updates public.loans and audit_log together, and puts the loan back if the audit insert fails', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'overdue', status_at: '2026-11-05T08:00:00.000Z', principal: 4050, instalment_amount: 4140.47, deleted_at: null };
+  const client = { id: 'c_synth', name: 'Synthetic Borrower' };
+  let failAudit = false;
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'clients' && r.method === 'GET') return { status: 200, body: [client] };
+    if (r.table === 'loans' && r.method === 'PATCH') { Object.assign(loan, r.body); return { status: 200, body: [{ ...loan }] }; }
+    if (r.table === 'audit_log' && r.method === 'POST') {
+      if (failAudit) return { status: 500, body: { code: 'XX000', message: 'hidden' } };
+      return { status: 200, body: r.body };
+    }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Marked paid' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().loan.status, 'paid');
+  assert.equal(loan.status, 'paid');
+  const audit = calls.find(c => c.table === 'audit_log' && c.method === 'POST');
+  assert.ok(audit);
+  assert.equal(audit.body[0].ref, 'SYN-9050');
+  assert.equal(audit.body[0].customer, 'Synthetic Borrower');
+  assert.equal(audit.body[0].amount, 4140.47);
+  const writes = calls.filter(c => c.method === 'PATCH' || (c.table === 'audit_log' && c.method === 'POST')).map(c => c.table + ' ' + c.method);
+  assert.deepEqual(writes, ['loans PATCH', 'audit_log POST']);
+  failAudit = true;
+  const bad = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'issued', note: 'should roll back' } });
+  assert.equal(bad.statusCode, 502);
+  assert.equal(loan.status, 'paid');
+  assert.equal(bad.body.includes('hidden'), false);
+});
+
 test('ledger GET state: survives a missing ledger_book table (pre-migration)', async () => {
   stubFetch(r => r.table === 'ledger_book' ? { status: 404, body: { code: '42P01', message: 'relation does not exist' } } : { status: 200, body: tableRows[r.table] || [] });
   const res = await call({ path: ['state'] });
