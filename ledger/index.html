@@ -629,7 +629,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         </sc-if>
         <sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}">
           <div class="subnav" role="tablist" aria-label="Reports">
-            <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+            <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
           </div>
           <div ref="{{ gridRef }}" class="markets-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
 
@@ -1002,7 +1002,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div sc-camel-on-click="{{ paneClose }}" style="{{ paneWrap }}"><div sc-camel-on-click="{{ paneStop }}" style="{{ paneCard }}"><div sc-camel-on-click="{{ paneClose }}" style="{{ paneX }}" style-hover="color:var(--ink)">✕</div>
       <div style="padding:16px clamp(16px,2vw,24px);animation:fadeUp .25s ease;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden" data-screen-label="Logbook">
         <sc-if value="{{ showReportTabs }}" hint-placeholder-val="{{ false }}"><div class="subnav" role="tablist" aria-label="Reports">
-          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
         </div></sc-if>
         <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-bottom:12px;flex:none">LOGBOOK <span style="color:var(--dim);font-weight:500;font-size:12px;letter-spacing:.08em;margin-left:8px;white-space:nowrap">GLOBAL AUDIT TRAIL</span></div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;flex:none">
@@ -1276,7 +1276,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div sc-camel-on-click="{{ paneClose }}" style="{{ paneWrap }}"><div sc-camel-on-click="{{ paneStop }}" style="{{ paneCard }}"><div sc-camel-on-click="{{ paneClose }}" style="{{ paneX }}" style-hover="color:var(--ink)">✕</div>
       <div style="padding:16px clamp(16px,2vw,24px) 24px;animation:fadeUp .25s ease" data-screen-label="Petty cash">
         <sc-if value="{{ showReportTabs }}" hint-placeholder-val="{{ false }}"><div class="subnav" role="tablist" aria-label="Reports">
-          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
         </div></sc-if>
         <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:24px">PETTY CASH <span style="color:var(--dim);font-weight:500;font-size:13px;letter-spacing:.08em;margin-left:8px">OFFICE EXPENSES · {{ pettyMonthTotal }} THIS MONTH</span></div>
         <div style="display:grid;grid-template-columns:340px 1fr;gap:26px;align-items:start">
@@ -5440,7 +5440,7 @@ class Component extends DCLogic {
         const accessHere = st.route==='messages' ? 'messages' : st.route==='applications' ? 'applications' : (st.route==='access' ? (st.accessTab||'invites') : '');
         const accessTabs = [['invites','Invites'],['applications','Applications'],['messages','Messages']].map(([id,label])=>({label, style:tabStyle(accessHere===id), go:()=>this.setState({route:'access', accessTab:id, menuId:null, modal:null, modalStack:[], navDrawer:false})}));
         const reportHere = st.route==='logbook' ? 'audit' : st.route==='petty' ? 'petty' : 'markets';
-        const reportTabs = [['markets','Markets'],['audit','Audit']].map(([id,label])=>({label, style:tabStyle(reportHere===id), go:()=>this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null})}));
+        const reportTabs = [['markets','Markets'],['audit','Audit'],['nupay','NuPay']].map(([id,label])=>({id, label, style:tabStyle(id!=='nupay' && reportHere===id), go:()=>{ if(id==='nupay'){ if(window.NuPayReport) window.NuPayReport.open(document.activeElement); return; } this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null}); }}));
         return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isAccess: st.route==='access' && accessHere==='invites' };
       })(),
       ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,

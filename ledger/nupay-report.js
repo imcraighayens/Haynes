@@ -845,7 +845,7 @@ export function reportToCsv(report) {
       row.outcome,
       row.how === 'client-ambiguous' ? '' : row.how,
       group ? group.ref : '',
-      group ? group.status : '',
+      group ? bookStatusLabel(group.status) : '',
       group && group.deleted ? 'yes' : '',
       group && group.settled ? 'yes' : '',
       row.contractReference,
