@@ -15,6 +15,8 @@ import { setEmailSender } from '../../api/_lib/email.js';
 import { authIpHash } from '../../api/_lib/borrower.js';
 import { decryptId } from '../../api/_lib/sa-id.js';
 
+const UNLINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
+
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
@@ -91,6 +93,26 @@ async function call(handler, { method = 'GET', path = [], url, headers = {}, bod
 
 function staffHeaders() {
   return { authorization: 'Bearer ' + STAFF };
+}
+
+function enableBorrowerEmail() {
+  process.env.QUIK1_EMAIL_FROM = 'quik1@example.com';
+  process.env.QUIK1_EMAIL_API_URL = 'https://email.example.test/send';
+  process.env.QUIK1_EMAIL_API_KEY = 'test-email-key';
+}
+
+function assertDeviceNotLinked(res) {
+  assert.equal(res.statusCode, 403, res.body);
+  const body = res.json();
+  assert.equal(body.error, UNLINKED);
+  assert.equal(body.code, 'device_not_linked');
+  assert.equal(body.deviceNotLinked, true);
+  assert.equal(body.verifyRequired, undefined);
+  assert.equal(body.verifyToken, undefined);
+  assert.equal(body.sent, undefined);
+  assert.equal(body.contactStaff, undefined);
+  assert.equal(/\bsent\b/i.test(res.body), false);
+  assert.equal(res.headers['set-cookie'], undefined);
 }
 
 function cookieHeader(res) {
@@ -575,12 +597,15 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     const accountRef = redeemed.json().accountRef;
     const sessions = fake.db.q1_sessions.length;
+    const sent = [];
+    setEmailSender({
+      enabled: true,
+      async send(to, subject, text) { sent.push({ to, subject, text }); return { sent: true }; }
+    });
     const quiet = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
-    assert.equal(quiet.statusCode, 200, quiet.body);
-    assert.equal(quiet.json().verifyRequired, true);
-    assert.equal(quiet.json().contactStaff, true);
-    assert.equal(quiet.json().verifyToken, undefined);
+    assertDeviceNotLinked(quiet);
     assert.equal(quiet.body.includes(PIN_OK), false);
+    assert.equal(sent.length, 0);
     assert.equal(fake.db.q1_otp_challenges.length, 0);
     assert.equal(fake.db.q1_sessions.length, sessions);
     const forced = await call(quik1, {
@@ -588,7 +613,7 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     assert.equal(forced.statusCode, 401);
 
-    const sent = [];
+    enableBorrowerEmail();
     setEmailSender({
       enabled: true,
       async send(to, subject, text) { sent.push({ to, subject, text }); return { sent: true }; }
@@ -766,6 +791,7 @@ describe('borrower auth', { concurrency: false }, () => {
 
   test('email links share a resend cooldown and an hourly cap', async () => {
     fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
+    enableBorrowerEmail();
     setEmailSender({ enabled: true, async send() { return { sent: true }; } });
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -860,11 +886,10 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
     assert.equal(fake.db.q1_borrowers[0].pin_hash, pinHash);
     const second = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
-    assert.equal(second.json().verifyRequired, true);
-    assert.equal(second.json().contactStaff, true);
+    assertDeviceNotLinked(second);
     fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() - 60 * 1000).toISOString();
     const expired = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
-    assert.equal(expired.json().verifyRequired, true);
+    assertDeviceNotLinked(expired);
     assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
     fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
     fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
@@ -892,9 +917,12 @@ describe('borrower auth', { concurrency: false }, () => {
       call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } }),
       call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } })
     ]);
-    const wins = [a, b].filter(res => res.statusCode === 200 && !res.json().verifyRequired);
+    const wins = [a, b].filter(res => res.statusCode === 200 && res.json().ok === true);
     assert.equal(wins.length, 1);
-    assert.equal([a, b].filter(res => res.json().verifyRequired).length, 1);
+    const lost = [a, b].filter(res => res.statusCode === 403);
+    assert.equal(lost.length, 1);
+    assert.equal(lost[0].json().code, 'device_not_linked');
+    assert.equal(lost[0].json().deviceNotLinked, true);
     assert.equal(fake.db.q1_devices.filter(row => !row.revoked_at).length, 1);
     assert.equal(fake.db.q1_sessions.filter(row => !row.revoked_at).length, 1);
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
@@ -902,6 +930,7 @@ describe('borrower auth', { concurrency: false }, () => {
 
   test('a device reset uses the email link when email is configured', async () => {
     fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
+    enableBorrowerEmail();
     setEmailSender({ enabled: true, async send() { return { sent: true }; } });
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -952,6 +981,123 @@ describe('borrower auth', { concurrency: false }, () => {
     });
     assert.equal(redeemed.statusCode, 200, redeemed.body);
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
+  });
+
+  test('email off, an unknown account matches a wrong PIN, and only a correct PIN on a new device is device_not_linked', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const sends = [];
+    setEmailSender({
+      enabled: true,
+      async send(to, subject, text) { sends.push({ to, subject, text }); return { sent: true }; }
+    });
+    const sessions = fake.db.q1_sessions.length;
+    const challenges = fake.db.q1_otp_challenges.length;
+    await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: 'qb_' + '11'.repeat(16), pin: PIN_OK } });
+    const unknownRef = 'qb_' + 'cd'.repeat(16);
+    const started = process.hrtime.bigint();
+    const unknown = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: unknownRef, pin: PIN_OK } });
+    const mid = process.hrtime.bigint();
+    const wrong = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_BAD } });
+    const ended = process.hrtime.bigint();
+    assert.equal(unknown.statusCode, 401);
+    assert.equal(wrong.statusCode, 401);
+    assert.deepEqual(unknown.json(), { error: 'PIN not accepted' });
+    assert.deepEqual(wrong.json(), unknown.json());
+    assert.equal(unknown.headers['set-cookie'], undefined);
+    assert.equal(wrong.headers['set-cookie'], undefined);
+    const unknownMs = Number(mid - started) / 1e6;
+    const wrongMs = Number(ended - mid) / 1e6;
+    const ratio = Math.max(unknownMs, wrongMs) / Math.max(1, Math.min(unknownMs, wrongMs));
+    assert.ok(ratio < 4, `unknown ${unknownMs.toFixed(1)}ms vs wrong PIN ${wrongMs.toFixed(1)}ms`);
+    const fresh = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assertDeviceNotLinked(fresh);
+    assert.equal(sends.length, 0);
+    assert.equal(fake.db.q1_otp_challenges.length, challenges);
+    assert.equal(fake.db.q1_sessions.length, sessions);
+    assert.equal(JSON.stringify(fake.db.q1_otp_challenges).includes('token'), false);
+
+    const linked = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: PIN_OK }
+    });
+    assert.equal(linked.statusCode, 200, linked.body);
+    assert.equal(linked.json().ok, true);
+    assert.equal(linked.json().accountRef, accountRef);
+    assert.equal(linked.json().deviceNotLinked, undefined);
+    assert.match(knownCookie(linked), /^q1_known=/);
+    assert.equal(sends.length, 0);
+
+    enableBorrowerEmail();
+    process.env.QUIK1_ID_KEY = ID_KEY;
+    process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
+    const production = await call(quik1, {
+      method: 'POST', path: ['login'],
+      headers: { host: 'quik1.app' },
+      body: { accountRef, pin: PIN_OK }
+    });
+    delete process.env.QUIK1_ID_KEY;
+    delete process.env.QUIK1_ID_HMAC_KEY;
+    assertDeviceNotLinked(production);
+    assert.equal(sends.length, 0);
+    assert.equal(fake.db.q1_otp_challenges.length, challenges);
+  });
+
+  test('email on, a new device still receives the link', async () => {
+    fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
+    enableBorrowerEmail();
+    const sent = [];
+    setEmailSender({
+      enabled: true,
+      async send(to, subject, text) { sent.push({ to, subject, text }); return { sent: true }; }
+    });
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const unknown = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ef'.repeat(16), pin: PIN_OK }
+    });
+    assert.equal(unknown.statusCode, 401);
+    assert.equal(unknown.json().error, 'PIN not accepted');
+    assert.equal(unknown.json().deviceNotLinked, undefined);
+    const fresh = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(fresh.statusCode, 200, fresh.body);
+    assert.equal(fresh.json().verifyRequired, true);
+    assert.equal(fresh.json().contactStaff, false);
+    assert.equal(typeof fresh.json().verifyToken, 'string');
+    assert.equal(sent.length, 0);
+    const issued = await call(quik1, {
+      method: 'POST', path: ['verify'], body: { accountRef, verifyToken: fresh.json().verifyToken }
+    });
+    assert.equal(issued.statusCode, 200, issued.body);
+    assert.equal(issued.json().sent, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to, 'book@example.com');
+    assert.match(sent[0].text, /#verify=[0-9a-f]{64}/);
+    assert.equal(fake.db.q1_otp_challenges.some(row => !row.consumed_at), true);
+  });
+
+  test('the Quik1 screen renders the unlinked copy from the deviceNotLinked flag', () => {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const page = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
+    const flagAt = page.indexOf('j.deviceNotLinked===true');
+    assert.ok(flagAt > 0);
+    const branch = page.slice(flagAt, flagAt + 700);
+    assert.equal(branch.includes(UNLINKED), true);
+    assert.equal(/check your email/i.test(branch), false);
+    assert.equal(/we sent/i.test(branch), false);
+    assert.equal(/\bsent\b/i.test(branch), false);
+    assert.match(page, /pinPhase==='unlinked'\?"This phone isn't linked yet"/);
+    assert.match(page, /pinPhase==='unlinked'\s*\?\s*"Please contact EcoLoans and we'll reset your access\."/);
+    assert.equal(page.includes("pinPhase==='email'?'Check your email'"), true);
   });
 
   test('email and PIN flags stay unset in the example env', () => {

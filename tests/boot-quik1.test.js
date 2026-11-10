@@ -111,6 +111,40 @@ function startRootHost() {
   });
 }
 
+test('a new device with email off renders the unlinked copy', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+  const copy = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
+  await withMockApi(async api => {
+    const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
+    try {
+      await page.addInitScript(accountRef => {
+        localStorage.setItem('quik1.device.v1', JSON.stringify({ accountRef }));
+      }, 'qb_' + 'ab'.repeat(16));
+      await page.route('**/api/quik1/login', route => route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: copy, code: 'device_not_linked', deviceNotLinked: true })
+      }));
+      await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
+      await pageWaitFor(page, () => /Enter the 6-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      for (const digit of '246810') {
+        await page.evaluate(label => {
+          const button = [...document.querySelectorAll('button')].find(el => (el.textContent || '').trim() === label);
+          if (!button) throw new Error('missing key ' + label);
+          button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }, digit);
+      }
+      await pageWaitFor(page, text => document.body.innerText.includes(text), copy, { timeoutMs: BOOT_TIMEOUT_MS });
+      const shown = await page.evaluate(() => document.body.innerText);
+      assert.equal(shown.includes(copy), true);
+      assert.equal(/check your email/i.test(shown), false);
+      assert.equal(/we sent/i.test(shown), false);
+      assert.deepEqual(pageErrors.filter(e => !isKnownPageError(e)), []);
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
 test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
   const host = await startRootHost();
   const { browser, page, pageErrors, notFound } = await launchBrowser(pw.chromium, { width: 440, height: 940 });

@@ -3410,6 +3410,10 @@ input,button,textarea{font-family:inherit}
             this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
             return;
           }
+          if(j&&j.deviceNotLinked===true){
+            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', verifyToken:'', pinPhase:'unlinked', pinNote:"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."});
+            return;
+          }
           if(r.ok&&j&&j.verifyRequired){
             if(j.contactStaff){
               this.setState({pinBusy:false, otp:'', pinPhase:'staff', verifyToken:'', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
@@ -5458,8 +5462,10 @@ input,button,textarea{font-family:inherit}
         loginReturnStep:false,
         loginOtpStep:s.screen==='login',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
-        loginSub:s.pinPhase==='choose'
+        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
+        loginSub:s.pinPhase==='unlinked'
+          ?"Please contact EcoLoans and we'll reset your access."
+          :s.pinPhase==='choose'
           ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
           ?'Enter that PIN again. It is not taken from an ID number.'
