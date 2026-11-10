@@ -64,10 +64,10 @@ browser, in git, or in the staff UI.
 | `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
 | `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
 | `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent, and the phone tells the client that staff can reset the device in Ledger. These are not the staff voice credentials. |
-| `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to `1` next to `QUIK1_SESSION_SECRET`. Leave unset and sign-in stays off. |
-| `QUIK1_ID_KEY` | 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this is non-empty. A preview can sign in without it. |
+| `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to exactly `1` next to `QUIK1_SESSION_SECRET`. `true`, `yes`, `on`, and a spaced `1` stay off. Leave unset and sign-in stays off. |
+| `QUIK1_ID_KEY` | Exactly 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this matches that pattern. A preview can sign in without it. |
 | `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
-| `QUIK1_ID_HMAC_KEY` | Separate 64-hex HMAC key so the same ID cannot be stored twice. Production sign-in stays off until this is non-empty. A preview can sign in without it. |
+| `QUIK1_ID_HMAC_KEY` | Separate key of exactly 64 hex characters so the same ID cannot be stored twice. Production sign-in stays off until this matches that pattern. A preview can sign in without it. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -88,16 +88,17 @@ Nothing existing is altered.
 
 Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
 adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
-Supabase Auth, and it does not change the staff sign-up allowlist. `QUIK1_BORROWER_PIN=1`
-is the single live switch, including production, and it sits next to `QUIK1_SESSION_SECRET`
-(32 or more characters). Leave either one unset and redeem answers 503. On a production
-deployment (`VERCEL_ENV=production`, or quik1.app, www.quik1.app, quik1ledger.com,
-www.quik1ledger.com, ecoloans-six.vercel.app) sign-in also stays off until `QUIK1_ID_KEY`
-and `QUIK1_ID_HMAC_KEY` are non-empty. A preview needs only the flag and the session secret.
+Supabase Auth, and it does not change the staff sign-up allowlist. `QUIK1_BORROWER_PIN`
+must be exactly `1`. It is the single live switch, including production, and it sits next to
+`QUIK1_SESSION_SECRET` (32 or more characters). Leave either one unset and redeem answers 503.
+On a production deployment (`VERCEL_ENV=production`, or quik1.app, www.quik1.app,
+quik1ledger.com, www.quik1ledger.com, ecoloans-six.vercel.app) sign-in also stays off until
+`QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters. A preview needs
+only the flag and the session secret.
 Until both borrower migrations are applied, Ledger shows "Quik1 access not set up yet" and
 does not create an invite.
 
-Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT=1` and the
+Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT` is exactly `1` and the
 deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The
 service role is not sent to the browser. Leave the preview flag unset on quik1.app.
 
@@ -113,9 +114,9 @@ two files above. It stops if `q1_borrowers` is missing. It adds recognised devic
 device links, the attempt log (with a 90-day `expires_at` and `q1_purge_auth_attempts()`
 for the SQL editor), and encrypted ID columns on `q1_borrowers`. It does not recreate the
 earlier tables. Do not apply it from the app, and do not re-run the 7 Nov application
-migrations. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must be non-empty before production
-PIN sign-in will run, and they must be 64 hex characters before a signed-in borrower can
-store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
+migrations. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must each be exactly 64 hex characters
+before production PIN sign-in will run, and the same rule applies before a signed-in borrower
+can store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
 `QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then asks the client
 to contact staff, who reset the device from Ledger. The PIN is not changed. Leave
 `QUIK1_BORROWER_PIN` unset until that sign-in should be live.
