@@ -239,6 +239,7 @@ async function lockUntilRedeem(clientId, nowIso) {
     pin_hash: LOCKED_PLACEHOLDER,
     failed_attempts: maxPinAttempts(),
     locked_at: nowIso,
+    device_reset_until: null,
     updated_at: nowIso
   });
   await revokeSessions(borrower.id, nowIso);
@@ -489,6 +490,7 @@ export async function redeemInvite(req, body, res) {
       pin_hash: pinHash,
       failed_attempts: 0,
       locked_at: null,
+      device_reset_until: null,
       updated_at: nowIso
     });
   } else {
@@ -737,14 +739,19 @@ export async function loginBorrower(req, body, res) {
     const { minted, accountRef: ref } = await openSession(borrower);
     return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
   }
-  if (borrower.device_reset_until && new Date(borrower.device_reset_until).getTime() > Date.now()) {
-    const token = await trustDevice(borrower.id);
-    await update('q1_borrowers', { id: borrower.id }, {
-      device_reset_until: null,
-      updated_at: new Date().toISOString()
-    });
-    const { minted, accountRef: ref } = await openSession(borrower);
-    return { accountRef: ref, cookies: authCookies(minted, ref, req, token) };
+  const address = await clientEmail(borrower.client_id);
+  const mail = emailSender(req);
+  if (!(mail.enabled && address)) {
+    const nowIso = new Date().toISOString();
+    const claimed = await patchWhere('q1_borrowers', {
+      id: eq(borrower.id),
+      device_reset_until: 'gt.' + nowIso
+    }, { device_reset_until: null, updated_at: nowIso });
+    if (claimed.length) {
+      const token = await trustDevice(borrower.id);
+      const { minted, accountRef: ref } = await openSession(borrower);
+      return { accountRef: ref, cookies: authCookies(minted, ref, req, token) };
+    }
   }
   return offerVerification(req, borrower);
 }
@@ -756,17 +763,23 @@ export async function resetBorrowerDevices(req, clientId) {
     select: 'id,client_id',
     client_id: eq(client.id)
   });
+  const address = borrower ? await clientEmail(client.id) : '';
+  const mail = emailSender(req);
+  const emailLive = !!(mail.enabled && address);
   if (borrower) {
     await revokeDevices(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);
     await revokeSessions(borrower.id, nowIso);
     await update('q1_borrowers', { id: borrower.id }, {
-      device_reset_until: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      device_reset_until: emailLive ? null : new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
       updated_at: nowIso
     });
   }
   const who = staffIdentity(req);
   const by = who && (who.displayName || who.email) ? String(who.displayName || who.email).slice(0, 80) : 'ledger';
+  const windowNote = emailLive
+    ? ' The next phone must open the email link.'
+    : ' The next correct PIN on a new phone is trusted once within 24 hours.';
   try {
     await insert('audit_log', [{
       id: 'aud_q1_' + randomBytes(6).toString('hex'),
@@ -776,7 +789,7 @@ export async function resetBorrowerDevices(req, clientId) {
       customer: '—',
       amount: 0,
       by,
-      comment: 'Cleared trusted Quik1 devices and outstanding email links for ' + (client.ref || 'a client') + '. The PIN was not changed.'
+      comment: 'Revoked every open Quik1 session and trusted device for ' + (client.ref || 'a client') + '. The PIN was not changed.' + windowNote
     }], { returning: false });
   } catch (err) {
     if (!missingTable(err)) throw err;

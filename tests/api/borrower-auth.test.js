@@ -832,6 +832,86 @@ describe('borrower auth', { concurrency: false }, () => {
     const locked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
     assert.equal(locked.statusCode, 423);
     assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
+    const note = fake.db.audit_log.find(row => row.type === 'QUIK1 DEVICE RESET').comment;
+    assert.match(note, /session/i);
+    assert.match(note, /24 hours/);
+  });
+
+  test('two new phones cannot both claim one device reset', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    await call(ledger, {
+      method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const accountRef = redeemed.json().accountRef;
+    const [a, b] = await Promise.all([
+      call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } }),
+      call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } })
+    ]);
+    const wins = [a, b].filter(res => res.statusCode === 200 && !res.json().verifyRequired);
+    assert.equal(wins.length, 1);
+    assert.equal([a, b].filter(res => res.json().verifyRequired).length, 1);
+    assert.equal(fake.db.q1_devices.filter(row => !row.revoked_at).length, 1);
+    assert.equal(fake.db.q1_sessions.filter(row => !row.revoked_at).length, 1);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
+  });
+
+  test('a device reset uses the email link when email is configured', async () => {
+    fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
+    setEmailSender({ enabled: true, async send() { return { sent: true }; } });
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const pinHash = fake.db.q1_borrowers[0].pin_hash;
+    await call(ledger, {
+      method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
+    assert.equal(fake.db.q1_sessions.every(row => row.revoked_at), true);
+    const accountRef = redeemed.json().accountRef;
+    const next = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(next.statusCode, 200, next.body);
+    assert.equal(next.json().verifyRequired, true);
+    assert.equal(next.json().contactStaff, false);
+    assert.equal(typeof next.json().verifyToken, 'string');
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, pinHash);
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
+    const still = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(still.json().verifyRequired, true);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
+    const note = fake.db.audit_log.find(row => row.type === 'QUIK1 DEVICE RESET').comment;
+    assert.match(note, /session/i);
+    assert.match(note, /email link/);
+  });
+
+  test('a new invite clears the device-reset flag', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    await call(ledger, {
+      method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
+    const invite = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    });
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: invite.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    assert.equal(redeemed.statusCode, 200, redeemed.body);
+    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
   });
 
   test('email and PIN flags stay unset in the example env', () => {
