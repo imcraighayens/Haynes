@@ -317,7 +317,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
 *{scrollbar-width:none;-ms-overflow-style:none}*::-webkit-scrollbar{width:0;height:0;display:none}
 /* Shared tracks so a long reference cannot paint into the next column. */
 .book-scroll{overflow:auto;background:var(--panel3);flex:1;min-height:0;min-width:0}
-.book-table{display:grid;grid-template-columns:minmax(8rem,1.05fr) minmax(7rem,1.45fr) minmax(5rem,.72fr) minmax(5.5rem,.8fr) minmax(5.5rem,.72fr) minmax(3rem,.4fr) minmax(6.2rem,.9fr) 2.75rem;column-gap:12px;row-gap:0;align-items:center;width:100%;min-width:52rem;padding:0;box-sizing:border-box}
+.book-table{display:grid;grid-template-columns:minmax(8rem,1.05fr) minmax(7rem,1.4fr) minmax(5rem,.7fr) minmax(5.5rem,.75fr) minmax(5.5rem,.7fr) minmax(6.5rem,.75fr) minmax(6.2rem,.85fr) 8.5rem;column-gap:12px;row-gap:0;align-items:center;width:100%;min-width:58rem;padding:0;box-sizing:border-box}
 .book-line{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;align-items:center;min-width:0;padding:6px 12px;min-height:44px;box-sizing:border-box}
 .book-line>*{min-width:0;max-width:100%;overflow:hidden}
 .book-head{position:sticky;top:0;z-index:2;font:700 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:#e8e8f0;background:#05050c;border-bottom:1px solid var(--line2);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);text-align:center}
@@ -328,16 +328,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
 .ledger-top{display:none;align-items:center;gap:12px;padding:8px 12px;flex:none}
 .ledger-nav-btn{min-height:44px;padding:0 12px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--ink);font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center}
 .ledger-top-title{font:700 16px 'Plus Jakarta Sans',sans-serif;color:var(--ink)}
-.home{display:flex;flex-direction:column;gap:16px;min-height:0;flex:1}
-.home-lead{margin:0;font-size:14px;line-height:1.4;color:var(--mut)}
-.act-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
-.act-tile{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px;cursor:pointer;min-height:72px;text-align:left;color:var(--ink)}
-.act-tile:hover{border-color:var(--ink)}
-.act-k{font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut)}
-.act-n{font:700 20px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;margin-top:4px;color:var(--ink)}
-.act-s{font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px}
-.act-scroll{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-.act-table{display:grid;grid-template-columns:minmax(8rem,1.4fr) minmax(6rem,.8fr) minmax(5.5rem,.7fr) minmax(5rem,.7fr) minmax(6.5rem,.85fr) 3.2rem 5.5rem;min-width:680px}
+.home{display:flex;flex-direction:column;gap:16px;flex:none}
+.home-lead{margin:0;font-size:14px;line-height:1.45;color:#e4dfd4}
+.act-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px}
+button.act-tile{appearance:none;-webkit-appearance:none;font:inherit;width:100%;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:12px 36px 12px 12px;cursor:pointer;min-height:84px;text-align:left;color:var(--ink);position:relative}
+button.act-tile:hover{border-color:#f5f4ee}
+button.act-tile:focus-visible{outline:2px solid #f3e27a;outline-offset:2px}
+button.act-tile.is-hot{border-color:#ffb4a8;box-shadow:inset 3px 0 0 #ffb4a8}
+button.act-tile.is-hot .act-n{color:#ffe1d8}
+button.act-tile.is-quiet{background:var(--panel2);border-color:var(--line)}
+.act-k{font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.02em;color:#e7e2d6}
+.act-n{font:700 20px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;margin-top:4px;color:#f7f4ee}
+.act-s{font:500 13px 'Plus Jakarta Sans',sans-serif;color:#ddd8cc;margin-top:2px}
+.act-chev{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:700 18px 'Plus Jakarta Sans',sans-serif;color:#f3e27a}
+.act-scroll{flex:none;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.needs-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 8px}
+.needs-title{font:700 16px 'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+.linkish{background:none;border:0;padding:0;color:#f3e27a;font:600 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.linkish:focus-visible{outline:2px solid #f3e27a;outline-offset:2px}
+.all-clear{padding:20px 16px;text-align:center}
+.all-clear-title{font:700 16px 'Plus Jakarta Sans',sans-serif;color:#f7f4ee}
+.all-clear p{margin:6px 0 0;font-size:14px;color:#e4dfd4}
+.icon-btn{position:relative}
+.icon-btn:hover::after,.icon-btn:focus-visible::after{content:attr(data-tip);position:absolute;z-index:30;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#f7f4ee;color:#14120e;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:4px 8px;border-radius:6px;pointer-events:none}
+.act-table{display:grid;grid-template-columns:minmax(8rem,1.4fr) minmax(6rem,.8fr) minmax(5.5rem,.7fr) minmax(5rem,.7fr) minmax(6.5rem,.85fr) minmax(6.2rem,.7fr) 5.5rem;min-width:760px}
 .sheet-5{display:grid;grid-template-columns:minmax(8rem,1.4fr) minmax(6rem,.8fr) minmax(6rem,.7fr) minmax(6rem,.7fr) max-content;min-width:560px}
 .act-row{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;align-items:center;min-height:44px;padding:0 12px;column-gap:12px;border-bottom:1px solid var(--line);font-size:14px;color:var(--ink)}
 .act-head{position:sticky;top:0;background:var(--panel2);font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut);z-index:1}
@@ -376,7 +390,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
       <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="7">
         <div class="nav-item" role="button" tabindex="0" data-kbd="1" aria-current="{{ nav.current }}" sc-camel-on-click="{{ nav.go }}" title="{{ nav.title }}" style="{{ nav.style }}">{{ nav.icon }}{{ nav.label }}{{ nav.badge }}</div>
       </sc-for>
-      <div sc-camel-on-click="{{ botToggle }}" title="Ask Q1" style="{{ botFabStyle }}" style-hover="filter:brightness(1.12);transform:translateY(-1px)">
+      <div role="button" tabindex="0" data-kbd="1" aria-label="Ask Q1" sc-camel-on-click="{{ botToggle }}" title="Ask Q1" style="{{ botFabStyle }}" style-hover="filter:brightness(1.12);transform:translateY(-1px)">
         <span style="display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:50%;background:#FFFFFF;box-shadow:0 0 10px rgba(255,255,255,.75),0 0 22px rgba(255,255,255,.35)"><span style="position:relative;width:22px;height:19px;border-radius:8px;background:#0B0620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><span style="display:flex;gap:4px"><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s infinite"></span><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s .04s infinite"></span></span><span style="width:5px;height:2px;border-radius:1px;background:#FDD10D;opacity:.85"></span></span></span>
       <div style="{{ botFabLabelStyle }}">Ask Q1</div>
       </div>
@@ -384,9 +398,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
     <div style="flex:none;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
       <div sc-camel-on-click="{{ goSettings }}" style="{{ profRowStyle }}" style-hover="opacity:.82"><div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ userInitials }}</div><div style="{{ profTextStyle }}"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div><div style="font:400 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">ADMIN · SETTINGS</div></div></div>
       <div style="{{ footRowStyle }}">
-        <div sc-camel-on-click="{{ toggleTheme }}" title="{{ themeLabel }}" style="flex:1;height:34px;border:1px solid var(--line2);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--mut)" style-hover="border-color:var(--accText)"><div style="width:9px;height:9px;border-radius:50%;background:var(--acc)"></div><span style="{{ navLabelVis }}">THEME</span></div>
-        <div sc-camel-on-click="{{ toggleNav }}" title="{{ navToggleTitle }}" style="{{ navToggleStyle }}">{{ navToggleGlyph }}</div>
-        <div sc-camel-on-click="{{ signOut }}" title="Sign out" style="width:34px;height:34px;flex:none;border-radius:12px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:14px;cursor:pointer" style-hover="color:var(--red);border-color:var(--red)">⏻</div>
+        <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="{{ themeLabel }}" data-tip="{{ themeLabel }}" sc-camel-on-click="{{ toggleTheme }}" title="{{ themeLabel }}" style="flex:1;height:44px;border:1px solid var(--line2);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font:500 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:#e7e2d6" style-hover="border-color:#f3e27a"><div style="width:9px;height:9px;border-radius:50%;background:var(--acc)"></div><span style="{{ navLabelVis }}">Theme</span></div>
+        <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="{{ navToggleTitle }}" data-tip="{{ navToggleTitle }}" sc-camel-on-click="{{ toggleNav }}" title="{{ navToggleTitle }}" style="{{ navToggleStyle }}">{{ navToggleGlyph }}</div>
+        <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="Sign out" data-tip="Sign out" sc-camel-on-click="{{ signOut }}" title="Sign out" style="width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:#e7e2d6;font-size:16px;cursor:pointer" style-hover="color:var(--red);border-color:var(--red)">⏻</div>
     </div>
   </div>
 </div>
@@ -452,32 +466,37 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;overflow:hidden">
             <div style="font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;flex:none">{{ screenTitle }}</div>
-            <div style="color:var(--dim);font-weight:600;font-size:10.5px;letter-spacing:.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ screenSub }}</div>
-            <div style="display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0;padding:5px 10px;border-radius:99px;border:1px solid var(--line)"><div style="width:6px;height:6px;border-radius:50%;background:{{ dbDotColor }};flex:none"></div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ dbStatus }}</div></div>
+            <div style="color:#e4dfd4;font-weight:600;font-size:13px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ screenSub }}</div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center;flex:none"><div sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="width:34px;height:34px;flex:none;border-radius:11px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg></div><sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ goPetty }}" style="padding:8px 13px;border-radius:12px;background:var(--panel);border:1px solid var(--line2);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, border-color .2s ease" style-hover="border-color:var(--ink);box-shadow:var(--cardHover);transform:translateY(-2px)">Log petty cash</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
+          <div style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center;flex:none"><div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="Import bank report" data-tip="Import bank report" sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="width:44px;height:44px;flex:none;border-radius:11px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg></div><sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ goPetty }}" style="padding:8px 13px;border-radius:12px;background:var(--panel);border:1px solid var(--line2);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--ink);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, border-color .2s ease" style-hover="border-color:var(--ink);box-shadow:var(--cardHover);transform:translateY(-2px)">Log petty cash</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
       </div>
         <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
           <div class="home">
             <p class="home-lead">What needs action today. Each count opens a filtered list.</p>
             <div class="act-tiles">
               <sc-for list="{{ actionTiles }}" as="t" hint-placeholder-count="5">
-                <div role="button" tabindex="0" data-kbd="1" class="act-tile" sc-camel-on-click="{{ t.go }}">
-                  <div class="act-k">{{ t.label }}</div>
-                  <div class="act-n">{{ t.count }}</div>
-                  <div class="act-s">{{ t.sub }}</div>
-                </div>
+                <button type="button" class="{{ t.cls }}" sc-camel-on-click="{{ t.go }}">
+                  <span class="act-k">{{ t.label }}</span>
+                  <span class="act-n">{{ t.count }}</span>
+                  <span class="act-s">{{ t.sub }}</span>
+                  <span class="act-chev" aria-hidden="true">›</span>
+                </button>
               </sc-for>
             </div>
+            <div class="needs-head">
+              <div class="needs-title">Needs action</div>
+              <button type="button" class="linkish" sc-camel-on-click="{{ goLoansAll }}">View all loans</button>
+            </div>
             <div class="act-scroll">
-              <div class="act-table" role="table" aria-label="Open loans">
+              <sc-if value="{{ actionHas }}" hint-placeholder-val="{{ true }}">
+              <div class="act-table" role="table" aria-label="Needs action">
                 <div class="act-row act-head" role="row">
                   <div role="columnheader">Client</div>
                   <div role="columnheader">Ref</div>
                   <div role="columnheader">Status</div>
                   <div role="columnheader" class="num">Balance</div>
                   <div role="columnheader">Due</div>
-                  <div role="columnheader" class="num">Days</div>
+                  <div role="columnheader" class="num">Days overdue</div>
                   <div role="columnheader">Action</div>
                 </div>
                 <sc-for list="{{ actionRows }}" as="a" hint-placeholder-count="3">
@@ -488,11 +507,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
                     <div role="cell" class="num">{{ a.balance }}</div>
                     <div role="cell">{{ a.due }}</div>
                     <div role="cell" class="num">{{ a.days }}</div>
-                    <div role="cell"><div role="button" tabindex="0" data-kbd="1" class="row-act" sc-camel-on-click="{{ a.open }}">Review</div></div>
+                    <div role="cell"><button type="button" class="row-act" sc-camel-on-click="{{ a.open }}">{{ a.act }}</button></div>
                   </div>
                 </sc-for>
               </div>
-              <sc-if value="{{ actionEmpty }}" hint-placeholder-val="{{ false }}"><div class="empty">Nothing open on the book.</div></sc-if>
+              </sc-if>
+              <sc-if value="{{ actionEmpty }}" hint-placeholder-val="{{ false }}">
+                <div class="all-clear">
+                  <div class="all-clear-title">All clear</div>
+                  <p>Nothing is overdue or due in the next 7 days.</p>
+                </div>
+              </sc-if>
             </div>
           </div>
         </sc-if>
@@ -672,7 +697,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0;transition:box-shadow .22s ease">
           <div class="book-scroll">
           <div class="book-table" role="table" aria-label="Loan book">
-          <div class="book-line book-head" role="row"><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortRef }}" data-col="ref">REF NUMBER</div><div class="cell-clip is-left" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortCustomer }}" data-col="customer">CUSTOMER</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortLent }}">LENT</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortBalance }}">BALANCE</div><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortStatus }}">STATUS</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortDays }}">DAYS</div><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortDue }}">LOAN DUE</div><div role="columnheader" aria-label="Action"></div></div>
+          <div class="book-line book-head" role="row"><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortRef }}" data-col="ref">REF NUMBER</div><div class="cell-clip is-left" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortCustomer }}" data-col="customer">CUSTOMER</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortLent }}">LENT</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortBalance }}">BALANCE</div><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortStatus }}">STATUS</div><div class="cell-clip is-right" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortDays }}">Days overdue</div><div class="cell-clip" role="columnheader" tabindex="0" data-kbd="1" sc-camel-on-click="{{ sortDue }}">LOAN DUE</div><div role="columnheader" aria-label="Action"></div></div>
           <sc-for list="{{ loanRows }}" as="l" hint-placeholder-count="6">
             <div class="book-line" sc-camel-on-click="{{ l.openClient }}" role="row" title="Open client account" style="{{ l.rowStyle }}" style-hover="background:var(--rowHover)">
               <div class="cell-clip" role="cell" data-col="ref" title="{{ l.ref }}" sc-camel-on-click="{{ l.openClient }}" style="font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);text-align:left">{{ l.ref }}</div>
@@ -682,7 +707,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
               <div role="cell" sc-camel-on-click="{{ l.openClient }}" style="text-align:left"><div class="cell-clip" style="{{ l.statusStyle }}">{{ l.statusLabel }}</div></div>
               <div role="cell" class="num" sc-camel-on-click="{{ l.openClient }}" style="font:600 14px 'Plus Jakarta Sans',sans-serif">{{ l.daysLabel }}</div>
               <div role="cell" sc-camel-on-click="{{ l.openClient }}" title="{{ l.dueTitle }}" style="text-align:left"><div class="cell-clip" style="{{ l.dueStyle }}">{{ l.dueFmt }}</div></div>
-              <div role="button" tabindex="0" data-kbd="1" aria-label="Loan actions" sc-camel-on-click="{{ l.toggleMenu }}" style="justify-self:center;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:16px;border-radius:8px;cursor:pointer" style-hover="background:var(--line)">⋮</div>
+              <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px"><sc-if value="{{ l.collectOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ l.collect }}">Collect</button></sc-if><div role="button" tabindex="0" data-kbd="1" aria-label="Loan actions" sc-camel-on-click="{{ l.toggleMenu }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:16px;border-radius:8px;cursor:pointer" style-hover="background:var(--line)">⋮</div></div>
           </div>
           </sc-for>
           <sc-if value="{{ loanEmpty }}" hint-placeholder-val="{{ false }}"><div class="empty">{{ loanEmptyText }}</div></sc-if>
@@ -907,10 +932,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
       <div class="admin-screen" style="padding:16px clamp(16px,2vw,24px) 24px;animation:fadeUp .25s ease" data-screen-label="Admin">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
           <div style="font:700 21px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">ADMIN <span style="color:var(--dim);font-weight:500;font-size:13px;letter-spacing:.08em;margin-left:8px">SIGNED IN</span></div>
-          <div sc-camel-on-click="{{ lockLedger }}" style="padding:8px 15px;border-radius:10px;border:1px solid var(--line2);font-size:12.5px;font-weight:600;color:var(--mut);cursor:pointer;white-space:nowrap" style-hover="color:var(--ink)">LOCK</div>
+          <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="Lock Ledger" data-tip="Lock Ledger" sc-camel-on-click="{{ lockLedger }}" title="Lock Ledger" style="padding:8px 15px;border-radius:10px;border:1px solid var(--line2);font-size:14px;font-weight:600;color:#e7e2d6;cursor:pointer;white-space:nowrap" style-hover="color:var(--ink)">Lock</div>
       </div>
         <sc-if value="{{ true }}" hint-placeholder-val="{{ true }}">
-        <div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 12px;flex-wrap:wrap"><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--ink);letter-spacing:.14em">CASH</div><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">What the business has in the bank</div></div>
+        <div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px;flex-wrap:wrap"><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--ink);letter-spacing:.14em">CASH</div><div style="font:500 14px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4">What the business has in the bank</div><button type="button" class="row-act" sc-camel-on-click="{{ admPetty }}">Petty cash</button><div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;border:1px solid var(--line)"><div style="width:6px;height:6px;border-radius:50%;background:{{ dbDotColor }}"></div><div style="font:600 12px 'Plus Jakarta Sans',sans-serif;color:#e7e2d6">{{ dbStatus }}</div></div></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px;margin-bottom:26px">
           <div sc-camel-on-click="{{ openBank }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:var(--blueSoft);display:flex;align-items:center;justify-content:center;color:var(--blue)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"></path><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">BANK BALANCE</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgBank.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgBank.sub }}</div><div style="margin-top:auto"><div style="display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--panel3);gap:2px"><div style="{{ lgBank.a }}"></div><div style="{{ lgBank.b }}"></div></div></div><div style="display:flex;gap:12px;flex-wrap:wrap;font:600 10.5px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums"><span style="display:flex;align-items:center;gap:5px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:2px;background:var(--green)"></span>{{ lgBank.legA }}</span><span style="display:flex;align-items:center;gap:5px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:2px;background:var(--red)"></span>{{ lgBank.legB }}</span></div></div>
           <div sc-camel-on-click="{{ openBank }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:var(--blueSoft);display:flex;align-items:center;justify-content:center;color:var(--blue)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M17 7.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 2.6 5 3 5 1.1 5 3-2.2 3-5 3-5-1.1-5-3"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">MONTH-END CASH · FORECAST</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgEnd.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgEnd.sub }}</div><div style="margin-top:auto"><div style="display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--panel3);gap:2px"><div style="{{ lgEnd.a }}"></div><div style="{{ lgEnd.b }}"></div><div style="{{ lgEnd.c }}"></div></div></div><div style="display:flex;gap:12px;flex-wrap:wrap;font:600 10.5px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums"><span style="display:flex;align-items:center;gap:5px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:2px;background:var(--blue)"></span>{{ lgEnd.legA }}</span><span style="display:flex;align-items:center;gap:5px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:2px;background:#C6F432"></span>{{ lgEnd.legB }}</span><span style="display:flex;align-items:center;gap:5px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:2px;background:var(--red)"></span>{{ lgEnd.legC }}</span></div></div>
@@ -1669,7 +1694,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
     </div>
     </sc-if>
 
-    <sc-if value="{{ q1On }}" hint-placeholder-val="{{ true }}">
+    <sc-if value="{{ q1Float }}" hint-placeholder-val="{{ false }}">
       <div style="position:fixed;right:18px;bottom:40px;width:min(630px,calc(100% - 36px));z-index:80;pointer-events:none"><dc-import name="Q1 Assistant Button" on-submit="{{ onAskQ1 }}" placeholder="Ask Q1 about the book" button-label="Ask Q1" hint-size="100%,90px" style="width:100%"></dc-import></div>
     </sc-if>
 
@@ -3735,7 +3760,7 @@ class Component extends DCLogic {
   }
   statusMeta(s){
     const key = String(s==null?'':s).toLowerCase();
-    const map = {issued:['Issued','var(--blue)','var(--blueSoft)'],duetoday:['Due today','var(--amber)','var(--amberSoft)'],overdue:['Overdue','var(--red)','var(--redSoft)'],paid:['Paid','var(--green)','var(--greenSoft)'],'written off':['Written off','var(--ink)','var(--hover)'],writtenoff:['Written off','var(--ink)','var(--hover)'],settled_early:['Settled','var(--green)','var(--greenSoft)'],settled:['Settled','var(--green)','var(--greenSoft)'],held:['Held','var(--ink)','transparent'],'release-held':['Held','var(--ink)','transparent']};
+    const map = {issued:['Issued','var(--blue)','var(--blueSoft)'],duetoday:['Due today','var(--amber)','var(--amberSoft)'],overdue:['Overdue','#fff7f5','#8f2424'],paid:['Paid','var(--green)','var(--greenSoft)'],'written off':['Written off','var(--ink)','var(--hover)'],writtenoff:['Written off','var(--ink)','var(--hover)'],settled_early:['Settled','var(--green)','var(--greenSoft)'],settled:['Settled','var(--green)','var(--greenSoft)'],held:['Held','var(--ink)','transparent'],'release-held':['Held','var(--ink)','transparent']};
     const m = map[key] || map[s] || [String(s||'Unknown'),'var(--ink)','var(--hover)'];
     const held = key==='held' || key==='release-held';
     const css = held
@@ -4757,6 +4782,8 @@ class Component extends DCLogic {
           openEdit:(e)=>{e.stopPropagation(); this.setState({modal:'loanedit',modalId:l.id,menuId:null,led:{amount:String(l.amount),ret:String(l.ret),issued:l.issued||'',due:l.due,status:l.status,purpose:l.purpose||'',term:parseInt(String(l.term||'1m'),10)||1,term0:parseInt(String(l.term||'1m'),10)||1,topup:''}});},
           openDelete:(e)=>{e.stopPropagation(); this.setState({modal:'delete',modalId:l.id,menuId:null,delPin:'',delPinErr:false});},
           openClient:(e)=>{e.stopPropagation(); this.setState({modal:'clienthub',modalId:c.id,menuId:null,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null});},
+          collectOn: l.status==='overdue' || !!staleIds[l.id],
+          collect:(e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.setState({modal:'clienthub',modalId:c.id,menuId:null,revealed:false,cliEdit:null,hubTab:'loans',hubEditTab:null}); },
           contract:(e)=>{e.stopPropagation(); this.setState({modal:'contract',modalId:l.id,menuId:null});},
           settle:(e)=>{e.stopPropagation(); this.setState({modal:'settlement',modalId:l.id,menuId:null});}
         };
@@ -4992,30 +5019,37 @@ class Component extends DCLogic {
       openDrawer: ()=>this.setState(p=>({navDrawer:!p.navDrawer})), closeDrawer: ()=>this.setState({navDrawer:false}),
       dbErrorOn: !!st.dbError,
       ...(()=>{
-        const daysOf = (l) => { if (l.status!=='overdue') return '—'; const t=this.slParse(l.due); if(!t) return '—'; return String(Math.max(0, Math.round((this.today()-t)/86400000))); };
-        const openLoans = st.loans.filter(l => l.status!=='paid' && l.status!=='written off');
-        const od = st.loans.filter(l => l.status==='overdue');
+        const daysOf = (l) => { if (!(l.status==='overdue' || staleIds[l.id])) return '—'; const t=this.slParse(l.due); if(!t) return '—'; return String(Math.max(0, Math.round((this.today()-t)/86400000))); };
+        const dueSoon = (l) => {
+          if (l.status==='paid' || l.status==='written off' || l.status==='settled_early') return false;
+          if (l.status==='overdue' || staleIds[l.id] || l.status==='duetoday' || todayIds[l.id]) return true;
+          const t = this.slParse(l.due); if (!t) return false;
+          const days = Math.round((t - this.today()) / 86400000);
+          return days >= 0 && days <= 7;
+        };
+        const od = st.loans.filter(l => l.status==='overdue' || staleIds[l.id]);
         const dueToday = st.loans.filter(l => l.status==='duetoday' || todayIds[l.id]);
         const exceptions = st.loans.filter(l => !!staleIds[l.id]);
         const goFilter = (filter, route) => () => this.setState({filter, loanPage:0, route, menuId:null, modal:null, modalStack:[], admPane:null, navDrawer:false});
-        const tile = (label, count, sub, go) => ({label, count:String(count), sub, go});
+        const tile = (label, count, sub, go, hot) => ({label, count:String(count), sub, go, cls:'act-tile'+(hot?' is-hot':'')+(count===0?' is-quiet':'')});
         const actionTiles = [
-          tile('Overdue', od.length, od.length?fmt(od.reduce((s,l)=>s+this.dueAmt(l),0)):'None', goFilter('overdue','collections')),
-          tile('Due today', dueToday.length, dueToday.length?fmt(dueToday.reduce((s,l)=>s+this.dueAmt(l),0)):'None', goFilter('duetoday','collections')),
-          tile('Exceptions', exceptions.length, exceptions.length?'Status needs a check':'None', ()=>this.setState({modal:'notif', modalStack:[], navDrawer:false})),
-          tile('Applications', appNewCount, appNewCount?'Waiting for review':'None waiting', ()=>this.setState({route:'access', accessTab:'applications', menuId:null, modal:null, modalStack:[], admPane:null, navDrawer:false})),
-          tile('Quik1 access', st.clients.length, 'Invites and PINs', ()=>this.setState({route:'access', accessTab:'invites', menuId:null, modal:null, modalStack:[], admPane:null, navDrawer:false}))
+          tile('Overdue', od.length, od.length?fmt(od.reduce((s,l)=>s+this.dueAmt(l),0)):'None', goFilter('overdue','collections'), od.length>0),
+          tile('Due today', dueToday.length, dueToday.length?fmt(dueToday.reduce((s,l)=>s+this.dueAmt(l),0)):'None', goFilter('duetoday','collections'), false),
+          tile('Exceptions', exceptions.length, exceptions.length?'Open notifications':'None', ()=>this.setState({modal:'notif', modalStack:[], navDrawer:false}), false),
+          tile('Applications', appNewCount, appNewCount?'Waiting for review':'None waiting', ()=>this.setState({route:'access', accessTab:'applications', menuId:null, modal:null, modalStack:[], admPane:null, navDrawer:false}), false),
+          tile('Quik1 access', st.clients.length, st.clients.length?(st.clients.length+(st.clients.length===1?' client to invite':' clients to invite')):'No clients yet', ()=>this.setState({route:'access', accessTab:'invites', menuId:null, modal:null, modalStack:[], admPane:null, navDrawer:false}), false)
         ];
-        const actionRows = openLoans.slice().sort((a,b)=>{ const ra=a.status==='overdue'?0:a.status==='duetoday'?1:2; const rb=b.status==='overdue'?0:b.status==='duetoday'?1:2; return ra-rb; }).slice(0,12).map(l=>{
+        const actionRows = st.loans.filter(dueSoon).slice().sort((a,b)=>{ const ra=(a.status==='overdue'||staleIds[a.id])?0:(a.status==='duetoday'||todayIds[a.id])?1:2; const rb=(b.status==='overdue'||staleIds[b.id])?0:(b.status==='duetoday'||todayIds[b.id])?1:2; return ra-rb || String(a.due||'').localeCompare(String(b.due||'')); }).slice(0,12).map(l=>{
           const c = clientById(l.clientId)||{}; const sm=this.statusMeta(l.status);
-          return { customer:c.name||'—', ref:l.ref, statusLabel:sm.label, statusStyle:sm.style, balance:fmt(this.dueAmt(l)), due:String(l.due||'—').toUpperCase(), days:daysOf(l), open:()=>this.setState({modal:'clienthub', modalId:c.id, revealed:false, cliEdit:null, hubTab:'overview', hubEditTab:null}) };
+          const late = l.status==='overdue' || !!staleIds[l.id];
+          return { customer:c.name||'—', ref:l.ref, statusLabel:sm.label, statusStyle:sm.style, balance:fmt(this.dueAmt(l)), due:String(l.due||'—').toUpperCase(), days:daysOf(l), act: late?'Collect':'Review', open:()=>this.setState({modal:'clienthub', modalId:c.id, revealed:false, cliEdit:null, hubTab:'loans', hubEditTab:null}) };
         });
         const tabStyle = on => this.cssObj("min-height:36px;padding:6px 12px;border-radius:8px;cursor:pointer;font:600 14px 'Plus Jakarta Sans',sans-serif;"+(on?'background:var(--ink);color:var(--bg)':'color:var(--ink);border:1px solid var(--line2)'));
         const accessHere = st.route==='messages' ? 'messages' : st.route==='applications' ? 'applications' : (st.route==='access' ? (st.accessTab||'invites') : '');
         const accessTabs = [['invites','Invites'],['applications','Applications'],['messages','Messages']].map(([id,label])=>({label, style:tabStyle(accessHere===id), go:()=>this.setState({route:'access', accessTab:id, menuId:null, modal:null, modalStack:[], navDrawer:false})}));
         const reportHere = st.route==='logbook' ? 'audit' : st.route==='petty' ? 'petty' : 'markets';
-        const reportTabs = [['markets','Markets'],['audit','Audit'],['petty','Petty cash']].map(([id,label])=>({label, style:tabStyle(reportHere===id), go:()=>this.setState(id==='markets'?{route:'reports', reportTab:'markets', navDrawer:false, modal:null, modalStack:[], admPane:null}:{route:id==='audit'?'logbook':'petty', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null})}));
-        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook'||st.route==='petty') && !st.admPane, isAccess: st.route==='access' && accessHere==='invites' };
+        const reportTabs = [['markets','Markets'],['audit','Audit']].map(([id,label])=>({label, style:tabStyle(reportHere===id), go:()=>this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null})}));
+        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isAccess: st.route==='access' && accessHere==='invites' };
       })(),
       ticker, tkLabel, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
       ...(()=>{ const rl=st.reel; if(!rl) return {reelOn:false, reelPlaying:false, reelIdle:false};
@@ -5141,7 +5175,7 @@ class Component extends DCLogic {
           }) };
       })(),
       isLedgerLocked: st.route==='ledger' && !st.ledgerUnlocked, isLedgerOpen: st.route==='ledger' && st.ledgerUnlocked,
-      goLogbook:()=>this.nav('logbook'), goPetty:()=>this.nav('petty'), goNewLoan:()=>this.nav('newloan'), goLoans:()=>this.nav('loans'),
+      goLogbook:()=>this.nav('logbook'), goPetty:()=>this.setState({route:'ledger', admPane:'petty', menuId:null, modal:null, modalStack:[], navDrawer:false}), goNewLoan:()=>this.nav('newloan'), goLoans:()=>this.nav('loans'),
       goLoansAll:()=>{ this.setState({filter:'all'}); this.nav('loans'); },
       goOverdue:()=>{ this.setState({filter:'overdue'}); this.nav('loans'); },
       goLedger:()=>this.nav('ledger'), goClients:()=>this.nav('clients'), goAddClient:()=>{ this._docFiles=[]; this.setState({route:'addclient',wizStep:1,ac:{},acOfficer:null,docs:[],docExtracted:false,docProcessing:false}); },
@@ -6034,6 +6068,7 @@ class Component extends DCLogic {
           botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(this._botServer===false?'#FFB020':'#22E07A')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(this._botServer===false?'#FFB020':'#22E07A')),
           botToggle: ()=>this.setState({botOpen:!open}),
           q1On: !open && !st.modal,
+          q1Float: false,
           onAskQ1: t=>{ this.setState({botOpen:true}); this.botAsk(t); },
           botClear: ()=>this.botSaveHist([]),
           botDraftChange: e=>this.setState({botDraft:e.target.value}),
