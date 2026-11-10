@@ -29,6 +29,12 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /No results for that search/);
   assert.match(html, /Give Quik1 access/);
   assert.match(html, /data-label="REVOKE ACCESS"/);
+  assert.match(html, /Reset device/);
+  assert.match(html, /\/quik1-devices\/reset/);
+  assert.match(html, /Next instalment due/);
+  assert.match(html, /Final due/);
+  assert.match(html, /Quik1 invites are switched off until launch/);
+  assert.match(html, /borrowerPinLive/);
   assert.match(html, /Resend invite/);
   assert.match(html, /Record payment/);
   assert.match(html, /held:\['Held'/);
