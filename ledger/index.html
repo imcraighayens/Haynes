@@ -2126,6 +2126,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accText) !important}
                 </sc-if>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                   <sc-if value="{{ q1CanGrant }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">GIVE QUIK1 ACCESS</div></sc-if>
+                  <sc-if value="{{ q1CanReset }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ q1ResetDevices }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">RESET DEVICE</div></sc-if>
                   <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">REVOKE ACCESS</div></sc-if>
                 </div>
               </sc-if>
@@ -2840,6 +2841,17 @@ class Component extends DCLogic {
       if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, done); return; }
     }catch(e){}
     done();
+  }
+  resetQuik1Devices(){
+    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
+    if(!id) return;
+    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
+    this.staffApi('POST','/quik1-devices/reset',{clientId:id}).then(()=>{
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:''})});
+      this.toast('Device reset. The next phone must open the email link.');
+    },(e)=>{
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, error:this.q1FailText(e)})});
+    });
   }
   revokeQuik1Access(){
     const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
@@ -5958,9 +5970,10 @@ class Component extends DCLogic {
         q1Status: q.accessLabel||'No access',
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
         q1HasCode: !!(q.code||q.link), q1CanGrant: !setup && !q.busy && !(q.code||q.link), q1CanRevoke: !setup && !q.busy && canAct,
+        q1CanReset: !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
         q1Link: q.link||'', q1Code: q.code||'', q1ExpOn: !!q.expiresAt, q1Exp: q.expiresAt?String(q.expiresAt).replace('T',' ').slice(0,16)+' UTC':'',
         q1CopyLink:()=>this.copyQuik1('link'),
-        q1Give:()=>this.giveQuik1Access(), q1RevokeAccess:()=>this.revokeQuik1Access()
+        q1Give:()=>this.giveQuik1Access(), q1RevokeAccess:()=>this.revokeQuik1Access(), q1ResetDevices:()=>this.resetQuik1Devices()
       }; })(),
       mLoan, mOtherLoans, mNoOthers: st.modal==='history' && mOtherLoans.length===0, mAudit: mAudit.length?mAudit:(st.modal==='history'?[{type:'LOAN ISSUED',date:'—',by:'—',comment:'No logbook entries for this loan yet'}]:[]),
       mCli, statusPicks, stMonth, ...ct, mCliLoans, mCliLoanCount: mCliLoans.length, mCliNoLoans: st.modal==='client' && mCliLoans.length===0, mHClient,

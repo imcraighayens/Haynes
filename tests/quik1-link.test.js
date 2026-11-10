@@ -341,7 +341,7 @@ test('submitIdentity posts only to the authenticated route and leaves public sig
   const bad = await Link.submitIdentity('123');
   assert.equal(bad.ok, false);
   assert.equal(calls.length, 0);
-  const id = '8001015009087';
+  const id = '9912314800084';
   const res = await Link.submitIdentity(id);
   assert.equal(res.ok, true);
   assert.equal(calls.length, 1);
@@ -359,7 +359,7 @@ test('submitIdentity posts only to the authenticated route and leaves public sig
 
 test('a successful identity post keeps only the last four digits on the local signup', async () => {
   let accept = false;
-  const full = '8001015009087';
+  const full = '9912314800084';
   const { Link, calls, localStorage } = boot(c => {
     if (String(c.url).endsWith('/identity')) return accept ? json(200, { idMasked: '*********9087' }) : json(503, { error: 'Server not configured' });
     return json(201, { id: c.body && c.body.id, status: 'Pending review' });
@@ -375,7 +375,7 @@ test('a successful identity post keeps only the last four digits on the local si
   const res = await Link.submitIdentity(full);
   assert.equal(res.ok, true);
   const rec = Link.getState().signups[0];
-  assert.equal(rec.idnum, '9087');
+  assert.equal(rec.idnum, '0084');
   assert.equal(rec.idNumber, undefined);
   assert.equal(JSON.stringify(rec).includes(full), false);
   assert.equal(localStorage.getItem('quik1-link-v1').includes(full), false);

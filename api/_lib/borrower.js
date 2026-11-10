@@ -1,21 +1,21 @@
 // Staff invites and borrower PIN sign-in.
-// The PIN is a salted scrypt hash. A new or unrecognised device also needs an
-// SMS code. The SMS provider is a no-op unless a caller supplies one or the
-// SMS flag is on outside production. An ID number is never used to look anyone up.
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+// A new device is confirmed by an email link when email is configured.
+// An ID number is never used to look anyone up.
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
-import { isSafeId } from './validate.js';
-import { hashPin, verifyPin, isPin } from './pin.js';
+import { isSafeId, cleanEmail } from './validate.js';
+import { hashPin, verifyPin, isPin, isLegacyPin, isChosenPin } from './pin.js';
 import { borrowerBook } from './borrower-book.js';
 import { staffIdentity } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
 import { clientIp, authLimiter } from './ratelimit.js';
-import { smsProvider, smsTo, maskPhone } from './sms.js';
+import { emailSender } from './email.js';
 import {
-  sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice,
-  sessionCookie, deviceCookie, knownDeviceCookie, clearSessionCookie, requestIsSecure
+  sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice, readPendingDevice,
+  sessionCookie, deviceCookie, knownDeviceCookie, clearKnownCookie, clearSessionCookie,
+  pendingDeviceCookie, clearPendingCookie, requestIsSecure
 } from './quik1-session.js';
 
 const INVITE_CODE = /^[0-9a-f]{64}$/;
@@ -41,7 +41,7 @@ export function lockoutMs() {
 
 function otpTtlMs() {
   const n = parseInt(process.env.QUIK1_OTP_TTL_MINUTES, 10);
-  const minutes = Number.isFinite(n) && n >= 1 && n <= 15 ? n : 5;
+  const minutes = Number.isFinite(n) && n >= 1 && n <= 60 ? n : 15;
   return minutes * 60 * 1000;
 }
 
@@ -66,9 +66,8 @@ async function assertAttemptBudget(req, res) {
   let n = 0;
   try {
     n = await count('q1_auth_attempts', { ip_hash: eq(ipHash), created_at: 'gte.' + since });
-  } catch (err) {
-    if (missingTable(err)) return;
-    throw err;
+  } catch {
+    throw new HttpError(503, 'Server not configured');
   }
   if (n >= ATTEMPT_CAP) {
     if (res) res.setHeader('Retry-After', '900');
@@ -76,16 +75,24 @@ async function assertAttemptBudget(req, res) {
   }
 }
 
+export async function guardAuth(req, res) {
+  assertAuthRate(req, res);
+  await assertAttemptBudget(req, res);
+}
+
+const ATTEMPT_KEEP_MS = 90 * 24 * 3600 * 1000;
+
 async function noteAttempt(borrowerId, kind, req) {
   try {
     await insert('q1_auth_attempts', [{
       id: 'qa_' + randomBytes(8).toString('hex'),
       borrower_id: borrowerId || null,
       kind,
-      ip_hash: authIpHash(clientIp(req) || 'unknown')
+      ip_hash: authIpHash(clientIp(req) || 'unknown'),
+      expires_at: new Date(Date.now() + ATTEMPT_KEEP_MS).toISOString()
     }]);
-  } catch (err) {
-    if (!missingTable(err)) throw err;
+  } catch {
+    throw new HttpError(503, 'Server not configured');
   }
 }
 
@@ -403,28 +410,38 @@ function hashDeviceToken(token) {
   return createHash('sha256').update(String(token), 'utf8').digest('hex');
 }
 
-async function trustDevice(borrowerId) {
+function deviceTtlMs() {
+  const days = parseInt(process.env.QUIK1_DEVICE_TTL_DAYS, 10);
+  const n = Number.isFinite(days) && days >= 1 && days <= 365 ? days : 90;
+  return n * 24 * 3600 * 1000;
+}
+
+async function trustDevice(borrowerId, now = Date.now()) {
   const token = randomBytes(32).toString('hex');
+  const nowIso = new Date(now).toISOString();
   await insert('q1_devices', [{
     id: 'qd_' + randomBytes(8).toString('hex'),
     borrower_id: borrowerId,
     token_hash: hashDeviceToken(token),
-    last_seen_at: new Date().toISOString()
+    last_seen_at: nowIso,
+    expires_at: new Date(now + deviceTtlMs()).toISOString()
   }]);
   return token;
 }
 
 async function deviceRecognised(req, borrowerId) {
   const token = readKnownDevice(req);
-  if (!token) return false;
+  if (!token) return '';
   const row = await selectOne('q1_devices', {
-    select: 'id,borrower_id,revoked_at',
+    select: 'id,borrower_id,revoked_at,expires_at',
     token_hash: eq(hashDeviceToken(token)),
     borrower_id: eq(borrowerId)
   });
-  if (!row || row.revoked_at || row.borrower_id !== borrowerId) return false;
-  await update('q1_devices', { id: row.id }, { last_seen_at: new Date().toISOString() });
-  return true;
+  if (!row || row.revoked_at || row.borrower_id !== borrowerId) return '';
+  if (!row.expires_at || new Date(row.expires_at).getTime() <= Date.now()) return '';
+  const nowIso = new Date().toISOString();
+  await update('q1_devices', { id: row.id }, { revoked_at: nowIso });
+  return trustDevice(borrowerId);
 }
 
 export function authCookies(minted, accountRef, req, deviceToken) {
@@ -442,7 +459,7 @@ export async function redeemInvite(req, body, res) {
   const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const pinConfirm = typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
-  if (!isPin(pin) || !isPin(pinConfirm)) throw new HttpError(400, 'Choose a 6-digit PIN');
+  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, 'Choose a 6-digit PIN that is not a run or all one digit');
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
 
@@ -491,46 +508,197 @@ export async function redeemInvite(req, body, res) {
   return { accountRef, cookies: authCookies(minted, accountRef, req, deviceToken) };
 }
 
-async function clientSmsTo(clientId) {
+function ttlMinutes() {
+  return Math.max(1, Math.round(otpTtlMs() / 60000));
+}
+
+function verifyCooldownMs() {
+  const n = parseInt(process.env.QUIK1_VERIFY_COOLDOWN_SECONDS, 10);
+  const seconds = Number.isFinite(n) && n >= 30 && n <= 300 ? n : 60;
+  return seconds * 1000;
+}
+
+function verifyHourlyCap() {
+  const n = parseInt(process.env.QUIK1_VERIFY_HOURLY_CAP, 10);
+  return Number.isFinite(n) && n >= 1 && n <= 20 ? n : 5;
+}
+
+function sigEqual(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  if (left.length !== right.length || left.length === 0) return false;
+  return timingSafeEqual(left, right);
+}
+
+function mintVerifyTicket(accountRef, now = Date.now()) {
+  const exp = now + 10 * 60 * 1000;
+  const sig = createHmac('sha256', sessionSecret()).update(`q1v|${accountRef}|${exp}`).digest('base64url');
+  return `${exp}.${sig}`;
+}
+
+function ticketOk(accountRef, token, now = Date.now()) {
+  if (!sessionSecret() || typeof token !== 'string') return false;
+  const dot = token.indexOf('.');
+  if (dot < 1) return false;
+  const exp = Number(token.slice(0, dot));
+  const sig = token.slice(dot + 1);
+  if (!Number.isFinite(exp) || exp < now || exp > now + 15 * 60 * 1000) return false;
+  const expected = createHmac('sha256', sessionSecret()).update(`q1v|${accountRef}|${exp}`).digest('base64url');
+  return sigEqual(sig, expected);
+}
+
+async function clientEmail(clientId) {
   const client = await selectOne('clients', {
-    select: 'id,phone,deleted_at',
+    select: 'id,email,deleted_at',
     id: eq(clientId)
   });
   if (!client || client.deleted_at) return '';
-  return smsTo(client.phone);
+  return cleanEmail(client.email) || '';
 }
 
-async function beginOtp(req, borrower) {
-  const provider = smsProvider(req);
-  const to = await clientSmsTo(borrower.client_id);
-  if (!provider.enabled || !to) throw new HttpError(503, 'SMS is not available');
-  const code = String(randomInt(0, 1000000)).padStart(6, '0');
-  const codeHash = await hashPin(code);
+function offerVerification(req, borrower) {
+  const mail = emailSender(req);
+  return clientEmail(borrower.client_id).then(email => {
+    const ready = !!(mail.enabled && email);
+    const body = {
+      verifyRequired: true,
+      contactStaff: !ready,
+      cookies: []
+    };
+    if (ready) body.verifyToken = mintVerifyTicket(borrower.id);
+    return body;
+  });
+}
+
+async function assertVerifyBudget(borrowerId) {
+  const latest = await selectOne('q1_otp_challenges', {
+    select: 'id,created_at',
+    borrower_id: eq(borrowerId),
+    order: 'created_at.desc'
+  });
+  if (latest && latest.created_at && Date.now() - new Date(latest.created_at).getTime() < verifyCooldownMs()) {
+    throw new HttpError(429, 'Wait before requesting another code');
+  }
+  const since = new Date(Date.now() - 3600 * 1000).toISOString();
+  const n = await count('q1_otp_challenges', { borrower_id: eq(borrowerId), created_at: 'gte.' + since });
+  if (n >= verifyHourlyCap()) throw new HttpError(429, 'Too many verification messages');
+}
+
+async function invalidateChallenges(borrowerId, nowIso) {
+  await patchWhere('q1_otp_challenges', {
+    borrower_id: eq(borrowerId),
+    consumed_at: 'is.null'
+  }, { consumed_at: nowIso });
+}
+
+function verifyPageLink(req, token) {
+  const rawHost = (header(req, 'x-forwarded-host') || header(req, 'host') || '').split(',')[0].trim().toLowerCase();
+  const host = /^[a-z0-9.-]+(?::\d{1,5})?$/.test(rawHost) ? rawHost : '';
+  if (host && apiRole(host, '') === 'staff') return `https://quik1.app/quik1/#verify=${token}`;
+  const rawProto = (header(req, 'x-forwarded-proto') || 'https').split(',')[0].trim().toLowerCase();
+  const proto = rawProto === 'http' ? 'http' : 'https';
+  const origin = host ? `${proto}://${host}` : '';
+  return `${origin}/quik1/#verify=${token}`;
+}
+
+function hashToken(token) {
+  return createHash('sha256').update(String(token), 'utf8').digest('hex');
+}
+
+export async function issueVerification(req, body) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  requireSessionSecret();
+  const accountRef = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
+  const ticket = typeof body.verifyToken === 'string' ? body.verifyToken : '';
+  if (!ACCOUNT_REF.test(accountRef) || !ticketOk(accountRef, ticket)) {
+    throw new HttpError(401, 'Sign in again');
+  }
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id',
+    id: eq(accountRef)
+  });
+  if (!borrower) throw new HttpError(401, 'Sign in again');
+  const to = await clientEmail(borrower.client_id);
+  const mail = emailSender(req);
+  if (!mail.enabled || !to) throw new HttpError(503, 'Email verification unavailable');
+  await assertVerifyBudget(borrower.id);
+  const nowIso = new Date().toISOString();
+  await invalidateChallenges(borrower.id, nowIso);
+  const pending = randomBytes(32).toString('hex');
+  const token = randomBytes(32).toString('hex');
   const id = 'qo_' + randomBytes(8).toString('hex');
-  const expiresAt = new Date(Date.now() + otpTtlMs()).toISOString();
+  const minutes = ttlMinutes();
   await insert('q1_otp_challenges', [{
     id,
     borrower_id: borrower.id,
-    code_hash: codeHash,
-    expires_at: expiresAt,
+    channel: 'email',
+    token_hash: hashToken(token),
+    device_hash: hashToken(pending),
+    expires_at: new Date(Date.now() + otpTtlMs()).toISOString(),
     consumed_at: null
   }]);
+  const link = verifyPageLink(req, token);
   let sent = { sent: false };
   try {
-    sent = await provider.send(to, `Quik1 code ${code}. It expires in 5 minutes.`);
+    sent = await mail.send(to, 'Confirm your Quik1 phone', `Open this link on the phone that asked for it. It expires in ${minutes} minutes.\n${link}`);
   } catch {
     sent = { sent: false };
   }
   if (!sent || !sent.sent) {
     await update('q1_otp_challenges', { id }, { consumed_at: new Date().toISOString() });
-    throw new HttpError(503, 'SMS is not available');
+    throw new HttpError(503, 'Email verification unavailable');
   }
   return {
-    otpRequired: true,
-    challengeId: id,
-    phoneMasked: maskPhone(to),
-    cookies: []
+    sent: true,
+    cookies: [pendingDeviceCookie(pending, Math.ceil(otpTtlMs() / 1000), requestIsSecure(req))]
   };
+}
+
+export async function consumeEmailLink(req, body) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  requireSessionSecret();
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  if (!/^[0-9a-f]{64}$/.test(token)) throw new HttpError(401, 'This link is no longer valid');
+  const challenge = await selectOne('q1_otp_challenges', {
+    select: 'id,borrower_id,token_hash,device_hash,expires_at,consumed_at,channel',
+    token_hash: eq(hashToken(token))
+  });
+  if (!challenge || challenge.channel !== 'email' || challenge.consumed_at || new Date(challenge.expires_at).getTime() <= Date.now()) {
+    throw new HttpError(401, 'This link is no longer valid');
+  }
+  if (!deviceMatches(req, challenge)) throw new HttpError(401, 'Open the link on the phone that asked for it');
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+    id: eq(challenge.borrower_id)
+  });
+  if (!borrower) throw new HttpError(401, 'This link is no longer valid');
+  if (isLocked(borrower)) lockedError();
+  const consumed = await patchWhere('q1_otp_challenges', {
+    id: eq(challenge.id),
+    consumed_at: 'is.null'
+  }, { consumed_at: new Date().toISOString() });
+  if (!consumed.length) throw new HttpError(401, 'This link is no longer valid');
+  try { await liveClient(borrower.client_id); }
+  catch (e) {
+    if (e instanceof HttpError && e.status === 404) throw new HttpError(401, 'This link is no longer valid');
+    throw e;
+  }
+  return finishVerified(req, borrower);
+}
+
+async function finishVerified(req, borrower) {
+  const deviceToken = await trustDevice(borrower.id);
+  const { minted, accountRef } = await openSession(borrower);
+  const secure = requestIsSecure(req);
+  return {
+    accountRef,
+    cookies: [...authCookies(minted, accountRef, req, deviceToken), clearPendingCookie(secure)]
+  };
+}
+
+function deviceMatches(req, challenge) {
+  const pending = readPendingDevice(req);
+  return !!(pending && challenge && challenge.device_hash && hashToken(pending) === challenge.device_hash);
 }
 
 export async function loginBorrower(req, body, res) {
@@ -541,7 +709,7 @@ export async function loginBorrower(req, body, res) {
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
-  if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
+  if (!(isPin(pin) || isLegacyPin(pin)) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
     rejectPin();
@@ -564,71 +732,57 @@ export async function loginBorrower(req, body, res) {
     if (e instanceof HttpError && e.status === 404) rejectPin();
     throw e;
   }
-  if (!(await deviceRecognised(req, borrower.id))) {
-    return beginOtp(req, borrower);
-  }
+  const rotated = await deviceRecognised(req, borrower.id);
+  if (!rotated) return offerVerification(req, borrower);
   const { minted, accountRef: ref } = await openSession(borrower);
-  return { accountRef: ref, cookies: authCookies(minted, ref, req) };
+  return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
 }
 
-export async function verifyOtp(req, body, res) {
-  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
-  requireSessionSecret();
-  assertAuthRate(req, res);
-  await assertAttemptBudget(req, res);
-  const challengeId = typeof body.challengeId === 'string' ? body.challengeId.trim() : '';
-  const code = typeof body.code === 'string' ? body.code : '';
-  if (!isSafeId(challengeId) || !isPin(code)) {
-    await burnPinTime(code);
-    await noteAttempt(null, 'otp', req);
-    throw new HttpError(401, 'Code not accepted');
-  }
-  const challenge = await selectOne('q1_otp_challenges', {
-    select: 'id,borrower_id,code_hash,expires_at,consumed_at',
-    id: eq(challengeId)
-  });
-  if (!challenge || challenge.consumed_at || new Date(challenge.expires_at).getTime() <= Date.now()) {
-    await burnPinTime(code);
-    await noteAttempt(challenge && challenge.borrower_id, 'otp', req);
-    throw new HttpError(401, 'Code not accepted');
-  }
-  const borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
-    id: eq(challenge.borrower_id)
-  });
-  if (!borrower) {
-    await burnPinTime(code);
-    throw new HttpError(401, 'Code not accepted');
-  }
-  await clearExpiredLock(borrower);
-  if (isLocked(borrower)) lockedError();
-  const ok = await verifyPin(code, challenge.code_hash);
-  if (!ok) {
-    await noteFailure(borrower, 'otp', req);
-  }
+export async function resetBorrowerDevices(req, clientId) {
+  const client = await liveClient(clientId);
   const nowIso = new Date().toISOString();
-  const consumed = await patchWhere('q1_otp_challenges', {
-    id: eq(challenge.id),
-    consumed_at: 'is.null'
-  }, { consumed_at: nowIso });
-  if (!consumed.length) throw new HttpError(401, 'Code not accepted');
-  try { await liveClient(borrower.client_id); }
-  catch (e) {
-    if (e instanceof HttpError && e.status === 404) throw new HttpError(401, 'Code not accepted');
-    throw e;
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id',
+    client_id: eq(client.id)
+  });
+  if (borrower) {
+    await revokeDevices(borrower.id, nowIso);
+    await invalidateChallenges(borrower.id, nowIso);
   }
-  const deviceToken = await trustDevice(borrower.id);
-  const { minted, accountRef } = await openSession(borrower);
-  return { accountRef, cookies: authCookies(minted, accountRef, req, deviceToken) };
+  const who = staffIdentity(req);
+  const by = who && (who.displayName || who.email) ? String(who.displayName || who.email).slice(0, 80) : 'ledger';
+  try {
+    await insert('audit_log', [{
+      id: 'aud_q1_' + randomBytes(6).toString('hex'),
+      at: nowIso,
+      type: 'QUIK1 DEVICE RESET',
+      ref: client.ref || '—',
+      customer: '—',
+      amount: 0,
+      by,
+      comment: 'Cleared trusted Quik1 devices and outstanding email links for ' + (client.ref || 'a client') + '. The PIN was not changed.'
+    }], { returning: false });
+  } catch (err) {
+    if (!missingTable(err)) throw err;
+  }
+  return { ok: true, cleared: !!borrower };
 }
 
 export async function logoutBorrower(req) {
   const sess = readSession(req);
+  const nowIso = new Date().toISOString();
   if (sess) {
-    const nowIso = new Date().toISOString();
     await patchWhere('q1_sessions', { id: eq(sess.sid), revoked_at: 'is.null' }, { revoked_at: nowIso });
   }
-  return { cookies: [clearSessionCookie(requestIsSecure(req))] };
+  const known = readKnownDevice(req);
+  if (known) {
+    await patchWhere('q1_devices', {
+      token_hash: eq(hashDeviceToken(known)),
+      revoked_at: 'is.null'
+    }, { revoked_at: nowIso });
+  }
+  const secure = requestIsSecure(req);
+  return { cookies: [clearSessionCookie(secure), clearKnownCookie(secure), clearPendingCookie(secure)] };
 }
 
 export async function borrowerHome(req) {

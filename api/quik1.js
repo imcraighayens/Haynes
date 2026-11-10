@@ -15,7 +15,7 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
-import { redeemInvite, loginBorrower, logoutBorrower, verifyOtp, borrowerHome } from './_lib/borrower.js';
+import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome } from './_lib/borrower.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
   createWithdrawal, borrowerMessages, postBorrowerMessage, attachDocument,
@@ -253,11 +253,11 @@ async function postRedeem(req, res) {
 
 async function postBorrowerLogin(req, res) {
   const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP), res);
-  if (out && out.otpRequired) {
+  if (out && out.verifyRequired) {
     json(res, 200, {
-      otpRequired: true,
-      challengeId: out.challengeId,
-      phoneMasked: out.phoneMasked || ''
+      verifyRequired: true,
+      contactStaff: !!out.contactStaff,
+      verifyToken: out.verifyToken || undefined
     }, req);
     return;
   }
@@ -265,13 +265,20 @@ async function postBorrowerLogin(req, res) {
   json(res, 200, { ok: true, accountRef: out.accountRef }, req);
 }
 
-async function postOtp(req, res) {
-  const out = await verifyOtp(req, await readBody(req, PUBLIC_BODY_CAP), res);
+async function postVerify(req, res) {
+  const out = await issueVerification(req, await readBody(req, PUBLIC_BODY_CAP));
+  setCookies(res, out.cookies);
+  json(res, 200, { sent: true }, req);
+}
+
+async function postVerifyEmail(req, res) {
+  const out = await consumeEmailLink(req, await readBody(req, PUBLIC_BODY_CAP));
   setCookies(res, out.cookies);
   json(res, 200, { ok: true, accountRef: out.accountRef }, req);
 }
 
 async function postIdentity(req, res) {
+  await guardAuth(req, res);
   const { borrower } = await requireBorrower(req);
   const body = await readBody(req, PUBLIC_BODY_CAP);
   const out = await storeBorrowerId(borrower.id, body.idNumber ?? body.idnum);
@@ -346,10 +353,10 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerLogin(req, res);
-  } else if (head === 'otp') {
-    if (id) throw new HttpError(404, 'Not found');
-    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    return postOtp(req, res);
+  } else if (head === 'verify') {
+    if (!id && method === 'POST') return postVerify(req, res);
+    if (id === 'email' && !rest.length && method === 'POST') return postVerifyEmail(req, res);
+    throw new HttpError(404, 'Not found');
   } else if (head === 'identity') {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');

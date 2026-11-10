@@ -2932,6 +2932,10 @@ input,button,textarea{font-family:inherit}
       }catch(e){}
       if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
+      try{
+        const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
+        if(link) this.consumeEmailLink(link[1]);
+      }catch(e){}
       fetch(this.borrowerApi('/me'),{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
         .then(j=>{ if(j&&j.identified===true&&!this.state.inviteCode){ this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); this.startBookPoll(); } })
@@ -3396,8 +3400,17 @@ input,button,textarea{font-family:inherit}
             this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
             return;
           }
-          if(r.ok&&j&&j.otpRequired&&j.challengeId){
-            this.setState({pinBusy:false, otp:'', pinPhase:'sms', challengeId:j.challengeId, pinNote:j.phoneMasked?('Code sent to '+j.phoneMasked):'Enter the SMS code.'});
+          if(r.ok&&j&&j.verifyRequired){
+            if(j.contactStaff){
+              this.setState({pinBusy:false, otp:'', pinPhase:'staff', verifyToken:'', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
+              return;
+            }
+            this.setState({pinBusy:false, otp:'', pinPhase:'email', verifyToken:j.verifyToken||'', pinNote:''});
+            this.requestEmailLink(j.verifyToken);
+            return;
+          }
+          if(r.ok&&j&&j.sent===true){
+            this.setState({pinBusy:false, pinPhase:'email', pinNote:'Open the email link on this phone. It confirms this device and then stops working.'});
             return;
           }
           if(!r.ok){
@@ -3417,12 +3430,18 @@ input,button,textarea{font-family:inherit}
         })
         .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
     }
-    submitSmsCode(code){
-      if(this.state.pinBusy) return;
-      if(!/^\d{6}$/.test(code)) return;
-      const id=this.state.challengeId;
-      if(!id) return;
-      this.finishBorrower('/otp', {challengeId:id, code:code});
+    requestEmailLink(token){
+      const ref=this.state.deviceRef||'';
+      const ticket=token||this.state.verifyToken||'';
+      if(!ticket||!/^qb_[0-9a-f]{32}$/.test(ref)){
+        this.setState({pinBusy:false, pinPhase:'staff', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
+        return;
+      }
+      this.finishBorrower('/verify', {accountRef:ref, verifyToken:ticket});
+    }
+    consumeEmailLink(token){
+      if(!/^[0-9a-f]{64}$/.test(token||'')) return;
+      this.finishBorrower('/verify/email', {token:token});
     }
     bookDueDate(){
       const iso=this.state.ledgerAccount&&this.state.ledgerAccount.account&&this.state.ledgerAccount.account.next_due;
@@ -4033,10 +4052,7 @@ input,button,textarea{font-family:inherit}
         loginIntroStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false,
         ...(()=>{ if(s.screen!=='login') return {loginStepHeadOn:false};
           const pin=s.loginMode==='pin';
-          const [h,sub]=s.otpMode?(pin?['Enter your PIN','The 6 digits you chose when you signed up.']:['Check your SMS','We sent a 6-digit code to the mobile number on your account.'])
-            :s.loginMode==='id'?['Welcome back','Log in with your mobile number and SA ID.']
-            :(s.loginMode==='new'&&s.loginIntro===false)?["Let's get you started","Enter your number and we'll SMS you a code."]
-            :(s.loginMode!=='new')?['Good to see you again','Look at your phone to log in, or use your PIN.']:[null,null];
+          const [h,sub]=['Enter your PIN','The 6 digits you chose. It is not an ID number.'];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
         onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
@@ -4458,8 +4474,8 @@ input,button,textarea{font-family:inherit}
               ln('Documents','Agreements and uploads','M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2','',()=>this.switchPanel('documents',false))]},
             {title:'Security',rows:[
               tg('Sign in with Face ID','Use your face instead of a PIN','M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M9.4 15.4a3.8 3.8 0 0 0 5.2 0',s.setFaceId!==false,()=>this.setState({setFaceId:s.setFaceId===false})),
-              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'We sent a one-time code to '+((s.profile&&s.profile.mobile)||'your phone')+' to reset your PIN.'})),
-              tg('Approve logins by SMS','Extra check on new devices','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2',s.setSms!==false,()=>this.setState({setSms:s.setSms===false}))]},
+              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'Ask your loan officer for a new invite if you need a new PIN.'})),
+              ln('New phone','Confirmed with an email link','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2','',()=>this.setState({sentNote:'A new phone opens an email link. Staff can reset the device in Ledger if email is not set up.'}))]} ,
             {title:'Preferences',rows:[
               tg('Light mode','','M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2',light,()=>this.setState({homeLight:!light})),
               tg('Hide amounts','Mask balances on screen','M2.8 12S6.5 6.4 12 6.4 21.2 12 21.2 12 17.5 17.6 12 17.6 2.8 12 2.8 12ZM4 4l16 16',!!s.hideAmounts,()=>this.setState({hideAmounts:!s.hideAmounts})),
@@ -4550,7 +4566,7 @@ input,button,textarea{font-family:inherit}
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
               const next=(st.otp+k).slice(0,6);
-              if(next.length===6) setTimeout(()=>st.pinPhase==='sms'?this.submitSmsCode(next):this.submitBorrowerPin(next), 320);
+              if(next.length===6) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -5433,13 +5449,15 @@ input,button,textarea{font-family:inherit}
         loginReturnStep:false,
         loginOtpStep:s.screen==='login',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='sms'?'Enter the SMS code':'Enter your PIN',
+        loginHead:s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
         loginSub:s.pinPhase==='choose'
           ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
           ?'Enter that PIN again. It is not taken from an ID number.'
-          :s.pinPhase==='sms'
-          ?'Enter the 6-digit code from the SMS. It is not your PIN.'
+          :s.pinPhase==='email'
+          ?'Open the link on this phone. It works once, then this device is remembered.'
+          :s.pinPhase==='staff'
+          ?'Staff can reset this device in Ledger. Your PIN stays the same.'
           :'Enter the 6-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
         showAccountRef:!s.inviteCode&&!s.deviceRef,

@@ -58,13 +58,15 @@ browser, in git, or in the staff UI.
 | `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
 | `QUIK1_SESSION_SECRET` | Required for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. |
 | `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
-| `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN or SMS attempts before lockout. Default 5. |
+| `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
 | `QUIK1_LOCKOUT_MINUTES` | Optional. How long that lock lasts before the counter resets. Default 15. A new invite still clears it immediately. |
 | `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
-| `QUIK1_OTP_TTL_MINUTES` | Optional. SMS code lifetime. Default 5. |
-| `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, SMS, and ID posts per IP per 15 minutes. Default 30. |
-| `QUIK1_SMS` | Optional. Set to `1` only on a non-production host to allow a live SMS provider. Leave unset. Staff Twilio keys do not send borrower codes. |
+| `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
+| `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
+| `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent, and the phone tells the client that staff can reset the device in Ledger. These are not the staff voice credentials. |
 | `QUIK1_ID_KEY` | Optional. 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Leave unset until that intake is turned on. |
+| `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
+| `QUIK1_ID_HMAC_KEY` | Optional. Separate 64-hex HMAC key so the same ID cannot be stored twice. Leave unset. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -104,11 +106,14 @@ same `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`, and `QUIK1_SESSI
 already used by the bridge are enough. No new secret is required.
 
 Then paste and run `supabase/migrations/20261110120000_quik1_borrower_guard.sql` after the
-two files above. It adds recognised devices, SMS challenges, the attempt log, and an
-encrypted ID column on `q1_borrowers`. It does not recreate those earlier tables. Do not
-apply it from the app, and do not re-run the 7 Nov application migrations. `QUIK1_ID_KEY`
-is required only when a signed-in borrower submits an ID. Leave `QUIK1_SMS` and
-`QUIK1_BORROWER_PIN` unset.
+two files above. It stops if `q1_borrowers` is missing. It adds recognised devices, email
+device links, the attempt log (with a 90-day `expires_at` and `q1_purge_auth_attempts()`
+for the SQL editor), and encrypted ID columns on `q1_borrowers`. It does not recreate the
+earlier tables. Do not apply it from the app, and do not re-run the 7 Nov application
+migrations. `QUIK1_ID_KEY` is required only when a signed-in borrower submits an ID.
+Leave `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, `QUIK1_EMAIL_API_KEY`, and
+`QUIK1_BORROWER_PIN` unset. A new phone then asks the client to contact staff, who reset
+the device from Ledger. The PIN is not changed.
 
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.

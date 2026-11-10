@@ -1,15 +1,32 @@
-// SA ID numbers are encrypted at rest. The key is QUIK1_ID_KEY (64 hex chars,
-// 32 bytes). Plaintext is not logged and is not returned to the client.
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+// SA ID numbers are encrypted at rest. QUIK1_ID_KEY is the current 32-byte key
+// (64 hex chars). QUIK1_ID_KEY_PREVIOUS decrypts older ciphertext after a
+// rotation. QUIK1_ID_HMAC_KEY is a separate HMAC key for duplicate detection.
+// All three stay unset until intake is turned on. Plaintext is not logged and
+// is not returned to the client.
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { HttpError } from './http.js';
 import { selectOne, update, eq } from './supabase.js';
 
-const AAD = Buffer.from('quik1-sa-id');
-
-export function idKey() {
-  const raw = String(process.env.QUIK1_ID_KEY || '').trim();
+function keyFrom(name) {
+  const raw = String(process.env[name] || '').trim();
   if (!/^[0-9a-fA-F]{64}$/.test(raw)) return null;
   return Buffer.from(raw, 'hex');
+}
+
+export function idKey() {
+  return keyFrom('QUIK1_ID_KEY');
+}
+
+export function previousIdKey() {
+  return keyFrom('QUIK1_ID_KEY_PREVIOUS');
+}
+
+export function hmacKey() {
+  return keyFrom('QUIK1_ID_HMAC_KEY');
+}
+
+function aadFor(borrowerId) {
+  return Buffer.from('quik1-borrower:' + String(borrowerId || ''), 'utf8');
 }
 
 export function luhnOk(digits) {
@@ -42,37 +59,30 @@ export function maskId(digits) {
   return '*********' + digits.slice(-4);
 }
 
-export function encryptId(digits) {
-  const key = idKey();
-  const clean = normaliseSaId(digits);
-  if (!key || !clean) return null;
+function seal(digits, borrowerId, key, version) {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(AAD);
-  const ct = Buffer.concat([cipher.update(clean, 'utf8'), cipher.final()]);
+  cipher.setAAD(aadFor(borrowerId));
+  const ct = Buffer.concat([cipher.update(digits, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return ['v1', iv.toString('base64url'), tag.toString('base64url'), ct.toString('base64url')].join('.');
+  return [version, iv.toString('base64url'), tag.toString('base64url'), ct.toString('base64url')].join('.');
 }
 
-export function decryptId(stored) {
-  const key = idKey();
-  if (!key || typeof stored !== 'string') return '';
-  const parts = stored.split('.');
-  if (parts.length !== 4 || parts[0] !== 'v1') return '';
+function openWith(ivB, tagB, ctB, borrowerId, key) {
   let iv;
   let tag;
   let ct;
   try {
-    iv = Buffer.from(parts[1], 'base64url');
-    tag = Buffer.from(parts[2], 'base64url');
-    ct = Buffer.from(parts[3], 'base64url');
+    iv = Buffer.from(ivB, 'base64url');
+    tag = Buffer.from(tagB, 'base64url');
+    ct = Buffer.from(ctB, 'base64url');
   } catch {
     return '';
   }
   if (iv.length !== 12 || tag.length !== 16 || ct.length < 1) return '';
   try {
     const decipher = createDecipheriv('aes-256-gcm', key, iv);
-    decipher.setAAD(AAD);
+    decipher.setAAD(aadFor(borrowerId));
     decipher.setAuthTag(tag);
     const plain = Buffer.concat([decipher.update(ct), decipher.final()]).toString('utf8');
     return normaliseSaId(plain);
@@ -81,19 +91,59 @@ export function decryptId(stored) {
   }
 }
 
-export function maskStored(stored) {
-  return maskId(decryptId(stored));
+export function encryptId(digits, borrowerId) {
+  const key = idKey();
+  const clean = normaliseSaId(digits);
+  if (!key || !clean || !borrowerId) return null;
+  return seal(clean, borrowerId, key, 'v1');
+}
+
+export function decryptId(stored, borrowerId) {
+  if (!borrowerId || typeof stored !== 'string') return '';
+  const parts = stored.split('.');
+  if (parts.length !== 4 || !/^v\d+$/.test(parts[0])) return '';
+  const keys = [];
+  const current = idKey();
+  const previous = previousIdKey();
+  if (current) keys.push(current);
+  if (previous) keys.push(previous);
+  for (const key of keys) {
+    const plain = openWith(parts[1], parts[2], parts[3], borrowerId, key);
+    if (plain) return plain;
+  }
+  return '';
+}
+
+export function maskStored(stored, borrowerId) {
+  return maskId(decryptId(stored, borrowerId));
+}
+
+// Keyed HMAC of the ID only, so two borrowers cannot store the same number.
+// Null when QUIK1_ID_HMAC_KEY is unset. This is not an unsalted hash.
+export function idHmac(digits) {
+  const key = hmacKey();
+  const clean = normaliseSaId(digits);
+  if (!key || !clean) return null;
+  return createHmac('sha256', key).update(clean, 'utf8').digest('hex');
 }
 
 export async function storeBorrowerId(borrowerId, raw) {
   const digits = normaliseSaId(raw);
   if (!digits) throw new HttpError(400, 'ID number is not valid');
-  const stored = encryptId(digits);
+  const stored = encryptId(digits, borrowerId);
   if (!stored) throw new HttpError(503, 'Server not configured');
-  await update('q1_borrowers', { id: borrowerId }, {
+  const patch = {
     id_ciphertext: stored,
     updated_at: new Date().toISOString()
-  });
+  };
+  const mac = idHmac(digits);
+  if (mac) patch.id_hmac = mac;
+  try {
+    await update('q1_borrowers', { id: borrowerId }, patch);
+  } catch (err) {
+    if (err && err.code === '23505') throw new HttpError(409, 'That ID is already on file');
+    throw err;
+  }
   return { idMasked: maskId(digits) };
 }
 
@@ -106,5 +156,5 @@ export async function maskForBorrower(borrowerId) {
     if (missing) return '';
     throw err;
   }
-  return maskStored(row && row.id_ciphertext);
+  return maskStored(row && row.id_ciphertext, borrowerId);
 }
