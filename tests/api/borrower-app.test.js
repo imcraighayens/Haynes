@@ -362,4 +362,175 @@ describe('borrower book', { concurrency: false }, () => {
     assert.equal(liveHost.statusCode, 404);
     delete process.env.QUIK1_PREVIEW_VIEW_AS_CLIENT;
   });
+
+  function tableOf(url) {
+    const path = String(url).split('?')[0];
+    return decodeURIComponent(path.split('/').pop());
+  }
+
+  function postgrest(status, body, headers = {}) {
+    const text = body === '' || body === undefined ? '' : JSON.stringify(body);
+    return { ok: status < 400, status, headers: new Headers(headers), text: async () => text };
+  }
+
+  function relationError(code, table) {
+    const message = code === 'PGRST205'
+      ? `Could not find the table 'public.${table}' in the schema cache`
+      : `relation "public.${table}" does not exist`;
+    return postgrest(404, { code, message, details: null, hint: null });
+  }
+
+  test('quik1-feed is empty messages when q1_messages is missing, and other database errors still fail', async () => {
+    const application = {
+      id: 'ap_feed', ref: 'AP-1085', name: 'Feed Applicant', amount: 100, purpose: 'Fees',
+      status: 'new', source: 'quik1', client_id: null, created_at: '2026-11-10T06:00:00.000Z'
+    };
+    for (const code of ['PGRST205', '42P01']) {
+      globalThis.fetch = async (url) => {
+        const table = tableOf(url);
+        if (table === 'q1_messages') return relationError(code, table);
+        if (table === 'applications') return postgrest(200, [application]);
+        return postgrest(200, []);
+      };
+      const res = await call(ledger, {
+        method: 'GET', path: ['quik1-feed'],
+        headers: { authorization: 'Bearer ' + STAFF, host: 'quik1ledger.com' }
+      });
+      assert.equal(res.statusCode, 200, code + ' ' + res.body);
+      assert.deepEqual(res.json().threads, []);
+      assert.equal(res.json().applications.length, 1);
+      assert.equal(res.json().applications[0].extId, 'ap_feed');
+      assert.equal(JSON.stringify(res.json()).includes('schema cache'), false);
+    }
+
+    globalThis.fetch = async (url) => {
+      const table = tableOf(url);
+      if (table === 'q1_messages') return postgrest(500, { code: 'XX000', message: 'secret internals' });
+      return postgrest(200, []);
+    };
+    const failed = await call(ledger, {
+      method: 'GET', path: ['quik1-feed'], headers: { authorization: 'Bearer ' + STAFF }
+    });
+    assert.equal(failed.statusCode, 502);
+    assert.deepEqual(failed.json(), { error: 'Database error XX000' });
+
+    globalThis.fetch = async (url) => {
+      const table = tableOf(url);
+      if (table === 'q1_messages') return postgrest(400, { code: 'PGRST204', message: "Could not find the 'body' column of 'q1_messages' in the schema cache" });
+      return postgrest(200, [application]);
+    };
+    const column = await call(ledger, {
+      method: 'GET', path: ['quik1-feed'], headers: { authorization: 'Bearer ' + STAFF }
+    });
+    assert.equal(column.statusCode, 502);
+    assert.deepEqual(column.json(), { error: 'Database error PGRST204' });
+  });
+
+  test('a missing session table is signed out, and a real session error still fails', async () => {
+    const stale = mintBorrowerToken({ sid: 'qs_missing', bid: 'qb_missing', cid: CLIENT_A });
+    const headers = { cookie: 'q1_session=' + encodeURIComponent(stale.token) };
+    const leak = [{ id: LOAN_A, ref: 'ECL-LEAK', client_id: CLIENT_A, name: NAME_A, principal: 500, status: 'issued', deleted_at: null }];
+    for (const code of ['PGRST205', '42P01']) {
+      globalThis.fetch = async (url) => {
+        const table = tableOf(url);
+        if (table === 'q1_sessions' || table === 'q1_borrowers') return relationError(code, table);
+        return postgrest(200, leak, { 'content-range': '0-0/1' });
+      };
+      const loans = await call(quik1, { method: 'GET', path: ['loans'], headers });
+      assert.equal(loans.statusCode, 401, code);
+      assert.equal(JSON.stringify(loans.json()).includes('ECL-LEAK'), false);
+      assert.equal(JSON.stringify(loans.json()).includes(NAME_A), false);
+      const home = await call(quik1, { method: 'GET', path: ['me'], headers });
+      assert.equal(home.statusCode, 200, code);
+      assert.equal(home.json().identified, false);
+      assert.equal(JSON.stringify(home.json()).includes('ECL-LEAK'), false);
+      const posted = await call(quik1, {
+        method: 'POST', path: ['withdrawals'], headers, body: { amount: 100, purpose: PURPOSE }
+      });
+      assert.equal(posted.statusCode, 401, code);
+      assert.equal(posted.headers['set-cookie'], undefined);
+    }
+
+    globalThis.fetch = async (url) => {
+      const table = tableOf(url);
+      if (table === 'q1_sessions') return postgrest(500, { code: 'XX000', message: 'secret internals' });
+      return postgrest(200, leak, { 'content-range': '0-0/1' });
+    };
+    const down = await call(quik1, { method: 'GET', path: ['loans'], headers });
+    assert.equal(down.statusCode, 502);
+    assert.deepEqual(down.json(), { error: 'Database error XX000' });
+    const homeDown = await call(quik1, { method: 'GET', path: ['me'], headers });
+    assert.equal(homeDown.statusCode, 502);
+    assert.equal(JSON.stringify(homeDown.json()).includes('ECL-LEAK'), false);
+  });
+
+  test('signed-in messages are empty when q1_messages is absent, and a reply is not stored', async () => {
+    const cookieA = await signIn(CLIENT_A, PIN_A);
+    delete fake.db.q1_messages;
+    const absent = await call(quik1, { method: 'GET', path: ['messages'], headers: { cookie: cookieA } });
+    assert.equal(absent.statusCode, 200);
+    assert.deepEqual(absent.json().messages, []);
+    fake.reset();
+
+    const cookie = await signIn(CLIENT_A, PIN_A);
+    const installed = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      const table = tableOf(url);
+      if (table === 'q1_messages') return relationError('PGRST205', table);
+      return installed(url, init);
+    };
+    const msgs = await call(quik1, { method: 'GET', path: ['messages'], headers: { cookie } });
+    assert.equal(msgs.statusCode, 200);
+    assert.deepEqual(msgs.json().messages, []);
+    const loans = await call(quik1, { method: 'GET', path: ['loans'], headers: { cookie } });
+    assert.equal(loans.statusCode, 200);
+    assert.equal(loans.json().loans.some(l => l.ref === REF_A), true);
+
+    const reply = await call(ledger, {
+      method: 'POST', path: ['quik1-messages'],
+      headers: { authorization: 'Bearer ' + STAFF },
+      body: { clientId: CLIENT_A, body: REPLY }
+    });
+    assert.equal(reply.statusCode, 502);
+    assert.equal(reply.json().error, 'Database error PGRST205');
+    assert.equal(JSON.stringify(reply.json()).includes(REPLY), false);
+  });
+
+  test('login and redeem do not open a session when auth tables are missing', async () => {
+    for (const code of ['PGRST205', '42P01']) {
+      globalThis.fetch = async (url) => relationError(code, tableOf(url));
+      const login = await call(quik1, {
+        method: 'POST', path: ['login'],
+        body: { accountRef: 'qb_' + 'ab'.repeat(16), pin: PIN_A }
+      });
+      assert.equal(login.statusCode, 401, code);
+      assert.equal(login.json().error, 'PIN not accepted');
+      assert.equal(login.headers['set-cookie'], undefined);
+
+      const redeemed = await call(quik1, {
+        method: 'POST', path: ['invites', 'redeem'],
+        body: { code: 'a'.repeat(64), pin: PIN_A, pinConfirm: PIN_A }
+      });
+      assert.equal(redeemed.statusCode, 503, code);
+      assert.equal(redeemed.json().error, 'Quik1 access not set up yet');
+      assert.equal(redeemed.headers['set-cookie'], undefined);
+
+      const stale = mintBorrowerToken({ sid: 'qs_out', bid: 'qb_out', cid: CLIENT_A });
+      const out = await call(quik1, {
+        method: 'POST', path: ['logout'],
+        headers: { cookie: 'q1_session=' + encodeURIComponent(stale.token) }
+      });
+      assert.equal(out.statusCode, 200, code);
+      assert.match(String(out.headers['set-cookie']), /q1_session=/);
+      assert.match(String(out.headers['set-cookie']), /Max-Age=0/);
+
+      const revoked = await call(ledger, {
+        method: 'POST', path: ['quik1-invites', 'qi_missing', 'revoke'],
+        headers: { authorization: 'Bearer ' + STAFF }
+      });
+      assert.equal(revoked.statusCode, 503, code);
+      assert.equal(revoked.json().error, 'Quik1 access not set up yet');
+      assert.equal(revoked.json().ok, undefined);
+    }
+  });
 });
