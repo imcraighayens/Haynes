@@ -7,7 +7,7 @@ import {
   PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders,
   parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance, amountsAgree,
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
-  reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts
+  reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts, renderReport
 } from '../ledger/nupay-report.js';
 
 const fixture = fs.readFileSync(new URL('./fixtures/nupay/fake_Active_mandate_report.csv', import.meta.url), 'utf8');
@@ -348,6 +348,143 @@ test('tile counts equal the badge counts, and a non-success is never Matched', (
   assert.match(exported, /Loan found/);
 });
 
+function miniDocument() {
+  function Node(tag) {
+    this.tag = tag || '';
+    this.children = [];
+    this.attrs = {};
+    this._class = '';
+    this._id = '';
+    this._text = '';
+  }
+  Node.prototype.appendChild = function (child) { this.children.push(child); return child; };
+  Node.prototype.append = function (...nodes) { nodes.forEach(node => this.appendChild(node)); };
+  Object.defineProperty(Node.prototype, 'className', {
+    get() { return this._class; },
+    set(value) { this._class = String(value); this.attrs.class = this._class; }
+  });
+  Object.defineProperty(Node.prototype, 'id', {
+    get() { return this._id; },
+    set(value) { this._id = String(value); this.attrs.id = this._id; }
+  });
+  Object.defineProperty(Node.prototype, 'textContent', {
+    get() { return this._text + this.children.map(child => child.textContent || '').join(''); },
+    set(value) { this._text = value == null ? '' : String(value); this.children = []; }
+  });
+  Node.prototype.setAttribute = function (name, value) {
+    this.attrs[name] = String(value);
+    if (name === 'id') this._id = String(value);
+    if (name === 'title') this.attrs.title = String(value);
+  };
+  Node.prototype.getAttribute = function (name) { return Object.prototype.hasOwnProperty.call(this.attrs, name) ? this.attrs[name] : null; };
+  const document = {
+    createElement(tag) { return new Node(tag); },
+    createTextNode(text) { const node = new Node(''); node.textContent = text; return node; }
+  };
+  return { document, root: new Node('div') };
+}
+
+function renderedBlob(node, bag) {
+  bag.push(node._text || '');
+  for (const [name, value] of Object.entries(node.attrs || {})) bag.push(name + '=' + value);
+  for (const child of node.children || []) renderedBlob(child, bag);
+  return bag;
+}
+
+test('a numeric mandate stays raw for matching and is masked everywhere it is shown', () => {
+  const mandate = '4829103372614';
+  const otherMandate = '7731002948156';
+  const idNumber = '9001015800081';
+  const account = '620184739201';
+  const phone = '0825550143';
+  const email = 'nobody.numeric@example.com';
+  const csv = [
+    'Contract Reference,Mandate ID,Client Reference,Transaction Date,Debit Amount,Status,Id,Acc. Number,Phone Number,Email',
+    ',' + [mandate, '', '2026-02-25', '1380.16', 'Success', idNumber, account, phone, email].join(','),
+    ['FAKE-CR-0099', otherMandate, 'FAKE-CL-99', '2026-03-25', '1380.16', 'Success', idNumber, account, phone, email].join(',')
+  ].join('\n');
+  const numericBook = {
+    loans: [{ id: 'l-num', ref: 'FAKE-LN-99', contract_ref: 'FAKE-CR-0099', mandate_id: mandate, client_id: 'c-num', instalment_amount: 1350, schedule: ['2026-01-25', '2026-02-25', '2026-03-25', '2026-04-25'], instalments_paid: 1, paid_dates: ['2026-01-25'], status: 'issued' }],
+    clients: [{ id: 'c-num', ref: 'FAKE-CL-99', name: 'Numeric Sample' }],
+    mandates: []
+  };
+  const report = analyseText(csv, numericBook);
+  assert.equal(report.rows[0].how, 'mandate');
+  assert.equal(report.rows[0].mandateId, mandate);
+  assert.equal(report.rows[0].outcome, 'matched');
+  assert.equal(report.rows[0].loanId, 'l-num');
+  assert.equal(report.rows[1].how, 'contract');
+  assert.equal(report.rows[1].mandateId, otherMandate);
+  const exported = reportToCsv(report);
+  assert.equal(exported.includes(mandate), false);
+  assert.equal(exported.includes(otherMandate), false);
+  assert.equal(exported.includes(idNumber), false);
+  assert.equal(exported.includes(account), false);
+  assert.equal(exported.includes(phone), false);
+  assert.equal(exported.includes(email), false);
+  assert.equal(exported.includes(maskId(mandate)), true);
+  assert.equal(exported.includes(maskId(otherMandate)), true);
+  const header = exported.trim().split('\n')[0].split(',');
+  const allowed = new Set(['action_date', 'debit_amount', 'original_amount', 'pif_value', 'instalment_amount', 'instalment_number', 'book_instalments_paid', 'preview_instalments_paid', 'book_paid_dates', 'preview_paid_dates', 'book_outstanding']);
+  const kept = [];
+  for (const line of exported.trim().split('\n').slice(1)) {
+    const cells = line.split(',');
+    header.forEach((name, index) => {
+      const value = cells[index] || '';
+      if (allowed.has(name)) kept.push(value);
+      else assert.equal(/\d{5,}/.test(value), false, name + ' ' + value);
+    });
+  }
+  let rest = exported;
+  for (const value of kept) rest = rest.split(value).join('');
+  assert.equal(/\d{5,}/.test(rest), false, rest);
+  const view = miniDocument();
+  renderReport(view.root, report, view.document);
+  const blob = renderedBlob(view.root, []).join('\n');
+  assert.equal(blob.includes(mandate), false);
+  assert.equal(blob.includes(otherMandate), false);
+  assert.equal(blob.includes(idNumber), false);
+  assert.equal(blob.includes(account), false);
+  assert.match(blob, /Mandate /);
+  assert.match(blob, /2614/);
+  assert.equal(blob.includes('title=' + mandate), false);
+});
+
+test('the live mock book shows every NuPay row state, with the mandate masked', () => {
+  const state = JSON.parse(fs.readFileSync(new URL('./fixtures/state.json', import.meta.url), 'utf8'));
+  const csv = fs.readFileSync(new URL('./fixtures/nupay/fake_live_book_report.csv', import.meta.url), 'utf8');
+  const book = { loans: state.loans, clients: state.clients, mandates: state.mandates || [] };
+  const report = analyseText(csv, book);
+  assert.ok(report.summary.matched >= 1, 'matched');
+  assert.ok(report.summary.loanFound >= 1, 'loan found');
+  assert.ok(report.summary.mismatched >= 1, 'mismatched');
+  assert.ok(report.summary.unknown >= 1, 'unknown');
+  assert.ok(report.summary.byStatus.some(bucket => bucket.status === 'Pending' && bucket.count >= 1), 'pending');
+  const labels = report.rows.map(row => matchBadge(row).label);
+  assert.ok(labels.includes('Matched'));
+  assert.ok(labels.includes('Loan found'));
+  assert.ok(labels.includes('Mismatched'));
+  assert.ok(labels.includes('Unknown'));
+  assert.equal(report.rows.find(row => row.statusKind === 'pending').outcome === 'matched' && matchBadge(report.rows.find(row => row.statusKind === 'pending')).label === 'Loan found', true);
+  const mandate = '90000001';
+  assert.equal(report.rows.some(row => row.mandateId === mandate), true);
+  const exported = reportToCsv(report);
+  for (const secret of ['90000001', '90000002', '90000003', '90000004', '90000999', '9001015800081', '620184739201', '0825550143', 'nobody.live@example.com']) {
+    assert.equal(exported.includes(secret), false, secret);
+  }
+  assert.equal(exported.includes(maskId(mandate)), true);
+  const view = miniDocument();
+  renderReport(view.root, report, view.document);
+  const blob = renderedBlob(view.root, []).join('\n');
+  assert.equal(blob.includes(mandate), false);
+  assert.match(blob, /Pending/);
+  assert.match(blob, /Matched/);
+  assert.match(blob, /Loan found/);
+  assert.match(blob, /Mismatched/);
+  assert.match(blob, /Unknown/);
+  assert.match(blob, /Mandate /);
+});
+
 test('manual mapping is used when the headers are not recognised', () => {
   const csv = 'Foo,Bar,Baz,Qux\nFAKE-CR-0001,2026-02-25,1380.16,Success\n';
   const unread = analyseText(csv, book);
@@ -364,6 +501,10 @@ test('the match CSV leaves out id, phone, email, account, and branch', () => {
   const csv = reportToCsv(report);
   assert.match(csv, /FAKE-CR-0001/);
   assert.match(csv, /Book Client One/);
+  assert.equal(csv.includes('FAKE-M-0001'), false);
+  assert.equal(csv.includes('FAKE-M-0002'), false);
+  assert.equal(csv.includes('FAKE-M-0003'), false);
+  assert.match(csv, /••••0001/);
   assertNoSecrets(csv);
   assert.equal(csv.includes('Sample Client'), false);
   assert.equal(maskId('0000000000001').endsWith('0001'), true);

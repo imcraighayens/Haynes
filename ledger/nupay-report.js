@@ -88,6 +88,7 @@ export function classifyStatus(value) {
   if (s.includes('tracking')) return 'tracking';
   if (s.includes('cancel')) return 'cancelled';
   if (s === 'future' || s.startsWith('future ')) return 'future';
+  if (s === 'pending' || s.startsWith('pending ')) return 'pending';
   if (s.includes('unsuccess') || s.includes('fail') || s.includes('unpaid') || s.includes('reject')) return 'failed';
   if (s === 'success' || s.startsWith('success') || s === 'paid' || s.includes('honour') || s.includes('honor')) return 'success';
   return 'other';
@@ -96,7 +97,7 @@ export function classifyStatus(value) {
 export function statusLabel(kind) {
   return {
     success: 'Success', failed: 'Failed', tracking: 'In tracking', reversed: 'Reversed',
-    disputed: 'Disputed', cancelled: 'Cancelled', future: 'Future', other: 'Other'
+    disputed: 'Disputed', cancelled: 'Cancelled', future: 'Future', pending: 'Pending', other: 'Other'
   }[kind] || (kind ? 'Other' : 'Blank');
 }
 
@@ -861,7 +862,7 @@ export function reportToCsv(report) {
       group && group.deleted ? 'yes' : '',
       group && group.settled ? 'yes' : '',
       row.contractReference,
-      row.mandateId,
+      maskId(row.mandateId),
       row.clientReference,
       row.actionDate,
       row.debitAmount == null ? '' : row.debitAmount,
@@ -956,11 +957,127 @@ export function matchBadge(row) {
   return { label: 'Loan found', tone: 'neutral' };
 }
 
+let activeDoc = null;
+function doc() {
+  if (activeDoc) return activeDoc;
+  if (typeof document !== 'undefined') return document;
+  throw new Error('No document');
+}
+
 function el(tag, className, text) {
-  const node = document.createElement(tag);
+  const node = doc().createElement(tag);
   if (className) node.className = className;
   if (text != null) node.textContent = text;
   return node;
+}
+
+function pill(text, cls) {
+  return el('span', 'np-pill ' + cls, text);
+}
+
+function payRow(row) {
+  const line = el('div', 'np-pay');
+  const date = el('div', '');
+  date.append(el('span', 'np-k', 'Date'), doc().createTextNode(labelDate(row.actionDate)));
+  const amount = el('div', '');
+  const shown = row.nupayAmount != null ? row.nupayAmount : row.debitAmount;
+  amount.append(el('span', 'np-k', 'Amount'), doc().createTextNode(money(shown)));
+  const outcome = el('div', '');
+  outcome.append(el('span', 'np-k', 'Outcome'), pill(row.statusLabel || '—', outcomeClass(row.statusKind)));
+  const match = el('div', '');
+  const badge = matchBadge(row);
+  match.append(el('span', 'np-k', 'Match'), pill(badge.label, 'is-' + badge.tone));
+  line.append(date, amount, outcome, match);
+  const wrap = el('div', '');
+  wrap.appendChild(line);
+  if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
+    wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
+  }
+  return wrap;
+}
+
+function loanBlock(group) {
+  const block = el('section', 'np-loan');
+  block.appendChild(el('h3', '', (group.ref || 'Loan') + ' · ' + (group.clientName || 'Client')));
+  const label = bookStatusLabel(group.status);
+  if (label) block.appendChild(el('p', 'np-meta', label));
+  const book = el('div', 'np-book');
+  book.appendChild(el('div', '', 'Instalments paid: ' + group.instalmentsPaid));
+  book.appendChild(el('div', '', 'Paid dates: ' + fmtDates(group.paidDates)));
+  book.appendChild(el('div', '', 'Schedule: ' + fmtDates(group.schedule)));
+  book.appendChild(el('div', '', 'Outstanding: ' + money(group.outstanding) + (group.instalmentAmount != null ? ' · instalment ' + money(group.instalmentAmount) : '')));
+  if (group.mandateId) block.appendChild(el('p', 'np-meta', 'Mandate ' + maskId(group.mandateId)));
+  block.appendChild(book);
+  (group.rows || []).forEach(row => block.appendChild(payRow(row)));
+  if (group.preview) {
+    const preview = el('div', 'np-preview');
+    if (group.preview.unchanged) preview.appendChild(el('div', '', 'No change'));
+    else {
+      preview.appendChild(el('div', '', 'Instalments paid ' + group.instalmentsPaid + ' → ' + group.preview.instalments_paid));
+      preview.appendChild(el('div', '', 'Paid dates ' + fmtDates(group.paidDates) + ' → ' + fmtDates(group.preview.paid_dates)));
+    }
+    block.appendChild(preview);
+  }
+  return block;
+}
+
+function unknownBlock(group) {
+  const block = el('section', 'np-loan');
+  block.id = 'nupay-unknown';
+  block.appendChild(el('h3', '', 'Unknown'));
+  block.appendChild(el('p', 'np-meta', 'No loan on the loaded book.'));
+  (group.rows || []).forEach(row => {
+    if (row.fileName) block.appendChild(el('p', 'np-meta', row.fileName));
+    if (row.mandateId) block.appendChild(el('p', 'np-meta', 'Mandate ' + maskId(row.mandateId)));
+    block.appendChild(payRow(row));
+  });
+  return block;
+}
+
+function drawTiles(root, report) {
+  const tiles = el('div', 'np-tiles');
+  tiles.id = 'nupay-report-summary';
+  [['Matched', report.summary.matched, 'Success, and the loan, amount, and date agree'], ['Loan found', report.summary.loanFound, 'Loan found, no matched payment yet'], ['Mismatched', report.summary.mismatched, "Loan found, amount or date doesn't agree"], ['Unknown', report.summary.unknown, 'No loan on the loaded book']].forEach(([label, count, sub]) => {
+    const tile = el('div', 'np-tile');
+    tile.append(el('span', 'act-k', label), el('span', 'act-n', String(count)), el('span', 'act-s', sub));
+    tiles.appendChild(tile);
+  });
+  root.appendChild(tiles);
+  if (report.summary.byStatus.length) {
+    const table = doc().createElement('table');
+    table.className = 'np-status';
+    const head = doc().createElement('tr');
+    ['Status', 'Rows', 'Amount'].forEach(label => head.appendChild(el('th', '', label)));
+    table.appendChild(head);
+    report.summary.byStatus.forEach(bucket => {
+      const tr = doc().createElement('tr');
+      tr.append(el('td', '', bucket.status), el('td', '', String(bucket.count)), el('td', '', money(bucket.amount)));
+      table.appendChild(tr);
+    });
+    root.appendChild(table);
+  }
+}
+
+function drawGroups(root, groups) {
+  const wrap = el('div', '');
+  wrap.id = 'nupay-report-loans';
+  groups.forEach(group => wrap.appendChild(group.unknown ? unknownBlock(group) : loanBlock(group)));
+  root.appendChild(wrap);
+}
+
+export function renderReport(root, report, viewDoc) {
+  if (!root || !report) return root;
+  const prev = activeDoc;
+  activeDoc = viewDoc || null;
+  try {
+    if (report.rows && report.rows.length) {
+      drawTiles(root, report);
+      drawGroups(root, report.groups || []);
+    }
+  } finally {
+    activeDoc = prev;
+  }
+  return root;
 }
 
 function acceptedFile(name) {
@@ -1016,7 +1133,7 @@ body.nupay-open dc-import{display:none !important}
 .np-map label{display:flex;flex-direction:column;gap:4px;font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
 .np-map select{background:var(--panel2,#111110);color:var(--ink,#f5f4ee);border:1px solid var(--line2,#3a3933);border-radius:8px;padding:8px;font:500 14px 'Plus Jakarta Sans',sans-serif}
 @media (max-width:640px){
-  .np-tiles{grid-template-columns:1fr 1fr}
+  .np-tiles{grid-template-columns:1fr}
   .np-pay{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 0}
   .np-k{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;display:block;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
   .np-bar{flex-wrap:wrap}
@@ -1091,29 +1208,40 @@ function mount(host) {
   }
   closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', onKey);
-  function bindTabEntry() {
-    const drop = document.getElementById('nupay-tab-drop');
-    if (!drop || drop.dataset.bound) return;
-    drop.dataset.bound = '1';
-    const choose = document.getElementById('nupay-tab-choose');
-    const input = document.getElementById('nupay-tab-file');
-    if (choose && input) choose.addEventListener('click', () => input.click());
-    if (input) input.addEventListener('change', () => {
-      const file = input.files && input.files[0];
-      if (file) { open(choose); readFile(file); }
-      input.value = '';
-    });
-    drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.classList.add('is-hot'); });
-    drop.addEventListener('dragleave', () => drop.classList.remove('is-hot'));
-    drop.addEventListener('drop', ev => {
-      ev.preventDefault();
-      drop.classList.remove('is-hot');
-      const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if (file) { open(choose); readFile(file); }
-    });
-  }
-  bindTabEntry();
-  new MutationObserver(bindTabEntry).observe(document.body, { childList: true, subtree: true });
+  // The Reports template is re-rendered by the page. A listener stuck on one
+  // node, or a data-bound flag copied onto the replacement, misses the next file.
+  document.addEventListener('click', ev => {
+    const choose = ev.target && ev.target.closest && ev.target.closest('#nupay-tab-choose');
+    if (!choose) return;
+    const drop = choose.closest('#nupay-tab-drop');
+    const input = drop && drop.querySelector('input[type=file]');
+    if (input) input.click();
+  });
+  document.addEventListener('change', ev => {
+    const input = ev.target;
+    if (!input || input.id !== 'nupay-tab-file') return;
+    const file = input.files && input.files[0];
+    if (file) { open(input); readFile(file); }
+    input.value = '';
+  });
+  document.addEventListener('dragover', ev => {
+    const drop = ev.target && ev.target.closest && ev.target.closest('#nupay-tab-drop');
+    if (!drop) return;
+    ev.preventDefault();
+    drop.classList.add('is-hot');
+  });
+  document.addEventListener('dragleave', ev => {
+    const drop = ev.target && ev.target.closest && ev.target.closest('#nupay-tab-drop');
+    if (drop) drop.classList.remove('is-hot');
+  });
+  document.addEventListener('drop', ev => {
+    const drop = ev.target && ev.target.closest && ev.target.closest('#nupay-tab-drop');
+    if (!drop) return;
+    ev.preventDefault();
+    drop.classList.remove('is-hot');
+    const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (file) { open(drop); readFile(file); }
+  });
 
   function setExport(on) { exp.disabled = !on; }
   exp.addEventListener('click', () => { if (lastReport && lastReport.rows && lastReport.rows.length) downloadCsv(lastReport); });
@@ -1186,10 +1314,8 @@ function mount(host) {
     showState(kind || (message ? 'error' : ''), message || '');
     setExport(!!(report && report.rows && report.rows.length));
     if (report && report.needsMapping) drawMap(parts.results, report);
-    if (report && report.rows && report.rows.length) {
-      drawTiles(parts.results, report);
-      drawGroups(parts.results, report.groups || []);
-    } else if (report && report.empty && !message) {
+    if (report && report.rows && report.rows.length) renderReport(parts.results, report);
+    else if (report && report.empty && !message) {
       showState('empty', 'This file has no rows.');
     }
   }
@@ -1246,99 +1372,6 @@ function mount(host) {
     });
     box.appendChild(go);
     root.appendChild(box);
-  }
-
-  function drawTiles(root, report) {
-    const tiles = el('div', 'np-tiles');
-    tiles.id = 'nupay-report-summary';
-    [['Matched', report.summary.matched, 'Success, and the loan, amount, and date agree'], ['Loan found', report.summary.loanFound, 'Loan found, no matched payment yet'], ['Mismatched', report.summary.mismatched, "Loan found, amount or date doesn't agree"], ['Unknown', report.summary.unknown, 'No loan on the loaded book']].forEach(([label, count, sub]) => {
-      const tile = el('div', 'np-tile');
-      tile.append(el('span', 'act-k', label), el('span', 'act-n', String(count)), el('span', 'act-s', sub));
-      tiles.appendChild(tile);
-    });
-    root.appendChild(tiles);
-    if (report.summary.byStatus.length) {
-      const table = document.createElement('table');
-      table.className = 'np-status';
-      const head = document.createElement('tr');
-      ['Status', 'Rows', 'Amount'].forEach(label => head.appendChild(el('th', '', label)));
-      table.appendChild(head);
-      report.summary.byStatus.forEach(bucket => {
-        const tr = document.createElement('tr');
-        tr.append(el('td', '', bucket.status), el('td', '', String(bucket.count)), el('td', '', money(bucket.amount)));
-        table.appendChild(tr);
-      });
-      root.appendChild(table);
-    }
-  }
-
-  function pill(text, cls) {
-    const node = el('span', 'np-pill ' + cls, text);
-    return node;
-  }
-
-  function payRow(row) {
-    const line = el('div', 'np-pay');
-    const date = el('div', '');
-    date.append(el('span', 'np-k', 'Date'), document.createTextNode(labelDate(row.actionDate)));
-    const amount = el('div', '');
-    const shown = row.nupayAmount != null ? row.nupayAmount : row.debitAmount;
-    amount.append(el('span', 'np-k', 'Amount'), document.createTextNode(money(shown)));
-    const outcome = el('div', '');
-    outcome.append(el('span', 'np-k', 'Outcome'), pill(row.statusLabel || '—', outcomeClass(row.statusKind)));
-    const match = el('div', '');
-    const badge = matchBadge(row);
-    match.append(el('span', 'np-k', 'Match'), pill(badge.label, 'is-' + badge.tone));
-    line.append(date, amount, outcome, match);
-    const wrap = el('div', '');
-    wrap.appendChild(line);
-    if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
-      wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
-    }
-    return wrap;
-  }
-
-  function loanBlock(group) {
-    const block = el('section', 'np-loan');
-    block.appendChild(el('h3', '', (group.ref || 'Loan') + ' · ' + (group.clientName || 'Client')));
-    const label = bookStatusLabel(group.status);
-    if (label) block.appendChild(el('p', 'np-meta', label));
-    const book = el('div', 'np-book');
-    book.appendChild(el('div', '', 'Instalments paid: ' + group.instalmentsPaid));
-    book.appendChild(el('div', '', 'Paid dates: ' + fmtDates(group.paidDates)));
-    book.appendChild(el('div', '', 'Schedule: ' + fmtDates(group.schedule)));
-    book.appendChild(el('div', '', 'Outstanding: ' + money(group.outstanding) + (group.instalmentAmount != null ? ' · instalment ' + money(group.instalmentAmount) : '')));
-    block.appendChild(book);
-    (group.rows || []).forEach(row => block.appendChild(payRow(row)));
-    if (group.preview) {
-      const preview = el('div', 'np-preview');
-      if (group.preview.unchanged) preview.appendChild(el('div', '', 'No change'));
-      else {
-        preview.appendChild(el('div', '', 'Instalments paid ' + group.instalmentsPaid + ' → ' + group.preview.instalments_paid));
-        preview.appendChild(el('div', '', 'Paid dates ' + fmtDates(group.paidDates) + ' → ' + fmtDates(group.preview.paid_dates)));
-      }
-      block.appendChild(preview);
-    }
-    return block;
-  }
-
-  function unknownBlock(group) {
-    const block = el('section', 'np-loan');
-    block.id = 'nupay-unknown';
-    block.appendChild(el('h3', '', 'Unknown'));
-    block.appendChild(el('p', 'np-meta', 'No loan on the loaded book.'));
-    (group.rows || []).forEach(row => {
-      if (row.fileName) block.appendChild(el('p', 'np-meta', row.fileName));
-      block.appendChild(payRow(row));
-    });
-    return block;
-  }
-
-  function drawGroups(root, groups) {
-    const wrap = el('div', '');
-    wrap.id = 'nupay-report-loans';
-    groups.forEach(group => wrap.appendChild(group.unknown ? unknownBlock(group) : loanBlock(group)));
-    root.appendChild(wrap);
   }
 
   function downloadCsv(report) {
