@@ -52,6 +52,7 @@
   :root {
     --q-safe-top: 0px;
     --q-safe-bottom: 0px;
+    --q-keyboard: 0px;
   }
   @supports (padding-top: env(safe-area-inset-top)) {
     :root {
@@ -2316,7 +2317,7 @@ input,button,textarea{font-family:inherit}
       <!-- ── Tab bar ───────────────────────────────────────────── -->
       <sc-if value="{{ aiOpen }}">
         <div sc-camel-on-click="{{ onCloseAi }}" style="position:absolute;inset:0;z-index:26;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:{{ aiScrimAnim }}">
-          <div sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:14px;top:108px;border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
+          <div data-q-ai-sheet="1" sc-camel-on-click="{{ stopClick }}" style="position:absolute;left:14px;right:14px;bottom:calc(14px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)) + var(--q-keyboard, 0px));top:108px;border-radius:30px;border:1px solid rgba(var(--q-fg),.10);background:var(--q-chat);backdrop-filter:blur(26px) saturate(140%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(var(--q-fg),.14);color:var(--q-ink);display:flex;flex-direction:column;overflow:hidden;animation:{{ aiCardAnim }}">
             <div style="flex:0 0 auto;padding:20px 20px 14px;display:flex;align-items:center;gap:12px">
               <span style="flex:1;min-width:0">
                 <span style="display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--q-ink)">Q1</span>
@@ -2359,7 +2360,9 @@ input,button,textarea{font-family:inherit}
               <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(var(--q-fg),.12);border-radius:999px;background:rgba(var(--q-fg),.06);padding:6px 6px 6px 20px">
                 <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onAiKey }}" placeholder="{{ aiPlaceholder }}" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:var(--q-ink)">
                 <sc-if value="{{ micSupported }}"><button sc-camel-on-click="{{ onMic }}" aria-label="{{ micLabel }}" style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:{{ micBg }};display:grid;place-items:center;cursor:pointer;animation:{{ micAnim }};transition:background .2s cubic-bezier(.33,1,.68,1)"><svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:{{ micInk }};stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round"><path d="M12 3.6a2.8 2.8 0 0 0-2.8 2.8v5.2a2.8 2.8 0 0 0 5.6 0V6.4A2.8 2.8 0 0 0 12 3.6ZM6.4 11.2a5.6 5.6 0 0 0 11.2 0M12 16.8v3.6"></path></svg></button></sc-if>
-                <button sc-camel-on-click="{{ onAiSend }}" aria-label="Send" style="position:relative;flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:0;background:#0000FE;display:grid;place-items:center;cursor:pointer;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">{{ botFace }}</button>
+                <button data-q-ai-send="1" sc-camel-on-click="{{ onAiSend }}" aria-label="Send" aria-disabled="{{ aiSendOff }}" style="flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:0;background:#FDD10D;display:grid;place-items:center;cursor:{{ aiSendCursor }};opacity:{{ aiSendOpacity }};pointer-events:{{ aiSendPe }}">
+                  <svg sc-camel-view-box="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
+                </button>
               </div>
             </div>
           </div>
@@ -2667,10 +2670,13 @@ input,button,textarea{font-family:inherit}
         </div>
       </sc-if>
       <sc-if value="{{ showQ1 }}">
-        <div class="q-dock" style="position:absolute;right:18px;bottom:0;z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:env(safe-area-inset-bottom);animation:q-float 4.2s ease-in-out infinite">
+        <div class="q-dock" style="position:absolute;right:18px;bottom:var(--q-keyboard, 0px);z-index:44;width:{{ quickWidth }};max-width:calc(100% - 36px);padding-bottom:var(--q-safe-bottom, env(safe-area-inset-bottom, 0px));animation:q-float 4.2s ease-in-out infinite">
         <div style="height:60px;border:1px solid rgba(var(--q-fg),.12);border-radius:30px;background:var(--q-dock2);backdrop-filter:blur(26px) saturate(180%);-webkit-backdrop-filter:blur(26px) saturate(180%);display:flex;align-items:center;gap:8px;padding:0 6px 0 {{ quickPadLeft }};overflow:hidden;isolation:isolate;box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 -2px 6px rgba(0,0,0,.35) inset,0 2px 4px rgba(0,0,0,.25),0 10px 18px -4px rgba(0,0,0,.35),0 28px 48px -12px rgba(0,0,0,.55);transition:width .48s cubic-bezier(.22,1,.36,1),padding .48s cubic-bezier(.22,1,.36,1)">
           <sc-if value="{{ quickOpen }}">
             <input value="{{ aiDraft }}" sc-camel-on-change="{{ onAiDraft }}" sc-camel-on-key-down="{{ onQuickKey }}" placeholder="Ask Q1 anything" style="flex:1;min-width:0;border:0;outline:none;background:transparent;font-size:16px;color:#FFFFFF;opacity:{{ quickFieldOn }};transition:opacity .34s cubic-bezier(.33,1,.68,1) .12s">
+            <button data-q-quick-send="1" sc-camel-on-click="{{ onQuickSend }}" aria-label="Send" aria-disabled="{{ aiSendOff }}" style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;border:0;background:#FDD10D;display:grid;place-items:center;cursor:{{ aiSendCursor }};opacity:{{ aiSendOpacity }};pointer-events:{{ aiSendPe }}">
+              <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
+            </button>
           </sc-if>
           <button sc-camel-on-click="{{ onQuickToggle }}" sc-camel-on-mouse-enter="{{ onBotEnter }}" sc-camel-on-mouse-leave="{{ onBotLeave }}" sc-camel-on-focus="{{ onBotEnter }}" sc-camel-on-blur="{{ onBotLeave }}" aria-label="Ask Q1" style="position:relative;flex:0 0 auto;width:40px;height:40px;margin:0 4px;border-radius:50%;border:0;background:#0000FE;box-shadow:0 0 10px #0000FE,0 0 22px rgba(40,60,255,.85),0 0 44px rgba(40,60,255,.55),inset 0 1px 0 rgba(var(--q-fg),.35);display:grid;place-items:center;cursor:pointer;animation:{{ quickPulse }};transition:box-shadow .3s cubic-bezier(.33,1,.68,1)" style-hover="box-shadow:0 0 14px #0000FE,0 0 30px rgba(60,80,255,.95),0 0 60px rgba(60,80,255,.65),inset 0 1px 0 rgba(var(--q-fg),.35)">
             <span style="position:absolute;inset:0;border-radius:50%;background:#2A3BFF;animation:{{ quickHalo }};pointer-events:none"></span>
@@ -2859,6 +2865,16 @@ input,button,textarea{font-family:inherit}
       this._onResize=()=>this.setState({vw:window.innerWidth,vh:window.innerHeight});
       window.addEventListener('resize',this._onResize);
       this._onResize();
+      this._onKb=()=>{
+        const vv=window.visualViewport;
+        const kb=vv?Math.max(0, Math.round(window.innerHeight-vv.height-vv.offsetTop)):0;
+        document.documentElement.style.setProperty('--q-keyboard', kb+'px');
+      };
+      this._onKb();
+      if(window.visualViewport){
+        window.visualViewport.addEventListener('resize', this._onKb);
+        window.visualViewport.addEventListener('scroll', this._onKb);
+      }
       this.restore();
       this._menuIconT=setInterval(()=>this.setState(st=>({menuIcon:((st.menuIcon||0)+1)%6})),3000);
       if(window.Quik1Link) this._unRep=window.Quik1Link.subscribe(ls=>{ const r=(ls.repayments||{}).app; const ok=!!(r&&r.ok); if(ok!==!!this.state.repayOk) this.setState({repayOk:ok}); });
@@ -2977,7 +2993,7 @@ input,button,textarea{font-family:inherit}
           E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
           E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
     }
-    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); if(this._onKb&&window.visualViewport){ window.visualViewport.removeEventListener('resize', this._onKb); window.visualViewport.removeEventListener('scroll', this._onKb); } clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
   
     _cards=React.createRef();
     _aiScroll=React.createRef();
@@ -5695,8 +5711,17 @@ input,button,textarea{font-family:inherit}
           label,onClick:()=>{ this.setState({aiChipsUsed:true}); this.askQ1(label); }})),
         aiPromptsOn:!s.aiTyping&&!s.aiChipsUsed&&s.aiChat.length>1&&s.aiChat[s.aiChat.length-1].from!=='me',
         onAiDraft:e=>this.setState({aiDraft:e.target.value}),
-        onAiKey:e=>{ if(e.key==='Enter') this.askQ1(this.state.aiDraft); },
-        onAiSend:()=>{ this.askQ1(this.state.aiDraft); },
+        aiSendOff:!(String(s.aiDraft||'').trim()),
+        aiSendOpacity:String(s.aiDraft||'').trim()?1:.38,
+        aiSendPe:String(s.aiDraft||'').trim()?'auto':'none',
+        aiSendCursor:String(s.aiDraft||'').trim()?'pointer':'default',
+        onAiKey:e=>{
+          if(e.key!=='Enter') return;
+          if(e.preventDefault) e.preventDefault();
+          const q=String(this.state.aiDraft||'').trim();
+          if(q) this.askQ1(q);
+        },
+        onAiSend:()=>{ const q=String(this.state.aiDraft||'').trim(); if(q) this.askQ1(q); },
         aiVoiceOn:s.aiVoiceOn!==false, aiVoiceOff:s.aiVoiceOn===false,
         onToggleVoice:()=>{ const on=s.aiVoiceOn===false; if(!on){ try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} } this.setState({aiVoiceOn:on,aiSpeaking:false}); },
         micSupported:typeof window!=='undefined'&&!!(window.SpeechRecognition||window.webkitSpeechRecognition),
@@ -5741,6 +5766,12 @@ input,button,textarea{font-family:inherit}
           this.quickAsk(q);
         },
         onQuickKey:e=>{ if(e.key!=='Enter') return;
+          if(e.preventDefault) e.preventDefault();
+          const q=(this.state.aiDraft||'').trim();
+          if(!q) return;
+          this.quickAsk(q);
+        },
+        onQuickSend:()=>{
           const q=(this.state.aiDraft||'').trim();
           if(!q) return;
           this.quickAsk(q);
