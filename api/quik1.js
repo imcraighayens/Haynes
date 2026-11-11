@@ -306,6 +306,16 @@ async function postSignInId(req, res) {
   } finally {
     await padSignIn(started);
   }
+  if (out && out.pinChangeRequired) {
+    setCookies(res, out.cookies);
+    json(res, 200, { pinChangeRequired: true }, req);
+    return;
+  }
+  if (out && out.accountRef) {
+    setCookies(res, out.cookies);
+    json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+    return;
+  }
   setCookies(res, out.cookies);
   json(res, 200, out.body, req);
 }

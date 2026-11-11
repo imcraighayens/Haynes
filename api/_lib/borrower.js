@@ -943,8 +943,9 @@ function tempLive(row, now) {
   return true;
 }
 
-// Identifier-agnostic. Draft PR #37 (ID + phone sign-in) should resolve the borrower,
-// then call this. Do not copy the conditional consume or the device-window clear.
+// Identifier-agnostic. Callers check the lock first. This does not.
+// loginBorrower and the ID + phone PIN path both call signInWithPin, which
+// uses this consume. Do not copy it.
 // kind 'change' is the only success, and it is not a session.
 // kind 'fail' is a temp PIN that matched but could not be consumed (already used).
 // kind 'none' means the caller should keep going with realOk, including an expired temp PIN.
@@ -1023,6 +1024,19 @@ async function assertTempPinRate(req, res, clientId) {
   return actor;
 }
 
+// The patch is built from the row we read. A revoke can land before this write,
+// so the update matches only while pin_hash is not the invite lock and locked_at
+// is still the value we read. Zero rows is the same 409, with no audit row.
+async function writeTempPin(row, patch) {
+  const filters = {
+    id: eq(row.id),
+    pin_hash: 'neq.' + LOCKED_PLACEHOLDER
+  };
+  filters.locked_at = row.locked_at ? eq(row.locked_at) : 'is.null';
+  const updated = await patchWhere('q1_borrowers', filters, patch);
+  if (!updated.length) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
+}
+
 export async function setTemporaryPin(req, res, body) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   const pin = chosenPair(body || {});
@@ -1066,10 +1080,10 @@ export async function setTemporaryPin(req, res, body) {
         const next = tempPinPatch(borrower, pinHash, expires, nowIso);
         patch = next.patch;
         unlocked = next.unlocked;
-        await update('q1_borrowers', { id: borrower.id }, patch);
+        await writeTempPin(borrower, patch);
       }
     } else {
-      await update('q1_borrowers', { id: borrower.id }, patch);
+      await writeTempPin(borrower, patch);
     }
     await revokeDevices(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);
@@ -1193,6 +1207,58 @@ export async function pinChangePending(req) {
   }
 }
 
+// Lock (423), then acceptTemporaryPin, then device_not_linked.
+// acceptTemporaryPin does not check the lock. A null borrower is the unknown-account 401.
+export async function signInWithPin(req, borrower, pin) {
+  if (!borrower) {
+    await comparePins(pin, null, null);
+    await noteAttempt(null, 'pin', req);
+    rejectPin();
+  }
+  await clearExpiredLock(borrower);
+  if (isLocked(borrower)) lockedError();
+  const gate = await acceptTemporaryPin(req, borrower, pin);
+  if (gate.kind === 'change') return gate.result;
+  if (gate.kind === 'fail' || !gate.realOk) await noteFailure(borrower, 'pin', req);
+  try { await liveClient(borrower.client_id); }
+  catch (e) {
+    if (e instanceof HttpError && e.status === 404) rejectPin();
+    throw e;
+  }
+  const rotated = await deviceRecognised(req, borrower.id);
+  if (rotated) {
+    const nowIso = new Date().toISOString();
+    await clearTempPinState(borrower.id, nowIso);
+    const { minted, accountRef: ref } = await openSession(borrower);
+    return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
+  }
+  const address = await clientEmail(borrower.client_id);
+  if (!canEmailNewDevice(req, address)) {
+    const nowIso = new Date().toISOString();
+    const claim = { device_reset_until: null, ...TEMP_PIN_CLEAR, updated_at: nowIso };
+    let claimed;
+    try {
+      claimed = await patchWhere('q1_borrowers', {
+        id: eq(borrower.id),
+        device_reset_until: 'gt.' + nowIso
+      }, claim);
+    } catch (err) {
+      if (!columnMissing(err)) throw err;
+      claimed = await patchWhere('q1_borrowers', {
+        id: eq(borrower.id),
+        device_reset_until: 'gt.' + nowIso
+      }, { device_reset_until: null, updated_at: nowIso });
+    }
+    if (claimed.length) {
+      const trusted = await trustDevice(borrower.id);
+      const { minted, accountRef: ref } = await openSession(borrower);
+      return { accountRef: ref, cookies: authCookies(minted, ref, req, trusted.token) };
+    }
+    if (!borrowerEmailLive(req)) deviceNotLinked();
+  }
+  return offerVerification(req, borrower);
+}
+
 export async function loginBorrower(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   requireSessionSecret();
@@ -1219,58 +1285,10 @@ export async function loginBorrower(req, body, res) {
       select: 'id,client_id,pin_hash,failed_attempts,locked_at,device_reset_until',
       id: eq(accountRef)
     });
-    if (!borrower) {
-      // Two dummy scrypts, matching comparePins on a known account.
-      await comparePins(pin, null, null);
-      await noteAttempt(null, 'pin', req);
-      // Unknown accounts stay a generic refusal, including when email is off.
-      // device_not_linked is only for a known account after verifyPin succeeds.
-      rejectPin();
-    }
-    await clearExpiredLock(borrower);
-    if (isLocked(borrower)) lockedError();
-    // Temporary PIN is decided before device_not_linked. A wrong PIN never reaches that 403.
-    const gate = await acceptTemporaryPin(req, borrower, pin);
-    if (gate.kind === 'change') return gate.result;
-    if (gate.kind === 'fail' || !gate.realOk) await noteFailure(borrower, 'pin', req);
-    try { await liveClient(borrower.client_id); }
-    catch (e) {
-      if (e instanceof HttpError && e.status === 404) rejectPin();
-      throw e;
-    }
-    const rotated = await deviceRecognised(req, borrower.id);
-    if (rotated) {
-      const nowIso = new Date().toISOString();
-      await clearTempPinState(borrower.id, nowIso);
-      const { minted, accountRef: ref } = await openSession(borrower);
-      return { accountRef: ref, cookies: authCookies(minted, ref, req, rotated) };
-    }
-    const address = await clientEmail(borrower.client_id);
-    if (!canEmailNewDevice(req, address)) {
-      const nowIso = new Date().toISOString();
-      const claim = { device_reset_until: null, ...TEMP_PIN_CLEAR, updated_at: nowIso };
-      let claimed;
-      try {
-        claimed = await patchWhere('q1_borrowers', {
-          id: eq(borrower.id),
-          device_reset_until: 'gt.' + nowIso
-        }, claim);
-      } catch (err) {
-        if (!columnMissing(err)) throw err;
-        claimed = await patchWhere('q1_borrowers', {
-          id: eq(borrower.id),
-          device_reset_until: 'gt.' + nowIso
-        }, { device_reset_until: null, updated_at: nowIso });
-      }
-      if (claimed.length) {
-        const trusted = await trustDevice(borrower.id);
-        const { minted, accountRef: ref } = await openSession(borrower);
-        return { accountRef: ref, cookies: authCookies(minted, ref, req, trusted.token) };
-      }
-      // Email off: do not mint a verify ticket or start a challenge.
-      if (!borrowerEmailLive(req)) deviceNotLinked();
-    }
-    return offerVerification(req, borrower);
+    // Unknown accounts stay a generic refusal, including when email is off.
+    // device_not_linked is only for a known account after the PIN matches.
+    // Order inside signInWithPin: lock (423), acceptTemporaryPin, device_not_linked.
+    return await signInWithPin(req, borrower, pin);
   } catch (err) {
     if (missingTable(err)) {
       await comparePins(pin, null, null);
