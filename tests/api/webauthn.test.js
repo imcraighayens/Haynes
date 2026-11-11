@@ -30,6 +30,7 @@ function seed(withWebauthn) {
     q1_devices: [],
     q1_otp_challenges: [],
     q1_auth_attempts: [],
+    q1_temp_pin_sets: [],
     audit_log: []
   };
   if (withWebauthn) {
@@ -331,5 +332,124 @@ describe('borrower webauthn', { concurrency: false }, () => {
     const me = await call(quik1, { method: 'GET', path: ['me'] });
     assert.equal(me.statusCode, 401);
     assert.notEqual(me.json().identified, true);
+  });
+
+  async function enrolPlatform(cookie) {
+    const options = await call(quik1, {
+      method: 'POST', path: ['webauthn'], headers: { cookie },
+      body: { op: 'register-options' }
+    });
+    assert.equal(options.statusCode, 200, options.body);
+    const opt = options.json();
+    const device = platformKey();
+    const flags = 0x01 | 0x04 | 0x40;
+    const attested = cborEncode(new Map([
+      ['fmt', 'none'],
+      ['attStmt', new Map()],
+      ['authData', authData({
+        rpId: 'quik1.test', flags, signCount: 0,
+        credentialId: device.credentialId, cose: device.cose
+      })]
+    ]));
+    const enrolled = await call(quik1, {
+      method: 'POST', path: ['webauthn'], headers: { cookie },
+      body: {
+        op: 'register',
+        clientDataJSON: b64urlEncode(clientData('webauthn.create', opt.challenge)),
+        attestationObject: b64urlEncode(attested)
+      }
+    });
+    assert.equal(enrolled.statusCode, 200, enrolled.body);
+    return device;
+  }
+
+  async function passkeyLogin(device, headers = {}) {
+    const loginOpt = await call(quik1, {
+      method: 'POST', path: ['webauthn'], headers,
+      body: { op: 'login-options', credentialId: b64urlEncode(device.credentialId) }
+    });
+    if (loginOpt.statusCode !== 200) return loginOpt;
+    const assertionData = authData({ rpId: 'quik1.test', flags: 0x01 | 0x04, signCount: 1 });
+    const assertionClient = clientData('webauthn.get', loginOpt.json().challenge);
+    const signature = sign('sha256', Buffer.concat([assertionData, createHash('sha256').update(assertionClient).digest()]), device.privateKey);
+    return call(quik1, {
+      method: 'POST', path: ['webauthn'], headers,
+      body: {
+        op: 'login',
+        credentialId: b64urlEncode(device.credentialId),
+        clientDataJSON: b64urlEncode(assertionClient),
+        authenticatorData: b64urlEncode(assertionData),
+        signature: b64urlEncode(signature)
+      }
+    });
+  }
+
+  test('passkey login clears a temporary PIN, the change token, and the change cookie', async () => {
+    const cookie = await pinSession();
+    const device = await enrolPlatform(cookie);
+    const token = 'ab'.repeat(32);
+    const row = fake.db.q1_borrowers[0];
+    const later = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    row.temp_pin_hash = 'scrypt$16384$8$1$aa$bb';
+    row.temp_pin_expires_at = later;
+    row.temp_pin_spent_hash = 'scrypt$16384$8$1$cc$dd';
+    row.pin_change_hash = createHash('sha256').update(token, 'utf8').digest('hex');
+    row.pin_change_expires_at = later;
+    const sessions = fake.db.q1_sessions.length;
+    const unlocked = await passkeyLogin(device, { cookie: 'q1_pin_change=' + token });
+    assert.equal(unlocked.statusCode, 200, unlocked.body);
+    assert.match(unlocked.json().accountRef, /^qb_[0-9a-f]{32}$/);
+    assert.equal(row.temp_pin_hash, null);
+    assert.equal(row.temp_pin_expires_at, null);
+    assert.equal(row.temp_pin_spent_hash, null);
+    assert.equal(row.pin_change_hash, null);
+    assert.equal(row.pin_change_expires_at, null);
+    const raw = unlocked.headers['set-cookie'];
+    const list = Array.isArray(raw) ? raw : [String(raw || '')];
+    const cleared = list.find(c => String(c).startsWith('q1_pin_change='));
+    assert.ok(cleared);
+    assert.match(String(cleared), /q1_pin_change=;/);
+    assert.match(String(cleared), /Path=\/api\/quik1\/pin/);
+    assert.match(String(cleared), /Max-Age=0/);
+    const again = await call(quik1, {
+      method: 'POST', path: ['pin'],
+      headers: { cookie: 'q1_pin_change=' + token },
+      body: { pin: '802468', pinConfirm: '802468' }
+    });
+    assert.equal(again.statusCode, 401, again.body);
+    assert.equal(again.json().accountRef, undefined);
+    assert.equal(cookieHeader(again).includes('q1_session='), false);
+    assert.equal(fake.db.q1_sessions.length, sessions + 1);
+  });
+
+  test('setting a temporary PIN revokes passkeys so an assertion opens no session', async () => {
+    const cookie = await pinSession();
+    const device = await enrolPlatform(cookie);
+    const sessions = fake.db.q1_sessions.length;
+    assert.equal(fake.db.q1_webauthn_credentials[0].revoked_at == null, true);
+    const set = await call(ledger, {
+      method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+      body: { clientId: CLIENT_A, pin: '864209', pinConfirm: '864209' }
+    });
+    assert.equal(set.statusCode, 200, set.body);
+    assert.ok(fake.db.q1_webauthn_credentials[0].revoked_at);
+    assert.match(fake.db.q1_borrowers[0].temp_pin_hash, /^scrypt\$/);
+    const assertionData = authData({ rpId: 'quik1.test', flags: 0x01 | 0x04, signCount: 1 });
+    const assertionClient = clientData('webauthn.get', 'challenge-after-revoke');
+    const signature = sign('sha256', Buffer.concat([assertionData, createHash('sha256').update(assertionClient).digest()]), device.privateKey);
+    const refused = await call(quik1, {
+      method: 'POST', path: ['webauthn'],
+      body: {
+        op: 'login',
+        credentialId: b64urlEncode(device.credentialId),
+        clientDataJSON: b64urlEncode(assertionClient),
+        authenticatorData: b64urlEncode(assertionData),
+        signature: b64urlEncode(signature)
+      }
+    });
+    assert.equal(refused.statusCode, 401, refused.body);
+    assert.equal(refused.json().error, 'Use your PIN');
+    assert.equal(cookieHeader(refused).includes('q1_session='), false);
+    assert.equal(fake.db.q1_sessions.length, sessions);
   });
 });

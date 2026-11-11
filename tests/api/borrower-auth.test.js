@@ -1792,6 +1792,35 @@ describe('borrower auth', { concurrency: false }, () => {
     return redeemed.json().accountRef;
   }
 
+  async function refuseTempPinRace(mutate) {
+    await borrowerWithPin();
+    const row = fake.db.q1_borrowers[0];
+    const lockedAt = row.locked_at;
+    const prev = globalThis.fetch;
+    let once = false;
+    globalThis.fetch = async (url, init) => {
+      const method = String((init && init.method) || 'GET').toUpperCase();
+      if (!once && method === 'PATCH' && String(url).includes('/q1_borrowers')) {
+        once = true;
+        mutate(row);
+      }
+      return prev(url, init);
+    };
+    try {
+      const refused = await setTemp(CLIENT_A);
+      assert.equal(refused.statusCode, 409, refused.body);
+      assert.equal(refused.json().error, TEMP_PIN_INVITE_LOCK);
+      assert.equal(refused.body.includes(TEMP_PIN), false);
+    } finally {
+      globalThis.fetch = prev;
+    }
+    assert.equal(row.temp_pin_hash == null, true);
+    assert.equal(String(row.temp_pin_hash || '').startsWith('scrypt$'), false);
+    assert.equal(fake.db.q1_temp_pin_sets.length, 0);
+    assert.equal(fake.db.audit_log.some(a => a.type === 'borrower_temp_pin_set'), false);
+    return { row, lockedAt };
+  }
+
   test('a failed-attempt lockout can be cleared by Set PIN and the set row records unlocked', async () => {
     await borrowerWithPin();
     fake.db.q1_borrowers[0].failed_attempts = 5;
@@ -1852,31 +1881,22 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.match(html, /e\.status===409/);
   });
 
-  test('a revoke that lands between the read and the write is a 409 and writes nothing', async () => {
-    await borrowerWithPin();
-    const row = fake.db.q1_borrowers[0];
-    const prev = globalThis.fetch;
-    globalThis.fetch = async (url, init) => {
-      const method = String((init && init.method) || 'GET').toUpperCase();
-      if (method === 'PATCH' && String(url).includes('/q1_borrowers') && row.pin_hash !== 'locked') {
-        row.pin_hash = 'locked';
-        row.locked_at = new Date().toISOString();
-      }
-      return prev(url, init);
-    };
-    try {
-      const refused = await setTemp(CLIENT_A);
-      assert.equal(refused.statusCode, 409, refused.body);
-      assert.equal(refused.json().error, TEMP_PIN_INVITE_LOCK);
-      assert.equal(refused.body.includes(TEMP_PIN), false);
-    } finally {
-      globalThis.fetch = prev;
-    }
+  test('a revoke that sets pin_hash to locked before the write is a 409 and writes nothing', async () => {
+    const { row, lockedAt } = await refuseTempPinRace(borrower => {
+      borrower.pin_hash = 'locked';
+    });
     assert.equal(row.pin_hash, 'locked');
-    assert.equal(row.temp_pin_hash == null, true);
-    assert.equal(String(row.temp_pin_hash || '').startsWith('scrypt$'), false);
-    assert.equal(fake.db.q1_temp_pin_sets.length, 0);
-    assert.equal(fake.db.audit_log.some(a => a.type === 'borrower_temp_pin_set'), false);
+    assert.equal(row.locked_at, lockedAt);
+  });
+
+  test('a revoke that changes locked_at before the write is a 409 and writes nothing', async () => {
+    const seen = new Date().toISOString();
+    const { row } = await refuseTempPinRace(borrower => {
+      borrower.locked_at = seen;
+    });
+    assert.equal(String(row.pin_hash).startsWith('scrypt$'), true);
+    assert.equal(row.pin_hash === 'locked', false);
+    assert.equal(row.locked_at, seen);
   });
 
   test('a temporary PIN works through ID and phone sign-in and stays refused while locked', async () => {
@@ -1928,5 +1948,54 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(unknown.statusCode, 401, unknown.body);
     assert.equal(unknown.json().error, 'PIN not accepted');
     assert.equal(fake.db.q1_otp_challenges.length, challenges);
+  });
+
+  test('the ID and phone IP limit applies when the request includes a PIN', async () => {
+    process.env.QUIK1_ID_HMAC_KEY = 'ab'.repeat(32);
+    process.env.QUIK1_ID_PHONE_HOURLY_CAP = '1';
+    let saId = '';
+    for (let check = 0; check <= 9; check++) {
+      const id = '910722482008' + String(check);
+      if (luhnOk(id)) { saId = id; break; }
+    }
+    const phone = '825550199';
+    const client = fake.db.clients.find(c => c.id === CLIENT_A);
+    client.id_hmac = idHmac(saId);
+    client.phone_hmac = phoneHmac(phone);
+    const set = await setTemp(CLIENT_A);
+    assert.equal(set.statusCode, 200, set.body);
+    const hash = fake.db.q1_borrowers[0].temp_pin_hash;
+    const ip = '198.51.100.77';
+    fake.db.q1_auth_attempts.push({
+      id: 'qa_id_phone_cap',
+      borrower_id: null,
+      kind: 'id_phone',
+      ip_hash: authIpHash(ip),
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 3600 * 1000).toISOString()
+    });
+    try {
+      const blocked = await call(quik1, {
+        method: 'POST', path: ['signin', 'id'],
+        headers: { 'x-forwarded-for': ip },
+        body: { idNumber: saId, phone, pin: TEMP_PIN }
+      });
+      assert.equal(blocked.statusCode, 429, blocked.body);
+      assert.equal(blocked.headers['retry-after'], '3600');
+      assert.equal(blocked.body.includes(TEMP_PIN), false);
+      assert.equal(fake.db.q1_borrowers[0].temp_pin_hash, hash);
+      assert.equal(cookieHeader(blocked).includes('q1_session='), false);
+      assert.equal(cookieHeader(blocked).includes('q1_pin_change='), false);
+      const other = await call(quik1, {
+        method: 'POST', path: ['signin', 'id'],
+        headers: { 'x-forwarded-for': '198.51.100.78' },
+        body: { idNumber: saId, phone, pin: TEMP_PIN }
+      });
+      assert.equal(other.statusCode, 200, other.body);
+      assert.equal(other.json().pinChangeRequired, true);
+      assert.equal(cookieHeader(other).includes('q1_session='), false);
+    } finally {
+      delete process.env.QUIK1_ID_PHONE_HOURLY_CAP;
+    }
   });
 });

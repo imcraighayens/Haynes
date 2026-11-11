@@ -240,6 +240,7 @@ async function signInByIdPhone(req, body, res) {
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
+  await assertIdPhoneIp(req, res);
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';

@@ -704,9 +704,16 @@ export async function redeemInvite(req, body, res) {
 }
 
 export async function startBorrowerSession(borrower, req, now = Date.now()) {
+  const nowIso = new Date(now).toISOString();
+  await clearTempPinState(borrower.id, nowIso);
   const device = await trustDevice(borrower.id, now);
   const { minted, accountRef } = await openSession(borrower, now);
-  return { accountRef, deviceId: device.id, cookies: authCookies(minted, accountRef, req, device.token) };
+  const secure = requestIsSecure(req);
+  return {
+    accountRef,
+    deviceId: device.id,
+    cookies: [...authCookies(minted, accountRef, req, device.token), clearPinChangeCookie(secure)]
+  };
 }
 
 function ttlMinutes() {
@@ -1086,6 +1093,7 @@ export async function setTemporaryPin(req, res, body) {
       await writeTempPin(borrower, patch);
     }
     await revokeDevices(borrower.id, nowIso);
+    await revokePasskeys(borrower.id, nowIso);
     await invalidateChallenges(borrower.id, nowIso);
     await revokeSessions(borrower.id, nowIso);
     await insert('q1_temp_pin_sets', [{
