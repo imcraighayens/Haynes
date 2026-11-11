@@ -18,7 +18,8 @@ test('the attention popup is wired to the server book and a per-staff acknowledg
   assert.match(html, /Could not save the loan status/);
   assert.match(html, /delete patch\.status; delete patch\.instalments_paid/);
   assert.match(html, /commitLoanStatus\(mLoanRaw\.id/);
-  assert.match(html, /commitLoanStatus\(l\.id, s, 'Changed from client workspace'\)/);
+  assert.match(html, /statusAlreadySaved\(l, s\)/);
+  assert.match(html, /if\(cur\) return; return this\.commitLoanStatus\(l\.id, s, 'Changed from client workspace'\)/);
   assert.match(html, /rememberAttention\(\[\{loanId:l\.id/);
 });
 
@@ -136,6 +137,81 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
       assert.equal(again, 'paid');
       await page.waitForTimeout(500);
       assert.doesNotMatch(await page.locator('body').innerText(), /needs attention/);
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+test('a stale local Paid still posts, a failed save reverts, and field edits stick', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const seeded = seed(api);
+    seeded.updated_at = '2026-11-05T13:45:17.238028+00:00';
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    page.setDefaultTimeout(20000);
+    try {
+      await openLedger(page, api.origin);
+      await pageWaitFor(page, () => {
+        const app = window.__ledgerConsole;
+        return !!(app && app.state && app.state.dbReady && (app.state.loans || []).some(l => l.id === 'l_test_902' && l.dbStatus === 'overdue'));
+      }, null, { timeoutMs: 20000 });
+      const posted = await page.evaluate(async () => {
+        const app = window.__ledgerConsole;
+        app.setState(p => ({ loans: p.loans.map(l => l.id === 'l_test_902' ? { ...l, status: 'paid' } : l) }));
+        const loan = app.state.loans.find(l => l.id === 'l_test_902');
+        if (app.statusAlreadySaved(loan, 'paid')) return 'skipped';
+        const ok = await app.commitLoanStatus(loan.id, 'paid', 'Changed from client workspace');
+        return ok ? 'posted' : 'failed';
+      });
+      assert.equal(posted, 'posted');
+      const row = api.fake.db.loans.find(l => l.id === 'l_test_902');
+      assert.equal(row.status, 'paid');
+      assert.ok(row.instalments_paid >= 1);
+      assert.ok(row.paid_dates.length >= 1);
+      const cas = api.fake.log.find(w => w.method === 'PATCH' && w.table === 'loans');
+      assert.equal(cas.filters.find(f => f.col === 'updated_at').val, '2026-11-05T13:45:17.238028+00:00');
+      assert.ok(api.fake.db.audit_log.some(entry => entry && entry.ref === 'ECL-902' && /PAID/.test(String(entry.type || ''))));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await pageWaitFor(page, () => {
+        const app = window.__ledgerConsole;
+        const loan = app && app.state && (app.state.loans || []).find(l => l.id === 'l_test_902');
+        return !!(app && app.state && app.state.dbReady && loan && loan.status === 'paid');
+      }, null, { timeoutMs: 20000 });
+
+      await page.route('**/api/ledger/loan-status', route => route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'The loan changed while it was being saved. Nothing was changed.' })
+      }));
+      const reverted = await page.evaluate(async () => {
+        const app = window.__ledgerConsole;
+        const loan = app.state.loans.find(l => l.id === 'l_test_902');
+        const before = loan.amount;
+        app.setState({
+          modal: 'loanedit', modalId: loan.id,
+          led: { amount: '8800', ret: String(loan.ret || 35), due: loan.due, status: 'issued', purpose: loan.purpose || '', term: 1, term0: 1, issued: loan.issued || '', topup: '' }
+        });
+        await app.renderVals().ledSave();
+        const now = app.state.loans.find(l => l.id === 'l_test_902');
+        return { before, amount: now.amount, toast: String(app.state.toast || '') };
+      });
+      assert.equal(reverted.amount, reverted.before);
+      assert.match(reverted.toast, /Nothing was changed|changed while it was being saved/);
+      assert.doesNotMatch(reverted.toast, /updated — logged/);
+      assert.equal(api.fake.db.loans.find(l => l.id === 'l_test_902').status, 'paid');
+      await page.unroute('**/api/ledger/loan-status');
+
+      await page.evaluate(async () => {
+        const app = window.__ledgerConsole;
+        app.setState(p => ({ loans: p.loans.map(l => l.id === 'l_test_902' ? { ...l, amount: 8800, retAmt: 1200 } : l) }));
+        app.dbPush();
+        if (app.ldb && app.ldb.flush) await app.ldb.flush();
+      });
+      const saved = api.fake.db.loans.find(l => l.id === 'l_test_902');
+      assert.equal(saved.principal, 8800);
+      assert.equal(saved.instalment_amount, 1200);
+      assert.equal(saved.status, 'paid');
     } finally {
       await browser.close();
     }

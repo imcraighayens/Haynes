@@ -135,6 +135,20 @@ export function requireEnv(names) {
   if (missing.length) throw new HttpError(503, 'Server not configured');
 }
 
+// Loan-status and sync 4xx are logged as route, status, error code, and an optional
+// loan ref. Names, phone numbers, and row ids are not written.
+export function logClientError(tag, route, status, code, ref) {
+  const safeCode = String(code || ('http_' + status)).replace(/[^\w.-]/g, '').slice(0, 40) || ('http_' + status);
+  const safeRef = String(ref || '').replace(/[^\w.-]/g, '').slice(0, 40);
+  console.error(`[api:${tag}] ${route} ${status} ${safeCode}${safeRef ? ' ' + safeRef : ''}`);
+}
+
+function ledgerWriteRoute(req, tag) {
+  if (tag !== 'ledger') return '';
+  const head = pathParts(req, 'ledger')[0] || '';
+  return head === 'loan-status' || head === 'sync' ? head : '';
+}
+
 // Every handler goes through here so a thrown anything becomes `{error}` JSON. We log only a
 // route tag, the status and our own short message — request bodies and DB rows (PII) never
 // reach the logs.
@@ -151,6 +165,10 @@ export function wrap(tag, fn) {
       const status = e instanceof HttpError && e.status >= 400 && e.status <= 599 ? e.status : 500;
       const message = e instanceof HttpError ? e.message : 'Internal error';
       if (status >= 500) console.error(`[api:${tag}] ${status} ${e instanceof HttpError ? e.message : (e && e.name) || 'error'}`);
+      else {
+        const route = ledgerWriteRoute(req, tag);
+        if (route) logClientError(tag, route, status, e && e.code, e && e.ref);
+      }
       const body = { error: message };
       if (e instanceof HttpError && e.extra) Object.assign(body, e.extra);
       if (!res.headersSent) json(res, status, body, req);
