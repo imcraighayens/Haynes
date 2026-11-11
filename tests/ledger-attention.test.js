@@ -105,7 +105,7 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
         const label = [...root.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'ECL-902');
         let node = label;
         while (node && node !== root) {
-          const paid = [...node.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'PAID');
+          const paid = [...node.querySelectorAll('div')].find(el => (el.textContent || '').trim() === 'Paid');
           if (paid && node.getBoundingClientRect().height < 180) {
             paid.dispatchEvent(new MouseEvent('click', { bubbles: true }));
             return true;
@@ -119,7 +119,7 @@ test('acknowledge, view and attend follow the saved loan, and a paid loan stays 
       assert.equal(api.fake.db.loans.find(l => l.id === 'l_test_902').status, 'overdue');
       await page.unroute('**/api/ledger/loan-status');
       assert.equal(await clickPaid(), true);
-      await pageWaitFor(page, () => /ECL-902 → PAID/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => /ECL-902 → Paid/.test(document.body.innerText), null, { timeoutMs: 8000 });
       const row = api.fake.db.loans.find(l => l.id === 'l_test_902');
       assert.equal(row.status, 'paid');
       assert.ok(row.updated_at);
