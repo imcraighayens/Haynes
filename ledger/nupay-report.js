@@ -88,9 +88,10 @@ function iso(y, mo, d) {
 export function parseDate(value) {
   const s = String(value == null ? '' : value).trim();
   if (!s) return '';
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const time = '(?:[T\\s]\\d{1,2}:\\d{2}(?::\\d{2})?)?';
+  let m = s.match(new RegExp('^(\\d{4})[/\\-.](\\d{2})[/\\-.](\\d{2})' + time + '$'));
   if (m) return iso(+m[1], +m[2], +m[3]);
-  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  m = s.match(new RegExp('^(\\d{1,2})[/\\-.](\\d{1,2})[/\\-.](\\d{4})' + time + '$'));
   if (m) return iso(+m[3], +m[2], +m[1]);
   m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
   if (m) {
@@ -107,6 +108,10 @@ export function parseDate(value) {
   return '';
 }
 
+function hasWord(text, word) {
+  return text === word || text.startsWith(word + ' ') || text.endsWith(' ' + word) || text.includes(' ' + word + ' ');
+}
+
 export function classifyStatus(value) {
   const s = normHeader(value);
   if (!s) return '';
@@ -114,10 +119,11 @@ export function classifyStatus(value) {
   if (s.includes('revers')) return 'reversed';
   if (s.includes('tracking')) return 'tracking';
   if (s.includes('cancel')) return 'cancelled';
-  if (s === 'future' || s.startsWith('future ')) return 'future';
-  if (s === 'pending' || s.startsWith('pending ')) return 'pending';
+  if (s === 'future' || hasWord(s, 'future')) return 'future';
+  if (s === 'pending' || hasWord(s, 'pending')) return 'pending';
+  if (['not successful', 'unsuccessful', 'non successful'].some(phrase => s === phrase || s.includes(phrase))) return 'failed';
   if (s.includes('unsuccess') || s.includes('fail') || s.includes('unpaid') || s.includes('reject')) return 'failed';
-  if (s === 'success' || s.startsWith('success') || s === 'paid' || s.includes('honour') || s.includes('honor')) return 'success';
+  if (s === 'success' || s === 'successful' || hasWord(s, 'success') || hasWord(s, 'successful') || s === 'paid' || hasWord(s, 'paid') || s.includes('honour') || s.includes('honor')) return 'success';
   return 'other';
 }
 
@@ -483,16 +489,21 @@ function pickClientLoan(loans, row) {
 }
 
 function locate(row, index) {
-  const steps = [
-    ['contract', row.contractReference, index.byContract, index.contractCollisions],
-    ['mandate', row.mandateId, index.byMandate, index.mandateCollisions]
-  ];
-  for (const [how, raw, map, collisions] of steps) {
-    const key = normKey(raw);
-    if (!key) continue;
-    if (collisions && collisions.has(key)) return { loan: null, how: how + '-ambiguous' };
-    const loan = map.get(key);
-    if (!loan) continue;
+  const contractKey = normKey(row.contractReference);
+  const mandateKey = normKey(row.mandateId);
+  const contractCollision = !!(contractKey && index.contractCollisions && index.contractCollisions.has(contractKey));
+  const mandateCollision = !!(mandateKey && index.mandateCollisions && index.mandateCollisions.has(mandateKey));
+  if (contractCollision || mandateCollision) {
+    return { loan: null, how: (contractCollision ? 'contract' : 'mandate') + '-ambiguous' };
+  }
+  const contractLoan = contractKey && index.byContract ? index.byContract.get(contractKey) : null;
+  const mandateLoan = mandateKey && index.byMandate ? index.byMandate.get(mandateKey) : null;
+  if (contractLoan && mandateLoan && contractLoan.id !== mandateLoan.id) {
+    return { loan: null, how: 'contract-mandate-ambiguous' };
+  }
+  const loan = contractLoan || mandateLoan || null;
+  if (loan) {
+    const how = contractLoan ? 'contract' : 'mandate';
     if (clientContradicts(row, loan, index)) return { loan, how: 'client-mismatch' };
     return { loan, how };
   }
@@ -688,10 +699,17 @@ function finish(rows, book, meta) {
     }
     const dateUnreadable = !!(found.loan && row.dateUnreadable);
     const clientMismatch = found.how === 'client-mismatch';
-    let outcome = !found.loan ? 'unknown' : (!amount.ok || !date.ok) ? 'mismatched' : 'matched';
+    let outcome = 'unknown';
     let note = '';
-    if (clientMismatch) { outcome = 'mismatched'; note = 'client mismatch'; }
-    else if (dateUnreadable) { outcome = 'mismatched'; note = 'date unreadable'; }
+    if (found.loan) {
+      if (clientMismatch) { outcome = 'mismatched'; note = 'client mismatch'; }
+      else if (dateUnreadable) { outcome = 'mismatched'; note = 'date unreadable'; }
+      else if (amount.checked && amount.ok && date.ok) outcome = 'matched';
+      else {
+        outcome = 'mismatched';
+        if (!amount.checked) note = 'amount unchecked';
+      }
+    }
     const client = found.loan ? index.clientById.get(found.loan.clientId) : null;
     const item = {
       line: row.line,
@@ -930,7 +948,7 @@ export function reportToCsv(report) {
       group ? group.paidDates.join('|') : '',
       group && group.preview ? group.preview.paid_dates.join('|') : '',
       group && group.outstanding != null ? group.outstanding : '',
-      group && group.clientName ? group.clientName : '',
+      group && group.clientName ? maskName(group.clientName) : '',
       row.sourceFile || ''
     ];
     lines.push(values.map(csvCell).join(','));
@@ -1012,7 +1030,7 @@ export function matchBadge(row) {
   const how = row && row.how || '';
   const note = row && row.note || '';
   if (outcome === 'unknown' || /-ambiguous$/.test(how)) return { label: 'Unknown', tone: 'neutral' };
-  if (note === 'client mismatch' || note === 'date unreadable') return { label: 'Loan found', tone: 'neutral' };
+  if (note === 'client mismatch' || note === 'date unreadable' || note === 'amount unchecked') return { label: 'Loan found', tone: 'neutral' };
   if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
   if (outcome === 'matched' && kind === 'success') return { label: 'Matched', tone: 'ok' };
   return { label: 'Loan found', tone: 'neutral' };
@@ -1053,6 +1071,7 @@ function payRow(row) {
   wrap.appendChild(line);
     if (row.note === 'client mismatch') wrap.appendChild(el('p', 'np-diff', 'Client ref does not match the loan'));
     else if (row.note === 'date unreadable') wrap.appendChild(el('p', 'np-diff', 'Date unreadable'));
+    else if (row.note === 'amount unchecked') wrap.appendChild(el('p', 'np-diff', 'Amount not checked'));
     else if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
       wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
     }
@@ -1061,7 +1080,7 @@ function payRow(row) {
 
 function loanBlock(group) {
   const block = el('section', 'np-loan');
-  block.appendChild(el('h3', '', (group.ref || 'Loan') + ' · ' + (group.clientName || 'Client')));
+  block.appendChild(el('h3', '', (group.ref || 'Loan') + ' · ' + (group.clientName ? maskName(group.clientName) : 'Client')));
   const label = bookStatusLabel(group.status);
   if (label) block.appendChild(el('p', 'np-meta', label));
   const book = el('div', 'np-book');

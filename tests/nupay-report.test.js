@@ -93,6 +93,14 @@ test('the Active mandate header is 52 columns and the other files differ where N
   assert.equal(ACTIVE_HEADERS.length, 52);
   const header = fixture.split(/\r?\n/)[0];
   assert.deepEqual(header.split(','), ACTIVE_HEADERS);
+  assert.deepEqual(headersFor('active'), parseCsv(fixture)[0]);
+  const mapped = detectHeaders(parseCsv(fixture)[0]);
+  for (const name of ['Name', 'Id', 'Acc. Number', 'Branch Number', 'Phone Number', 'Email']) {
+    assert.equal(header.split(',').includes(name), true, name);
+  }
+  for (const field of ['name', 'idNumber', 'accountNumber', 'branchNumber', 'phone', 'email']) {
+    assert.equal(typeof mapped.fields[field], 'number', field);
+  }
   const maxAt = ACTIVE_HEADERS.indexOf('Max Collection Amount');
   assert.deepEqual(ACTIVE_HEADERS.slice(maxAt + 1, maxAt + 3), ['Total Contract Amount', 'Future Collections Total Amount']);
   for (const kind of ['in_active', 'pending', 'rejected', 'suspended']) {
@@ -133,6 +141,18 @@ test('CSV parsing keeps quoted commas and reads the fake Active fixture', () => 
   assert.equal(parseMoney('1.23.45'), null);
   assert.equal(parseDate('25/02/2026'), '2026-02-25');
   assert.equal(parseDate('25 Feb 2026'), '2026-02-25');
+  assert.equal(parseDate('2026/02/25'), '2026-02-25');
+  assert.equal(parseDate('25/02/2026 08:15'), '2026-02-25');
+  assert.equal(parseDate('25/02/2026 08:15:30'), '2026-02-25');
+  assert.equal(parseDate('32/02/2026'), '');
+  assert.equal(parseDate('2026/13/01'), '');
+  assert.equal(parseDate('25/02/2026 noon'), '');
+  for (const status of ['not successful', 'unsuccessful', 'non-successful', 'Non-Successful']) {
+    assert.notEqual(classifyStatus(status), 'success', status);
+    assert.equal(classifyStatus(status), 'failed', status);
+  }
+  assert.equal(classifyStatus('Success'), 'success');
+  assert.equal(classifyStatus('successful'), 'success');
   const lines = fixture.trim().split(/\n/);
   assert.equal(lines.length, 4);
   const report = analyseText(fixture, book);
@@ -544,6 +564,47 @@ test('a shared mandate is not matched, and a contradicting client ref is not mat
   assert.equal(matchBadge(report.rows[1]).label, 'Loan found');
 });
 
+test('an unchecked amount is not Matched and does not preview a paid date', () => {
+  const bare = {
+    loans: [{ id: 'na', ref: 'FAKE-LN-NA', contract_ref: 'FAKE-CR-NA', client_id: 'c1', schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' }],
+    clients: book.clients,
+    mandates: []
+  };
+  const noAmount = analyseText('Contract Reference,Transaction Date,Status\nFAKE-CR-NA,2026-02-25,Success\n', bare);
+  const noInstalment = analyseText('Contract Reference,Transaction Date,Debit Amount,Status\nFAKE-CR-NA,2026-02-25,1380.16,Success\n', bare);
+  for (const report of [noAmount, noInstalment]) {
+    assert.equal(report.rows[0].note, 'amount unchecked');
+    assert.notEqual(report.rows[0].outcome, 'matched');
+    assert.equal(matchBadge(report.rows[0]).label, 'Loan found');
+    assert.deepEqual(report.groups[0].preview.paid_dates, []);
+  }
+});
+
+test('a contract and a mandate that point at different loans are not Matched', () => {
+  const split = {
+    loans: [
+      { id: 'a', ref: 'FAKE-LN-A', contract_ref: 'FAKE-CR-A', mandate_id: 'MANDATE-A', client_id: 'c1', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' },
+      { id: 'b', ref: 'FAKE-LN-B', contract_ref: 'FAKE-CR-B', mandate_id: 'MANDATE-B', client_id: 'c1', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' },
+      { id: 'c1s', ref: 'FAKE-LN-C1', contract_ref: 'FAKE-CR-C', mandate_id: 'MANDATE-SHARED', client_id: 'c1', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' },
+      { id: 'c2s', ref: 'FAKE-LN-C2', contract_ref: 'FAKE-CR-D', mandate_id: 'MANDATE-SHARED', client_id: 'c2', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' }
+    ],
+    clients: book.clients,
+    mandates: []
+  };
+  const csv = [
+    'Contract Reference,Mandate ID,Transaction Date,Debit Amount,Status',
+    'FAKE-CR-A,MANDATE-B,2026-02-25,1380.16,Success',
+    'FAKE-CR-C,MANDATE-SHARED,2026-02-25,1380.16,Success'
+  ].join('\n');
+  const report = analyseText(csv, split);
+  assert.equal(report.rows[0].how, 'contract-mandate-ambiguous');
+  assert.equal(report.rows[0].loanId, '');
+  assert.notEqual(matchBadge(report.rows[0]).label, 'Matched');
+  assert.equal(report.rows[1].how, 'mandate-ambiguous');
+  assert.equal(report.rows[1].loanId, '');
+  assert.notEqual(matchBadge(report.rows[1]).label, 'Matched');
+});
+
 test('a Success row with an unreadable date is not Matched', () => {
   const csv = [
     'Contract Reference,Transaction Date,Debit Amount,Status',
@@ -573,13 +634,21 @@ test('the match CSV leaves out id, phone, email, account, and branch', () => {
   const report = analyseText(fixture, book);
   const csv = reportToCsv(report);
   assert.match(csv, /FAKE-CR-0001/);
-  assert.match(csv, /Book Client One/);
+  assert.equal(csv.includes('Book Client One'), false);
+  assert.equal(csv.includes('Book Client Two'), false);
+  assert.equal(csv.includes('Book Client Three'), false);
   assert.equal(csv.includes('FAKE-M-0001'), false);
   assert.equal(csv.includes('FAKE-M-0002'), false);
   assert.equal(csv.includes('FAKE-M-0003'), false);
   assert.match(csv, /••••0001/);
   assertNoSecrets(csv);
   assert.equal(csv.includes('Sample Client'), false);
+  const view = miniDocument();
+  renderReport(view.root, report, view.document);
+  const blob = renderedBlob(view.root, []).join('\n');
+  for (const name of ['Book Client One', 'Book Client Two', 'Book Client Three', 'Sample Client']) {
+    assert.equal(blob.includes(name), false, name);
+  }
   assert.equal(maskId('0000000000001').endsWith('0001'), true);
   assert.equal(maskId('0000000000001').includes('0000000000001'), false);
   assert.equal(maskPhone('0000000001').endsWith('0001'), true);

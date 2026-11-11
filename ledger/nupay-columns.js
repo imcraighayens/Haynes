@@ -21,6 +21,7 @@ export const PIF = {
   tolerance: 0.05
 };
 
+// Verbatim 52-column header of tests/fixtures/nupay/fake_Active_mandate_report.csv.
 export const ACTIVE_HEADERS = [
   'Token',
   'Card Acceptor',
