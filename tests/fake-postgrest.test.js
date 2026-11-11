@@ -30,6 +30,8 @@ test('select: filters, order, limit, projection and count=exact', async () => {
   assert.match(r.headers.get('content-range'), /\/2$/);
   r = await call(f, 'GET', '/rest/v1/nope?select=*');
   assert.equal(r.status, 404); assert.equal(r.body.code, '42P01');
+  r = await call(f, 'GET', '/rest/v1/loans?select=id&status=in.(issued,written_off)');
+  assert.deepEqual(r.body.map(x => x.id), ['l1']);
 });
 
 test('insert vs upsert: duplicates 409, merge keeps unsent columns, ignore-duplicates is a no-op', async () => {

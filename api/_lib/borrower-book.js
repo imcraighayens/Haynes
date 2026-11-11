@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { HttpError } from './http.js';
 import { select, selectOne, insert, update, count, eq } from './supabase.js';
 import { isSafeId, cleanText, parseAmount, num } from './validate.js';
+import { consoleApplicationId, consoleSourceLabel, inboxSourceFilter, isInboxSource, missingRelation } from './inbox.js';
 import { accountFromLoans, statementsFromLoans, publicProfile, unidentified } from './quik1-book.js';
 import { readSession } from './quik1-session.js';
 import { maskForBorrower } from './sa-id.js';
@@ -297,7 +298,7 @@ export function consoleApplication(row) {
     ? when.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
     : '';
   return {
-    id: 'qk_' + row.id,
+    id: consoleApplicationId(row),
     extId: row.id,
     name: cleanText(row.name, 120) || 'Applicant',
     phone: cleanText(row.phone, 32) || '—',
@@ -312,15 +313,34 @@ export function consoleApplication(row) {
     bank: cleanText(row.bank, 80) || '—',
     docs: docNames(meta),
     status: row.status || 'new',
-    source: row.client_id ? 'Quik1 · existing client' : 'Quik1 app',
+    source: consoleSourceLabel(row),
     submitted,
     existingClientId: row.client_id || null
   };
 }
 
+// The inbox list. A schema-cache miss (PGRST205) or a missing relation is an empty
+// list plus a warning, not a 502, so the rest of the feed can still be returned.
+async function listInboxApplications() {
+  try {
+    const rows = await select('applications', {
+      select: '*',
+      source: inboxSourceFilter(),
+      order: 'created_at.desc',
+      limit: 200
+    });
+    return (rows || []).filter(row => row && isInboxSource(row.source));
+  } catch (err) {
+    if (!missingRelation(err)) throw err;
+    const code = err && err.code ? String(err.code) : 'missing';
+    console.warn('[quik1-feed] applications unavailable (' + code + '); returning an empty list');
+    return [];
+  }
+}
+
 export async function staffFeed() {
   const [applications, messages, clients] = await Promise.all([
-    optionalRows('applications', { select: '*', source: eq('quik1'), order: 'created_at.desc', limit: 200 }),
+    listInboxApplications(),
     optionalRows('q1_messages', { select: 'id,client_id,author,body,created_at', order: 'created_at.asc', limit: 400 }),
     optionalRows('clients', { select: 'id,ref,name,deleted_at' })
   ]);

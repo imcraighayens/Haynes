@@ -6,6 +6,7 @@ import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, S
 import { requireStaff } from './_lib/auth.js';
 import { select, selectOne, update, eq } from './_lib/supabase.js';
 import { APPLICATION_STATUS, applicationStatusToDb, isSafeId, num } from './_lib/validate.js';
+import { inboxSourceFilter, isInboxSource, missingRelation } from './_lib/inbox.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const LIST_LIMIT = 200;
@@ -25,14 +26,22 @@ export function augment(row) {
 async function listApplications(req, res) {
   const sp = searchParams(req);
   const wanted = (sp.get('status') || 'new').trim().toLowerCase();
-  const query = { select: '*', source: eq('quik1'), order: 'created_at.desc', limit: LIST_LIMIT };
+  const query = { select: '*', source: inboxSourceFilter(), order: 'created_at.desc', limit: LIST_LIMIT };
   if (wanted !== 'all') {
     const status = applicationStatusToDb(wanted);
     if (!status) throw new HttpError(400, `status must be one of ${APPLICATION_STATUS.join('|')}|all`);
     query.status = eq(status);
   }
-  const rows = await select('applications', query);
-  json(res, 200, rows.map(augment), req);
+  let rows;
+  try {
+    rows = await select('applications', query);
+  } catch (err) {
+    if (!missingRelation(err)) throw err;
+    const code = err && err.code ? String(err.code) : 'missing';
+    console.warn('[q1] applications unavailable (' + code + '); returning an empty list');
+    rows = [];
+  }
+  json(res, 200, (rows || []).filter(row => row && isInboxSource(row.source)).map(augment), req);
 }
 
 async function patchApplication(req, res, id) {
