@@ -914,15 +914,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">QUIK1 PIN</div>
               <div style="font:700 12px 'Plus Jakarta Sans',sans-serif">{{ q1PinStatus }}</div>
             </div>
-            <sc-if value="{{ q1TempOff }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">Quik1 invites are switched off until launch.</div></sc-if>
-            <sc-if value="{{ q1TempReady }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6-digit PIN" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:140px;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
-              <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Confirm PIN" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:140px;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
-              <div sc-camel-on-click="{{ q1SetTempPin }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;white-space:nowrap">Set temporary PIN</div>
-            </div>
-            </sc-if>
-            <sc-if value="{{ q1PinMsgOn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ q1PinMsg }}</div></sc-if>
+            <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Set temporary PIN</button></sc-if>
+            <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set temporary PIN</button></sc-if>
           </div>
         </sc-if>
 
@@ -2468,8 +2461,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 </div>
                 <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
                   <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET TEMPORARY PIN</div>
-                  <sc-if value="{{ q1TempOff }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">Quik1 invites are switched off until launch.</div></sc-if>
-                  <sc-if value="{{ q1TempReady }}" hint-placeholder-val="{{ false }}">
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Set temporary PIN</button></sc-if>
+                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}">
                   <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys. The PIN works once and expires after 72 hours.</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
                     <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6 digits" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
@@ -3335,11 +3328,22 @@ class Component extends DCLogic {
       done();
     }, fail);
   }
+  closeModal(){
+    this.setState(p=>{
+      const q1Invite = p.q1Invite ? Object.assign({}, p.q1Invite, {tempPin:'', tempPin2:''}) : p.q1Invite;
+      if(p.modalStack && p.modalStack.length){
+        const s=p.modalStack.slice();
+        const prev=s.pop();
+        return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null, q1Invite};
+      }
+      return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null, q1Invite};
+    });
+  }
   submitTemporaryPin(){
     if(this.state.q1PinLive!==true) return;
+    if(this.state.modal!=='q1invite') return;
     if(this._tempPinBusy) return;
-    const onModal=this.state.modal==='q1invite';
-    const id=onModal?this.state.modalId:this.state.clientViewId;
+    const id=this.state.modalId;
     const base=this.state.q1Invite||this.q1Blank();
     if(base.pinBusy) return;
     this._tempPinBusy=true;
@@ -3375,7 +3379,7 @@ class Component extends DCLogic {
       this._demoResetAllowed=!!(j&&j.demoReset);
       // #31's borrowerPinLive is server-side. The staff UI follows it only when GET /features includes borrowerPinLive or borrowerPin. That field is not sent today, so invites stay off.
       const gate=!!(j&&(j.borrowerPinLive===true||j.borrowerPin===true));
-      this.setState({showResetDemo:this.demoResetAllowed(), borrowerGate:gate, q1PinLive:!!(j&&j.borrowerPin)});
+      this.setState({showResetDemo:this.demoResetAllowed(), borrowerGate:gate, q1PinLive:gate});
     },()=>{ this._demoResetAllowed=false; this.setState({showResetDemo:false, borrowerGate:false, q1PinLive:false}); });
     this.staffApi('GET','/ai',null).then(j=>{
       this.setState({aiConfigured:!!(j&&j.configured)});
@@ -3788,7 +3792,7 @@ class Component extends DCLogic {
       if(el){ el.style.order = String(slot); el.style.cursor = this.state.arrangeMode?'grab':''; }
     });
   }
-  componentDidUpdate(){ if(!this._kbd){ this._kbd=(e)=>{ const t=e.target; if(!t||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT') return; if((e.key==='Enter'||e.key===' ') && t.getAttribute && t.getAttribute('data-kbd')==='1'){ e.preventDefault(); t.click(); } if(e.key==='Escape' && this.state.navDrawer) this.setState({navDrawer:false}); }; document.addEventListener('keydown', this._kbd); } const side=document.querySelector('.ledger-side'); if(side) side.setAttribute('data-open', this.state.navDrawer?'1':'0'); this.instSync(); this.persist(); this.clampMenu(); this.applyCardOrder(); this.bankTrack(); }
+  componentDidUpdate(){ if(!this._kbd){ this._kbd=(e)=>{ if(e.key==='Escape' && this.state.modal==='q1invite' && !this.state.q1Confirm){ e.preventDefault(); this.closeModal(); return; } const t=e.target; if(!t||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT') return; if((e.key==='Enter'||e.key===' ') && t.getAttribute && t.getAttribute('data-kbd')==='1'){ e.preventDefault(); t.click(); } if(e.key==='Escape' && this.state.navDrawer) this.setState({navDrawer:false}); }; document.addEventListener('keydown', this._kbd); } const side=document.querySelector('.ledger-side'); if(side) side.setAttribute('data-open', this.state.navDrawer?'1':'0'); this.instSync(); this.persist(); this.clampMenu(); this.applyCardOrder(); this.bankTrack(); }
   fmt(n){ const v=Number(n||0), neg=v<0, a=Math.abs(v);
     const whole=Math.floor(a+1e-9), cents=Math.round((a-whole)*100);
     const grouped=String(whole).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
@@ -6085,7 +6089,7 @@ class Component extends DCLogic {
       ccOn: !!(st.callConfirm && st.callConfirm.name), ccName: (st.callConfirm && st.callConfirm.name) ? String(st.callConfirm.name) : '', ccPhone: (st.callConfirm && st.callConfirm.name) ? ((st.callConfirm.phone && st.callConfirm.phone!=='—') ? String(st.callConfirm.phone) : 'No number on file') : '', ccRef: (st.callConfirm && st.callConfirm.ref) ? String(st.callConfirm.ref) : '',
       ccCancel: (e)=>{ if(e&&e.preventDefault) e.preventDefault(); if(e&&e.stopPropagation) e.stopPropagation(); this.setState({callConfirm:null}); },
       ccGo: ()=>{ const c=st.callConfirm; if(!c) return; if(!c.phone || c.phone==='—'){ this.setState({callConfirm:null}); return this.toast('No phone number on file for '+c.name); } this.setState({callConfirm:null}); this.doCall(c.name, c.phone, c.ref); },
-      modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(),
+      modalOn: !!st.modal, closeModal:()=>this.closeModal(), stop:(e)=>e.stopPropagation(),
       q1ConfirmOn: !!st.q1Confirm, q1ConfirmTitle: st.q1Confirm?st.q1Confirm.title:'', q1ConfirmBody: st.q1Confirm?st.q1Confirm.body:'',
       q1ConfirmBusy: !!(st.q1Confirm&&st.q1Confirm.busy), q1ConfirmReady: !!(st.q1Confirm&&!st.q1Confirm.busy),
       q1Hold: !!(st.q1Confirm&&st.q1Confirm.busy), q1Aria: (st.q1Confirm&&st.q1Confirm.busy)?'true':'false',
@@ -6776,6 +6780,7 @@ class Component extends DCLogic {
           backToClients:()=>this.setState({route:'clients', clientViewId:null, cliEdit:null, revealed:false}),
           cvContract:()=>this.setState({modal:'contractdoc', modalId:cvRaw.id}),
           cvInvite:()=>this.openQuik1Invite(cvRaw.id),
+          cvSetTempPin:()=>this.openQuik1Invite(cvRaw.id),
           cvCanRevoke: this.inviteView(cvRaw).revoke,
           cvCanRevokeAccess: this.inviteView(cvRaw).revokeAccess,
           cvCanReset: this.inviteView(cvRaw).reset,
