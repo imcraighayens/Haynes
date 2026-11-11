@@ -2,7 +2,7 @@
 // api/_lib/supabase.js (and nothing the real handlers never send).
 //
 // Supported:
-//   GET    /rest/v1/:table?select=a,b&col=eq.v&order=col.asc|desc&limit=n      (+ Prefer: count=exact → Content-Range)
+//   GET    /rest/v1/:table?select=a,b&col=eq.v&col=in.(a,b)&order=col.asc|desc&limit=n      (+ Prefer: count=exact → Content-Range)
 //   POST   /rest/v1/:table                                                       insert; duplicate id → 409 code 23505
 //   POST   /rest/v1/:table?on_conflict=id   Prefer: resolution=merge-duplicates   upsert (merge provided columns)
 //                                           Prefer: resolution=ignore-duplicates  insert-if-absent
@@ -32,6 +32,12 @@ export function createFakePostgrest(seed = {}) {
     const filters = [];
     for (const [k, v] of sp.entries()) {
       if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
+      const inn = /^in\.\((.*)\)$/s.exec(v);
+      if (inn) {
+        const parts = inn[1].length ? inn[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')) : [];
+        filters.push({ col: k, op: 'in', val: parts });
+        continue;
+      }
       const m = /^(eq|neq|is|gt|gte|lt|lte|ilike)\.(.*)$/s.exec(v);
       if (!m) throw httpError(400, 'PGRST100', `unsupported filter ${k}=${v}`);
       filters.push({ col: k, op: m[1], val: m[2] });
@@ -43,6 +49,7 @@ export function createFakePostgrest(seed = {}) {
       const a = row[f.col];
       switch (f.op) {
         case 'eq': return String(a) === f.val && a !== null && a !== undefined;
+        case 'in': return a != null && Array.isArray(f.val) && f.val.includes(String(a));
         case 'neq': return String(a) !== f.val;
         case 'is': return f.val === 'null' ? a == null : String(a) === f.val;
         case 'gt': return cmp(a, f.val) > 0;

@@ -30,6 +30,7 @@
 </script>
 <style>x-dc{display:none!important}</style>
 <script src="./ledger-sync.js"></script>
+<script src="./inbox-live.js"></script>
 <script type="module" src="./attention.js"></script>
 </head>
 <body>
@@ -1402,10 +1403,10 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         <div style="flex:none;display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <sc-for list="{{ appFilters }}" as="f" hint-placeholder-count="4"><div sc-camel-on-click="{{ f.go }}" style="{{ f.style }}">{{ f.label }} <span style="opacity:.6">{{ f.count }}</span></div></sc-for>
       </div>
-        <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
+        <div ref="{{ inboxScrollRef }}" style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
           <div class="clip-row" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div></div><div>APPLICANT</div><div>AMOUNT</div><div>PURPOSE / TERM</div><div>SUBMITTED</div><div>STATUS</div></div>
           <sc-for list="{{ appRows }}" as="a" hint-placeholder-count="4">
-            <div class="clip-row" sc-camel-on-click="{{ a.open }}" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:13px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
+            <div class="clip-row" sc-camel-on-click="{{ a.open }}" style="{{ a.rowStyle }}" style-hover="background:var(--hover)">
               <div style="{{ a.dotStyle }}"></div>
               <div><div class="cell-clip" title="{{ a.name }}" style="font-weight:600">{{ a.name }}</div><div class="cell-clip" style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-top:2px">{{ a.tagline }}</div></div>
               <div style="font:600 12.5px 'Plus Jakarta Sans',sans-serif">{{ a.amountFmt }}</div>
@@ -3619,20 +3620,64 @@ class Component extends DCLogic {
   reelTo(n){ const L=this.state.reelList||[]; if(!L[n]) return;
     this.setState({reel:L[n], reelIdx:n, reelPlay:false}, ()=>{ const el=this._reelStrip; if(!el) return; const th=el.querySelectorAll('[title]')[n]; if(!th) return;
       el.scrollTo({left: th.offsetLeft - (el.clientWidth - th.offsetWidth)/2, behavior:'smooth'}); }); }
+  inboxSignedIn(){
+    if(this._inboxStopped) return false;
+    var gate=window.__ledger;
+    if(gate&&gate.needsUnlock) return false;
+    if(!this.state||this.state.ledgerUnlocked===false) return false;
+    return true;
+  }
+  stopInboxPoll(){
+    this._inboxStopped=true;
+    if(this._inboxPoll&&this._inboxPoll.stop) this._inboxPoll.stop();
+    this._inboxPoll=null;
+    if(this._q1Feed){ clearInterval(this._q1Feed); this._q1Feed=null; }
+  }
+  applyInboxFeed(j){
+    var live=window.__ledgerInbox;
+    if(!live||!j) return;
+    var scroller=this._inboxScroll, top=scroller?scroller.scrollTop:0, selected=this.state?this.state.appViewId:null;
+    this.setState(p=>{
+      var merged=live.mergeInbox(p.applications, Array.isArray(j.applications)?j.applications:[]);
+      return {applications:merged.applications, q1Threads:Array.isArray(j.threads)?j.threads:(p.q1Threads||[]), appViewId:p.appViewId};
+    });
+    var self=this;
+    setTimeout(function(){
+      if(self._inboxScroll&&top) self._inboxScroll.scrollTop=top;
+      if(selected&&self.state&&self.state.appViewId!==selected) self.setState({appViewId:selected});
+    },0);
+  }
   pullQuik1Feed(){
-    this.staffApi('GET','/quik1-feed').then(j=>{
+    var live=window.__ledgerInbox;
+    var hidden=typeof document!=='undefined'&&document.hidden;
+    if(live&&!live.shouldPoll({signedIn:this.inboxSignedIn(), hidden:hidden, stopped:!!this._inboxStopped})) return;
+    if(!this.inboxSignedIn()||hidden) return;
+    var self=this;
+    this.staffApi('GET','/quik1-feed').then(function(j){
       if(!j) return;
-      const incoming=Array.isArray(j.applications)?j.applications:[];
-      this.setState(p=>{
-        const by={};
-        (p.applications||[]).forEach(a=>{ if(a&&a.id) by[a.id]=a; });
-        incoming.forEach(a=>{ if(a&&a.id) by[a.id]=Object.assign({}, by[a.id]||{}, a); });
-        return {applications:Object.values(by), q1Threads:Array.isArray(j.threads)?j.threads:[]};
-      });
-    },()=>{});
+      if(live) self.applyInboxFeed(j);
+    }, function(err){
+      if((live&&live.stopOnAuthError(err))||(err&&err.status===401)) self.stopInboxPoll();
+    });
+  }
+  startInboxPoll(){
+    var live=window.__ledgerInbox;
+    if(!live||!this.inboxSignedIn()) return;
+    if(this._inboxPoll&&this._inboxPoll.stop) this._inboxPoll.stop();
+    var self=this;
+    this._inboxStopped=false;
+    this._inboxPoll=live.start({
+      signedIn:function(){ return self.inboxSignedIn(); },
+      hidden:function(){ try{ return document.hidden; }catch(e){ return false; } },
+      fetchFeed:function(){ return self.staffApi('GET','/quik1-feed'); },
+      onFeed:function(j){ if(j) self.applyInboxFeed(j); },
+      setInterval:function(fn, ms){ return setInterval(fn, ms); },
+      clearInterval:function(t){ clearInterval(t); },
+      document:typeof document!=='undefined'?document:null
+    });
   }
   componentDidMount(){ this.refreshServerFeatures(); setTimeout(()=>this.loadReel(),300); setTimeout(()=>this.qkSync(),2500); this._qkT=setInterval(()=>{ if(!document.hidden) this.qkSync(); },60000);
-    setTimeout(()=>this.pullQuik1Feed(),1500); this._q1Feed=setInterval(()=>{ if(!document.hidden) this.pullQuik1Feed(); },15000);
+    this.startInboxPoll();
     this._reelAuto = setInterval(()=>{ const st=this.state, L=st.reelList||[];
       if(st.reelPlay || this._reelHover || L.length<2 || document.hidden || st.route!=='dashboard') return;
       if(this._reelPause && Date.now()-this._reelPause < 12000) return;
@@ -3685,7 +3730,7 @@ class Component extends DCLogic {
       el.style.top = Math.round(r.top + dy) + 'px';
     }
   }
-  componentWillUnmount(){ clearInterval(this._qkT); clearInterval(this._q1Feed); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
+  componentWillUnmount(){ this.stopInboxPoll(); clearInterval(this._qkT); clearInterval(this._q1Feed); clearInterval(this._reelAuto); document.removeEventListener('click', this.onDocClick); clearInterval(this._newsT); }
   newsFeeds(){ const SA=/south africa|\bsa\b|\brand\b|\bzar\b|\bjse\b|sarb|reserve bank|kganyago|godongwana|treasury|eskom|transnet|sars|stats ?sa|johannesburg|cape town|durban|petrol|diesel|fuel price|dmre|opec|brent/i; return [
     {src:'BusinessTech', url:'https://businesstech.co.za/news/finance/feed/', cat:'markets', sa:true},
     {src:'BusinessTech Banking', url:'https://businesstech.co.za/news/banking/feed/', cat:'markets', sa:true},
@@ -3893,12 +3938,15 @@ class Component extends DCLogic {
     const nm=g('name','fullName','full_name','applicant.name','client.name') || [g('firstName','first_name'),g('lastName','last_name','surname')].filter(Boolean).join(' ');
     const ext=String(g('id','applicationId','application_id','ref','reference'));
     if(!ext || !nm) return null;
+    const rawSource=String(g('source')||'');
+    if(rawSource && rawSource!=='quik1' && rawSource!=='ecoloan_web') return null;
+    const website=rawSource==='ecoloan_web';
     const docs=g('docs','documents'); 
-    return {id:'qk_'+ext, extId:ext, name:nm, phone:String(g('phone','mobile','cell','contact','phoneNumber')||'—'), email:String(g('email')||'—'), idNumber:String(g('idNumber','id_number','saId','nationalId')||'—'),
+    return {id:website?ext:('qk_'+ext), extId:ext, name:nm, phone:String(g('phone','mobile','cell','contact','phoneNumber')||'—'), email:String(g('email')||'—'), idNumber:String(g('idNumber','id_number','saId','nationalId')||'—'),
       amount:num(g('amount','loanAmount','loan_amount','requested')), term:parseInt(g('term','months','instalments','installments'))||1, purpose:String(g('purpose','reason')||'Personal'),
       employer:String(g('employer','employment.employer','company')||'—'), jobTitle:String(g('jobTitle','job_title','occupation','employment.title')||'—'), income:num(g('income','netIncome','net_income','salary','netSalary')),
       bank:String(g('bank','bankName','bank_name')||'—'), docs:Array.isArray(docs)?docs.map(d=>typeof d==='string'?d:(d.name||d.type||'Document')):[],
-      status:'new', source:'Quik1 app · via Q1', submitted:(()=>{ const s=g('submitted','createdAt','created_at','date'); const d=s?new Date(s):null; return d&&!isNaN(d)?d.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase():this.todayStamp(); })()}; }
+      status:website?(String(g('status')||'new')||'new'):'new', source:website?'Website':'Quik1 app · via Q1', submitted:(()=>{ const s=g('submitted','createdAt','created_at','date'); const d=s?new Date(s):null; return d&&!isNaN(d)?d.toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase():this.todayStamp(); })()}; }
   async qkSync(manual){
     const a=this.qkApp(); if(!a||!a.on||!a.url){ if(manual){ this.setState({modal:'q1apps', modalStack:[], q1Edit:a&&a.id}); this.toast('Link the Quik1 loan app first'); } return; }
     if(this._qkBusy) return; this._qkBusy=true;
@@ -5423,7 +5471,7 @@ class Component extends DCLogic {
           paneClose: ()=>{ if(on) this.setState({admPane:null}); },
           paneStop: e=>{ if(on && e && e.stopPropagation) e.stopPropagation(); }
         }; })(),
-      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); var sync=window.__ledger; var done=()=>{ try{ window.location.reload(); }catch(err){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(done, done); else done(); },
+      signOut:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.stopInboxPoll(); var sync=window.__ledger; var done=()=>{ try{ window.location.reload(); }catch(err){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(done, done); else done(); },
       prof: st.prof, profChange:(e)=>this.setState({prof:{...st.prof,[e.target.name]:e.target.value}}),
       saveProfile:()=>this.toast('Profile saved'), changePassword:()=>this.toast('Password reset link sent to '+st.prof.email),
       ...(()=>{
@@ -5598,6 +5646,7 @@ class Component extends DCLogic {
           return { name:a.name, tagline:(existing?'RETURNING · '+existing.ref:'NEW APPLICANT')+' · '+a.phone,
             amountFmt:fmt(a.amount), purpose:a.purpose, termFmt:a.term+(a.term>1?' months':' month'), submitted:a.submitted,
             statusLabel:(meta[a.status]||meta.new)[0], statusStyle:pill(a.status),
+            rowStyle:this.cssObj('display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:13px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer'+(a.inboxFresh?';background:color-mix(in srgb,var(--acc) 12%,transparent)':'')),
             dotStyle:this.cssObj('width:8px;height:8px;border-radius:50%;'+(a.status==='new'?'background:var(--acc);box-shadow:0 0 7px var(--acc)':'background:transparent;border:1px solid var(--line2)')),
             open:()=>this.setState(p=>({appViewId:a.id, applications:p.applications.map(x=>x.id===a.id&&x.status==='new'?{...x,status:'reviewing'}:x)})) };
         });
@@ -5633,6 +5682,7 @@ class Component extends DCLogic {
         }
         const qa=this.qkApp(), qOn=!!(qa&&qa.on&&qa.url), ago=this._qkAt?Math.max(0,Math.round((Date.now()-this._qkAt)/60000)):null;
         return { isApplications: st.route==='applications' || (st.route==='access' && st.accessTab==='applications'), appNewCount, appTotal: st.applications.length,
+          inboxScrollRef: this._inboxScrollRef || (this._inboxScrollRef = el=>{ this._inboxScroll = el; }),
           qkLabel: !qOn?'LINK QUIK1':this._qkErr?'QUIK1 · ERROR':this._qkBusy?'QUIK1 · SYNCING…':('QUIK1 · '+(ago==null?'SYNC NOW':ago<1?'JUST NOW':ago+' MIN AGO')),
           qkTitle: !qOn?'Link the Quik1 loan app so Q1 brings new applications here':this._qkErr?('Last sync failed: '+this._qkErr):'Q1 checks Quik1 every minute. Click to check now.',
           qkSyncNow: ()=>this.qkSync(true),
@@ -5740,7 +5790,7 @@ class Component extends DCLogic {
           this.setState(p=>({ledgerUnlocked:true, staffEmail:'', staffPass:'', staffError:false, prof: name?{...p.prof, name:String(name), email:(res.staff.email||p.prof.email)}:p.prof}));
         }, ()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffPass:'', staffError:true}); });
       },
-      lockLedger:()=>{ var sync=window.__ledger; var go=()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffEmail:'', staffPass:'', staffError:false}); try{ window.location.reload(); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
+      lockLedger:()=>{ this.stopInboxPoll(); var sync=window.__ledger; var go=()=>{ this.setState({ledgerUnlocked:false, route:'ledger', staffEmail:'', staffPass:'', staffError:false}); try{ window.location.reload(); }catch(e){} }; if(sync&&typeof sync.lock==='function') sync.lock().then(go, go); else go(); },
       chartLine, chartArea: chartLine+' 800,200 0,200', chartHasData, chartNoData, chartFirstMonth, chartLastMonth, chartRangeLabel, ledBookFmt:fmt(ledBook), ledWrittenOffFmt:fmt(ledWrittenOff), ledOutstandingFmt:fmt(ledOutstanding), ledReturnedFmt:fmt(ledReturned), ledPrincipalFmt:fmt(ledPrincipal),
       ledgerRows: ledgerMonths.map(([month,issued,paid,start,end])=>({month,issued,paid,startFmt:fmt(start),endFmt:fmt(end), open:()=>this.setState({modal:'month', monthKey:month, modalStack:[]}),
         changeFmt:(end>=start?'+':'−')+fmt(Math.abs(end-start)).slice(2), changeStyle:this.cssObj('color:'+(end>=start?'var(--green)':'var(--red)'))})),

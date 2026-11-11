@@ -220,9 +220,10 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
   A safe `applicationId` may add that one application's status. Response `{reply, go|null, connected:true}`.
   No `QUIK1_Q1_URL`, no PIN, no production-auth flag.
 * Q1 integration (`/api/q1/*`, Bearer LEDGER_KEY) — shaped for `qkMap`/`qkPush`:
-  * `GET applications?status=new` → JSON array of `applications` rows where `source='quik1'`
-    (default status filter `new`; `status=all` for everything) each augmented with
-    `term: term_months, income: net_income, submitted: created_at, docs: meta.docs||[]`.
+  * `GET applications?status=new` → JSON array of `applications` rows where `source` is
+    `quik1` or `ecoloan_web` (default status filter `new`; `status=all` for everything) each
+    augmented with `term: term_months, income: net_income, submitted: created_at, docs: meta.docs||[]`.
+    A PostgREST PGRST205 (table missing from the schema cache) returns `[]` and a warning, not a 502.
   * `PATCH applications/:id` body `{status}` (`approved|declined|reviewing|new`) → update row:
     `status, decided_at (now for approved/declined), decided_by:'ledger',
     decision: {verdict, amount: amount, by:'Ecoloans', note:'', at: now}`; returns the row.
@@ -270,7 +271,8 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
    Expose `window.__ledger = {cfg(), api(method, path, body) (adds Bearer key), state: Promise}`.
 2. If `cfg.key` is set: `GET /api/ledger/state`; on success seed localStorage BEFORE the app
    constructs: merge `evoltConsoleV4` (`logbook` ← `audit_log` mapped to console shape,
-   `petty` ← `petty_cash`, keep local `applications`), `ledjaa.bank.tx` ← `bank_tx`,
+   `petty` ← `petty_cash`, keep local `applications` and join remote `quik1` and
+   `ecoloan_web` rows — website ids stay `ew_`), `ledjaa.bank.tx` ← `bank_tx`,
    `ledjaa.expenses` ← `expenses` (not deleted), `ledjaa.bank` ← settings bank_opening_*,
    `evoltOrg` ← settings org fields, `ledjaa.clientRefHigh` ← max client ref number. Also ensure
    `q1.apps` has the Quik1 entry pointing at `location.origin + '/api/q1'` with the same key,
