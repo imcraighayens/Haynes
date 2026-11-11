@@ -9,6 +9,7 @@ import {
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
   reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts, renderReport
 } from '../ledger/nupay-report.js';
+import { PII_HEADERS, fieldForHeader } from '../ledger/nupay-columns.js';
 
 const fixture = fs.readFileSync(new URL('./fixtures/nupay/fake_Active_mandate_report.csv', import.meta.url), 'utf8');
 const SECRETS = ['0000000000001', '0000000000002', '0000000000003', '1000000001111', '1000000002222', '1000000003333', '0000000001', '0000000002', '0000000003', 'fake1@example.com', 'fake2@example.com', 'fake3@example.com', '000000'];
@@ -114,9 +115,16 @@ test('the Active mandate header is 52 columns and the other files differ where N
   assert.equal(rejected.length, 52);
   assert.equal(pending.length, 50);
   assert.equal(headersFor('suspended').length, 50);
-  assert.deepEqual(inactive.slice(inactive.indexOf('Migrated') - 2, inactive.indexOf('Migrated')), ['Status Code', 'Status Code Description']);
-  assert.deepEqual(rejected.slice(rejected.indexOf('Migrated') - 2, rejected.indexOf('Migrated')), ['Rejected Reason', 'Rejected Reason Description']);
+  assert.deepEqual(inactive.slice(inactive.indexOf('Migrated') - 2, inactive.indexOf('Migrated') + 2), ['Status Code', 'Status Code Description', 'Migrated', 'PIF Value']);
+  assert.deepEqual(rejected.slice(rejected.indexOf('Migrated') - 2, rejected.indexOf('Migrated') + 2), ['Rejected Reason', 'Rejected Reason Description', 'Migrated', 'PIF Value']);
   assert.equal(detectHeaders(rejected).fields.reason, rejected.indexOf('Rejected Reason Description'));
+  assert.equal(fieldForHeader('Adj Amount'), 'adjAmount');
+  assert.equal(fieldForHeader('Adj Rate'), 'adjRate');
+  assert.equal(fieldForHeader('Adjustment Amount'), 'adjAmount');
+  assert.equal(fieldForHeader('Adjustment Rate'), 'adjRate');
+  assert.equal(fieldForHeader('Acc. Type'), '');
+  assert.equal(PII_HEADERS.includes('Acc. Type'), false);
+  assert.equal(ACTIVE_HEADERS.indexOf('Migrated'), 39);
 });
 
 test('an empty status file is a headerless row of commas and zeros', () => {
