@@ -7,7 +7,8 @@ import {
   PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders,
   parseCsv, parseMoney, parseDate, classifyStatus, pifQuotes, withinTolerance, amountsAgree,
   maskId, maskPhone, last4, isEmptyStatusGrid, analyseText, analyseBuffer,
-  reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts, renderReport
+  reportToCsv, previewLoan, normalizeLoan, matchBadge, badgeCounts, renderReport,
+  visibleNote, restoreSheetFocus
 } from '../ledger/nupay-report.js';
 import { PII_HEADERS, fieldForHeader } from '../ledger/nupay-columns.js';
 
@@ -567,9 +568,33 @@ test('a shared mandate is not matched, and a contradicting client ref is not mat
   assert.notEqual(report.rows[0].loanId, 'a');
   assert.equal(report.rows[1].how, 'client-mismatch');
   assert.equal(report.rows[1].loanId, 'c');
-  assert.equal(report.rows[1].note, 'client mismatch');
+  assert.equal(report.rows[1].note, "Client reference doesn't match the book");
+  assert.equal(visibleNote(report.rows[1]), "Client reference doesn't match the book");
   assert.notEqual(report.rows[1].outcome, 'matched');
   assert.equal(matchBadge(report.rows[1]).label, 'Loan found');
+  const exported = reportToCsv(report);
+  const header = exported.trim().split('\n')[0].split(',');
+  const noteAt = header.indexOf('note');
+  assert.ok(noteAt > 0);
+  const mismatchCells = exported.trim().split('\n')[2].split(',');
+  assert.equal(mismatchCells[noteAt], "Client reference doesn't match the book");
+  assert.equal(mismatchCells[noteAt].includes('FAKE-CL-B'), false);
+  assert.equal(mismatchCells[noteAt].includes('Client A'), false);
+  assert.equal(mismatchCells[noteAt].includes('Client B'), false);
+  const view = miniDocument();
+  renderReport(view.root, report, view.document);
+  const rows = [];
+  (function walk(node) {
+    if (String(node._class || '').includes('np-pay') && String(node.textContent || '').includes("Client reference doesn't match the book")) rows.push(node);
+    for (const child of node.children || []) walk(child);
+  })(view.root);
+  assert.equal(rows.length, 1);
+  const blob = renderedBlob(view.root, []).join('\n');
+  assert.match(blob, /Client reference doesn't match the book/);
+  assert.equal(blob.includes('Client A'), false);
+  assert.equal(blob.includes('Client B'), false);
+  assert.equal(blob.includes('FAKE-CL-A'), false);
+  assert.equal(blob.includes('FAKE-CL-B'), false);
 });
 
 test('an unchecked amount is not Matched and does not preview a paid date', () => {
@@ -694,6 +719,51 @@ test('xlsx and a MandateReport zip are read in the browser parser', async () => 
   assert.equal(fromZip.sources.find(s => s.role === 'in_active').rows, 0);
   assert.equal(fromZip.sources.find(s => s.role === 'active').rows, 3);
   assertNoSecrets(JSON.stringify(fromZip));
+});
+
+test('sheet focus returns to a fresh NuPay tab, then Reports, then the opener', () => {
+  function button(attrs) {
+    return {
+      attrs,
+      hidden: !!attrs.hidden,
+      disabled: false,
+      getClientRects() { return attrs.rects === 0 ? [] : [{}]; },
+      getAttribute(name) { return Object.prototype.hasOwnProperty.call(attrs, name) ? attrs[name] : null; },
+      focus() { document.activeElement = this; }
+    };
+  }
+  function documentFor(nodes) {
+    const document = {
+      activeElement: null,
+      querySelectorAll(selector) {
+        return nodes.filter(node => {
+          if (selector === '[data-report-tab="nupay"]') return node.getAttribute('data-report-tab') === 'nupay';
+          if (selector === '.nav-item[title="Reports"]') return node.attrs.className === 'nav-item' && node.getAttribute('title') === 'Reports';
+          if (selector === '[title="Reports"]') return node.getAttribute('title') === 'Reports';
+          return false;
+        });
+      }
+    };
+    nodes.forEach(node => { node.focus = function () { document.activeElement = node; }; });
+    return document;
+  }
+  const stale = button({ 'data-report-tab': 'nupay', rects: 0, hidden: true });
+  const fresh = button({ 'data-report-tab': 'nupay' });
+  const reports = button({ className: 'nav-item', title: 'Reports' });
+  const opener = button({ title: 'Choose file' });
+  const live = documentFor([stale, fresh, reports, opener]);
+  restoreSheetFocus(live, opener);
+  assert.equal(live.activeElement, fresh);
+  const replaced = button({ 'data-report-tab': 'nupay' });
+  const rerendered = documentFor([stale, replaced, reports, opener]);
+  restoreSheetFocus(rerendered, opener);
+  assert.equal(rerendered.activeElement, replaced);
+  const noTab = documentFor([reports, opener]);
+  restoreSheetFocus(noTab, opener);
+  assert.equal(noTab.activeElement, reports);
+  const neither = documentFor([opener]);
+  restoreSheetFocus(neither, opener);
+  assert.equal(neither.activeElement, opener);
 });
 
 test('the page mounts the report without a write path', () => {

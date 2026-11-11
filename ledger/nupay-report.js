@@ -14,6 +14,7 @@ import {
 export { PIF, ACTIVE_HEADERS, headersFor, normHeader, detectHeaders };
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const CLIENT_MISMATCH_NOTE = "Client reference doesn't match the book";
 const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 
 let bookOverride = null;
@@ -702,7 +703,7 @@ function finish(rows, book, meta) {
     let outcome = 'unknown';
     let note = '';
     if (found.loan) {
-      if (clientMismatch) { outcome = 'mismatched'; note = 'client mismatch'; }
+      if (clientMismatch) { outcome = 'mismatched'; note = CLIENT_MISMATCH_NOTE; }
       else if (dateUnreadable) { outcome = 'mismatched'; note = 'date unreadable'; }
       else if (amount.checked && amount.ok && date.ok) outcome = 'matched';
       else {
@@ -918,7 +919,7 @@ export function reportToCsv(report) {
     'debit_amount', 'original_amount', 'pif_value', 'instalment_amount',
     'status', 'instalment_number', 'amount_ok', 'date_ok',
     'book_instalments_paid', 'preview_instalments_paid', 'book_paid_dates', 'preview_paid_dates',
-    'book_outstanding', 'book_client_name', 'source_file'
+    'book_outstanding', 'book_client_name', 'source_file', 'note'
   ];
   const groups = report && report.groups || [];
   const byLoan = new Map(groups.filter(g => g.loanId).map(g => [g.loanId, g]));
@@ -949,7 +950,8 @@ export function reportToCsv(report) {
       group && group.preview ? group.preview.paid_dates.join('|') : '',
       group && group.outstanding != null ? group.outstanding : '',
       group && group.clientName ? maskName(group.clientName) : '',
-      row.sourceFile || ''
+      row.sourceFile || '',
+      visibleNote(row)
     ];
     lines.push(values.map(csvCell).join(','));
   }
@@ -1030,7 +1032,7 @@ export function matchBadge(row) {
   const how = row && row.how || '';
   const note = row && row.note || '';
   if (outcome === 'unknown' || /-ambiguous$/.test(how)) return { label: 'Unknown', tone: 'neutral' };
-  if (note === 'client mismatch' || note === 'date unreadable' || note === 'amount unchecked') return { label: 'Loan found', tone: 'neutral' };
+  if (how === 'client-mismatch' || note === CLIENT_MISMATCH_NOTE || note === 'client mismatch' || note === 'date unreadable' || note === 'amount unchecked') return { label: 'Loan found', tone: 'neutral' };
   if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
   if (outcome === 'matched' && kind === 'success') return { label: 'Matched', tone: 'ok' };
   return { label: 'Loan found', tone: 'neutral' };
@@ -1054,6 +1056,14 @@ function pill(text, cls) {
   return el('span', 'np-pill ' + cls, text);
 }
 
+export function visibleNote(row) {
+  if (!row) return '';
+  if (row.how === 'client-mismatch' || row.note === CLIENT_MISMATCH_NOTE || row.note === 'client mismatch') return CLIENT_MISMATCH_NOTE;
+  if (row.note === 'date unreadable') return 'Date unreadable';
+  if (row.note === 'amount unchecked') return 'Amount not checked';
+  return '';
+}
+
 function payRow(row) {
   const line = el('div', 'np-pay');
   const date = el('div', '');
@@ -1067,15 +1077,12 @@ function payRow(row) {
   const badge = matchBadge(row);
   match.append(el('span', 'np-k', 'Match'), pill(badge.label, 'is-' + badge.tone));
   line.append(date, amount, outcome, match);
-  const wrap = el('div', '');
-  wrap.appendChild(line);
-    if (row.note === 'client mismatch') wrap.appendChild(el('p', 'np-diff', 'Client ref does not match the loan'));
-    else if (row.note === 'date unreadable') wrap.appendChild(el('p', 'np-diff', 'Date unreadable'));
-    else if (row.note === 'amount unchecked') wrap.appendChild(el('p', 'np-diff', 'Amount not checked'));
-    else if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
-      wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
-    }
-  return wrap;
+  const note = visibleNote(row);
+  if (note) line.appendChild(el('p', 'np-diff np-row-note', note));
+  else if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
+    line.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
+  }
+  return line;
 }
 
 function loanBlock(group) {
@@ -1211,6 +1218,7 @@ body.nupay-open dc-import{display:none !important}
 .np-pill.is-warn{background:var(--amberSoft,rgba(219,178,106,.16));color:var(--amber,#dbb26a)}
 .np-pill.is-neutral{background:var(--panel2,#111110);color:var(--mut,#b3b0a4);border-color:var(--line2,#3a3933)}
 .np-diff{margin:4px 0 0;font-size:13px;color:var(--amber,#dbb26a)}
+.np-pay .np-row-note{grid-column:1 / -1;margin:0}
 .np-preview{margin-top:8px;padding:8px 10px;border:1px dashed var(--line2,#3a3933);border-radius:10px;background:var(--panel2,#111110)}
 .np-map{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
 .np-map label{display:flex;flex-direction:column;gap:4px;font:600 12px 'Plus Jakarta Sans',sans-serif;color:var(--dim,#8a8778)}
@@ -1222,6 +1230,29 @@ body.nupay-open dc-import{display:none !important}
   .np-bar{flex-wrap:wrap}
 }
 `;
+
+function shownNode(node) {
+  if (!node || typeof node.focus !== 'function' || node.disabled || node.hidden) return false;
+  if (typeof node.getClientRects === 'function') {
+    try { if (node.getClientRects().length === 0) return false; } catch (e) { /* no layout yet */ }
+  }
+  return true;
+}
+
+export function restoreSheetFocus(view, opener) {
+  const root = view || (typeof document !== 'undefined' ? document : null);
+  const pick = selector => {
+    if (!root || typeof root.querySelectorAll !== 'function') return null;
+    const nodes = root.querySelectorAll(selector);
+    for (const node of nodes) if (shownNode(node)) return node;
+    return null;
+  };
+  const nupay = pick('[data-report-tab="nupay"]');
+  if (nupay) { nupay.focus(); return; }
+  const reports = pick('.nav-item[title="Reports"]') || pick('[title="Reports"]');
+  if (reports) { reports.focus(); return; }
+  if (opener && typeof opener.focus === 'function') opener.focus();
+}
 
 function mount(host) {
   if (!host || host.dataset.nupayReady) return;
@@ -1287,9 +1318,10 @@ function mount(host) {
     scrim.hidden = true;
     document.body.classList.remove('nupay-open');
     document.querySelectorAll('[data-nupay-hide]').forEach(node => { node.style.display = node.dataset.nupayHide || ''; delete node.dataset.nupayHide; });
-    if (opener && opener.focus) opener.focus();
+    restoreSheetFocus(document, opener);
   }
   closeBtn.addEventListener('click', close);
+  scrim.addEventListener('click', ev => { if (ev.target === scrim) close(); });
   document.addEventListener('keydown', onKey, true);
   // The Reports template is re-rendered by the page. A listener stuck on one
   // node, or a data-bound flag copied onto the replacement, misses the next file.

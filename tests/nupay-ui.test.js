@@ -90,6 +90,50 @@ test('upload, render, and export leave no NuPay data in storage, and the first f
   });
 });
 
+test('Esc, Close, and a scrim click return focus to the NuPay tab', { skip, timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const { browser, page } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
+    try {
+      await boot(page, api.origin);
+      await openNuPay(page);
+      const focusedTab = () => page.evaluate(() => {
+        const el = document.activeElement;
+        const scrim = document.getElementById('nupay-report-scrim');
+        return {
+          tab: el && el.getAttribute ? el.getAttribute('data-report-tab') : '',
+          closed: !!(scrim && scrim.hidden)
+        };
+      });
+      const openSheet = async () => {
+        await page.locator('#nupay-tab-file').first().setInputFiles(csv);
+        await pageWaitFor(page, () => {
+          const scrim = document.getElementById('nupay-report-scrim');
+          return !!(scrim && !scrim.hidden);
+        }, null, { timeoutMs: 8000 });
+      };
+      await openSheet();
+      await page.keyboard.press('Escape');
+      let focus = await focusedTab();
+      assert.equal(focus.closed, true);
+      assert.equal(focus.tab, 'nupay');
+
+      await openSheet();
+      await page.locator('#nupay-report-scrim button[aria-label="Close NuPay report"]').click();
+      focus = await focusedTab();
+      assert.equal(focus.closed, true);
+      assert.equal(focus.tab, 'nupay');
+
+      await openSheet();
+      await page.evaluate(() => document.getElementById('nupay-report-scrim').click());
+      focus = await focusedTab();
+      assert.equal(focus.closed, true);
+      assert.equal(focus.tab, 'nupay');
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
 test('summary tiles are one column from 360 through 639', { skip, timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const { browser, page } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
