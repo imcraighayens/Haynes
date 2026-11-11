@@ -15,7 +15,7 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
-import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome } from './_lib/borrower.js';
+import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, setNewBorrowerPin, pinChangePending } from './_lib/borrower.js';
 import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
 import { biometricStatus, registerOptions, registerCredential, loginOptions, loginCredential } from './_lib/borrower-webauthn.js';
 import {
@@ -255,6 +255,11 @@ async function postRedeem(req, res) {
 
 async function postBorrowerLogin(req, res) {
   const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  if (out && out.pinChangeRequired) {
+    setCookies(res, out.cookies);
+    json(res, 200, { pinChangeRequired: true }, req);
+    return;
+  }
   if (out && out.verifyRequired) {
     json(res, 200, {
       verifyRequired: true,
@@ -301,6 +306,16 @@ async function postSignInId(req, res) {
   } finally {
     await padSignIn(started);
   }
+  if (out && out.pinChangeRequired) {
+    setCookies(res, out.cookies);
+    json(res, 200, { pinChangeRequired: true }, req);
+    return;
+  }
+  if (out && out.accountRef) {
+    setCookies(res, out.cookies);
+    json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+    return;
+  }
   setCookies(res, out.cookies);
   json(res, 200, out.body, req);
 }
@@ -325,6 +340,12 @@ async function postIdentity(req, res) {
   const body = await readBody(req, PUBLIC_BODY_CAP);
   const out = await storeBorrowerId(borrower.id, body.idNumber ?? body.idnum);
   json(res, 200, { idMasked: out.idMasked }, req);
+}
+
+async function postSetNewPin(req, res) {
+  const out = await setNewBorrowerPin(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
 }
 
 async function postBorrowerLogout(req, res) {
@@ -395,6 +416,11 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerLogin(req, res);
+  } else if (head === 'pin') {
+    if (id) throw new HttpError(404, 'Not found');
+    if (method === 'GET' || method === 'HEAD') return json(res, 200, await pinChangePending(req), req);
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    return postSetNewPin(req, res);
   } else if (head === 'verify') {
     if (!id && method === 'POST') return postVerify(req, res);
     if (id === 'email' && !rest.length && method === 'POST') return postVerifyEmail(req, res);

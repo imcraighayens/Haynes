@@ -5,6 +5,9 @@ import { scrypt as scryptCb, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCb);
+let verifyCalls = 0;
+export function resetVerifyCalls() { verifyCalls = 0; }
+export function verifyCallCount() { return verifyCalls; }
 const COST = 16384;
 const BLOCK = 8;
 const PARALLEL = 1;
@@ -62,6 +65,7 @@ export async function hashPin(pin) {
 
 // False for a missing, malformed, or non-matching hash. Never throws the submitted value.
 export async function verifyPin(pin, stored) {
+  verifyCalls += 1;
   if (!isCheckablePin(pin) || typeof stored !== 'string') return false;
   const parts = stored.split('$');
   if (parts.length !== 6 || parts[0] !== 'scrypt') return false;

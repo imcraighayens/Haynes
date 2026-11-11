@@ -3010,6 +3010,14 @@ input,button,textarea{font-family:inherit}
       }catch(e){}
       if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
+      fetch(this.borrowerApi('/pin'),{credentials:'same-origin',headers:{accept:'application/json'}})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{
+          if(j&&j.pinChangeRequired===true&&!this.state.inviteCode){
+            this.setState({screen:'login', pinPhase:'change', otp:'', pinFirst:'', pinNote:''});
+          }
+        })
+        .catch(()=>{});
       try{
         const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
         if(link){
@@ -3662,6 +3670,18 @@ input,button,textarea{font-family:inherit}
       if(this.state.pinBusy) return;
       if(!/^\d{6}$/.test(pin)) return;
       const st=this.state;
+      if(st.pinPhase==='change'||st.pinPhase==='change2'){
+        if(st.pinPhase!=='change2'){
+          this.setState({pinFirst:pin, pinPhase:'change2', otp:'', pinNote:''});
+          return;
+        }
+        if(pin!==st.pinFirst){
+          this.setState({pinFirst:'', pinPhase:'change', otp:'', pinNote:'Those did not match. Choose the PIN again.'});
+          return;
+        }
+        this.finishBorrower('/pin', {pin:pin, pinConfirm:st.pinFirst});
+        return;
+      }
       if(st.inviteCode){
         if(st.pinPhase!=='confirm'){
           this.setState({pinFirst:pin, pinPhase:'confirm', otp:'', pinNote:''});
@@ -3694,6 +3714,10 @@ input,button,textarea{font-family:inherit}
             this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', verifyToken:'', pinPhase:'unlinked', pinNote:"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."});
             return;
           }
+          if(r.ok&&j&&j.pinChangeRequired){
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:'change', pinNote:'', inviteCode:''});
+            return;
+          }
           if(r.ok&&j&&j.verifyRequired){
             if(j.contactStaff){
               this.setState({pinBusy:false, otp:'', pinPhase:'staff', verifyToken:'', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
@@ -3709,7 +3733,9 @@ input,button,textarea{font-family:inherit}
           }
           if(!r.ok){
             const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
-            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:this.state.inviteCode?'choose':'sign', pinNote:msg});
+            const phase=this.state.pinPhase;
+            const back=(phase==='change'||phase==='change2')?'change':(this.state.inviteCode?'choose':'sign');
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:back, pinNote:msg});
             return;
           }
           const accountRef=j&&typeof j.accountRef==='string'?j.accountRef:'';
@@ -5737,9 +5763,13 @@ input,button,textarea{font-family:inherit}
         loginEmailStep:s.screen==='login'&&s.pinPhase==='emailin',
         loginIdSignStep:s.screen==='login'&&s.pinPhase==='idphone',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
+        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
         loginSub:s.pinPhase==='unlinked'
           ?"Please contact EcoLoans and we'll reset your access."
+          :s.pinPhase==='change'
+          ?'Choose a 6-digit PIN, then enter it again. It replaces the temporary one.'
+          :s.pinPhase==='change2'
+          ?'Enter that PIN again. It replaces the temporary one.'
           :s.pinPhase==='choose'
           ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
@@ -5775,7 +5805,7 @@ input,button,textarea{font-family:inherit}
         showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef,
+        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',
