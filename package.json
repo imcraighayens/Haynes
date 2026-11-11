@@ -8,6 +8,8 @@
     "node": "22.x"
   },
   "scripts": {
+    "dev": "node tools/mock-api.js --port 5410",
+    "dev:live": "node tools/mock-api.js --port 5410 --live",
     "test": "node --test $(find tests -name '*.test.js')",
     "boot:ledger": "node tools/boot-test.js ledger index.html /tmp/ledger.png 1440 900",
     "boot:quik1": "node tools/boot-test.js quik1 index.html /tmp/quik1.png 440 940"
