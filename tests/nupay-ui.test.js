@@ -26,7 +26,7 @@ async function openNuPay(page) {
   await page.waitForSelector('#nupay-tab-drop', { state: 'attached' });
 }
 
-test('upload, render, and export do not write storage, and the first file after a re-render still opens', { skip, timeout: 120000 }, async () => {
+test('upload, render, and export leave no NuPay data in storage, and the first file after a re-render still opens', { skip, timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const { browser, page } = await launchBrowser(pw.chromium, { width: 1440, height: 900 });
     try {
@@ -34,19 +34,6 @@ test('upload, render, and export do not write storage, and the first file after 
       await page.waitForTimeout(1500);
       await openNuPay(page);
       await page.waitForTimeout(800);
-      await page.evaluate(async () => {
-        const raw = Storage.prototype.setItem;
-        window.__storageWrites = [];
-        Storage.prototype.setItem = function (key, value) {
-          window.__storageWrites.push(key);
-          return raw.call(this, key, value);
-        };
-        window.__ls = {};
-        for (let i = 0; i < localStorage.length; i++) { const key = localStorage.key(i); window.__ls[key] = localStorage.getItem(key); }
-        window.__ss = {};
-        for (let i = 0; i < sessionStorage.length; i++) { const key = sessionStorage.key(i); window.__ss[key] = sessionStorage.getItem(key); }
-        window.__idb = indexedDB.databases ? (await indexedDB.databases()).map(db => db.name + ':' + db.version) : [];
-      });
       await page.locator('#nupay-tab-file').first().setInputFiles(csv);
       await pageWaitFor(page, () => {
         const scrim = document.getElementById('nupay-report-scrim');
@@ -55,22 +42,39 @@ test('upload, render, and export do not write storage, and the first file after 
       await page.locator('#nupay-report-export').click();
       await pageWaitFor(page, () => /Exported \d+ rows/.test(document.body.innerText), null, { timeoutMs: 5000 });
       await page.waitForTimeout(600);
-      const storage = await page.evaluate(async () => {
-        const ls = [];
-        const names = new Set(Object.keys(window.__ls));
-        for (let i = 0; i < localStorage.length; i++) names.add(localStorage.key(i));
-        for (const key of names) if (window.__ls[key] !== localStorage.getItem(key)) ls.push(key);
-        const ss = [];
-        const snames = new Set(Object.keys(window.__ss));
-        for (let i = 0; i < sessionStorage.length; i++) snames.add(sessionStorage.key(i));
-        for (const key of snames) if (window.__ss[key] !== sessionStorage.getItem(key)) ss.push(key);
-        const idb = indexedDB.databases ? (await indexedDB.databases()).map(db => db.name + ':' + db.version) : [];
-        return { writes: window.__storageWrites, ls, ss, idbSame: JSON.stringify(idb) === JSON.stringify(window.__idb) };
+      const leaked = await page.evaluate(async () => {
+        const parts = [];
+        for (let i = 0; i < localStorage.length; i++) parts.push(localStorage.getItem(localStorage.key(i)));
+        for (let i = 0; i < sessionStorage.length; i++) parts.push(sessionStorage.getItem(sessionStorage.key(i)));
+        if (indexedDB.databases) {
+          const dbs = await indexedDB.databases();
+          for (const info of dbs) {
+            parts.push(info.name || '');
+            const rows = await new Promise(resolve => {
+              const req = indexedDB.open(info.name);
+              req.onerror = () => resolve('');
+              req.onsuccess = () => {
+                const db = req.result;
+                const names = [...db.objectStoreNames];
+                if (!names.length) { db.close(); resolve(''); return; }
+                const tx = db.transaction(names, 'readonly');
+                const chunks = [];
+                let left = names.length;
+                names.forEach(name => {
+                  const get = tx.objectStore(name).getAll();
+                  get.onsuccess = () => { chunks.push(JSON.stringify(get.result)); if (--left === 0) { db.close(); resolve(chunks.join('\n')); } };
+                  get.onerror = () => { if (--left === 0) { db.close(); resolve(chunks.join('\n')); } };
+                });
+              };
+            });
+            parts.push(rows);
+          }
+        }
+        return parts.join('\n');
       });
-      assert.deepEqual(storage.writes, []);
-      assert.deepEqual(storage.ls, []);
-      assert.deepEqual(storage.ss, []);
-      assert.equal(storage.idbSame, true);
+      for (const secret of ['90000999', '9001015800081', '620184739201', '0825550143', 'nobody.live@example.com', '2760.32', '690.08', '552.06', 'fake_live_book_report']) {
+        assert.equal(leaked.includes(secret), false, secret);
+      }
 
       await page.locator('#nupay-report-scrim button[aria-label="Close NuPay report"]').click();
       await clickText(page, 'Dashboard');

@@ -3003,23 +3003,14 @@ class Component extends DCLogic {
   }
   persist(){
     clearTimeout(this._sv);
-    this._sv = setTimeout(()=>{ const s=this.state; const payload = {
+    this._sv = setTimeout(()=>{ this.dbPush(); const s=this.state; const payload = {
       clients:s.clients, loans:s.loans, logbook:s.logbook, petty:s.petty, contractVault:s.contractVault, txnSeq:s.txnSeq,
       employees:s.employees, prof:s.prof, twilio:{mins:(s.twilio&&s.twilio.mins)||0, sms:(s.twilio&&s.twilio.sms)||0}, cloud:s.cloud, attended:s.attended, theme:s.theme, ctpl:s.ctpl,
       applications:s.applications, loanSeq:s.loanSeq, clientSeq:s.clientSeq };
-      let str='';
-      try{ str=JSON.stringify(payload); }
-      catch(e){ return; }
-      // Route changes, including the NuPay tab, re-render the page. The book in this
-      // payload did not change, so do not write the console cache again.
-      if(str===this._consoleSaved) return;
-      this.dbPush();
-      try{ localStorage.setItem('evoltConsoleV4', str); this._consoleSaved=str; this._savedBytes=str.length; }
+      try{ const str=JSON.stringify(payload); localStorage.setItem('evoltConsoleV4', str); this._savedBytes=str.length; }
       catch(e){ // quota hit — retry without heavy signature blobs so records still persist
         try{ const lite={...payload, clients:payload.clients.map(c=>c.contract&&c.contract.sig?{...c,contract:{...c.contract,sig:'[stored-separately]'}}:c)};
-          const liteStr=JSON.stringify(lite);
-          if(liteStr===this._consoleSaved) return;
-          localStorage.setItem('evoltConsoleV4', liteStr); this._consoleSaved=liteStr;
+          localStorage.setItem('evoltConsoleV4', JSON.stringify(lite));
           this.toast('Records saved (signatures too large for local storage — use cloud vault)'); }
         catch(e2){ this.toast('⚠ Storage full — export to cloud vault to keep records'); } }
       this.sbQueue();
@@ -3926,7 +3917,7 @@ class Component extends DCLogic {
     const snap={}; loans.forEach(l=>snap[l.id]=l.status);
     let prev=this._bankSnap;
     if(!prev){ try{ prev=JSON.parse(localStorage.getItem('ledjaa.bank.snap')||'null'); }catch(e){} }
-    if(!prev){ this._bankSnap=snap; const first=JSON.stringify(snap); if(first!==this._bankSnapStr){ this._bankSnapStr=first; try{ localStorage.setItem('ledjaa.bank.snap',first); }catch(e){} } return; }
+    if(!prev){ this._bankSnap=snap; try{ localStorage.setItem('ledjaa.bank.snap',JSON.stringify(snap)); }catch(e){} return; }
     const tx=this.bankTx(), add=[], now=Date.now(), by=(this.state.prof&&this.state.prof.name)||'—';
     const newIds = loans.filter(l=>!(l.id in prev));
     const bulk = newIds.length>3;
@@ -3937,8 +3928,7 @@ class Component extends DCLogic {
       if(was==='paid' && is!=='paid') add.push({type:'out', amount:full, ref:l.ref, label:'Reversed · unmarked paid', at:now, by});
     });
     this._bankSnap=snap;
-    const snapStr=JSON.stringify(snap);
-    if(snapStr!==this._bankSnapStr){ this._bankSnapStr=snapStr; try{ localStorage.setItem('ledjaa.bank.snap',snapStr); }catch(e){} }
+    try{ localStorage.setItem('ledjaa.bank.snap',JSON.stringify(snap)); }catch(e){}
     if(add.length){ this._btx=[...add, ...tx].slice(0,500); try{ localStorage.setItem('ledjaa.bank.tx',JSON.stringify(this._btx)); }catch(e){} this.forceUpdate(); }
   }
   bankNow(){
