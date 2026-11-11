@@ -43,12 +43,39 @@ export function parseMoney(value) {
   let s = String(value == null ? '' : value).trim();
   if (!s || !/\d/.test(s)) return null;
   s = s.replace(/[Rr]/g, '').replace(/\s/g, '');
-  if (s.includes(',') && s.includes('.')) s = s.replace(/,/g, '');
-  else if (s.includes(',')) s = s.replace(',', '.');
-  s = s.replace(/[^0-9.\-]/g, '');
-  if (!s || s === '-' || s === '.') return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? round2(n) : null;
+  const neg = s.startsWith('-');
+  if (neg) s = s.slice(1);
+  if (!/^\d[\d.,]*$/.test(s)) return null;
+  const groups = [];
+  const seps = [];
+  let buf = '';
+  for (const ch of s) {
+    if (ch === ',' || ch === '.') {
+      if (!buf) return null;
+      groups.push(buf);
+      seps.push(ch);
+      buf = '';
+    } else buf += ch;
+  }
+  if (!buf) return null;
+  groups.push(buf);
+  const sign = neg ? '-' : '';
+  const asNumber = (digits, frac) => {
+    const n = Number(sign + digits + (frac != null ? '.' + frac : ''));
+    return Number.isFinite(n) ? round2(n) : null;
+  };
+  if (seps.length === 0) return asNumber(groups[0], null);
+  const sameSep = seps.every(sep => sep === seps[0]);
+  if (sameSep && groups.slice(1).every(part => part.length === 3)) return asNumber(groups.join(''), null);
+  const decimal = groups[groups.length - 1];
+  const decimalSep = seps[seps.length - 1];
+  const thousands = seps.slice(0, -1);
+  if (decimal.length === 3) return null;
+  if (thousands.some(sep => sep === decimalSep) || new Set(thousands).size > 1) return null;
+  const whole = groups.slice(0, -1);
+  if (thousands.length && whole[0].length > 3) return null;
+  if (whole.slice(1).some(part => part.length !== 3)) return null;
+  return asNumber(whole.join(''), decimal);
 }
 
 function iso(y, mo, d) {
@@ -359,10 +386,17 @@ function normKey(value) {
   return String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, '');
 }
 
-function prefer(map, key, loan) {
+function registerKey(map, collisions, key, loan) {
   if (!key || !loan) return;
+  if (collisions.has(key)) return;
   const prev = map.get(key);
-  if (!prev || (prev.deleted && !loan.deleted)) map.set(key, loan);
+  if (!prev || prev.id === loan.id) { map.set(key, loan); return; }
+  if (prev.deleted !== loan.deleted) {
+    if (prev.deleted && !loan.deleted) map.set(key, loan);
+    return;
+  }
+  collisions.add(key);
+  map.delete(key);
 }
 
 export function indexBook(book) {
@@ -372,12 +406,14 @@ export function indexBook(book) {
   const byId = new Map(loans.map(l => [l.id, l]));
   const byContract = new Map();
   const byMandate = new Map();
+  const contractCollisions = new Set();
+  const mandateCollisions = new Set();
   const byClient = new Map();
   const clientById = new Map(clients.map(c => [c.id, c]));
   const clientByRef = new Map();
   for (const loan of loans) {
-    prefer(byContract, normKey(loan.contractRef), loan);
-    prefer(byMandate, normKey(loan.mandateId), loan);
+    registerKey(byContract, contractCollisions, normKey(loan.contractRef), loan);
+    registerKey(byMandate, mandateCollisions, normKey(loan.mandateId), loan);
     if (loan.clientId) {
       if (!byClient.has(loan.clientId)) byClient.set(loan.clientId, []);
       byClient.get(loan.clientId).push(loan);
@@ -387,16 +423,16 @@ export function indexBook(book) {
     const key = normKey(client.ref);
     if (key && !clientByRef.has(key)) clientByRef.set(key, client);
     const own = byClient.get(client.id) || [];
-    if (client.mandateRef && own.length === 1) prefer(byMandate, normKey(client.mandateRef), own[0]);
+    if (client.mandateRef && own.length === 1) registerKey(byMandate, mandateCollisions, normKey(client.mandateRef), own[0]);
   }
   for (const mandate of mandates) {
     const ref = normKey(mandate.mandate_ref || mandate.mandateRef || '');
     const loan = byId.get(String(mandate.loan_id || mandate.loanId || ''));
-    if (ref && loan) prefer(byMandate, ref, loan);
+    if (ref && loan) registerKey(byMandate, mandateCollisions, ref, loan);
   }
   const byClientRef = new Map();
   for (const [key, client] of clientByRef) byClientRef.set(key, byClient.get(client.id) || []);
-  return { loans, clients, clientById, byContract, byMandate, byClientRef };
+  return { loans, clients, clientById, byContract, byMandate, byClientRef, contractCollisions, mandateCollisions };
 }
 
 export function amountsAgree(row, instalment) {
@@ -427,10 +463,16 @@ export function amountsAgree(row, instalment) {
 }
 
 function dateAgrees(row, loan) {
-  if (row.dateMiss) return { ok: false, checked: true };
-  if (!row.actionDate) return { ok: true, checked: false };
+  if (row.dateUnreadable || row.dateMiss || !row.actionDate) return { ok: false, checked: true };
   if (!loan.schedule.length || !loan.schedule.includes(row.actionDate)) return { ok: false, checked: true };
   return { ok: true, checked: true };
+}
+
+function clientContradicts(row, loan, index) {
+  const key = normKey(row.clientReference);
+  if (!key) return false;
+  const client = index.clientById.get(loan.clientId);
+  return !client || normKey(client.ref) !== key;
 }
 
 function pickClientLoan(loans, row) {
@@ -442,14 +484,17 @@ function pickClientLoan(loans, row) {
 
 function locate(row, index) {
   const steps = [
-    ['contract', row.contractReference, index.byContract],
-    ['mandate', row.mandateId, index.byMandate]
+    ['contract', row.contractReference, index.byContract, index.contractCollisions],
+    ['mandate', row.mandateId, index.byMandate, index.mandateCollisions]
   ];
-  for (const [how, raw, map] of steps) {
+  for (const [how, raw, map, collisions] of steps) {
     const key = normKey(raw);
     if (!key) continue;
+    if (collisions && collisions.has(key)) return { loan: null, how: how + '-ambiguous' };
     const loan = map.get(key);
-    if (loan) return { loan, how };
+    if (!loan) continue;
+    if (clientContradicts(row, loan, index)) return { loan, how: 'client-mismatch' };
+    return { loan, how };
   }
   const clientKey = normKey(row.clientReference);
   if (clientKey) {
@@ -511,6 +556,7 @@ function buildRows(grid, headerIndex, fields, meta) {
       mandateId: cell(src, fields.mandateId),
       clientReference: cell(src, fields.clientReference),
       actionDate: parseDate(cell(src, fields.actionDate)),
+      dateUnreadable: !parseDate(cell(src, fields.actionDate)),
       originalAmount: parseMoney(cell(src, fields.originalAmount)),
       pifValue: parseMoney(cell(src, fields.pifValue)),
       instalmentAmount: parseMoney(cell(src, fields.instalmentAmount)),
@@ -536,7 +582,7 @@ function buildRows(grid, headerIndex, fields, meta) {
 export function amountsAndDate(row, loan) {
   const dated = Object.assign({}, row);
   dated.dateMiss = false;
-  if (!dated.actionDate && dated.instalmentNumber) {
+  if (!dated.actionDate && !dated.dateUnreadable && dated.instalmentNumber) {
     const at = dated.instalmentNumber - 1;
     if (at >= 0 && at < loan.schedule.length) dated.actionDate = loan.schedule[at];
     else dated.dateMiss = true;
@@ -640,7 +686,12 @@ function finish(rows, book, meta) {
       amount = judged.amount;
       date = judged.date;
     }
-    const outcome = !found.loan ? 'unknown' : (!amount.ok || !date.ok) ? 'mismatched' : 'matched';
+    const dateUnreadable = !!(found.loan && row.dateUnreadable);
+    const clientMismatch = found.how === 'client-mismatch';
+    let outcome = !found.loan ? 'unknown' : (!amount.ok || !date.ok) ? 'mismatched' : 'matched';
+    let note = '';
+    if (clientMismatch) { outcome = 'mismatched'; note = 'client mismatch'; }
+    else if (dateUnreadable) { outcome = 'mismatched'; note = 'date unreadable'; }
     const client = found.loan ? index.clientById.get(found.loan.clientId) : null;
     const item = {
       line: row.line,
@@ -666,7 +717,8 @@ function finish(rows, book, meta) {
       dateOk: !!date.ok,
       sourceFile: row.sourceFile,
       sourceRole: row.sourceRole,
-      fileName: outcome === 'unknown' ? row.fileName : '',
+      note,
+      displayName: outcome === 'unknown' ? maskName(row.fileName) : '',
       nupayAmount: row.debitAmount != null ? row.debitAmount : row.originalAmount != null ? row.originalAmount : row.instalmentAmount,
       bookAmount: found.loan ? found.loan.instalmentAmount : null
     };
@@ -878,7 +930,7 @@ export function reportToCsv(report) {
       group ? group.paidDates.join('|') : '',
       group && group.preview ? group.preview.paid_dates.join('|') : '',
       group && group.outstanding != null ? group.outstanding : '',
-      (group && group.clientName) || row.fileName || '',
+      group && group.clientName ? group.clientName : '',
       row.sourceFile || ''
     ];
     lines.push(values.map(csvCell).join(','));
@@ -948,10 +1000,19 @@ function outcomeClass(kind) {
   return 'is-neutral';
 }
 
+export function maskName(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  return raw.split(/\s+/).map(word => word.charAt(0) + '••••').join(' ');
+}
+
 export function matchBadge(row) {
   const outcome = row && row.outcome;
   const kind = row && row.statusKind;
-  if (outcome === 'unknown') return { label: 'Unknown', tone: 'neutral' };
+  const how = row && row.how || '';
+  const note = row && row.note || '';
+  if (outcome === 'unknown' || /-ambiguous$/.test(how)) return { label: 'Unknown', tone: 'neutral' };
+  if (note === 'client mismatch' || note === 'date unreadable') return { label: 'Loan found', tone: 'neutral' };
   if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
   if (outcome === 'matched' && kind === 'success') return { label: 'Matched', tone: 'ok' };
   return { label: 'Loan found', tone: 'neutral' };
@@ -990,9 +1051,11 @@ function payRow(row) {
   line.append(date, amount, outcome, match);
   const wrap = el('div', '');
   wrap.appendChild(line);
-  if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
-    wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
-  }
+    if (row.note === 'client mismatch') wrap.appendChild(el('p', 'np-diff', 'Client ref does not match the loan'));
+    else if (row.note === 'date unreadable') wrap.appendChild(el('p', 'np-diff', 'Date unreadable'));
+    else if (row.outcome === 'mismatched' && row.nupayAmount != null && row.bookAmount != null) {
+      wrap.appendChild(el('p', 'np-diff', 'NuPay ' + money(row.nupayAmount) + ' · book ' + money(row.bookAmount)));
+    }
   return wrap;
 }
 
@@ -1026,9 +1089,10 @@ function unknownBlock(group) {
   block.id = 'nupay-unknown';
   block.appendChild(el('h3', '', 'Unknown'));
   block.appendChild(el('p', 'np-meta', 'No loan on the loaded book.'));
-  (group.rows || []).forEach(row => {
-    if (row.fileName) block.appendChild(el('p', 'np-meta', row.fileName));
-    if (row.mandateId) block.appendChild(el('p', 'np-meta', 'Mandate ' + maskId(row.mandateId)));
+    (group.rows || []).forEach(row => {
+      if (row.how && /-ambiguous$/.test(row.how)) block.appendChild(el('p', 'np-meta', 'Ambiguous'));
+      if (row.displayName) block.appendChild(el('p', 'np-meta', row.displayName));
+      if (row.mandateId) block.appendChild(el('p', 'np-meta', 'Mandate ' + maskId(row.mandateId)));
     block.appendChild(payRow(row));
   });
   return block;
@@ -1184,7 +1248,7 @@ function mount(host) {
   }
   function onKey(ev) {
     if (scrim.hidden) return;
-    if (ev.key === 'Escape') { ev.preventDefault(); close(); return; }
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); close(); return; }
     if (ev.key !== 'Tab') return;
     const items = focusables();
     if (!items.length) return;
@@ -1207,7 +1271,7 @@ function mount(host) {
     if (opener && opener.focus) opener.focus();
   }
   closeBtn.addEventListener('click', close);
-  document.addEventListener('keydown', onKey);
+  document.addEventListener('keydown', onKey, true);
   // The Reports template is re-rendered by the page. A listener stuck on one
   // node, or a data-bound flag copied onto the replacement, misses the next file.
   document.addEventListener('click', ev => {

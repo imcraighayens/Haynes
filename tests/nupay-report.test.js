@@ -125,6 +125,12 @@ test('CSV parsing keeps quoted commas and reads the fake Active fixture', () => 
   const quoted = parseCsv('Contract Reference,Name,Amount\n"FAKE-CR-0001","Sample, Client","1 380.16"\n');
   assert.equal(quoted[1][1], 'Sample, Client');
   assert.equal(parseMoney(quoted[1][2]), 1380.16);
+  assert.equal(parseMoney('1,234'), 1234);
+  assert.equal(parseMoney('1.234'), 1234);
+  assert.equal(parseMoney('1.234,56'), 1234.56);
+  assert.equal(parseMoney('1,234.56'), 1234.56);
+  assert.equal(parseMoney('1,234.567'), null);
+  assert.equal(parseMoney('1.23.45'), null);
   assert.equal(parseDate('25/02/2026'), '2026-02-25');
   assert.equal(parseDate('25 Feb 2026'), '2026-02-25');
   const lines = fixture.trim().split(/\n/);
@@ -139,7 +145,10 @@ test('CSV parsing keeps quoted commas and reads the fake Active fixture', () => 
   assert.equal(first.pifValue, 30.16);
   assert.equal(first.totalAmount, 1380.16);
   assert.equal(first.instalmentAmount, 1380.16);
-  assert.equal(first.outcome, 'matched');
+  assert.equal(first.note, 'date unreadable');
+  assert.equal(first.amountOk, true);
+  assert.notEqual(first.outcome, 'matched');
+  assert.equal(matchBadge(first).label, 'Loan found');
   assert.equal(first.how, 'contract');
   const small = report.rows[1];
   assert.equal(small.originalAmount, 400);
@@ -195,8 +204,8 @@ test('the expected debit uses the R10.93 floor below about R489 and 2.234% above
 test('matching uses contract, then mandate, then client reference, including settled and deleted loans', () => {
   const csv = [
     'Status,Debit Amount,Client Reference,Transaction Date,Mandate ID,Contract Reference',
-    'Success,1380.16,FAKE-CL-09,2026-02-25,FAKE-M-NOPE,FAKE-CR-0001',
-    'Success,1380.16,FAKE-CL-09,2026-01-25,FAKE-M-0002,FAKE-CR-MISSING',
+    'Success,1380.16,FAKE-CL-01,2026-02-25,FAKE-M-NOPE,FAKE-CR-0001',
+    'Success,1380.16,FAKE-CL-02,2026-01-25,FAKE-M-0002,FAKE-CR-MISSING',
     'Success,410.93,FAKE-CL-03,2026-05-25,,',
     'Success,1380.16,FAKE-CL-09,2026-02-25,FAKE-M-NO,FAKE-CR-NO',
     'Success,100.00,FAKE-CL-01,2026-03-25,FAKE-M-0001,FAKE-CR-0001',
@@ -483,6 +492,70 @@ test('the live mock book shows every NuPay row state, with the mandate masked', 
   assert.match(blob, /Mismatched/);
   assert.match(blob, /Unknown/);
   assert.match(blob, /Mandate /);
+});
+
+test('an unknown row does not show or export the file name', () => {
+  const name = 'Zelda Quillwright';
+  const csv = [
+    'Contract Reference,Transaction Date,Debit Amount,Status,Name',
+    'FAKE-CR-NOPE,2026-02-25,1380.16,Success,' + name
+  ].join('\n');
+  const report = analyseText(csv, book);
+  assert.equal(report.rows[0].outcome, 'unknown');
+  const exported = reportToCsv(report);
+  assert.equal(exported.includes(name), false);
+  assert.equal(exported.split('\n')[1].split(',').includes(name), false);
+  const header = exported.split('\n')[0].split(',');
+  const nameAt = header.indexOf('book_client_name');
+  assert.equal(exported.trim().split('\n')[1].split(',')[nameAt], '');
+  const view = miniDocument();
+  renderReport(view.root, report, view.document);
+  const blob = renderedBlob(view.root, []).join('\n');
+  assert.equal(blob.includes(name), false);
+});
+
+test('a shared mandate is not matched, and a contradicting client ref is not matched', () => {
+  const shared = {
+    loans: [
+      { id: 'a', ref: 'FAKE-LN-A', mandate_id: '555000111222', client_id: 'ca', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' },
+      { id: 'b', ref: 'FAKE-LN-B', mandate_id: '555000111222', client_id: 'cb', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' },
+      { id: 'c', ref: 'FAKE-LN-C', mandate_id: '555000333444', client_id: 'ca', instalment_amount: 1350, schedule: ['2026-02-25'], instalments_paid: 0, paid_dates: [], status: 'issued' }
+    ],
+    clients: [
+      { id: 'ca', ref: 'FAKE-CL-A', name: 'Client A' },
+      { id: 'cb', ref: 'FAKE-CL-B', name: 'Client B' }
+    ],
+    mandates: []
+  };
+  const csv = [
+    'Mandate ID,Client Reference,Transaction Date,Debit Amount,Status',
+    '555000111222,FAKE-CL-B,2026-02-25,1380.16,Success',
+    '555000333444,FAKE-CL-B,2026-02-25,1380.16,Success'
+  ].join('\n');
+  const report = analyseText(csv, shared);
+  assert.equal(report.rows[0].how, 'mandate-ambiguous');
+  assert.equal(report.rows[0].loanId, '');
+  assert.notEqual(matchBadge(report.rows[0]).label, 'Matched');
+  assert.notEqual(report.rows[0].loanId, 'a');
+  assert.equal(report.rows[1].how, 'client-mismatch');
+  assert.equal(report.rows[1].loanId, 'c');
+  assert.equal(report.rows[1].note, 'client mismatch');
+  assert.notEqual(report.rows[1].outcome, 'matched');
+  assert.equal(matchBadge(report.rows[1]).label, 'Loan found');
+});
+
+test('a Success row with an unreadable date is not Matched', () => {
+  const csv = [
+    'Contract Reference,Transaction Date,Debit Amount,Status',
+    'FAKE-CR-0001,not-a-date,1380.16,Success',
+    'FAKE-CR-0001,,1380.16,Success'
+  ].join('\n');
+  const report = analyseText(csv, book);
+  for (const row of report.rows) {
+    assert.equal(row.note, 'date unreadable');
+    assert.notEqual(row.outcome, 'matched');
+    assert.equal(matchBadge(row).label, 'Loan found');
+  }
 });
 
 test('manual mapping is used when the headers are not recognised', () => {
