@@ -7,6 +7,7 @@ import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
+import { pinNotAcceptedMessage } from '../../api/_lib/pin.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -15,8 +16,8 @@ const CLIENT_A = 'c_book_a';
 const CLIENT_B = 'c_book_b';
 const NAME_A = 'Book Client A';
 const NAME_B = 'Book Client B';
-const PIN_A = '246810';
-const PIN_B = '802468';
+const PIN_A = '24680';
+const PIN_B = '80246';
 const LOAN_A = 'l_a_open';
 const LOAN_B = 'l_b_open';
 const REF_A = 'ECL-901';
@@ -506,7 +507,7 @@ describe('borrower book', { concurrency: false }, () => {
         body: { accountRef: 'qb_' + 'ab'.repeat(16), pin: PIN_A }
       });
       assert.equal(login.statusCode, 401, code);
-      assert.equal(login.json().error, 'PIN not accepted');
+      assert.equal(login.json().error, pinNotAcceptedMessage());
       assert.equal(login.headers['set-cookie'], undefined);
 
       const redeemed = await call(quik1, {

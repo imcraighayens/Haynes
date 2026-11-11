@@ -9,7 +9,7 @@ import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setTemporaryPin } from './_lib/borrower.js';
+import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setLoginPin } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
@@ -542,7 +542,7 @@ export default wrap('ledger', async (req, res) => {
   if (head === 'quik1-temp-pin' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     const body = await readBody(req, 4096);
-    return json(res, 200, await setTemporaryPin(req, res, body), req);
+    return json(res, 200, await setLoginPin(req, res, body), req);
   }
   if (head === 'quik1-devices' && rest.length === 1 && rest[0] === 'reset') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');

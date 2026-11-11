@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledger</title>
+<script type="module" src="/shared/pin-length.js"></script>
 <script>
 /* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
    "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
@@ -924,8 +925,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">QUIK1 PIN</div>
               <div style="font:700 12px 'Plus Jakarta Sans',sans-serif">{{ q1PinStatus }}</div>
             </div>
-            <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Set temporary PIN</button></sc-if>
-            <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set temporary PIN</button></sc-if>
+            <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Set login PIN</button></sc-if>
+            <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set login PIN</button></sc-if>
           </div>
         </sc-if>
 
@@ -1377,8 +1378,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <sc-if value="{{ c.invRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ c.revokeInvite }}">Revoke access</button></sc-if>
                   <sc-if value="{{ c.invReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ c.resetDevice }}">Reset device</button></sc-if>
                   <sc-if value="{{ c.invResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Reset device</button></sc-if>
-                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Set temporary PIN</button></sc-if>
-                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Set temporary PIN</button></sc-if>
+                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Set login PIN</button></sc-if>
+                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Set login PIN</button></sc-if>
                 </div>
               </div>
             </sc-for>
@@ -2470,15 +2471,15 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <sc-if value="{{ q1CanRevokeAccess }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke access</div></sc-if>
                 </div>
                 <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
-                  <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET TEMPORARY PIN</div>
-                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Set temporary PIN</button></sc-if>
+                  <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET LOGIN PIN</div>
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Set login PIN</button></sc-if>
                   <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}">
-                  <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys. The PIN works once and expires after 72 hours.</p>
+                  <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys.</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6 digits" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
-                    <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Confirm" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+                    <input type="password" inputmode="numeric" maxlength="{{ q1PinMax }}" pattern="[0-9]*" autocomplete="off" spellcheck="false" placeholder="{{ q1PinHint }}" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+                    <input type="password" inputmode="numeric" maxlength="{{ q1PinMax }}" pattern="[0-9]*" autocomplete="off" spellcheck="false" placeholder="Confirm" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
                   </div>
-                  <button type="button" data-temp-pin-submit disabled="{{ q1PinHold }}" aria-disabled="{{ q1PinAria }}" aria-busy="{{ q1PinAria }}" sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:10px;border:0;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set temporary PIN</button>
+                  <button type="button" data-temp-pin-submit disabled="{{ q1PinHold }}" aria-disabled="{{ q1PinAria }}" aria-busy="{{ q1PinAria }}" sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:10px;border:0;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set login PIN</button>
                   <sc-if value="{{ q1PinMsgOn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ q1PinMsg }}</div></sc-if>
                   </sc-if>
                 </div>
@@ -3174,7 +3175,7 @@ class Component extends DCLogic {
     });
   }
   q1Digits(e){
-    return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0,6);
+    return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0, globalThis.QUIK1_PIN_LENGTH);
   }
   openQuik1Invite(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
@@ -3366,11 +3367,11 @@ class Component extends DCLogic {
       this._tempPinBusy=false;
       this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, patch, {pinBusy:false, tempPin:'', tempPin2:''})}));
     };
-    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?inviteLock:'Could not set a temporary PIN.'});
+    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?inviteLock:'Could not set the login PIN.'});
     if(!id) return fail();
     this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
-      const status=(j&&j.pinStatus)||'Temporary PIN set';
-      finish({pinStatus:status, pinMsg:'Temporary PIN set.'});
+      const status=(j&&j.pinStatus)||'Active';
+      finish({pinStatus:status, pinMsg:'Login PIN set.'});
     }, fail);
   }
   revokeInviteFor(clientId, ev){
@@ -6707,6 +6708,8 @@ class Component extends DCLogic {
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
         q1PinStatus: q.pinStatus||'None',
+        q1PinMax: String(globalThis.QUIK1_PIN_LENGTH),
+        q1PinHint: globalThis.QUIK1_PIN_LENGTH + ' digits',
         q1TempPin: q.tempPin||'', q1TempPin2: q.tempPin2||'',
         q1PinMsg: q.pinMsg||'', q1PinMsgOn: !!(q.pinMsg&&!q.busy),
         q1TempPinChange:(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite, {tempPin:this.q1Digits(e), pinMsg:''})})),

@@ -2,6 +2,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LEDGER_KEY, loadPlaywright, withMockApi, pageWaitFor } from './_boot-helpers.js';
+import { QUIK1_PIN_LENGTH } from '../shared/pin-length.js';
+
+const PIN_HINT = QUIK1_PIN_LENGTH + ' digits';
+const SAMPLE_PIN = '24680';
 
 const pw = loadPlaywright();
 
@@ -195,9 +199,9 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
       await openAccess(page);
       await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Reset device'), null, { timeoutMs: 8000 });
       const access = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device|Set temporary PIN/.test(b.textContent.trim()));
+        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device|Set login PIN/.test(b.textContent.trim()));
         const note = document.getElementById('q1-gate-note');
-        const pin = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set temporary PIN');
+        const pin = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set login PIN');
         return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'))
           && !!note && pin.length > 0 && pin.every(b => b.getAttribute('aria-describedby') === 'q1-gate-note' && note.id === 'q1-gate-note');
       });
@@ -210,7 +214,7 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
       await page.getByText('Open full workspace', { exact: true }).dispatchEvent('click');
       await pageWaitFor(page, () => {
         const reset = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Reset device');
-        const pin = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Set temporary PIN');
+        const pin = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Set login PIN');
         return !!reset && reset.disabled && reset.getAttribute('aria-disabled') === 'true' && reset.getAttribute('aria-describedby') === 'q1-gate-note-global'
           && !!pin && pin.disabled && pin.getAttribute('aria-disabled') === 'true' && pin.getAttribute('aria-describedby') === 'q1-gate-note-global';
       }, null, { timeoutMs: 8000 });
@@ -236,11 +240,11 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
         return false;
       });
       assert.equal(opened, true);
-      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate' && b.textContent.trim() === 'Set temporary PIN'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate' && b.textContent.trim() === 'Set login PIN'), null, { timeoutMs: 8000 });
       const dialog = await page.evaluate(() => {
         const note = document.getElementById('q1-dialog-gate');
         const buttons = [...document.querySelectorAll('button')].filter(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate');
-        const pin = buttons.find(b => b.textContent.trim() === 'Set temporary PIN');
+        const pin = buttons.find(b => b.textContent.trim() === 'Set login PIN');
         return !!note && buttons.length >= 3 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true')
           && !!pin && pin.getAttribute('aria-describedby') === note.id;
       });
@@ -251,7 +255,7 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
   });
 });
 
-test('two clicks on Set temporary PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+test('two clicks on Set login PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const browser = await pw.chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -272,16 +276,16 @@ test('two clicks on Set temporary PIN send one request, then the button is ready
       await new Promise(r => setTimeout(r, 1200));
       return route.fulfill({
         status: 200, contentType: 'application/json',
-        body: JSON.stringify({ ok: true, pinStatus: 'Temporary PIN set' })
+        body: JSON.stringify({ ok: true, pinStatus: 'Active' })
       });
     });
     try {
       await boot(page, api.origin);
       await openAccess(page);
-      await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
+      await page.getByRole('button', { name: 'Set login PIN', exact: true }).first().dispatchEvent('click');
       await pageWaitFor(page, () => /signs the borrower out of every phone/.test(document.body.innerText)
         && /removes Face ID and passkeys/.test(document.body.innerText)
-        && /works once and expires after 72 hours/.test(document.body.innerText), null, { timeoutMs: 8000 });
+        && !/expires after 72 hours/.test(document.body.innerText), null, { timeoutMs: 8000 });
       const idle = await page.evaluate(() => {
         const button = document.querySelector('[data-temp-pin-submit]');
         return !!button && !button.disabled
@@ -310,7 +314,7 @@ test('two clicks on Set temporary PIN send one request, then the button is ready
   });
 });
 
-test('a temporary PIN left in the dialog is gone after close, Esc, and a successful set', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+test('a login PIN left in the dialog is gone after close, Esc, and a successful set', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const browser = await pw.chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -326,26 +330,26 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
       if (route.request().method() !== 'POST') return route.fallback();
       return route.fulfill({
         status: 200, contentType: 'application/json',
-        body: JSON.stringify({ ok: true, pinStatus: 'Temporary PIN set' })
+        body: JSON.stringify({ ok: true, pinStatus: 'Active' })
       });
     });
-    const fields = () => page.evaluate(() => {
-      const pin = document.querySelector('input[placeholder="6 digits"]');
+    const fields = () => page.evaluate((hint) => {
+      const pin = document.querySelector('input[placeholder="' + hint + '"]');
       const confirm = document.querySelector('input[placeholder="Confirm"]');
       return { pin: pin ? pin.value : null, confirm: confirm ? confirm.value : null };
-    });
+    }, PIN_HINT);
     const openDialog = async () => {
-      await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => !!document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await page.getByRole('button', { name: 'Set login PIN', exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, (hint) => !!document.querySelector('input[placeholder="' + hint + '"]'), PIN_HINT, { timeoutMs: 8000 });
     };
     const typePins = async () => {
-      await page.locator('input[placeholder="6 digits"]').fill('246810');
-      await page.locator('input[placeholder="Confirm"]').fill('246810');
-      await pageWaitFor(page, () => {
-        const pin = document.querySelector('input[placeholder="6 digits"]');
+      await page.locator('input[placeholder="' + PIN_HINT + '"]').fill(SAMPLE_PIN);
+      await page.locator('input[placeholder="Confirm"]').fill(SAMPLE_PIN);
+      await pageWaitFor(page, ({ hint, sample }) => {
+        const pin = document.querySelector('input[placeholder="' + hint + '"]');
         const confirm = document.querySelector('input[placeholder="Confirm"]');
-        return pin && pin.value === '246810' && confirm && confirm.value === '246810';
-      }, null, { timeoutMs: 8000 });
+        return pin && pin.value === sample && confirm && confirm.value === sample;
+      }, { hint: PIN_HINT, sample: SAMPLE_PIN }, { timeoutMs: 8000 });
     };
     try {
       await boot(page, api.origin);
@@ -353,7 +357,7 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
       await openDialog();
       await typePins();
       await page.keyboard.press('Escape');
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, (hint) => !document.querySelector('input[placeholder="' + hint + '"]'), PIN_HINT, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
 
@@ -363,19 +367,19 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
         const close = title && title.parentElement && [...title.parentElement.children].find(el => el.textContent.trim() === '✕');
         if (close) close.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, (hint) => !document.querySelector('input[placeholder="' + hint + '"]'), PIN_HINT, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
 
       await typePins();
       await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
-      await pageWaitFor(page, () => {
-        const pin = document.querySelector('input[placeholder="6 digits"]');
+      await pageWaitFor(page, (hint) => {
+        const pin = document.querySelector('input[placeholder="' + hint + '"]');
         const confirm = document.querySelector('input[placeholder="Confirm"]');
-        return pin && pin.value === '' && confirm && confirm.value === '' && /Temporary PIN set/.test(document.body.innerText);
-      }, null, { timeoutMs: 8000 });
+        return pin && pin.value === '' && confirm && confirm.value === '' && /Login PIN set/.test(document.body.innerText);
+      }, PIN_HINT, { timeoutMs: 8000 });
       await page.keyboard.press('Escape');
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, (hint) => !document.querySelector('input[placeholder="' + hint + '"]'), PIN_HINT, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
     } finally {
