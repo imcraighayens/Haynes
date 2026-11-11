@@ -242,3 +242,62 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
     }
   });
 });
+
+test('two clicks on Set temporary PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const calls = [];
+    page.on('request', req => {
+      if (req.method() === 'POST' && req.url().includes('/quik1-temp-pin')) calls.push(req.url());
+    });
+    await page.route('**/api/ledger/features', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ demoReset: false, borrowerPin: true, borrowerPinLive: true })
+    }));
+    await page.route('**/api/ledger/quik1-invites/**', route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
+    });
+    await page.route('**/api/ledger/quik1-temp-pin', async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      await new Promise(r => setTimeout(r, 1200));
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, pinStatus: 'Temporary PIN set' })
+      });
+    });
+    try {
+      await boot(page, api.origin);
+      await openAccess(page);
+      await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => /signs the borrower out of every phone/.test(document.body.innerText)
+        && /removes Face ID and passkeys/.test(document.body.innerText)
+        && /works once and expires after 72 hours/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      const idle = await page.evaluate(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && !button.disabled
+          && button.getAttribute('aria-disabled') === 'false'
+          && button.getAttribute('aria-busy') === 'false';
+      });
+      assert.equal(idle, true);
+      await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
+      await page.waitForFunction(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && button.disabled
+          && button.getAttribute('aria-disabled') === 'true'
+          && button.getAttribute('aria-busy') === 'true';
+      }, null, { timeout: 1000 });
+      await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
+      await page.waitForFunction(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && !button.disabled
+          && button.getAttribute('aria-disabled') === 'false'
+          && button.getAttribute('aria-busy') === 'false';
+      }, null, { timeout: 8000 });
+      assert.equal(calls.length, 1);
+    } finally {
+      await browser.close();
+    }
+  });
+});

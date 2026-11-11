@@ -2470,11 +2470,12 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET TEMPORARY PIN</div>
                   <sc-if value="{{ q1TempOff }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">Quik1 invites are switched off until launch.</div></sc-if>
                   <sc-if value="{{ q1TempReady }}" hint-placeholder-val="{{ false }}">
+                  <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys. The PIN works once and expires after 72 hours.</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
                     <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6 digits" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
                     <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Confirm" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
                   </div>
-                  <div sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set temporary PIN</div>
+                  <button type="button" data-temp-pin-submit disabled="{{ q1PinHold }}" aria-disabled="{{ q1PinAria }}" aria-busy="{{ q1PinAria }}" sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:10px;border:0;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set temporary PIN</button>
                   <sc-if value="{{ q1PinMsgOn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ q1PinMsg }}</div></sc-if>
                   </sc-if>
                 </div>
@@ -3336,19 +3337,26 @@ class Component extends DCLogic {
   }
   submitTemporaryPin(){
     if(this.state.q1PinLive!==true) return;
+    if(this._tempPinBusy) return;
     const onModal=this.state.modal==='q1invite';
     const id=onModal?this.state.modalId:this.state.clientViewId;
     const base=this.state.q1Invite||this.q1Blank();
+    if(base.pinBusy) return;
+    this._tempPinBusy=true;
     const pin=String(base.tempPin||'');
     const pinConfirm=String(base.tempPin2||'');
-    const cleared=Object.assign({}, base, {tempPin:'', tempPin2:'', pinMsg:'', busy:base.busy});
+    const cleared=Object.assign({}, base, {tempPin:'', tempPin2:'', pinMsg:'', pinBusy:true});
     this.setState({q1Invite:cleared});
     const inviteLock="Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
-    const fail=(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, {tempPin:'', tempPin2:'', pinMsg:(e&&e.status===409)?inviteLock:'Could not set a temporary PIN.'})}));
+    const finish=(patch)=>{
+      this._tempPinBusy=false;
+      this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, patch, {pinBusy:false, tempPin:'', tempPin2:''})}));
+    };
+    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?inviteLock:'Could not set a temporary PIN.'});
     if(!id) return fail();
     this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
       const status=(j&&j.pinStatus)||'Temporary PIN set';
-      this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, {tempPin:'', tempPin2:'', pinStatus:status, pinMsg:'Temporary PIN set.'})}));
+      finish({pinStatus:status, pinMsg:'Temporary PIN set.'});
     }, fail);
   }
   revokeInviteFor(clientId, ev){
@@ -6691,6 +6699,8 @@ class Component extends DCLogic {
         q1TempPin2Change:(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite, {tempPin2:this.q1Digits(e), pinMsg:''})})),
         q1TempOff: st.q1PinLive===false,
         q1TempReady: st.q1PinLive===true,
+        q1PinHold: !!q.pinBusy,
+        q1PinAria: q.pinBusy?'true':'false',
         q1SetTempPin:()=>this.submitTemporaryPin(),
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
         q1HasCode: !!(q.code||q.link),
