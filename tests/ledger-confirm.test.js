@@ -195,8 +195,11 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
       await openAccess(page);
       await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Reset device'), null, { timeoutMs: 8000 });
       const access = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device/.test(b.textContent.trim()));
-        return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'));
+        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device|Set temporary PIN/.test(b.textContent.trim()));
+        const note = document.getElementById('q1-gate-note');
+        const pin = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set temporary PIN');
+        return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'))
+          && !!note && pin.length > 0 && pin.every(b => b.getAttribute('aria-describedby') === 'q1-gate-note' && note.id === 'q1-gate-note');
       });
       assert.equal(access, true);
       await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
@@ -206,8 +209,10 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
       await page.locator('[data-screen-label="Clients"]').getByText('Test Client One', { exact: true }).first().dispatchEvent('click');
       await page.getByText('Open full workspace', { exact: true }).dispatchEvent('click');
       await pageWaitFor(page, () => {
-        const button = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Reset device');
-        return !!button && button.disabled && button.getAttribute('aria-disabled') === 'true' && button.getAttribute('aria-describedby') === 'q1-gate-note-global';
+        const reset = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Reset device');
+        const pin = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Set temporary PIN');
+        return !!reset && reset.disabled && reset.getAttribute('aria-disabled') === 'true' && reset.getAttribute('aria-describedby') === 'q1-gate-note-global'
+          && !!pin && pin.disabled && pin.getAttribute('aria-disabled') === 'true' && pin.getAttribute('aria-describedby') === 'q1-gate-note-global';
       }, null, { timeoutMs: 8000 });
       await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
       await page.waitForTimeout(250);
@@ -231,12 +236,148 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
         return false;
       });
       assert.equal(opened, true);
-      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate' && b.textContent.trim() === 'Reset device'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate' && b.textContent.trim() === 'Set temporary PIN'), null, { timeoutMs: 8000 });
       const dialog = await page.evaluate(() => {
+        const note = document.getElementById('q1-dialog-gate');
         const buttons = [...document.querySelectorAll('button')].filter(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate');
-        return buttons.length >= 2 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true');
+        const pin = buttons.find(b => b.textContent.trim() === 'Set temporary PIN');
+        return !!note && buttons.length >= 3 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true')
+          && !!pin && pin.getAttribute('aria-describedby') === note.id;
       });
       assert.equal(dialog, true);
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+test('two clicks on Set temporary PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const calls = [];
+    page.on('request', req => {
+      if (req.method() === 'POST' && req.url().includes('/quik1-temp-pin')) calls.push(req.url());
+    });
+    await page.route('**/api/ledger/features', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ demoReset: false, borrowerPin: true, borrowerPinLive: true })
+    }));
+    await page.route('**/api/ledger/quik1-invites/**', route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
+    });
+    await page.route('**/api/ledger/quik1-temp-pin', async route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      await new Promise(r => setTimeout(r, 1200));
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, pinStatus: 'Temporary PIN set' })
+      });
+    });
+    try {
+      await boot(page, api.origin);
+      await openAccess(page);
+      await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => /signs the borrower out of every phone/.test(document.body.innerText)
+        && /removes Face ID and passkeys/.test(document.body.innerText)
+        && /works once and expires after 72 hours/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      const idle = await page.evaluate(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && !button.disabled
+          && button.getAttribute('aria-disabled') === 'false'
+          && button.getAttribute('aria-busy') === 'false';
+      });
+      assert.equal(idle, true);
+      await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
+      await page.waitForFunction(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && button.disabled
+          && button.getAttribute('aria-disabled') === 'true'
+          && button.getAttribute('aria-busy') === 'true';
+      }, null, { timeout: 1000 });
+      await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
+      await page.waitForFunction(() => {
+        const button = document.querySelector('[data-temp-pin-submit]');
+        return !!button && !button.disabled
+          && button.getAttribute('aria-disabled') === 'false'
+          && button.getAttribute('aria-busy') === 'false';
+      }, null, { timeout: 8000 });
+      assert.equal(calls.length, 1);
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+test('a temporary PIN left in the dialog is gone after close, Esc, and a successful set', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.route('**/api/ledger/features', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
+    }));
+    await page.route('**/api/ledger/quik1-invites/**', route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
+    });
+    await page.route('**/api/ledger/quik1-temp-pin', route => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, pinStatus: 'Temporary PIN set' })
+      });
+    });
+    const fields = () => page.evaluate(() => {
+      const pin = document.querySelector('input[placeholder="6 digits"]');
+      const confirm = document.querySelector('input[placeholder="Confirm"]');
+      return { pin: pin ? pin.value : null, confirm: confirm ? confirm.value : null };
+    });
+    const openDialog = async () => {
+      await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => !!document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+    };
+    const typePins = async () => {
+      await page.locator('input[placeholder="6 digits"]').fill('246810');
+      await page.locator('input[placeholder="Confirm"]').fill('246810');
+      await pageWaitFor(page, () => {
+        const pin = document.querySelector('input[placeholder="6 digits"]');
+        const confirm = document.querySelector('input[placeholder="Confirm"]');
+        return pin && pin.value === '246810' && confirm && confirm.value === '246810';
+      }, null, { timeoutMs: 8000 });
+    };
+    try {
+      await boot(page, api.origin);
+      await openAccess(page);
+      await openDialog();
+      await typePins();
+      await page.keyboard.press('Escape');
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await openDialog();
+      assert.deepEqual(await fields(), { pin: '', confirm: '' });
+
+      await typePins();
+      await page.evaluate(() => {
+        const title = [...document.querySelectorAll('div')].find(el => el.textContent.trim() === 'QUIK1 ACCESS');
+        const close = title && title.parentElement && [...title.parentElement.children].find(el => el.textContent.trim() === '✕');
+        if (close) close.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await openDialog();
+      assert.deepEqual(await fields(), { pin: '', confirm: '' });
+
+      await typePins();
+      await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
+      await pageWaitFor(page, () => {
+        const pin = document.querySelector('input[placeholder="6 digits"]');
+        const confirm = document.querySelector('input[placeholder="Confirm"]');
+        return pin && pin.value === '' && confirm && confirm.value === '' && /Temporary PIN set/.test(document.body.innerText);
+      }, null, { timeoutMs: 8000 });
+      await page.keyboard.press('Escape');
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await openDialog();
+      assert.deepEqual(await fields(), { pin: '', confirm: '' });
     } finally {
       await browser.close();
     }

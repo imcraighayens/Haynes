@@ -4,11 +4,12 @@
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
 import { requireStaff, isSameOrigin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
+import { borrowerPinLive } from './_lib/quik1-flags.js';
 import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices } from './_lib/borrower.js';
+import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setTemporaryPin } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
@@ -518,7 +519,7 @@ export default wrap('ledger', async (req, res) => {
   }
   if (head === 'features' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
-    return json(res, 200, { demoReset: demoResetAllowed(req) }, req);
+    return json(res, 200, { demoReset: demoResetAllowed(req), borrowerPin: borrowerPinLive(req) }, req);
   }
   if (head === 'manager-pin' && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
@@ -537,6 +538,11 @@ export default wrap('ledger', async (req, res) => {
     if (req.method === 'GET' || req.method === 'HEAD') return getTwilio(req, res);
     if (req.method === 'POST') return postTwilio(req, res);
     throw new HttpError(405, 'Method not allowed');
+  }
+  if (head === 'quik1-temp-pin' && rest.length === 0) {
+    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    const body = await readBody(req, 4096);
+    return json(res, 200, await setTemporaryPin(req, res, body), req);
   }
   if (head === 'quik1-devices' && rest.length === 1 && rest[0] === 'reset') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');

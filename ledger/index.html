@@ -908,6 +908,17 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           </div>
         </div>
 
+        <sc-if value="{{ cvTempPinOn }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:14px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+              <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">QUIK1 PIN</div>
+              <div style="font:700 12px 'Plus Jakarta Sans',sans-serif">{{ q1PinStatus }}</div>
+            </div>
+            <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Set temporary PIN</button></sc-if>
+            <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set temporary PIN</button></sc-if>
+          </div>
+        </sc-if>
+
         <div style="flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:14px">
           <div style="min-width:0;min-height:0;display:flex;flex-direction:column;gap:14px;overflow-y:auto;padding:0 2px 4px 0">
             <div style="flex:none;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel)">
@@ -1347,7 +1358,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div role="cell" class="cell-clip" title="{{ c.name }}">{{ c.name }}</div>
                 <div role="cell" class="cell-clip" title="{{ c.ref }}">{{ c.ref }}</div>
                 <div role="cell" class="cell-clip">{{ c.employee }}</div>
-                <div role="cell"><div>{{ c.invStatus }}</div><div class="due-k">{{ c.invDetail }}</div></div>
+                <div role="cell"><div>{{ c.invStatus }}</div><div class="due-k">{{ c.invDetail }}</div><div class="due-k">PIN {{ c.invPin }}</div></div>
                 <div role="cell" style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
                   <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Give Quik1 access</button></sc-if>
                   <sc-if value="{{ c.invSend }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.sendInvite }}">Send invite</button></sc-if>
@@ -1356,6 +1367,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <sc-if value="{{ c.invRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ c.revokeInvite }}">Revoke access</button></sc-if>
                   <sc-if value="{{ c.invReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ c.resetDevice }}">Reset device</button></sc-if>
                   <sc-if value="{{ c.invResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Reset device</button></sc-if>
+                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Set temporary PIN</button></sc-if>
+                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Set temporary PIN</button></sc-if>
                 </div>
               </div>
             </sc-for>
@@ -2424,7 +2437,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <sc-if value="{{ q1Busy }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">Checking Quik1 access…</div></sc-if>
               <sc-if value="{{ q1Setup }}" hint-placeholder-val="{{ false }}"><div style="font:600 13px 'Plus Jakarta Sans',sans-serif;color:var(--amber);line-height:1.5">Quik1 access not set up yet</div></sc-if>
               <sc-if value="{{ q1Ready }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">STATUS</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1Status }}</div></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">STATUS</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1Status }}</div></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">PIN</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1PinStatus }}</div></div>
                 <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><p id="q1-dialog-gate" class="gate-note">Quik1 invites are switched off until launch.</p></sc-if>
                 <sc-if value="{{ q1CopyNote }}" hint-placeholder-val="{{ false }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div></sc-if>
                 <sc-if value="{{ q1PlainNote }}" hint-placeholder-val="{{ true }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. A new link works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open the link and choose a new one.</div></sc-if>
@@ -2444,6 +2458,19 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <sc-if value="{{ q1ResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Reset device</button></sc-if>
                   <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke invite</div></sc-if>
                   <sc-if value="{{ q1CanRevokeAccess }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke access</div></sc-if>
+                </div>
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+                  <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET TEMPORARY PIN</div>
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Set temporary PIN</button></sc-if>
+                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}">
+                  <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys. The PIN works once and expires after 72 hours.</p>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6 digits" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+                    <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Confirm" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+                  </div>
+                  <button type="button" data-temp-pin-submit disabled="{{ q1PinHold }}" aria-disabled="{{ q1PinAria }}" aria-busy="{{ q1PinAria }}" sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:10px;border:0;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set temporary PIN</button>
+                  <sc-if value="{{ q1PinMsgOn }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ q1PinMsg }}</div></sc-if>
+                  </sc-if>
                 </div>
               </sc-if>
               <sc-if value="{{ q1ErrOn }}" hint-placeholder-val="{{ false }}"><div style="font:500 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);margin-top:10px">{{ q1Err }}</div></sc-if>
@@ -2944,7 +2971,7 @@ class Component extends DCLogic {
       theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'dark'; }catch(e){ return 'dark'; } })(), route:'dashboard', filter:'all', q:'',
       menuId:null, modal:null, modalId:null, modalStack:[], dueBriefDay:null, dueBriefAuto:false, delPin:'', delPinErr:false, toast:null, attentionOpen:true, attended:{}, smsOpen:false, smsText:'',
       calMonth:(()=>{ const d=new Date(); return d.getMonth(); })(), calYear:(()=>{ const d=new Date(); return d.getFullYear(); })(), calSelected:(()=>{ const d=new Date(); return d.getDate(); })(), cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
-      ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
+      ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, q1PinLive:null, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
       clients: clients.map((c,i)=>({...c, contract:{no:'MC-00'+(31+i), signedOn:c.added, sig:null}})),
       loans, logbook, petty, contractVault:[], txnSeq:1041,
       sigInk:false, sigFull:false, sigPen:'', sigTarget:null, revealed:false,
@@ -3115,18 +3142,36 @@ class Component extends DCLogic {
     return 'Could not update Quik1 access. Check the connection and try again.';
   }
   q1Blank(c){
-    return {name:(c&&c.name)||'', ref:(c&&c.ref)||'', busy:true, ready:true, access:'none', accessLabel:'', expiresAt:'', inviteId:'', code:'', link:'', error:''};
+    return {name:(c&&c.name)||'', ref:(c&&c.ref)||'', busy:true, ready:true, access:'none', accessLabel:'', pinStatus:'None', expiresAt:'', inviteId:'', code:'', link:'', error:'', tempPin:'', tempPin2:'', pinMsg:''};
   }
   q1FromStatus(base, j){
     const ready=!(j&&j.ready===false);
     const label=(j&&j.accessLabel)||'';
-    return Object.assign({}, base, {busy:false, ready:ready, access:(j&&j.access)||(ready?'none':'unavailable'), accessLabel:label, expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', code:'', link:'', error:ready?'':(label||'Quik1 access not set up yet')});
+    const pinStatus=(j&&j.pinStatus)||((j&&j.hasPin)?'Active':'None');
+    return Object.assign({}, base, {busy:false, ready:ready, access:(j&&j.access)||(ready?'none':'unavailable'), accessLabel:label, pinStatus:pinStatus, expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', code:'', link:'', error:ready?'':(label||'Quik1 access not set up yet'), tempPin:'', tempPin2:'', pinMsg:''});
+  }
+  ensureQuik1Status(clientId){
+    if(!clientId||this._q1For===clientId) return;
+    this._q1For=clientId;
+    const c=(this.state.clients||[]).find(x=>x.id===clientId);
+    const base=this.q1Blank(c);
+    this.staffApi('GET','/quik1-invites/'+encodeURIComponent(clientId), null).then(j=>{
+      if(this._q1For!==clientId) return;
+      this.setState({q1Invite:this.q1FromStatus(base, j)});
+    },()=>{
+      if(this._q1For!==clientId) return;
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, pinStatus:'None', tempPin:'', tempPin2:'', pinMsg:''})});
+    });
+  }
+  q1Digits(e){
+    return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0,6);
   }
   openQuik1Invite(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
     const c=(this.state.clients||[]).find(x=>x.id===clientId);
     if(!c) return;
     const base=this.q1Blank(c);
+    this._q1For=clientId;
     this.setState({modal:'q1invite', modalId:clientId, q1Invite:base});
     this.staffApi('GET','/quik1-invites/'+encodeURIComponent(clientId), null).then(j=>{
       this.setState({q1Invite:this.q1FromStatus(base, j)});
@@ -3196,7 +3241,7 @@ class Component extends DCLogic {
       detail=exp?('Expires '+this.shortDay(exp)):'';
     } else if(newest&&newest.state==='expired'){ kind='expired'; status='Expired'; }
     const pinish=access==='pin'||access==='locked';
-    return { kind, status, detail, off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
+    return { kind, status, detail, pin:(j&&j.pinStatus)||'None', off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
   }
   ensureInviteMap(){
     const ids=(this.state.clients||[]).map(c=>c.id).filter(Boolean);
@@ -3283,6 +3328,41 @@ class Component extends DCLogic {
       done();
     }, fail);
   }
+  closeModal(){
+    this.setState(p=>{
+      const q1Invite = p.q1Invite ? Object.assign({}, p.q1Invite, {tempPin:'', tempPin2:''}) : p.q1Invite;
+      if(p.modalStack && p.modalStack.length){
+        const s=p.modalStack.slice();
+        const prev=s.pop();
+        return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null, q1Invite};
+      }
+      return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null, q1Invite};
+    });
+  }
+  submitTemporaryPin(){
+    if(this.state.q1PinLive!==true) return;
+    if(this.state.modal!=='q1invite') return;
+    if(this._tempPinBusy) return;
+    const id=this.state.modalId;
+    const base=this.state.q1Invite||this.q1Blank();
+    if(base.pinBusy) return;
+    this._tempPinBusy=true;
+    const pin=String(base.tempPin||'');
+    const pinConfirm=String(base.tempPin2||'');
+    const cleared=Object.assign({}, base, {tempPin:'', tempPin2:'', pinMsg:'', pinBusy:true});
+    this.setState({q1Invite:cleared});
+    const inviteLock="Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
+    const finish=(patch)=>{
+      this._tempPinBusy=false;
+      this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, patch, {pinBusy:false, tempPin:'', tempPin2:''})}));
+    };
+    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?inviteLock:'Could not set a temporary PIN.'});
+    if(!id) return fail();
+    this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
+      const status=(j&&j.pinStatus)||'Temporary PIN set';
+      finish({pinStatus:status, pinMsg:'Temporary PIN set.'});
+    }, fail);
+  }
   revokeInviteFor(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
     this.askQuik1Confirm('revoke', clientId, ev&&ev.currentTarget);
@@ -3299,8 +3379,8 @@ class Component extends DCLogic {
       this._demoResetAllowed=!!(j&&j.demoReset);
       // #31's borrowerPinLive is server-side. The staff UI follows it only when GET /features includes borrowerPinLive or borrowerPin. That field is not sent today, so invites stay off.
       const gate=!!(j&&(j.borrowerPinLive===true||j.borrowerPin===true));
-      this.setState({showResetDemo:this.demoResetAllowed(), borrowerGate:gate});
-    },()=>{ this._demoResetAllowed=false; this.setState({showResetDemo:false, borrowerGate:false}); });
+      this.setState({showResetDemo:this.demoResetAllowed(), borrowerGate:gate, q1PinLive:gate});
+    },()=>{ this._demoResetAllowed=false; this.setState({showResetDemo:false, borrowerGate:false, q1PinLive:false}); });
     this.staffApi('GET','/ai',null).then(j=>{
       this.setState({aiConfigured:!!(j&&j.configured)});
     },()=>{ this.setState({aiConfigured:false}); });
@@ -3712,7 +3792,7 @@ class Component extends DCLogic {
       if(el){ el.style.order = String(slot); el.style.cursor = this.state.arrangeMode?'grab':''; }
     });
   }
-  componentDidUpdate(){ if(!this._kbd){ this._kbd=(e)=>{ const t=e.target; if(!t||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT') return; if((e.key==='Enter'||e.key===' ') && t.getAttribute && t.getAttribute('data-kbd')==='1'){ e.preventDefault(); t.click(); } if(e.key==='Escape' && this.state.navDrawer) this.setState({navDrawer:false}); }; document.addEventListener('keydown', this._kbd); } const side=document.querySelector('.ledger-side'); if(side) side.setAttribute('data-open', this.state.navDrawer?'1':'0'); this.instSync(); this.persist(); this.clampMenu(); this.applyCardOrder(); this.bankTrack(); }
+  componentDidUpdate(){ if(!this._kbd){ this._kbd=(e)=>{ if(e.key==='Escape' && this.state.modal==='q1invite' && !this.state.q1Confirm){ e.preventDefault(); this.closeModal(); return; } const t=e.target; if(!t||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT') return; if((e.key==='Enter'||e.key===' ') && t.getAttribute && t.getAttribute('data-kbd')==='1'){ e.preventDefault(); t.click(); } if(e.key==='Escape' && this.state.navDrawer) this.setState({navDrawer:false}); }; document.addEventListener('keydown', this._kbd); } const side=document.querySelector('.ledger-side'); if(side) side.setAttribute('data-open', this.state.navDrawer?'1':'0'); this.instSync(); this.persist(); this.clampMenu(); this.applyCardOrder(); this.bankTrack(); }
   fmt(n){ const v=Number(n||0), neg=v<0, a=Math.abs(v);
     const whole=Math.floor(a+1e-9), cents=Math.round((a-whole)*100);
     const grouped=String(whole).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
@@ -5603,7 +5683,7 @@ class Component extends DCLogic {
         const size = 12;
         const pages = Math.max(1, Math.ceil(filtered.length / size) || 1);
         const page = Math.min(Math.max(0, st.clientPage||0), pages-1);
-        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invRevokeAccess:inv.revokeAccess, invReset:inv.reset, invResetOff:inv.resetOff, sendInvite:(e)=>this.sendInviteFor(c.id, e), revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e)}; });
+        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invPin:inv.pin, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invRevokeAccess:inv.revokeAccess, invReset:inv.reset, invResetOff:inv.resetOff, sendInvite:(e)=>this.sendInviteFor(c.id, e), revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e), setTempPin:(e)=>this.openQuik1Invite(c.id, e)}; });
         return { clientRows: rows, clientEmpty: filtered.length===0, clientEmptyText: cq ? 'No clients match that search.' : 'No clients on the book yet.', clientPageLabel: (page+1)+' / '+pages, clientQ: st.clientQ||'', clientQChange:(e)=>this.setState({clientQ:e.target.value, clientPage:0}), clientPrev:()=>this.setState(p=>({clientPage:Math.max(0,(p.clientPage||0)-1)})), clientNext:()=>this.setState(p=>({clientPage:Math.min(pages-1,(p.clientPage||0)+1)})) };
       })(),
       employeeRows: st.employees.map(e=>({...e, bookFmt: e.book?fmt(e.book):'—', added:e.added.toUpperCase(),
@@ -6009,7 +6089,7 @@ class Component extends DCLogic {
       ccOn: !!(st.callConfirm && st.callConfirm.name), ccName: (st.callConfirm && st.callConfirm.name) ? String(st.callConfirm.name) : '', ccPhone: (st.callConfirm && st.callConfirm.name) ? ((st.callConfirm.phone && st.callConfirm.phone!=='—') ? String(st.callConfirm.phone) : 'No number on file') : '', ccRef: (st.callConfirm && st.callConfirm.ref) ? String(st.callConfirm.ref) : '',
       ccCancel: (e)=>{ if(e&&e.preventDefault) e.preventDefault(); if(e&&e.stopPropagation) e.stopPropagation(); this.setState({callConfirm:null}); },
       ccGo: ()=>{ const c=st.callConfirm; if(!c) return; if(!c.phone || c.phone==='—'){ this.setState({callConfirm:null}); return this.toast('No phone number on file for '+c.name); } this.setState({callConfirm:null}); this.doCall(c.name, c.phone, c.ref); },
-      modalOn: !!st.modal, closeModal:()=>this.setState(p=>{ if(p.modalStack && p.modalStack.length){ const s=p.modalStack.slice(); const prev=s.pop(); return {modalStack:s, modal:prev.modal, modalId:prev.modalId, smsOpen:false, smsText:'', cliEdit:null}; } return {modal:null, modalId:null, modalStack:[], smsOpen:false, smsText:'', cliEdit:null}; }), stop:(e)=>e.stopPropagation(),
+      modalOn: !!st.modal, closeModal:()=>this.closeModal(), stop:(e)=>e.stopPropagation(),
       q1ConfirmOn: !!st.q1Confirm, q1ConfirmTitle: st.q1Confirm?st.q1Confirm.title:'', q1ConfirmBody: st.q1Confirm?st.q1Confirm.body:'',
       q1ConfirmBusy: !!(st.q1Confirm&&st.q1Confirm.busy), q1ConfirmReady: !!(st.q1Confirm&&!st.q1Confirm.busy),
       q1Hold: !!(st.q1Confirm&&st.q1Confirm.busy), q1Aria: (st.q1Confirm&&st.q1Confirm.busy)?'true':'false',
@@ -6616,6 +6696,16 @@ class Component extends DCLogic {
         q1Name: q.name || '', q1Ref: q.ref || '', q1HasRef: !!q.ref,
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
+        q1PinStatus: q.pinStatus||'None',
+        q1TempPin: q.tempPin||'', q1TempPin2: q.tempPin2||'',
+        q1PinMsg: q.pinMsg||'', q1PinMsgOn: !!(q.pinMsg&&!q.busy),
+        q1TempPinChange:(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite, {tempPin:this.q1Digits(e), pinMsg:''})})),
+        q1TempPin2Change:(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite, {tempPin2:this.q1Digits(e), pinMsg:''})})),
+        q1TempOff: st.q1PinLive===false,
+        q1TempReady: st.q1PinLive===true,
+        q1PinHold: !!q.pinBusy,
+        q1PinAria: q.pinBusy?'true':'false',
+        q1SetTempPin:()=>this.submitTemporaryPin(),
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
         q1HasCode: !!(q.code||q.link),
         q1GateOff: !this.borrowerGateOn(),
@@ -6635,7 +6725,8 @@ class Component extends DCLogic {
       mLoan, mOtherLoans, mNoOthers: st.modal==='history' && mOtherLoans.length===0, mAudit: mAudit.length?mAudit:(st.modal==='history'?[{type:'LOAN ISSUED',date:'—',by:'—',comment:'No logbook entries for this loan yet'}]:[]),
       mCli, statusPicks, stMonth, ...ct, mCliLoans, mCliLoanCount: mCliLoans.length, mCliNoLoans: st.modal==='client' && mCliLoans.length===0, mHClient,
       ...(()=>{ const cvRaw = st.route==='clientview' ? st.clients.find(c=>c.id===st.clientViewId) : null;
-        if(!cvRaw) return { isClientView:false, cv:{}, cvLoans:[], cvFields:[], cvProfile:[], cvActivity:[], cvNoActivity:false, cvLoanCount:0, cvNoLoans:false, cvViewOn:false, cvEditOn:false, cvInvite:()=>{} };
+        if(!cvRaw) return { isClientView:false, cvTempPinOn:false, cv:{}, cvLoans:[], cvFields:[], cvProfile:[], cvActivity:[], cvNoActivity:false, cvLoanCount:0, cvNoLoans:false, cvViewOn:false, cvEditOn:false, cvInvite:()=>{} };
+        this.ensureQuik1Status(cvRaw.id);
         const cvMask = (this.props.maskPii ?? true) && !st.revealed;
         const cvOpen = st.loans.filter(l=>l.clientId===cvRaw.id && l.status!=='paid');
         const cvOut = cvOpen.reduce((s,l)=>s+this.dueAmt(l),0);
@@ -6655,7 +6746,7 @@ class Component extends DCLogic {
         const cvActivity = st.logbook.filter(g=>g.customer===cvRaw.name).slice(0,5).map(g=>({type:g.type, comment:g.comment||'—', date:g.date, by:g.by||'—'}));
         const cvFields = [['FULL NAME','name'],['ID NUMBER','idFull'],['CONTACT','phone'],['CITY','city'],['EMPLOYMENT TYPE','employment'],['EMPLOYER','employer'],['NET SALARY (R/MONTH)','netSalary'],['ASSIGNED OFFICER','employee'],['BANK','bank'],['ACCOUNT NUMBER','account']].map(([label,name])=>({label,name,value:(st.cliEdit||{})[name]??''}));
         return {
-          isClientView:true, cvViewOn:!st.cliEdit, cvEditOn:!!st.cliEdit, cvFields,
+          isClientView:true, cvTempPinOn: st.modal!=='q1invite', cvViewOn:!st.cliEdit, cvEditOn:!!st.cliEdit, cvFields,
           cv:{ name:cvRaw.name, ref:cvRaw.ref, added:cvRaw.added.toUpperCase(), employee:cvRaw.employee,
             initials:cvRaw.name.split(' ').map(w=>w[0]).join('').slice(0,2),
             score:cvRaw.score||'—', openCount:cvOpen.length, outstandingFmt:fmt(cvOut),
@@ -6689,6 +6780,7 @@ class Component extends DCLogic {
           backToClients:()=>this.setState({route:'clients', clientViewId:null, cliEdit:null, revealed:false}),
           cvContract:()=>this.setState({modal:'contractdoc', modalId:cvRaw.id}),
           cvInvite:()=>this.openQuik1Invite(cvRaw.id),
+          cvSetTempPin:()=>this.openQuik1Invite(cvRaw.id),
           cvCanRevoke: this.inviteView(cvRaw).revoke,
           cvCanRevokeAccess: this.inviteView(cvRaw).revokeAccess,
           cvCanReset: this.inviteView(cvRaw).reset,

@@ -9,7 +9,10 @@ export const SESSION_COOKIE = 'q1_session';
 export const DEVICE_COOKIE = 'q1_device';
 export const KNOWN_COOKIE = 'q1_known';
 export const PENDING_COOKIE = 'q1_pending';
+export const PIN_CHANGE_COOKIE = 'q1_pin_change';
 export const KNOWN_TTL_SECONDS = 90 * 24 * 3600;
+export const PIN_CHANGE_TTL_SECONDS = 10 * 60;
+export const PIN_CHANGE_PATH = '/api/quik1/pin';
 
 export function sessionSecret() {
   const s = process.env.QUIK1_SESSION_SECRET;
@@ -93,6 +96,11 @@ export function readPendingDevice(req) {
   return /^[0-9a-f]{64}$/.test(v) ? v : '';
 }
 
+export function readPinChangeToken(req) {
+  const v = cookies(req)[PIN_CHANGE_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
 export function requestIsSecure(req) {
   const proto = (header(req, 'x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
   if (proto === 'https') return true;
@@ -100,10 +108,10 @@ export function requestIsSecure(req) {
   return !!(req && req.socket && req.socket.encrypted);
 }
 
-function cookie(name, value, { maxAge, clear = false, secure = true } = {}) {
+function cookie(name, value, { maxAge, clear = false, secure = true, path = '/' } = {}) {
   const parts = [
     `${name}=${clear ? '' : encodeURIComponent(value)}`,
-    'Path=/',
+    `Path=${path}`,
     'HttpOnly',
     ...(secure ? ['Secure'] : []),
     'SameSite=Lax',
@@ -141,4 +149,12 @@ export function pendingDeviceCookie(token, maxAge, secure = true) {
 
 export function clearPendingCookie(secure = true) {
   return cookie(PENDING_COOKIE, '', { clear: true, secure });
+}
+
+export function pinChangeCookie(token, secure = true) {
+  return cookie(PIN_CHANGE_COOKIE, token, { maxAge: PIN_CHANGE_TTL_SECONDS, secure, path: PIN_CHANGE_PATH });
+}
+
+export function clearPinChangeCookie(secure = true) {
+  return cookie(PIN_CHANGE_COOKIE, '', { clear: true, secure, path: PIN_CHANGE_PATH });
 }

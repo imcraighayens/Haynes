@@ -11,7 +11,7 @@ import { apiRole } from './hosts.js';
 import { clientIp } from './ratelimit.js';
 import { borrowerEmailLive, emailSender } from './email.js';
 import { sessionSecret, pendingDeviceCookie, requestIsSecure } from './quik1-session.js';
-import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs } from './borrower.js';
+import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
 
 const LOCKED_PLACEHOLDER = 'locked';
@@ -233,7 +233,62 @@ export async function requestEmailSignIn(req, body, res) {
   return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
 }
 
+// A submitted PIN uses the same order as loginBorrower: lock (423), acceptTemporaryPin, device_not_linked.
+// The email-link path below is unchanged and does not check a PIN.
+async function signInByIdPhone(req, body, res) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
+  if (!hmacKey()) throw signInClosed();
+  await guardAuth(req, res);
+  await assertIdPhoneIp(req, res);
+  await assertClientHmacColumns();
+  const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
+  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
+  const digits = normaliseSaId(rawId);
+  const cell = normaliseCell(rawPhone);
+  const borrower = await borrowerForPin(digits ? idHmac(digits) : null, cell ? phoneHmac(rawPhone) : null);
+  return signInWithPin(req, borrower, body.pin);
+}
+
+async function borrowerForPin(idMac, phoneMac) {
+  if (!idMac || !phoneMac) return null;
+  let rows;
+  try {
+    rows = await select('clients', {
+      select: 'id,deleted_at',
+      id_hmac: eq(idMac),
+      phone_hmac: eq(phoneMac),
+      deleted_at: 'is.null',
+      limit: 2
+    });
+  } catch (err) {
+    if (missingColumn(err)) throw signInClosed();
+    if (missingRelation(err)) return null;
+    throw err;
+  }
+  if (!rows || rows.length !== 1 || rows[0].deleted_at) return null;
+  try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at,device_reset_until',
+      client_id: eq(rows[0].id)
+    });
+    if (!borrower || borrower.client_id !== rows[0].id) return null;
+    return borrower;
+  } catch (err) {
+    if (missingColumn(err)) throw signInClosed();
+    if (missingRelation(err)) return null;
+    throw err;
+  }
+}
+
+function missingRelation(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const msg = String((err && err.message) || '');
+  return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
+}
+
 export async function requestIdPhoneSignIn(req, body, res) {
+  if (body && typeof body.pin === 'string' && body.pin) return signInByIdPhone(req, body, res);
   ready(req);
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
