@@ -51,9 +51,27 @@ export function loanStatusAuditId({ loanId, status, instalmentsPaid, requestId }
   return 'al_' + createHash('sha256').update(material).digest('hex').slice(0, 32);
 }
 
+// The compare-and-set token is the timestamp text PostgREST returned.
+// A JS Date only has millisecond precision: `new Date(value).toISOString()`
+// turns `2026-11-05T13:45:17.238028+00:00` into `2026-11-05T13:45:17.238Z`,
+// and that no longer equals the stored timestamptz. Keep the original text.
+export function timestampToken(value) {
+  if (typeof value !== 'string') return null;
+  const raw = value.trim();
+  return raw ? raw : null;
+}
+
 function updatedAtFilter(value) {
-  if (value == null || value === '') return 'is.null';
-  return eq(value);
+  const token = timestampToken(value);
+  if (token == null) return 'is.null';
+  return eq(token);
+}
+
+function fail(status, message, code, ref) {
+  const err = new HttpError(status, message);
+  err.code = code;
+  if (ref) err.ref = String(ref).slice(0, 40);
+  return err;
 }
 
 function casUpdate(id, updatedAt, patch) {
@@ -62,17 +80,18 @@ function casUpdate(id, updatedAt, patch) {
 
 export async function commitLoanStatus({ loanId, status, note, by, updatedBy, instalmentsPaid, requestId }) {
   const id = String(loanId || '').trim();
-  if (!LOAN_ID.test(id)) throw new HttpError(400, 'Loan not found');
+  if (!LOAN_ID.test(id)) throw fail(400, 'Loan not found', 'bad_loan');
   const next = nextStatus(status);
-  if (!next) throw new HttpError(400, 'Loan status is not recognised');
+  if (!next) throw fail(400, 'Loan status is not recognised', 'bad_status');
   const loan = await selectOne('loans', { select: '*', id: eq(id) });
-  if (!loan || loan.deleted_at) throw new HttpError(404, 'Loan not found');
+  if (!loan || loan.deleted_at) throw fail(404, 'Loan not found', 'not_found');
+  const ref = loan.ref;
   const current = norm(loan.status);
   if (current === 'written_off' || current === 'writtenoff') {
-    throw new HttpError(409, 'A written-off loan cannot change status.');
+    throw fail(409, 'A written-off loan cannot change status.', 'written_off', ref);
   }
   if ((current === 'settled_early' || current === 'settled') && next === 'paid') {
-    throw new HttpError(409, 'A settled loan cannot be marked paid.');
+    throw fail(409, 'A settled loan cannot be marked paid.', 'settled', ref);
   }
   const now = new Date().toISOString();
   const who = String(updatedBy || by || 'staff').slice(0, 80);
@@ -85,13 +104,13 @@ export async function commitLoanStatus({ loanId, status, note, by, updatedBy, in
   const patch = { status: next, status_at: now, updated_at: now, updated_by: who };
   if (CLOSED.has(next)) {
     if (requested != null && schedule.length && requested < schedule.length) {
-      throw new HttpError(422, 'This instalment does not close the loan.');
+      throw fail(422, 'This instalment does not close the loan.', 'not_closing', ref);
     }
     Object.assign(patch, paidFields(loan, now));
     if (requested != null) patch.instalments_paid = Math.max(patch.instalments_paid, requested);
   } else if (requested != null) {
     if (requested !== prevPaid && requested !== prevPaid + 1) {
-      throw new HttpError(422, 'Pay exactly one instalment.');
+      throw fail(422, 'Pay exactly one instalment.', 'instalment', ref);
     }
     patch.instalments_paid = requested;
     if (requested === prevPaid + 1) {
@@ -103,13 +122,13 @@ export async function commitLoanStatus({ loanId, status, note, by, updatedBy, in
   }
   const updated = await casUpdate(id, loan.updated_at, patch);
   if (!Array.isArray(updated) || updated.length !== 1) {
-    throw new HttpError(409, 'The loan changed while it was being saved. Nothing was changed.');
+    throw fail(409, 'The loan changed while it was being saved. Nothing was changed.', 'conflict', ref);
   }
   const fresh = await selectOne('loans', { select: '*', id: eq(id) });
   const paidDates = fresh && Array.isArray(fresh.paid_dates) ? fresh.paid_dates.filter(Boolean) : [];
   const paidCount = fresh ? Number(fresh.instalments_paid) || 0 : 0;
-  if (!fresh || fresh.status !== next || !fresh.status_at) throw new HttpError(409, 'The loan was not updated');
-  if (CLOSED.has(next) && (paidCount < 1 || !paidDates.length)) throw new HttpError(409, 'The loan was not updated');
+  if (!fresh || fresh.status !== next || !fresh.status_at) throw fail(409, 'The loan was not updated', 'not_updated', ref);
+  if (CLOSED.has(next) && (paidCount < 1 || !paidDates.length)) throw fail(409, 'The loan was not updated', 'not_updated', ref);
   const client = loan.client_id
     ? await selectOne('clients', { select: 'id,name', id: eq(loan.client_id) })
     : null;

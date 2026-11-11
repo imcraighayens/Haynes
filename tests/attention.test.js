@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { firstMissedDue, overdueSince, attentionNote, attentionAmount, attentionHeading, popupKeeps, statusChoices, statusRefusal, nextInstalmentStep } from '../ledger/attention.js';
+import { firstMissedDue, overdueSince, attentionNote, attentionAmount, attentionHeading, popupKeeps, statusChoices, statusRefusal, statusAlreadySaved, nextInstalmentStep } from '../ledger/attention.js';
 
 const TODAY = '2026-11-10';
 
@@ -52,6 +52,25 @@ test('settled and written-off loans are not offered a paid transition', () => {
   assert.equal(statusRefusal('written_off', 'paid'), 'A written-off loan cannot change status.');
   assert.equal(statusRefusal('settled_early', 'paid'), 'A settled loan cannot be marked paid.');
   assert.equal(statusRefusal('overdue', 'paid'), '');
+});
+
+test('a local Paid status does not hide a server row that is still overdue', () => {
+  const stale = { status: 'paid', serverStatus: 'overdue', dbStatus: 'overdue' };
+  assert.equal(statusAlreadySaved(stale, 'paid'), false);
+  assert.equal(statusAlreadySaved({ status: 'paid', serverStatus: 'paid', dbStatus: 'paid' }, 'paid'), true);
+  assert.equal(statusAlreadySaved({ status: 'paid', serverStatus: 'paid', dbStatus: 'settled_early' }, 'paid'), true);
+  assert.equal(statusAlreadySaved({ status: 'paid' }, 'paid'), false);
+});
+
+test('pay next on an empty schedule still records the step, and the last scheduled step closes the loan', () => {
+  const empty = nextInstalmentStep({ paidInst: 0, dbStatus: 'overdue', sched: [] }, 0);
+  assert.equal(empty.instalmentsPaid, 1);
+  assert.equal(empty.done, false);
+  assert.equal(empty.status, 'overdue');
+  const only = nextInstalmentStep({ paidInst: 0, dbStatus: 'overdue' }, 1);
+  assert.equal(only.instalmentsPaid, 1);
+  assert.equal(only.status, 'paid');
+  assert.equal(only.done, true);
 });
 
 test('pay next advances one instalment and marks the loan paid only on the last one', () => {
