@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Quik1">
 <link rel="apple-touch-icon" href="/quik1/apple-touch-icon.png">
+<script type="module" src="/shared/pin-length.js"></script>
 <script>
 /* Installed iOS app: mark the document before first paint so the phone
    frame never letterboxes a Home Screen launch. */
@@ -1586,7 +1587,7 @@ input,button,textarea{font-family:inherit}
               </label>
             </sc-if>
             <div style="display:flex;gap:10px">
-              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="6">
+              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="{{ pinCellCount }}">
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
@@ -2740,6 +2741,7 @@ input,button,textarea{font-family:inherit}
 </script>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
   const SALARY_DAY=25;
+  const PIN_LENGTH=globalThis.QUIK1_PIN_LENGTH;
   const DUE_DATE=(()=>{
     const now=new Date(2026,7,20);
     let d=new Date(now.getFullYear(),now.getMonth(),SALARY_DAY-1);
@@ -2882,7 +2884,7 @@ input,button,textarea{font-family:inherit}
         email:!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email||'')?'Enter a valid email address':'',
         employer:(u.employment!=='Self-employed'&&!(u.employer||'').trim())?'Who do you work for?':'',
         income:(parseInt(u.income||'0',10)<1000)?'Monthly take-home pay, at least R1 000':'',
-        pin:!/^\d{6}$/.test(u.pin||'')?'Choose 6 digits':'',
+        pin:!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(u.pin||'')?'Choose '+PIN_LENGTH+' digits':'',
         pin2:(u.pin2!==u.pin)?'PINs do not match':''
       };
       const F=(k,label,ph,o)=>Object.assign({label,ph,value:u[k]||'',onChange:set(k,o&&o.fmt),type:'text',mode:'text',max:80,prefix:'',ls:'0',
@@ -2892,8 +2894,8 @@ input,button,textarea{font-family:inherit}
            F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'})],
         2:[F('employer',u.employment==='Self-employed'?'Business name (optional)':'Employer','Company name'),
            F('income','Monthly take-home pay','0',{mode:'numeric',max:7,fmt:digits(7),prefix:'R'})],
-        3:[F('pin','Create a 6-digit PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'}),
-           F('pin2','Confirm PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'})]
+        3:[F('pin','Create a '+PIN_LENGTH+'-digit PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'}),
+           F('pin2','Confirm PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'})]
       }[step];
       const stepKeys={1:['name','idnum','phone','email'],2:['employer','income'],3:['pin','pin2']}[step];
       const chip=(k,v)=>({label:v,go:()=>this.setState(st=>({su:{...st.su,[k]:v}})),bg:u[k]===v?'#FDD10D':'rgba(255,255,255,.05)',fg:u[k]===v?'#0B0620':'#FFFFFF',bd:u[k]===v?'#FDD10D':'rgba(255,255,255,.12)'});
@@ -2910,7 +2912,7 @@ input,button,textarea{font-family:inherit}
         suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 6 numbers you will remember. You use them to open the app.'}[step],
         suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
         suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
-        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these 6 digits to log in. Keep them to yourself.'}[step],
+        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these '+PIN_LENGTH+' digits to log in. Keep them to yourself.'}[step],
         suFields:fields, suError:s.suError||'',
         suEmp:['Permanent','Contract','Self-employed','Part-time'].map(v=>chip('employment',v)),
         suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
@@ -3010,14 +3012,6 @@ input,button,textarea{font-family:inherit}
       }catch(e){}
       if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
-      fetch(this.borrowerApi('/pin'),{credentials:'same-origin',headers:{accept:'application/json'}})
-        .then(r=>r.ok?r.json():null)
-        .then(j=>{
-          if(j&&j.pinChangeRequired===true&&!this.state.inviteCode){
-            this.setState({screen:'login', pinPhase:'change', otp:'', pinFirst:'', pinNote:''});
-          }
-        })
-        .catch(()=>{});
       try{
         const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
         if(link){
@@ -3668,8 +3662,12 @@ input,button,textarea{font-family:inherit}
     }
     submitBorrowerPin(pin){
       if(this.state.pinBusy) return;
-      if(!/^\d{6}$/.test(pin)) return;
+      if(!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(pin)) return;
       const st=this.state;
+      if(st.pinPhase==='current'){
+        this.setState({pinCurrent:pin, pinPhase:'change', otp:'', pinNote:'', pinFirst:''});
+        return;
+      }
       if(st.pinPhase==='change'||st.pinPhase==='change2'){
         if(st.pinPhase!=='change2'){
           this.setState({pinFirst:pin, pinPhase:'change2', otp:'', pinNote:''});
@@ -3679,7 +3677,7 @@ input,button,textarea{font-family:inherit}
           this.setState({pinFirst:'', pinPhase:'change', otp:'', pinNote:'Those did not match. Choose the PIN again.'});
           return;
         }
-        this.finishBorrower('/pin', {pin:pin, pinConfirm:st.pinFirst});
+        this.finishBorrower('/pin', {currentPin:st.pinCurrent||'', pin:pin, pinConfirm:st.pinFirst});
         return;
       }
       if(st.inviteCode){
@@ -3714,10 +3712,6 @@ input,button,textarea{font-family:inherit}
             this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', verifyToken:'', pinPhase:'unlinked', pinNote:"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."});
             return;
           }
-          if(r.ok&&j&&j.pinChangeRequired){
-            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:'change', pinNote:'', inviteCode:''});
-            return;
-          }
           if(r.ok&&j&&j.verifyRequired){
             if(j.contactStaff){
               this.setState({pinBusy:false, otp:'', pinPhase:'staff', verifyToken:'', pinNote:'This phone is not recognised. Contact your loan officer. They can reset this device in Ledger.'});
@@ -3734,8 +3728,13 @@ input,button,textarea{font-family:inherit}
           if(!r.ok){
             const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
             const phase=this.state.pinPhase;
-            const back=(phase==='change'||phase==='change2')?'change':(this.state.inviteCode?'choose':'sign');
-            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:back, pinNote:msg});
+            let back=this.state.inviteCode?'choose':'sign';
+            let pinCurrent=this.state.pinCurrent||'';
+            if(phase==='current'||phase==='change'||phase==='change2'){
+              if(r.status===400 && pinCurrent) back='change';
+              else { back=r.status===423?'sign':'current'; pinCurrent=''; }
+            }
+            this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:back, pinCurrent:pinCurrent, pinNote:msg});
             return;
           }
           const accountRef=j&&typeof j.accountRef==='string'?j.accountRef:'';
@@ -3746,7 +3745,7 @@ input,button,textarea{font-family:inherit}
           try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
           const saved=this.readWebauthn();
           const offer=!!this.state.platformAuth&&!!this.state.biometricLive&&!(saved&&saved.accountRef===accountRef);
-          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', otp:'', challengeId:'', biometricOffer:offer, guest:false});
+          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', pinCurrent:'', otp:'', challengeId:'', biometricOffer:offer, guest:false});
           this.openLedgerHome();
         })
         .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
@@ -3958,8 +3957,8 @@ input,button,textarea{font-family:inherit}
         docs:'Upload your latest payslip or bank statement. Clear photos are processed fastest.',
         kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
         who:'Pick if this loan is for you or for your business.',
-        signup:'Sign up takes 3 short steps: your details, your work and pay, then a 6-digit PIN. Tap Back any time to change something.',
-        login:'Enter the 6-digit PIN you chose. It is not your ID number.'};
+        signup:'Sign up takes 3 short steps: your details, your work and pay, then a '+PIN_LENGTH+'-digit PIN. Tap Back any time to change something.',
+        login:'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.'};
       const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
       const last=st.aiChat[st.aiChat.length-1];
       const add=!(last&&last.from==='bot'&&last.text===txt);
@@ -4374,7 +4373,7 @@ input,button,textarea{font-family:inherit}
         loginIntroStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false,
         ...(()=>{ if(s.screen!=='login') return {loginStepHeadOn:false};
           const pin=s.loginMode==='pin';
-          const [h,sub]=['Enter your PIN','The 6 digits you chose. It is not an ID number.'];
+          const [h,sub]=['Enter your PIN','The '+PIN_LENGTH+' digits you chose. It is not an ID number.'];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
         onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
@@ -4608,8 +4607,8 @@ input,button,textarea{font-family:inherit}
         onReturning:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
-        otpTitle:'Enter your 6-digit PIN',
-        otpSub:'Enter the 6-digit PIN you chose. It is not your ID number.',
+        otpTitle:'Enter your '+PIN_LENGTH+'-digit PIN',
+        otpSub:'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
           const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
           return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
@@ -4783,7 +4782,10 @@ input,button,textarea{font-family:inherit}
               ln('Documents','Agreements and uploads','M8.6 3.6h5.2l4.2 4.2v10.8a2.2 2.2 0 0 1-2.2 2.2H8.6a2.2 2.2 0 0 1-2.2-2.2V5.8a2.2 2.2 0 0 1 2.2-2.2ZM13.8 3.6v4.2h4.2','',()=>this.switchPanel('documents',false))]},
             {title:'Security',rows:[
               tg('Sign in with Face ID','Use your face instead of a PIN','M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M9.4 15.4a3.8 3.8 0 0 0 5.2 0',s.setFaceId!==false,()=>this.setState({setFaceId:s.setFaceId===false})),
-              ln('Change PIN','','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>this.setState({sentNote:'Ask your loan officer for a new invite if you need a new PIN.'})),
+              ln('Change PIN','Enter your current PIN, then a new one','M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01','',()=>{
+                if(s.guest){ this.setState({guestGate:'Sign in to change your PIN.'}); return; }
+                this.setState({screen:'login', pinPhase:'current', pinFirst:'', pinCurrent:'', otp:'', pinNote:'', inviteCode:'', menuOpen:false});
+              }),
               ln('New phone','Confirmed with an email link','M7.6 3.6h8.8a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H7.6A1.6 1.6 0 0 1 6 18.8V5.2a1.6 1.6 0 0 1 1.6-1.6ZM11 17.2h2','',()=>this.setState({sentNote:'A new phone opens an email link. Staff can reset the device in Ledger if email is not set up.'}))]} ,
             {title:'Preferences',rows:[
               tg('Light mode','','M12 16.2a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2',light,()=>this.setState({homeLight:!light})),
@@ -4868,15 +4870,16 @@ input,button,textarea{font-family:inherit}
   
         phone:s.phone, phoneError:s.phoneError,
         onPhone:e=>this.setState({phone:e.target.value,phoneError:''}),
-        otpCells:[0,1,2,3,4,5].map(i=>({char:s.otp[i]||''})),
+        pinCellCount:PIN_LENGTH,
+        otpCells:Array.from({length:PIN_LENGTH},(_,i)=>({char:s.otp[i]||''})),
         keypad:['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>({
           label:k,
           onClick:()=>{
             if(!k) return;
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
-              const next=(st.otp+k).slice(0,6);
-              if(next.length===6) setTimeout(()=>this.submitBorrowerPin(next), 320);
+              const next=(st.otp+k).slice(0,PIN_LENGTH);
+              if(next.length===PIN_LENGTH) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -5763,15 +5766,17 @@ input,button,textarea{font-family:inherit}
         loginEmailStep:s.screen==='login'&&s.pinPhase==='emailin',
         loginIdSignStep:s.screen==='login'&&s.pinPhase==='idphone',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
-        loginSub:s.pinPhase==='unlinked'
+        loginHead:s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
+        loginSub:s.pinPhase==='current'
+          ?'Enter the '+PIN_LENGTH+'-digit PIN you use now. Then choose a new one.'
+          :s.pinPhase==='unlinked'
           ?"Please contact EcoLoans and we'll reset your access."
           :s.pinPhase==='change'
-          ?'Choose a 6-digit PIN, then enter it again. It replaces the temporary one.'
+          ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again.'
           :s.pinPhase==='change2'
-          ?'Enter that PIN again. It replaces the temporary one.'
+          ?'Enter that PIN again.'
           :s.pinPhase==='choose'
-          ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
+          ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
           ?'Enter that PIN again. It is not taken from an ID number.'
           :s.pinPhase==='email'
@@ -5782,7 +5787,7 @@ input,button,textarea{font-family:inherit}
           ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
           ?'Staff can reset this device in Ledger. Your PIN stays the same.'
-          :'Enter the 6-digit PIN you chose. It is not your ID number.',
+          :'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
@@ -5805,7 +5810,7 @@ input,button,textarea{font-family:inherit}
         showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
+        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',

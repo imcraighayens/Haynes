@@ -7,8 +7,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isPin, isLegacyPin, isChosenPin } from './pin.js';
-import { borrowerBook } from './borrower-book.js';
+import { hashPin, verifyPin, isPin, isWrongLengthPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { borrowerBook, requireBorrower } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
@@ -18,15 +18,13 @@ import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice, readPendingDevice,
   sessionCookie, deviceCookie, knownDeviceCookie, clearKnownCookie, clearSessionCookie,
   pendingDeviceCookie, clearPendingCookie, requestIsSecure,
-  pinChangeCookie, clearPinChangeCookie, readPinChangeToken, PIN_CHANGE_TTL_SECONDS
+  clearPinChangeCookie
 } from './quik1-session.js';
 
 const INVITE_CODE = /^[0-9a-f]{64}$/;
 const ACCOUNT_REF = /^qb_[0-9a-f]{32}$/;
 const LOCKED_PLACEHOLDER = 'locked';
 export const TEMP_PIN_INVITE_LOCK = "Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
-const UNSET_PIN = 'unset';
-const TEMP_PIN_TTL_MS = 72 * 3600 * 1000;
 const TEMP_PIN_LIMIT = 5;
 const TEMP_PIN_WINDOW_MS = 15 * 60 * 1000;
 
@@ -281,8 +279,9 @@ const TEMP_PIN_CLEAR = {
   pin_change_expires_at: null
 };
 
-// Drops a staff temporary PIN and its change token. A missing column means that
-// migration is not applied yet, so the older borrower update still proceeds.
+// Clears leftover temporary-PIN and pin-change columns. Those columns stay in the
+// schema and are not read at sign-in. A missing column means that migration is
+// not applied yet, so the older borrower update still proceeds.
 async function clearTempPinState(borrowerId, nowIso, extra = {}) {
   const patch = { ...TEMP_PIN_CLEAR, ...extra, updated_at: nowIso };
   try {
@@ -294,7 +293,8 @@ async function clearTempPinState(borrowerId, nowIso, extra = {}) {
 }
 
 // A new invite is the reset. The previous PIN stops working until this code is redeemed.
-// The temporary PIN and its change token die here too, including when access is revoked.
+// A new invite also clears any leftover temporary-PIN columns. The login PIN stops
+// working until this code is redeemed.
 async function lockUntilRedeem(clientId, nowIso) {
   const borrower = await selectOne('q1_borrowers', {
     select: 'id,client_id',
@@ -391,29 +391,10 @@ async function borrowerForAccess(clientId) {
   }
 }
 
-export function sastStamp(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const formatted = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Johannesburg',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  }).format(d);
-  return formatted + ' SAST';
-}
-
-// None, a live temporary PIN, or an active borrower-chosen PIN. No hash, no digits.
-export function borrowerPinStatus(borrower, now = Date.now()) {
+// Active when a scrypt login PIN is stored. No hash and no digits.
+// Leftover temp_pin_* values are not a login PIN.
+export function borrowerPinStatus(borrower) {
   if (!borrower) return 'None';
-  const hash = typeof borrower.temp_pin_hash === 'string' ? borrower.temp_pin_hash : '';
-  const expires = borrower.temp_pin_expires_at ? new Date(borrower.temp_pin_expires_at).getTime() : 0;
-  if (hash.startsWith('scrypt$') && expires > now) {
-    return 'Temporary PIN set (expires ' + sastStamp(borrower.temp_pin_expires_at) + ')';
-  }
   if (typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')) return 'Active';
   return 'None';
 }
@@ -451,16 +432,23 @@ export async function revokeAccess(clientId) {
 }
 
 let dummyHash = '';
+function blankPin() {
+  return '0'.repeat(QUIK1_PIN_LENGTH);
+}
 async function dummyPinHash() {
-  if (!dummyHash) dummyHash = await hashPin('000000');
+  if (!dummyHash) dummyHash = await hashPin(blankPin());
   return dummyHash;
 }
 async function burnPinTime(pin) {
-  await verifyPin(isPin(pin) ? pin : '000000', await dummyPinHash());
+  await verifyPin(isVerifiablePin(pin) ? pin : blankPin(), await dummyPinHash());
 }
 
 function rejectPin() {
-  throw new HttpError(401, 'PIN not accepted');
+  throw new HttpError(401, pinNotAcceptedMessage());
+}
+
+function rejectPinShape() {
+  throw new HttpError(400, enterPinMessage());
 }
 
 const DEVICE_NOT_LINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
@@ -502,28 +490,19 @@ function accessLocked(row) {
   return !scrypt && !!row.locked_at;
 }
 
-function tempPinPatch(row, pinHash, expires, nowIso) {
+// Writes the real login PIN. Clears a failed-attempt lock on a scrypt row.
+// Does not touch an invite lock: accessLocked throws before this returns.
+function loginPinPatch(row, pinHash, nowIso, deviceUntil) {
   if (accessLocked(row)) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
-  const scrypt = !!(row && typeof row.pin_hash === 'string' && row.pin_hash.startsWith('scrypt$'));
+  const unlocked = failedAttemptLocked(row);
   const patch = {
-    temp_pin_hash: pinHash,
-    temp_pin_expires_at: expires,
-    temp_pin_spent_hash: null,
-    pin_change_hash: null,
-    pin_change_expires_at: null,
+    pin_hash: pinHash,
+    failed_attempts: 0,
+    locked_at: null,
+    device_reset_until: deviceUntil,
+    ...TEMP_PIN_CLEAR,
     updated_at: nowIso
   };
-  const unlocked = failedAttemptLocked(row);
-  if (!row) {
-    patch.pin_hash = UNSET_PIN;
-    patch.failed_attempts = 0;
-    patch.locked_at = null;
-  } else if (unlocked) {
-    patch.failed_attempts = 0;
-    patch.locked_at = null;
-  } else if (!scrypt && row.pin_hash !== LOCKED_PLACEHOLDER) {
-    patch.pin_hash = UNSET_PIN;
-  }
   return { patch, unlocked };
 }
 
@@ -642,7 +621,7 @@ export async function redeemInvite(req, body, res) {
   const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const pinConfirm = typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
-  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, 'Choose a 6-digit PIN that is not a run or all one digit');
+  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, chosenPinMessage());
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
 
@@ -913,79 +892,17 @@ export function deviceMatches(req, challenge) {
   return sigEqual(hashToken(pending), challenge.device_hash);
 }
 
-// Two scrypt checks, always. A miss and a hit spend the same work before the branch.
-async function comparePins(pin, realHash, tempHash) {
+// Two scrypt checks, always. A miss and a hit spend the same work. The second
+// check is a decoy so a missing hash does not return faster than a real one.
+async function comparePins(pin, realHash) {
   const realStored = typeof realHash === 'string' && realHash.startsWith('scrypt$') ? realHash : null;
-  const tempStored = typeof tempHash === 'string' && tempHash.startsWith('scrypt$') ? tempHash : null;
   const dummy = await dummyPinHash();
-  const realProbe = isPin(pin) || isLegacyPin(pin) ? pin : '000000';
-  const tempProbe = isPin(pin) ? pin : '000000';
-  const [realHit, tempHit] = await Promise.all([
-    verifyPin(realProbe, realStored || dummy),
-    verifyPin(tempProbe, tempStored || dummy)
+  const probe = isVerifiablePin(pin) ? pin : blankPin();
+  const [realHit] = await Promise.all([
+    verifyPin(probe, realStored || dummy),
+    verifyPin(probe, dummy)
   ]);
-  return {
-    realOk: !!(realStored && realHit),
-    tempOk: !!(tempStored && tempHit)
-  };
-}
-
-async function readTempState(borrowerId) {
-  try {
-    return await selectOne('q1_borrowers', {
-      select: 'id,temp_pin_hash,temp_pin_expires_at,device_reset_until,temp_pin_spent_hash,pin_change_hash,pin_change_expires_at',
-      id: eq(borrowerId)
-    });
-  } catch (err) {
-    if (schemaMissing(err)) return null;
-    throw err;
-  }
-}
-
-// Validity is the hash and its own expiry. device_reset_until is a separate
-// real-PIN trust window and must not revive, shorten, or block a temporary PIN.
-function tempLive(row, now) {
-  if (!row || typeof row.temp_pin_hash !== 'string' || !row.temp_pin_hash.startsWith('scrypt$')) return false;
-  if (!row.temp_pin_expires_at || new Date(row.temp_pin_expires_at).getTime() <= now) return false;
-  return true;
-}
-
-// Identifier-agnostic. Callers check the lock first. This does not.
-// loginBorrower and the ID + phone PIN path both call signInWithPin, which
-// uses this consume. Do not copy it.
-// kind 'change' is the only success, and it is not a session.
-// kind 'fail' is a temp PIN that matched but could not be consumed (already used).
-// kind 'none' means the caller should keep going with realOk, including an expired temp PIN.
-export async function acceptTemporaryPin(req, borrower, pin, now = Date.now()) {
-  const temp = borrower && borrower.id ? await readTempState(borrower.id) : null;
-  const checks = await comparePins(pin, borrower && borrower.pin_hash, temp && temp.temp_pin_hash);
-  if (!(temp && checks.tempOk && tempLive(temp, now))) {
-    return { kind: 'none', realOk: checks.realOk };
-  }
-  const token = randomBytes(32).toString('hex');
-  const nowIso = new Date(now).toISOString();
-  const rows = await patchWhere('q1_borrowers', {
-    id: eq(borrower.id),
-    temp_pin_hash: eq(temp.temp_pin_hash),
-    temp_pin_expires_at: 'gt.' + nowIso
-  }, {
-    temp_pin_hash: null,
-    temp_pin_expires_at: null,
-    device_reset_until: null,
-    temp_pin_spent_hash: temp.temp_pin_hash,
-    pin_change_hash: hashToken(token),
-    pin_change_expires_at: new Date(now + PIN_CHANGE_TTL_SECONDS * 1000).toISOString(),
-    updated_at: nowIso
-  });
-  if (!rows.length) return { kind: 'fail', realOk: checks.realOk };
-  return {
-    kind: 'change',
-    realOk: checks.realOk,
-    result: {
-      pinChangeRequired: true,
-      cookies: [pinChangeCookie(token, requestIsSecure(req))]
-    }
-  };
+  return { realOk: !!(realStored && realHit) };
 }
 
 function staffActor(req) {
@@ -1000,7 +917,7 @@ function chosenPair(body) {
   const pin = body && typeof body.pin === 'string' ? body.pin : '';
   const pinConfirm = body && typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
   if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) {
-    throw new HttpError(400, 'Choose a 6-digit PIN that is not a run or all one digit');
+    throw new HttpError(400, chosenPinMessage());
   }
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   return pin;
@@ -1044,7 +961,23 @@ async function writeTempPin(row, patch) {
   if (!updated.length) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
 }
 
-export async function setTemporaryPin(req, res, body) {
+// Same rule as Reset Device. Email can confirm a new phone, so no window.
+// Otherwise the next correct PIN within 24 hours links one phone.
+async function phoneTrustUntil(req, clientId, now) {
+  const address = await clientEmail(clientId);
+  if (canEmailNewDevice(req, address)) return null;
+  return new Date(now + 24 * 3600 * 1000).toISOString();
+}
+
+// Staff set the borrower's real login PIN. The hash is scrypt, with no expiry.
+// Sessions, trusted devices, and passkeys are revoked. This does not call
+// trustDevice: no borrower phone is present. When email cannot confirm a new
+// phone, device_reset_until opens the same 24-hour window Reset Device uses,
+// and the next correct PIN links that phone through ordinary sign-in. When
+// email is live the window stays shut and the email link links the phone.
+// q1_temp_pin_sets and audit type borrower_temp_pin_set are the existing
+// staff-set record. They store no PIN.
+export async function setLoginPin(req, res, body) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   const pin = chosenPair(body || {});
   const client = await liveClient(body && typeof body.clientId === 'string' ? body.clientId : '');
@@ -1063,11 +996,11 @@ export async function setTemporaryPin(req, res, body) {
   const actor = await assertTempPinRate(req, res, client.id);
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
-  const expires = new Date(now + TEMP_PIN_TTL_MS).toISOString();
   try {
+    const deviceUntil = await phoneTrustUntil(req, client.id, now);
     const pinHash = await hashPin(pin);
     let borrower = existing;
-    let { patch, unlocked } = tempPinPatch(borrower, pinHash, expires, nowIso);
+    let { patch, unlocked } = loginPinPatch(borrower, pinHash, nowIso, deviceUntil);
     if (!borrower) {
       const id = 'qb_' + randomBytes(16).toString('hex');
       try {
@@ -1084,7 +1017,7 @@ export async function setTemporaryPin(req, res, body) {
           client_id: eq(client.id)
         });
         if (!borrower) throw err;
-        const next = tempPinPatch(borrower, pinHash, expires, nowIso);
+        const next = loginPinPatch(borrower, pinHash, nowIso, deviceUntil);
         patch = next.patch;
         unlocked = next.unlocked;
         await writeTempPin(borrower, patch);
@@ -1118,16 +1051,7 @@ export async function setTemporaryPin(req, res, body) {
     } catch (err) {
       if (!missingTable(err)) throw err;
     }
-    return {
-      ok: true,
-      pinStatus: borrowerPinStatus({
-        pin_hash: borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')
-          ? borrower.pin_hash
-          : UNSET_PIN,
-        temp_pin_hash: pinHash,
-        temp_pin_expires_at: expires
-      }, now)
-    };
+    return { ok: true, pinStatus: 'Active' };
   } catch (err) {
     if (err instanceof HttpError && err.status !== 502) throw err;
     if (schemaMissing(err)) throw migrationPending();
@@ -1135,99 +1059,68 @@ export async function setTemporaryPin(req, res, body) {
   }
 }
 
-export async function setNewBorrowerPin(req, body, res) {
+// Signed-in borrower changes their own PIN. The session and the current PIN
+// are both required. A wrong current PIN uses the same lockout as sign-in.
+// The response is only { ok: true }.
+export async function changeBorrowerPin(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   requireSessionSecret();
   await guardAuth(req, res);
-  const pin = chosenPair(body || {});
-  const token = readPinChangeToken(req);
-  if (!token) {
-    await burnPinTime(pin);
-    throw new HttpError(401, 'PIN not accepted');
-  }
-  const tokenHash = hashToken(token);
-  let borrower;
+  const { borrower } = await requireBorrower(req);
+  let row;
   try {
-    borrower = await selectOne('q1_borrowers', {
-      select: 'id,client_id,pin_hash,failed_attempts,locked_at,temp_pin_spent_hash,pin_change_hash,pin_change_expires_at',
-      pin_change_hash: eq(tokenHash)
+    row = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      id: eq(borrower.id)
     });
   } catch (err) {
     if (schemaMissing(err)) throw new HttpError(503, 'Sign-in is not available');
     throw err;
   }
-  const now = Date.now();
-  const nowIso = new Date(now).toISOString();
-  const live = !!(borrower && borrower.pin_change_expires_at && new Date(borrower.pin_change_expires_at).getTime() > now);
-  const spent = borrower && typeof borrower.temp_pin_spent_hash === 'string' && borrower.temp_pin_spent_hash.startsWith('scrypt$')
-    ? borrower.temp_pin_spent_hash
-    : await dummyPinHash();
-  const same = await verifyPin(pin, spent);
-  if (!borrower || !live) throw new HttpError(401, 'PIN not accepted');
-  await clearExpiredLock(borrower);
-  if (isLocked(borrower)) lockedError();
-  if (same) throw new HttpError(400, 'Choose a different PIN');
-  try { await liveClient(borrower.client_id); }
-  catch (e) {
-    if (e instanceof HttpError && e.status === 404) throw new HttpError(401, 'PIN not accepted');
-    throw e;
-  }
+  if (!row || row.client_id !== borrower.client_id) throw new HttpError(401, 'Sign in required');
+  await clearExpiredLock(row);
+  if (isLocked(row)) lockedError();
+  const current = body && typeof body.currentPin === 'string' ? body.currentPin : '';
+  // The current PIN is verified against the stored hash. A previous length is not
+  // a second accepted shape here: it is a 400, same as sign-in, and does not count
+  // toward lockout. A current PIN of the live length that does not match the hash
+  // is the normal wrong-PIN 401, including when the hash was made from an older PIN.
+  // Those holders get a new PIN from staff.
+  if (!isPin(current)) rejectPinShape();
+  const checks = await comparePins(current, row.pin_hash);
+  if (!checks.realOk) await noteFailure(row, 'pin', req);
+  const pin = chosenPair(body || {});
+  if (await verifyPin(pin, row.pin_hash)) throw new HttpError(400, 'Choose a different PIN');
   const pinHash = await hashPin(pin);
-  const claimed = await patchWhere('q1_borrowers', {
-    id: eq(borrower.id),
-    pin_change_hash: eq(tokenHash),
-    pin_change_expires_at: 'gt.' + nowIso
-  }, {
+  const nowIso = new Date().toISOString();
+  await clearTempPinState(row.id, nowIso, {
     pin_hash: pinHash,
-    temp_pin_hash: null,
-    temp_pin_expires_at: null,
-    temp_pin_spent_hash: null,
-    pin_change_hash: null,
-    pin_change_expires_at: null,
     failed_attempts: 0,
-    locked_at: null,
-    device_reset_until: null,
-    updated_at: nowIso
+    locked_at: null
   });
-  if (!claimed.length) throw new HttpError(401, 'PIN not accepted');
-  const deviceToken = await trustDevice(borrower.id);
-  const { minted, accountRef } = await openSession(borrower);
-  const secure = requestIsSecure(req);
-  return {
-    accountRef,
-    cookies: [...authCookies(minted, accountRef, req, deviceToken), clearPinChangeCookie(secure)]
-  };
+  return { ok: true };
 }
 
-export async function pinChangePending(req) {
-  if (!borrowerPinLive(req)) return { pinChangeRequired: false };
-  const token = readPinChangeToken(req);
-  if (!token) return { pinChangeRequired: false };
-  try {
-    const row = await selectOne('q1_borrowers', {
-      select: 'id,pin_change_expires_at',
-      pin_change_hash: eq(hashToken(token))
-    });
-    const exp = row && row.pin_change_expires_at ? new Date(row.pin_change_expires_at).getTime() : 0;
-    return { pinChangeRequired: exp > Date.now() };
-  } catch {
-    return { pinChangeRequired: false };
-  }
+// Forced first-sign-in PIN change is retired. A stale q1_pin_change cookie
+// does not open that flow.
+export function pinChangePending() {
+  return { pinChangeRequired: false };
 }
 
-// Lock (423), then acceptTemporaryPin, then device_not_linked.
-// acceptTemporaryPin does not check the lock. A null borrower is the unknown-account 401.
+// Lock (423), then the real PIN, then device_not_linked.
+// A null borrower is the unknown-account 401. device_not_linked is only after
+// the PIN matches.
 export async function signInWithPin(req, borrower, pin) {
+  if (isWrongLengthPin(pin)) rejectPinShape();
   if (!borrower) {
-    await comparePins(pin, null, null);
+    await comparePins(pin, null);
     await noteAttempt(null, 'pin', req);
     rejectPin();
   }
   await clearExpiredLock(borrower);
   if (isLocked(borrower)) lockedError();
-  const gate = await acceptTemporaryPin(req, borrower, pin);
-  if (gate.kind === 'change') return gate.result;
-  if (gate.kind === 'fail' || !gate.realOk) await noteFailure(borrower, 'pin', req);
+  const checks = await comparePins(pin, borrower.pin_hash);
+  if (!checks.realOk) await noteFailure(borrower, 'pin', req);
   try { await liveClient(borrower.client_id); }
   catch (e) {
     if (e instanceof HttpError && e.status === 404) rejectPin();
@@ -1283,7 +1176,8 @@ export async function loginBorrower(req, body, res) {
   }
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
-  if (!(isPin(pin) || isLegacyPin(pin)) || !ACCOUNT_REF.test(accountRef)) {
+  if (isWrongLengthPin(pin)) rejectPinShape();
+  if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
     rejectPin();
@@ -1295,11 +1189,11 @@ export async function loginBorrower(req, body, res) {
     });
     // Unknown accounts stay a generic refusal, including when email is off.
     // device_not_linked is only for a known account after the PIN matches.
-    // Order inside signInWithPin: lock (423), acceptTemporaryPin, device_not_linked.
+    // Order inside signInWithPin: lock (423), PIN, device_not_linked.
     return await signInWithPin(req, borrower, pin);
   } catch (err) {
     if (missingTable(err)) {
-      await comparePins(pin, null, null);
+      await comparePins(pin, null);
       rejectPin();
     }
     throw err;

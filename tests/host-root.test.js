@@ -18,7 +18,8 @@ test('quik1 pins /quik1/ before the runtime script and keeps the PIN sign-in cop
   assert.ok(link > pin, 'quik1-link.js is also after the base');
   assert.ok(quik.includes('x-dc{display:none!important}'));
   assert.match(quik, /Enter your PIN/);
-  assert.match(quik, /Enter the 6-digit PIN you chose\. It is not your ID number\./);
+  assert.match(quik, /PIN_LENGTH\+'-digit PIN you chose\. It is not your ID number\.'/);
+  assert.match(quik, /src="\/shared\/pin-length\.js"/);
   assert.doesNotMatch(quik, /first four digits of your ID number/);
 });
 
