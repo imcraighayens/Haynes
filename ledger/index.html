@@ -629,8 +629,17 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         </sc-if>
         <sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}">
           <div class="subnav" role="tablist" aria-label="Reports">
-            <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+            <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
           </div>
+          <sc-if value="{{ isNuPay }}" hint-placeholder-val="{{ false }}">
+            <div id="nupay-tab-drop" class="np-drop">
+              <h3>Upload a NuPay file</h3>
+              <p>CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.</p>
+              <button type="button" class="np-btn primary np-choose" id="nupay-tab-choose">Choose file</button>
+              <input id="nupay-tab-file" type="file" accept=".csv,.xlsx,.zip,text/csv" aria-label="NuPay file" style="display:none">
+            </div>
+          </sc-if>
+          <sc-if value="{{ showMarketsGrid }}" hint-placeholder-val="{{ true }}">
           <div ref="{{ gridRef }}" class="markets-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
 
 <div data-card="0" class="{{ newsCardCls }}" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;grid-row:span 2;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
@@ -801,6 +810,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             </div>
 
           </div>
+          </sc-if>
         </sc-if>
         <sc-if value="{{ isLoans }}" hint-placeholder-val="{{ false }}">
         <input value="{{ q }}" sc-camel-on-change="{{ qChange }}" placeholder="Search…" aria-label="Search loans by client or reference" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
@@ -1013,7 +1023,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div sc-camel-on-click="{{ paneClose }}" style="{{ paneWrap }}"><div sc-camel-on-click="{{ paneStop }}" style="{{ paneCard }}"><div sc-camel-on-click="{{ paneClose }}" style="{{ paneX }}" style-hover="color:var(--ink)">✕</div>
       <div style="padding:16px clamp(16px,2vw,24px);animation:fadeUp .25s ease;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden" data-screen-label="Logbook">
         <sc-if value="{{ showReportTabs }}" hint-placeholder-val="{{ false }}"><div class="subnav" role="tablist" aria-label="Reports">
-          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
         </div></sc-if>
         <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-bottom:12px;flex:none">LOGBOOK <span style="color:var(--dim);font-weight:500;font-size:12px;letter-spacing:.08em;margin-left:8px;white-space:nowrap">GLOBAL AUDIT TRAIL</span></div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;flex:none">
@@ -1287,7 +1297,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div sc-camel-on-click="{{ paneClose }}" style="{{ paneWrap }}"><div sc-camel-on-click="{{ paneStop }}" style="{{ paneCard }}"><div sc-camel-on-click="{{ paneClose }}" style="{{ paneX }}" style-hover="color:var(--ink)">✕</div>
       <div style="padding:16px clamp(16px,2vw,24px) 24px;animation:fadeUp .25s ease" data-screen-label="Petty cash">
         <sc-if value="{{ showReportTabs }}" hint-placeholder-val="{{ false }}"><div class="subnav" role="tablist" aria-label="Reports">
-          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+          <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
         </div></sc-if>
         <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:24px">PETTY CASH <span style="color:var(--dim);font-weight:500;font-size:13px;letter-spacing:.08em;margin-left:8px">OFFICE EXPENSES · {{ pettyMonthTotal }} THIS MONTH</span></div>
         <div style="display:grid;grid-template-columns:340px 1fr;gap:26px;align-items:start">
@@ -5474,8 +5484,8 @@ class Component extends DCLogic {
       toggleLoanMore: ()=>this.setState(p=>({loanMore:!p.loanMore})),
       headClass: 'head-actions'+(st.route==='loans'?' is-loans':''),
       screenTitle: st.route==='loans'?'Loans':st.route==='collections'?'Collections':st.route==='reports'?'Reports':'Dashboard',
-      screenSub: st.route==='loans'?'LOAN BOOK':st.route==='collections'?'DUE AND OVERDUE':st.route==='reports'?'MARKETS':this.todayHeader(),
-      screenSubShort: st.route==='loans'?'Loan book':st.route==='collections'?'Due and overdue':st.route==='reports'?'Markets':this.todayLabel(),
+      screenSub: st.route==='loans'?'LOAN BOOK':st.route==='collections'?'DUE AND OVERDUE':st.route==='reports'?(st.reportTab==='nupay'?'NUPAY':'MARKETS'):this.todayHeader(),
+      screenSubShort: st.route==='loans'?'Loan book':st.route==='collections'?'Due and overdue':st.route==='reports'?(st.reportTab==='nupay'?'NuPay':'Markets'):this.todayLabel(),
       q1GateOff: this.state.borrowerGate!==true, q1GateOn: this.state.borrowerGate===true,
       admTab: st.admTab||'cash',
       admCashCls: 'pager-btn'+((st.admTab||'cash')==='cash'?' is-on':''),
@@ -5519,9 +5529,9 @@ class Component extends DCLogic {
         const tabStyle = on => this.cssObj("min-height:36px;padding:6px 12px;border-radius:8px;cursor:pointer;font:600 14px 'Plus Jakarta Sans',sans-serif;"+(on?'background:var(--ink);color:var(--bg)':'color:var(--ink);border:1px solid var(--line2)'));
         const accessHere = st.route==='messages' ? 'messages' : st.route==='applications' ? 'applications' : (st.route==='access' ? (st.accessTab||'invites') : '');
         const accessTabs = [['invites','Invites'],['applications','Applications'],['messages','Messages']].map(([id,label])=>({label, style:tabStyle(accessHere===id), go:()=>this.setState({route:'access', accessTab:id, menuId:null, modal:null, modalStack:[], navDrawer:false})}));
-        const reportHere = st.route==='logbook' ? 'audit' : st.route==='petty' ? 'petty' : 'markets';
-        const reportTabs = [['markets','Markets'],['audit','Audit']].map(([id,label])=>({label, style:tabStyle(reportHere===id), go:()=>this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null})}));
-        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isAccess: st.route==='access' && accessHere==='invites' };
+        const reportHere = st.route==='reports' && st.reportTab==='nupay' ? 'nupay' : st.route==='logbook' ? 'audit' : st.route==='petty' ? 'petty' : 'markets';
+        const reportTabs = [['markets','Markets'],['audit','Audit'],['nupay','NuPay']].map(([id,label])=>({id, label, style:tabStyle(reportHere===id), go:()=>{ if(id==='nupay'){ this.setState({route:'reports', reportTab:'nupay', navDrawer:false, modal:null, modalStack:[], admPane:null}); return; } this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null}); }}));
+        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isNuPay: reportHere==='nupay', showMarketsGrid: st.route==='reports' && reportHere!=='nupay', isAccess: st.route==='access' && accessHere==='invites' };
       })(),
       ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
       ...(()=>{ const rl=st.reel; if(!rl) return {reelOn:false, reelPlaying:false, reelIdle:false};
@@ -6844,5 +6854,7 @@ class Component extends DCLogic {
 }
 </script>
 
-
+<!-- NuPay report mount. The panel lives in ledger/nupay-report.js so a Reports-page rebase can move this node. -->
+<div id="nupay-report-mount"></div>
+<script type="module" src="./nupay-report.js"></script>
 </body></html>
