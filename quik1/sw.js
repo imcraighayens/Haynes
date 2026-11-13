@@ -1,6 +1,6 @@
 /* Quik1 app shell. Caches the page and its static files so the installed app can open offline.
    Never caches /api (including auth) and never precaches or stores the splash video. */
-const CACHE = 'quik1-shell-v1';
+const CACHE = 'quik1-shell-v2';
 
 function scopeBase() {
   return new URL('./', self.registration.scope);

@@ -47,7 +47,7 @@ test('manifest is standalone and linked for both quik1.app root and /quik1/', ()
   for (const icon of manifest.icons) {
     assert.ok(fs.existsSync(path.join(root, icon.src.replace(/^\//, ''))), icon.src);
   }
-  assert.match(quik, /width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover/);
+  assert.match(quik, /width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual/);
   assert.match(quik, /viewport-fit=cover/);
   assert.match(quik, /name="theme-color" content="#000000"/);
   assert.match(quik, /name="apple-mobile-web-app-capable" content="yes"/);
@@ -106,6 +106,8 @@ test('Safari hint is one-time, login-only, and hidden when already standalone', 
 });
 
 test('service worker caches the shell and never the video or /api', () => {
+  assert.match(sw, /const CACHE = 'quik1-shell-v2'/);
+  assert.doesNotMatch(sw, /quik1-shell-v1/);
   assert.match(sw, /function isApi/);
   assert.match(sw, /function isSplashVideo/);
   assert.match(sw, /pathname === '\/api' \|\| url\.pathname\.startsWith\('\/api\/'\)/);
