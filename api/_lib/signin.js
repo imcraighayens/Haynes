@@ -250,6 +250,9 @@ export async function requestPinReset(req, body, res) {
   const email = cleanEmail(body && body.email).toLowerCase();
   const subject = subjectHash('email', email || 'none');
   await assertSubjectBudget('email', subject, res);
+  // findByEmail only returns a scrypt PIN that is not attempt-locked. A leftover
+  // lock (pin_hash 'locked', or no scrypt PIN) gets this same generic body and
+  // no email. Staff set the new PIN.
   const found = await findByEmail(email);
   await logAuthAttempt(found ? found.borrower.id : null, 'email', req, subject);
   const pending = randomBytes(32).toString('hex');

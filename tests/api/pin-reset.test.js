@@ -207,6 +207,12 @@ describe('forgot PIN', { concurrency: false }, () => {
     });
     assert.equal(consumed.statusCode, 200, consumed.body);
     assert.equal(consumed.json().pinChange, true);
+    const opened = fake.db.audit_log.find(a => a.type === 'borrower_pin_reset_link');
+    assert.ok(opened);
+    assert.equal(opened.comment, 'q1_borrower=' + borrower.id);
+    assert.equal(JSON.stringify(opened).includes(fresh), false);
+    assert.equal(JSON.stringify(opened).includes(EMAIL), false);
+    assert.equal(JSON.stringify(opened).includes(CLIENT_A), false);
     assert.equal(consumed.json().accountRef, undefined);
     assert.equal(cookiePart(consumed, 'q1_session'), '');
     assert.match(cookiePart(consumed, 'q1_pin_change'), /^q1_pin_change=[0-9a-f]{64}$/);
@@ -235,6 +241,11 @@ describe('forgot PIN', { concurrency: false }, () => {
       body: { pin: PIN_NEXT, pinConfirm: PIN_NEXT }
     });
     assert.equal(done.statusCode, 200, done.body);
+    const finished = fake.db.audit_log.find(a => a.type === 'borrower_pin_reset');
+    assert.ok(finished);
+    assert.equal(finished.comment, 'q1_borrower=' + borrower.id);
+    assert.equal(JSON.stringify(finished).includes(PIN_NEXT), false);
+    assert.equal(JSON.stringify(finished).includes(EMAIL), false);
     assert.match(done.json().accountRef, /^qb_/);
     assert.match(cookiePart(done, 'q1_session'), /^q1_session=/);
     assert.match(cookiePart(done, 'q1_known'), /^q1_known=/);
@@ -310,6 +321,17 @@ describe('forgot PIN', { concurrency: false }, () => {
   test('a locked account gets the generic body and no link', async () => {
     const borrower = await setPin();
     borrower.failed_attempts = 5;
+    borrower.locked_at = new Date().toISOString();
+    const res = await call(quik1, { method: 'POST', path: ['pin', 'reset'], body: { email: EMAIL } });
+    assert.equal(res.statusCode, 200, res.body);
+    assert.equal(res.json().sent, true);
+    assert.equal(sent.length, 0);
+    assert.equal(fake.db.q1_otp_challenges.length, 0);
+  });
+
+  test('a leftover lock gets the generic body and no link', async () => {
+    const borrower = await setPin();
+    borrower.pin_hash = 'locked';
     borrower.locked_at = new Date().toISOString();
     const res = await call(quik1, { method: 'POST', path: ['pin', 'reset'], body: { email: EMAIL } });
     assert.equal(res.statusCode, 200, res.body);

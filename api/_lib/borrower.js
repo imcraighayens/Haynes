@@ -24,7 +24,7 @@ import {
 
 const ACCOUNT_REF = /^qb_[0-9a-f]{32}$/;
 const LOCKED_PLACEHOLDER = 'locked';
-export const TEMP_PIN_INVITE_LOCK = "Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
+const PIN_SET_RACE = 'This client changed while you were setting the PIN. Try again.';
 const TEMP_PIN_LIMIT = 5;
 const TEMP_PIN_WINDOW_MS = 15 * 60 * 1000;
 
@@ -236,7 +236,7 @@ function canEmailNewDevice(req, address) {
 }
 
 function lockedError() {
-  throw new HttpError(423, 'This account is locked. Wait and try again, or ask your loan officer for a new invite.');
+  throw new HttpError(423, 'Quik1 is locked. Ask your loan officer to set a new PIN.');
 }
 
 function lockActive(borrower, now = Date.now()) {
@@ -252,7 +252,7 @@ function failedAttemptLocked(borrower, now = Date.now()) {
   return lockActive(borrower, now);
 }
 
-// Revoke and a new invite both leave pin_hash 'locked'. A lock with no scrypt PIN is the same refusal.
+// A leftover lock is pin_hash 'locked', or locked_at with a hash that is not scrypt.
 function accessLocked(row) {
   if (!row) return false;
   if (row.pin_hash === LOCKED_PLACEHOLDER) return true;
@@ -260,10 +260,46 @@ function accessLocked(row) {
   return !scrypt && !!row.locked_at;
 }
 
-// Writes the real login PIN. Clears a failed-attempt lock on a scrypt row.
-// Does not touch an invite lock: accessLocked throws before this returns.
+// New staff sets write borrower_login_pin_set. Older rows stay borrower_temp_pin_set.
+export function isStaffPinSetAudit(type) {
+  return type === 'borrower_login_pin_set' || type === 'borrower_temp_pin_set';
+}
+
+function pinStatusOf(borrower) {
+  if (borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')) return 'Active';
+  return 'None';
+}
+
+// Staff read of the login PIN. No invite, code, or link.
+export async function borrowerAccessStatus(clientId) {
+  const client = await liveClient(clientId);
+  let borrower = null;
+  try {
+    borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      client_id: eq(client.id)
+    });
+  } catch (err) {
+    if (missingTable(err) || schemaMissing(err)) {
+      return { ready: false, hasPin: false, pinStatus: 'Unknown', locked: false, access: 'unavailable' };
+    }
+    throw err;
+  }
+  const hasPin = pinStatusOf(borrower) === 'Active';
+  const locked = !!(borrower && (accessLocked(borrower) || isLocked(borrower)));
+  let access = 'none';
+  if (hasPin && isLocked(borrower)) access = 'locked';
+  else if (hasPin) access = 'pin';
+  else if (borrower && accessLocked(borrower)) access = 'locked';
+  return { ready: true, hasPin, pinStatus: pinStatusOf(borrower), locked, access };
+}
+
+// Writes the real login PIN. Clears a failed-attempt lock on a scrypt row, and
+// replaces a leftover lock: pin_hash 'locked', or locked_at
+// with a hash that is not scrypt. The patch stores the new hash, clears the
+// lock, and nulls leftover temp_pin_* columns.
 function loginPinPatch(row, pinHash, nowIso, deviceUntil) {
-  if (accessLocked(row)) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
+  const replacedLock = accessLocked(row);
   const unlocked = failedAttemptLocked(row);
   const patch = {
     pin_hash: pinHash,
@@ -273,7 +309,7 @@ function loginPinPatch(row, pinHash, nowIso, deviceUntil) {
     ...TEMP_PIN_CLEAR,
     updated_at: nowIso
   };
-  return { patch, unlocked };
+  return { patch, unlocked, replacedLock };
 }
 
 async function clearExpiredLock(borrower, now = Date.now()) {
@@ -651,17 +687,20 @@ async function assertTempPinRate(req, res, clientId) {
   return actor;
 }
 
-// The patch is built from the row we read. A revoke can land before this write,
-// so the update matches only while pin_hash is not the invite lock and locked_at
-// is still the value we read. Zero rows is the same 409, with no audit row.
+// The patch is built from the row we read. Another write can land first, so the
+// update matches id, the pin_hash we read, and locked_at equal to the value we
+// read (or null). Zero rows is a 409, and the caller writes no audit row.
+function matchRead(value) {
+  return value == null ? 'is.null' : eq(value);
+}
+
 async function writeTempPin(row, patch) {
-  const filters = {
+  const updated = await patchWhere('q1_borrowers', {
     id: eq(row.id),
-    pin_hash: 'neq.' + LOCKED_PLACEHOLDER
-  };
-  filters.locked_at = row.locked_at ? eq(row.locked_at) : 'is.null';
-  const updated = await patchWhere('q1_borrowers', filters, patch);
-  if (!updated.length) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
+    pin_hash: matchRead(row.pin_hash),
+    locked_at: matchRead(row.locked_at)
+  }, patch);
+  if (!updated.length) throw new HttpError(409, PIN_SET_RACE);
 }
 
 // Same rule as Reset Device. Email can confirm a new phone, so no window.
@@ -678,8 +717,11 @@ async function phoneTrustUntil(req, clientId, now) {
 // phone, device_reset_until opens the same 24-hour window Reset Device uses,
 // and the next correct PIN links that phone through ordinary sign-in. When
 // email is live the window stays shut and the email link links the phone.
-// q1_temp_pin_sets and audit type borrower_temp_pin_set are the existing
-// staff-set record. They store no PIN.
+// q1_temp_pin_sets is the existing staff-set record. New audit rows use
+// borrower_login_pin_set. Readers still count the older borrower_temp_pin_set
+// rows. The audit row stores no PIN, no hash, and no client id.
+// Its comment names the q1_borrowers id, and replaced_lock when this replaced
+// a leftover lock row.
 export async function setLoginPin(req, res, body) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   const pin = chosenPair(body || {});
@@ -694,8 +736,6 @@ export async function setLoginPin(req, res, body) {
     if (schemaMissing(err)) throw migrationPending();
     throw err;
   }
-  // A leftover pin_hash of 'locked' is still refused. Staff-set PIN does not use revoke-access.
-  if (accessLocked(existing)) throw new HttpError(409, TEMP_PIN_INVITE_LOCK);
   const actor = await assertTempPinRate(req, res, client.id);
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
@@ -703,7 +743,7 @@ export async function setLoginPin(req, res, body) {
     const deviceUntil = await phoneTrustUntil(req, client.id, now);
     const pinHash = await hashPin(pin);
     let borrower = existing;
-    let { patch, unlocked } = loginPinPatch(borrower, pinHash, nowIso, deviceUntil);
+    let { patch, unlocked, replacedLock } = loginPinPatch(borrower, pinHash, nowIso, deviceUntil);
     if (!borrower) {
       const id = 'qb_' + randomBytes(16).toString('hex');
       try {
@@ -723,6 +763,7 @@ export async function setLoginPin(req, res, body) {
         const next = loginPinPatch(borrower, pinHash, nowIso, deviceUntil);
         patch = next.patch;
         unlocked = next.unlocked;
+        replacedLock = next.replacedLock;
         await writeTempPin(borrower, patch);
       }
     } else {
@@ -744,12 +785,12 @@ export async function setLoginPin(req, res, body) {
       await insert('audit_log', [{
         id: 'aud_q1_' + randomBytes(6).toString('hex'),
         at: nowIso,
-        type: 'borrower_temp_pin_set',
+        type: 'borrower_login_pin_set',
         ref: client.ref || '—',
         customer: '—',
         amount: 0,
         by,
-        comment: 'client_id=' + client.id
+        comment: 'q1_borrower=' + borrower.id + (replacedLock ? ' replaced_lock=true' : '')
       }], { returning: false });
     } catch (err) {
       if (!missingTable(err)) throw err;
@@ -812,6 +853,23 @@ export function pinChangePending(req) {
 
 const RESET_LINK = 'This link is no longer valid';
 
+async function writePinAudit(type, borrowerId) {
+  try {
+    await insert('audit_log', [{
+      id: 'aud_q1_' + randomBytes(6).toString('hex'),
+      at: new Date().toISOString(),
+      type,
+      ref: '—',
+      customer: '—',
+      amount: 0,
+      by: 'quik1',
+      comment: 'q1_borrower=' + borrowerId
+    }], { returning: false });
+  } catch (err) {
+    if (!missingTable(err)) throw err;
+  }
+}
+
 function resetClosed() {
   throw new HttpError(503, 'PIN reset is not available');
 }
@@ -873,6 +931,7 @@ export async function consumePinReset(req, body, res) {
     if (schemaMissing(err)) throw migrationPending();
     throw err;
   }
+  await writePinAudit('borrower_pin_reset_link', borrower.id);
   const secure = requestIsSecure(req);
   return {
     cookies: [pinChangeCookie(changeToken, secure), clearPendingCookie(secure)]
@@ -935,6 +994,7 @@ export async function completePinReset(req, body, res) {
     throw err;
   }
   if (!updated.length) throw new HttpError(401, RESET_LINK);
+  await writePinAudit('borrower_pin_reset', row.id);
   await revokeDevices(row.id, nowIso);
   await revokePasskeys(row.id, nowIso);
   await invalidateChallenges(row.id, nowIso);

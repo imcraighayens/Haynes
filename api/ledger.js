@@ -9,12 +9,13 @@ import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { resetBorrowerDevices, setLoginPin } from './_lib/borrower.js';
+import { resetBorrowerDevices, setLoginPin, borrowerAccessStatus } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
 import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
 import { commitLoanStatus } from './_lib/loan-status.js';
+import { missingRelation } from './_lib/inbox.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
 const AUDIT_LIMIT = 1000;
@@ -42,12 +43,26 @@ const SYNC_RULES = {
 
 async function tolerant(p) { try { return await p; } catch { return null; } }
 
+// Same miss as the inbox list and /api/q1/applications: PGRST205 (schema cache) or 42P01
+// is an empty applications list plus a warning, not a 502. Any other code still fails the boot.
+async function readStateApplications() {
+  try {
+    const rows = await select('applications', { select: '*', order: 'created_at.desc', limit: APPLICATIONS_LIMIT });
+    return { rows, warning: null };
+  } catch (err) {
+    if (!missingRelation(err)) throw err;
+    const code = err && err.code ? String(err.code) : 'missing';
+    console.warn('[state] applications unavailable (' + code + '); returning an empty list');
+    return { rows: [], warning: 'applications_unavailable' };
+  }
+}
+
 async function getState(req, res) {
-  const [clients, loans, employees, applications, audit_log, petty_cash, bank_tx, expenses, settings, book] = await Promise.all([
+  const [clients, loans, employees, applicationsRead, audit_log, petty_cash, bank_tx, expenses, settings, book] = await Promise.all([
     select('clients', { select: '*', order: 'created_at.asc,id.asc' }),
     select('loans', { select: '*', order: 'created_at.asc,id.asc' }),
     select('employees', { select: '*', order: 'created_at.asc,id.asc' }),
-    select('applications', { select: '*', order: 'created_at.desc', limit: APPLICATIONS_LIMIT }),
+    readStateApplications(),
     select('audit_log', { select: '*', order: 'at.desc', limit: AUDIT_LIMIT }),
     select('petty_cash', { select: '*', order: 'date.desc' }),
     select('bank_tx', { select: '*', order: 'at.desc', limit: BANK_TX_LIMIT }),
@@ -56,6 +71,7 @@ async function getState(req, res) {
     // The book table only exists after the bridge migration; its absence must not break boot.
     tolerant(selectOne('ledger_book', { select: 'updated_at', id: eq('main') }))
   ]);
+  const applications = applicationsRead.rows;
   // The console computes the bank balance as the confirmed opening balance plus every movement
   // after it, so the snapshot must carry all of those even when more than BANK_TX_LIMIT have
   // happened since; the newest window on its own would understate or overstate the balance.
@@ -73,13 +89,15 @@ async function getState(req, res) {
     const who = staffIdentity(req);
     attention = await listAttention(who && who.email);
   } catch { attention = { ready: false, rows: [], viewer: '' }; }
-  json(res, 200, {
+  const body = {
     clients, loans, employees, applications, audit_log, petty_cash, bank_tx: bankTx, expenses,
     settings: settings || null,
     ledger_book: book ? { updated_at: book.updated_at } : null,
     attention,
     server_time: new Date().toISOString()
-  }, req);
+  };
+  if (applicationsRead.warning) body.warnings = [applicationsRead.warning];
+  json(res, 200, body, req);
 }
 
 async function postLoanStatus(req, res) {
@@ -539,10 +557,14 @@ export default wrap('ledger', async (req, res) => {
     if (req.method === 'POST') return postTwilio(req, res);
     throw new HttpError(405, 'Method not allowed');
   }
-  if (head === 'quik1-temp-pin' && rest.length === 0) {
+  if ((head === 'quik1-login-pin' || head === 'quik1-temp-pin') && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     const body = await readBody(req, 4096);
     return json(res, 200, await setLoginPin(req, res, body), req);
+  }
+  if (head === 'quik1-access' && rest.length === 1) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, await borrowerAccessStatus(rest[0]), req);
   }
   if (head === 'quik1-devices' && rest.length === 1 && rest[0] === 'reset') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');

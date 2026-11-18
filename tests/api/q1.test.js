@@ -50,7 +50,7 @@ test('q1: auth required (401), service key never echoed', async () => {
   assert.ok(!res.body.includes('service-role-secret'));
 });
 
-test('q1 GET applications: defaults to status=new, filters source=quik1, augments term/income/submitted/docs', async () => {
+test('q1 GET applications: defaults to status=new, filters inbox sources, augments term/income/submitted/docs', async () => {
   const res = await call({ path: ['applications'], url: '/api/q1/applications?status=new' });
   assert.equal(res.statusCode, 200);
   const rows = res.json();
@@ -65,7 +65,7 @@ test('q1 GET applications: defaults to status=new, filters source=quik1, augment
   assert.equal(r.name, 'Thandi Mokoena'); assert.equal(r.phone, '0824410912'); assert.equal(r.amount, 2500); // raw columns kept for qkMap
   const q = calls[0].url.searchParams;
   assert.equal(calls[0].url.pathname, '/rest/v1/applications');
-  assert.equal(q.get('source'), 'eq.quik1');
+  assert.equal(q.get('source'), 'in.(quik1,ecoloan_web)');
   assert.equal(q.get('status'), 'eq.new');
   assert.equal(q.get('order'), 'created_at.desc');
 

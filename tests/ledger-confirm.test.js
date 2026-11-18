@@ -35,7 +35,8 @@ async function boot(page, origin) {
 }
 
 async function openAccess(page) {
-  await page.locator('[title="Access"]').first().dispatchEvent('click');
+  await page.locator('[title="Clients"]').first().dispatchEvent('click');
+  await page.locator('[title="Quik1 access"]').first().dispatchEvent('click');
   await pageWaitFor(page, () => /Set login PIN/.test(document.body.innerText), null, { timeoutMs: 8000 });
 }
 
@@ -53,7 +54,7 @@ test('cancel sends no revoke or reset, and confirm sends each post once', { skip
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
     let invite = INVITED;
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.continue();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(invite) });
     });
@@ -109,7 +110,7 @@ test('confirm and cancel stay disabled for a delayed request, then the dialog cl
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(INVITED) });
     });
@@ -176,7 +177,7 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json', body: JSON.stringify({ demoReset: false })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
@@ -224,8 +225,8 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
           for (let i = 0; i < 40 && f; i++) {
             const inst = f.stateNode;
             const logic = inst && (inst.logic || inst);
-            if (logic && typeof logic.openQuik1Pin === 'function' && logic.state && logic.state.clients && logic.state.clients[0]) {
-              logic.openQuik1Pin(logic.state.clients[0].id);
+            if (logic && typeof logic.openQuik1Invite === 'function' && logic.state && logic.state.clients && logic.state.clients[0]) {
+              logic.openQuik1Invite(logic.state.clients[0].id);
               return true;
             }
             f = f.return;
@@ -249,23 +250,53 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
   });
 });
 
+test('a failed Quik1 status fetch shows Unknown beside Set login PIN', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.route('**/api/ledger/features', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
+    }));
+    await page.route('**/api/ledger/quik1-access/**', route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'down' }) });
+    });
+    try {
+      await boot(page, api.origin);
+      await page.locator('[title="Clients"]').first().dispatchEvent('click');
+      await pageWaitFor(page, () => /on the book/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await page.locator('[data-screen-label="Clients"]').getByText('Test Client One', { exact: true }).first().dispatchEvent('click');
+      await page.getByText('Open full workspace', { exact: true }).dispatchEvent('click');
+      await pageWaitFor(page, () => {
+        const label = [...document.querySelectorAll('div')].find(el => el.childNodes.length === 1 && el.textContent.trim() === 'QUIK1 PIN');
+        const status = label && label.nextElementSibling;
+        const button = [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Set login PIN');
+        return !!status && status.textContent.trim() === 'Unknown' && button;
+      }, null, { timeoutMs: 8000 });
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
 test('two clicks on Set login PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const browser = await pw.chromium.launch();
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const calls = [];
     page.on('request', req => {
-      if (req.method() === 'POST' && req.url().includes('/quik1-temp-pin')) calls.push(req.url());
+      if (req.method() === 'POST' && req.url().includes('/quik1-login-pin')) calls.push(req.url());
     });
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPin: true, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
-    await page.route('**/api/ledger/quik1-temp-pin', async route => {
+    await page.route('**/api/ledger/quik1-login-pin', async route => {
       if (route.request().method() !== 'POST') return route.fallback();
       await new Promise(r => setTimeout(r, 1200));
       return route.fulfill({
@@ -316,11 +347,11 @@ test('a login PIN left in the dialog is gone after close, Esc, and a successful 
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
-    await page.route('**/api/ledger/quik1-temp-pin', route => {
+    await page.route('**/api/ledger/quik1-login-pin', route => {
       if (route.request().method() !== 'POST') return route.fallback();
       return route.fulfill({
         status: 200, contentType: 'application/json',

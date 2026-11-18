@@ -307,6 +307,65 @@ test('ledger GET state: database failure is a JSON 502 without details', async (
   assert.deepEqual(res.json(), { error: 'Database error XX000' });
 });
 
+function relationError(code, table) {
+  const message = code === 'PGRST205'
+    ? `Could not find the table 'public.${table}' in the schema cache`
+    : `relation "public.${table}" does not exist`;
+  return { status: 404, body: { code, message, details: null, hint: null } };
+}
+
+test('ledger GET state: applications PGRST205 or 42P01 returns an empty list and a warning, not a 502', async () => {
+  for (const code of ['PGRST205', '42P01']) {
+    const warnings = [];
+    const orig = console.warn;
+    console.warn = (...args) => { warnings.push(args.map(String).join(' ')); };
+    try {
+      stubFetch(r => r.table === 'applications' ? relationError(code, 'applications') : { status: 200, body: tableRows[r.table] || [] });
+      const res = await call({ path: ['state'] });
+      assert.equal(res.statusCode, 200, code);
+      const body = res.json();
+      assert.deepEqual(body.applications, []);
+      assert.deepEqual(body.warnings, ['applications_unavailable']);
+      assert.equal(body.clients.length, 2, 'the rest of the book still boots');
+      assert.equal(body.loans.length, 1);
+      assert.ok(warnings.some(line => /\[state\]/.test(line) && /applications unavailable/.test(line) && line.includes(code)));
+      assert.equal(warnings.some(line => /schema cache/i.test(line)), false);
+      assert.equal(JSON.stringify(body).includes('schema cache'), false);
+      assert.equal(JSON.stringify(body).includes('service-role-secret'), false);
+    } finally {
+      console.warn = orig;
+    }
+  }
+});
+
+test('ledger GET state: an applications error other than a missing relation is still a 502', async () => {
+  stubFetch(r => r.table === 'applications' ? { status: 500, body: { code: 'XX000', message: 'secret internals' } } : { status: 200, body: tableRows[r.table] || [] });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 502);
+  assert.deepEqual(res.json(), { error: 'Database error XX000' });
+  assert.equal(res.body.includes('secret internals'), false);
+  assert.equal(res.body.includes('applications_unavailable'), false);
+});
+
+test('ledger GET state: PGRST205 on another table is still a 502', async () => {
+  stubFetch(r => r.table === 'clients' ? relationError('PGRST205', 'clients') : { status: 200, body: tableRows[r.table] || [] });
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 502);
+  assert.deepEqual(res.json(), { error: 'Database error PGRST205' });
+  assert.equal(res.body.includes('applications_unavailable'), false);
+});
+
+test('ledger GET state: a healthy applications read is unchanged', async () => {
+  const row = { id: 'ap_1', source: 'quik1', status: 'new', name: 'Applicant' };
+  stubFetch(r => ({ status: 200, body: r.table === 'applications' ? [row] : (tableRows[r.table] || []) }));
+  const res = await call({ path: ['state'] });
+  assert.equal(res.statusCode, 200);
+  const body = res.json();
+  assert.deepEqual(body.applications, [row]);
+  assert.equal('warnings' in body, false);
+  assert.deepEqual(Object.keys(body).sort(), ['applications', 'attention', 'audit_log', 'bank_tx', 'clients', 'employees', 'expenses', 'ledger_book', 'loans', 'petty_cash', 'server_time', 'settings'].sort());
+});
+
 // ---- sync -----------------------------------------------------------------------------------------
 test('ledger POST sync: whitelist drops unknown columns, strips NCR/fee settings, merge vs ignore duplicates', async () => {
   stubFetch(r => ({ status: 200, body: r.method === 'PATCH' ? [{ id: r.url.searchParams.get('id').slice(3), ...r.body }] : (r.body || []) }));
