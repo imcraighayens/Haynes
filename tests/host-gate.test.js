@@ -63,6 +63,40 @@ test('vercel.json repeats the allow-list and does not send every host to Ledger'
   for (const sources of byHost.values()) assert.deepEqual(sources.sort(), [...BORROWER_PATHS].sort());
 });
 
+test('near-miss hosts are not on the allow-list', () => {
+  const near = [
+    'ecoloans-six',
+    'ecoloans-six.example',
+    'ecoloans-six.vercel.app.evil.example',
+    'not-ecoloans-six.vercel.app',
+    'ecoloans-sixx.vercel.app',
+    'attacker.ecoloans-six.vercel.app',
+    'ecoloans-six.vercel.application',
+    'prefix-ecoloans-six.vercel.app',
+    'ecoloans-six-preview.vercel.app',
+    'quik1.app.evil.example',
+    'notquik1.app',
+    'quik1.application',
+    'preview-quik1.app',
+    'quik1ledger.com.evil.example',
+    'quik1.app.',
+    'ecoloans-six.vercel.app.'
+  ];
+  const allowed = new Set([...STAFF_HOSTS, ...BORROWER_HOSTS, ...OPEN_HOSTS]);
+  for (const host of near) {
+    assert.equal(allowed.has(host), false, host);
+    assert.equal(apiRole(host, ''), 'other', host);
+    assert.equal(apiSideAllowed('other', 'ledger'), false);
+  }
+  for (const listed of [...STAFF_HOSTS, ...BORROWER_HOSTS]) {
+    for (const host of [listed + '.evil.example', 'preview-' + listed, listed.slice(0, -1)]) {
+      assert.equal(apiRole(host, ''), 'other', host);
+    }
+  }
+  assert.equal(apiRole('ecoloans-six.vercel.app', ''), 'staff');
+  assert.equal(apiRole('quik1.app', ''), 'borrower');
+});
+
 test('api role refuses a borrower host on staff routes and a staff host on borrower routes', () => {
   assert.equal(apiRole('', ''), 'open');
   assert.equal(apiRole('', 'localhost:3000'), 'open');

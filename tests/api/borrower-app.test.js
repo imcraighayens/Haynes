@@ -4,7 +4,7 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
-import { publicLimiter } from '../../api/_lib/ratelimit.js';
+import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
 
@@ -15,8 +15,8 @@ const CLIENT_A = 'c_book_a';
 const CLIENT_B = 'c_book_b';
 const NAME_A = 'Book Client A';
 const NAME_B = 'Book Client B';
-const PIN_A = '2468';
-const PIN_B = '8024';
+const PIN_A = '246810';
+const PIN_B = '802468';
 const LOAN_A = 'l_a_open';
 const LOAN_B = 'l_b_open';
 const REF_A = 'ECL-901';
@@ -45,7 +45,10 @@ const seed = {
   q1_messages: [],
   q1_borrowers: [],
   q1_invites: [],
-  q1_sessions: []
+  q1_sessions: [],
+  q1_devices: [],
+  q1_otp_challenges: [],
+  q1_auth_attempts: []
 };
 
 const fake = createFakePostgrest(seed);
@@ -102,6 +105,7 @@ let restore = () => {};
 describe('borrower book', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
+    authLimiter.reset();
     fake.reset();
     process.env.QUIK1_BORROWER_PIN = '1';
     restore();
@@ -115,7 +119,7 @@ describe('borrower book', { concurrency: false }, () => {
     const messages = await call(quik1, { method: 'GET', path: ['messages'] });
     const apps = await call(quik1, { method: 'GET', path: ['applications'] });
     const home = await call(quik1, { method: 'GET', path: ['me'] });
-    for (const res of [loans, statements, messages, apps]) {
+    for (const res of [loans, statements, messages, apps, home]) {
       assert.equal(res.statusCode, 401);
       const raw = JSON.stringify(res.json());
       assert.equal(raw.includes(NAME_A), false);
@@ -123,8 +127,6 @@ describe('borrower book', { concurrency: false }, () => {
       assert.equal(raw.includes(REF_A), false);
       assert.equal(raw.includes(REF_B), false);
     }
-    assert.equal(home.json().identified, false);
-    assert.equal(JSON.stringify(home.json()).includes(NAME_A), false);
 
     const stale = mintBorrowerToken({ sid: 'qs_missing', bid: 'qb_missing', cid: CLIENT_A });
     delete fake.db.q1_sessions;

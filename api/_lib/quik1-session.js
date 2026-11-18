@@ -7,10 +7,20 @@ import { header } from './http.js';
 
 export const SESSION_COOKIE = 'q1_session';
 export const DEVICE_COOKIE = 'q1_device';
+export const KNOWN_COOKIE = 'q1_known';
+export const PENDING_COOKIE = 'q1_pending';
+export const PIN_CHANGE_COOKIE = 'q1_pin_change';
+export const KNOWN_TTL_SECONDS = 90 * 24 * 3600;
+export const PIN_CHANGE_TTL_SECONDS = 10 * 60;
+export const PIN_CHANGE_PATH = '/api/quik1/pin';
 
 export function sessionSecret() {
   const s = process.env.QUIK1_SESSION_SECRET;
-  return typeof s === 'string' && s.trim().length >= 32 ? s.trim() : '';
+  if (typeof s !== 'string') return '';
+  const trimmed = s.trim();
+  // Whitespace-only is missing. Fewer than 32 characters stays off.
+  if (trimmed.length < 32) return '';
+  return trimmed;
 }
 
 export function sessionTtlMs() {
@@ -76,6 +86,21 @@ export function readDeviceRef(req) {
   return /^qb_[0-9a-f]{32}$/.test(v) ? v : '';
 }
 
+export function readKnownDevice(req) {
+  const v = cookies(req)[KNOWN_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
+export function readPendingDevice(req) {
+  const v = cookies(req)[PENDING_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
+export function readPinChangeToken(req) {
+  const v = cookies(req)[PIN_CHANGE_COOKIE] || '';
+  return /^[0-9a-f]{64}$/.test(v) ? v : '';
+}
+
 export function requestIsSecure(req) {
   const proto = (header(req, 'x-forwarded-proto') || '').split(',')[0].trim().toLowerCase();
   if (proto === 'https') return true;
@@ -83,10 +108,10 @@ export function requestIsSecure(req) {
   return !!(req && req.socket && req.socket.encrypted);
 }
 
-function cookie(name, value, { maxAge, clear = false, secure = true } = {}) {
+function cookie(name, value, { maxAge, clear = false, secure = true, path = '/' } = {}) {
   const parts = [
     `${name}=${clear ? '' : encodeURIComponent(value)}`,
-    'Path=/',
+    `Path=${path}`,
     'HttpOnly',
     ...(secure ? ['Secure'] : []),
     'SameSite=Lax',
@@ -104,6 +129,32 @@ export function clearSessionCookie(secure = true) {
   return cookie(SESSION_COOKIE, '', { clear: true, secure });
 }
 
+export const DEVICE_MAX_AGE = 90 * 24 * 3600;
+
 export function deviceCookie(accountRef, secure = true) {
-  return cookie(DEVICE_COOKIE, accountRef, { maxAge: 400 * 24 * 3600, secure });
+  return cookie(DEVICE_COOKIE, accountRef, { maxAge: DEVICE_MAX_AGE, secure });
+}
+
+export function knownDeviceCookie(token, secure = true) {
+  return cookie(KNOWN_COOKIE, token, { maxAge: KNOWN_TTL_SECONDS, secure });
+}
+
+export function clearKnownCookie(secure = true) {
+  return cookie(KNOWN_COOKIE, '', { clear: true, secure });
+}
+
+export function pendingDeviceCookie(token, maxAge, secure = true) {
+  return cookie(PENDING_COOKIE, token, { maxAge: Math.max(1, maxAge | 0), secure });
+}
+
+export function clearPendingCookie(secure = true) {
+  return cookie(PENDING_COOKIE, '', { clear: true, secure });
+}
+
+export function pinChangeCookie(token, secure = true) {
+  return cookie(PIN_CHANGE_COOKIE, token, { maxAge: PIN_CHANGE_TTL_SECONDS, secure, path: PIN_CHANGE_PATH });
+}
+
+export function clearPinChangeCookie(secure = true) {
+  return cookie(PIN_CHANGE_COOKIE, '', { clear: true, secure, path: PIN_CHANGE_PATH });
 }

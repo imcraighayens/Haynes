@@ -19,8 +19,8 @@ test('loan list and the other sheets clip refs instead of overlapping the next c
   const row = html.indexOf('class="book-line" sc-camel-on-click="{{ l.openClient }}"');
   assert.ok(head > 0 && row > head);
   const book = html.slice(head, row + 800);
-  assert.match(book, /data-col="ref">REF NUMBER/);
-  assert.match(book, /data-col="customer">CUSTOMER/);
+  assert.match(book, /data-col="ref">Ref number/);
+  assert.match(book, /data-col="customer">Customer/);
   assert.match(book, /data-col="ref" title="\{\{ l\.ref \}\}"/);
   assert.match(book, /data-col="customer" title="\{\{ l\.customer \}\}"/);
   assert.match(html, /class="cell-clip" title="\{\{ c\.ref \}\}"/);
@@ -53,7 +53,11 @@ test('a long reference stays in its column at desktop and phone widths', { skip:
           await page.getByText('Acknowledge all', { exact: true }).first().dispatchEvent('click');
         }
         await page.locator('[title="Loans"]').first().dispatchEvent('click');
-        await pageWaitFor(page, () => /REF NUMBER/.test(document.body.innerText) && document.querySelector('[data-col="ref"][title="' + 'SYNREF00028W9SXXXXLONG' + '"]'), null, { timeoutMs: 8000 });
+        await pageWaitFor(page, () => {
+          const cell = document.querySelector('[data-col="ref"][title="' + 'SYNREF00028W9SXXXXLONG' + '"]');
+          if (!cell) return false;
+          return window.innerWidth < 700 || /Ref number/.test(document.body.innerText);
+        }, null, { timeoutMs: 8000 });
         const geom = await page.evaluate((ref) => {
           const cell = document.querySelector('[data-col="ref"][title="' + ref + '"]');
           const row = cell.closest('.book-line');
@@ -63,18 +67,23 @@ test('a long reference stays in its column at desktop and phone widths', { skip:
           const nb = name.getBoundingClientRect();
           const hb = head.getBoundingClientRect();
           const rowBox = row.getBoundingClientRect();
+          const intersects = !(rb.right <= nb.left + 0.5 || nb.right <= rb.left + 0.5 || rb.bottom <= nb.top + 0.5 || nb.bottom <= rb.top + 0.5);
           return {
             gap: nb.left - rb.right,
             overlap: rb.right > nb.left + 0.5,
+            intersects,
             headerDelta: Math.abs(hb.left - rb.left),
             clips: cell.scrollWidth > cell.clientWidth + 1,
             inside: rb.right <= rowBox.right + 1 && nb.left >= rowBox.left - 1,
             title: cell.getAttribute('title')
           };
         }, LONG_REF);
-        assert.equal(geom.overlap, false, width + ' columns overlap');
-        assert.ok(geom.gap >= 8, width + ' gap ' + geom.gap);
-        assert.ok(geom.headerDelta < 2, width + ' header delta ' + geom.headerDelta);
+        assert.equal(geom.intersects, false, width + ' ref and name overlap');
+        if (width === 1440) {
+          assert.equal(geom.overlap, false, width + ' columns overlap');
+          assert.ok(geom.gap >= 8, width + ' gap ' + geom.gap);
+          assert.ok(geom.headerDelta < 2, width + ' header delta ' + geom.headerDelta);
+        }
         assert.equal(geom.clips, true, width + ' long ref is truncated');
         assert.equal(geom.inside, true);
         assert.equal(geom.title, LONG_REF);

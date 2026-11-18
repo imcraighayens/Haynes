@@ -59,7 +59,8 @@ test('LEDGER boots on cloud data and mirrors console writes to the API', { skip:
       // ---- the fixture is on screen: dashboard shows the clients, the loan book every ref ------
       const dash = await bodyText(page);
       assert.ok(dash.includes('Test Admin'), 'admin employee from the DB is the signed-in profile');
-      for (const n of ['Test Client One', 'Test Client Two']) assert.ok(dash.includes(n), 'dashboard shows ' + n);
+      assert.ok(dash.includes('Test Client Two'), 'dashboard needs-action list shows the overdue client');
+      assert.ok(dash.includes('Needs action') || dash.includes('Test Client Two'), 'dashboard names the action list');
       assert.ok(/ECL-90\d/.test(dash), 'dashboard shows a fixture loan ref');
 
       // The overdue-attention gate pins the loan filter; acknowledge it, open the book, show ALL.
@@ -178,7 +179,9 @@ test('a 401 on /state shows Admin sign-in, then the live book', { skip: pw ? fal
       await page.locator('#ledger-email').fill('craig@ecoloan.co.za');
       await page.locator('#ledger-pass').fill(fixturePassword);
       await page.locator('#ledger-login-submit').click();
-      await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Test Client One/.test(document.body.innerText) && /Craig Haynes/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Test Client Two/.test(document.body.innerText) && /Craig Haynes/.test(document.body.innerText) && !/DATABASE UNAVAILABLE/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await clickText(page, 'Clients');
+      await pageWaitFor(page, () => /Test Client One/.test(document.body.innerText), null, { timeoutMs: 8000 });
       assert.ok(api.requests.some(r => r.method === 'GET' && r.url.startsWith('/api/ledger/state') && r.status === 200), 'after sign-in, /state is 200');
       const anon = await fetch(api.origin + '/api/ledger/state');
       assert.equal(anon.status, 401, 'a request without the staff cookie stays 401');

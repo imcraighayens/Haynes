@@ -259,6 +259,17 @@ export function statusToDb(s, prev) {
   return 'issued'; // issued, duetoday, restructured, active, '' …
 }
 // DB enum → console vocabulary (statusMeta/instNorm/bucketOf compare these exact strings).
+function dbStatusOf(s) {
+  const k = norm(s);
+  if (k === 'written_off' || k === 'writtenoff') return 'written_off';
+  if (k === 'settled_early' || k === 'settled' || k === 'settledearly') return 'settled_early';
+  if (k === 'paid') return 'paid';
+  if (k === 'overdue') return 'overdue';
+  if (k === 'due_today' || k === 'duetoday') return 'duetoday';
+  if (k === 'issued' || k === '') return 'issued';
+  return k;
+}
+
 export function statusToConsole(s) {
   const k = norm(s);
   if (k === 'written_off' || k === 'writtenoff') return 'written off';
@@ -291,7 +302,7 @@ export const LIVE_COLUMNS = {
   // and carrying it in a full-row upsert is how it once reached PostgREST as null (23502).
   loans: ['id', 'ref', 'client_id', 'application_id', 'principal', 'return_rate_pct', 'instalment_amount',
     'collection_fee', 'schedule', 'instalments_paid', 'prior_instalments', 'status', 'status_at', 'mandate_id', 'contract_ref',
-    'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at'],
+    'paid_dates', 'purpose', 'issued_on', 'issued_by', 'officer_id', 'created_at', 'written_off_at', 'write_off_reason', 'deleted_at', 'updated_at', 'updated_by'],
   applications: ['id', 'ref', 'client_id', 'name', 'phone', 'email', 'id_number', 'employer', 'job_title', 'net_income', 'bank',
     'amount', 'term_months', 'purpose', 'source', 'status', 'decline_reason', 'decided_by', 'decided_at', 'loan_id', 'created_at', 'meta', 'decision']
 };
@@ -418,6 +429,8 @@ export function loanToConsole(row) {
     nextDue: (paid < n && sched[idx + 1]) ? sched[idx + 1] : null,
     sched,
     issued: row.issued_on ? labelOf(row.issued_on) : undefined,
+    statusAt: row.status_at || '',
+    dbStatus: dbStatusOf(row.status),
     issuedBy: row.issued_by || undefined,
     employeeId: row.officer_id || undefined,
     paidDates: Array.isArray(row.paid_dates) ? row.paid_dates.filter(Boolean).map(labelOf) : []
@@ -456,6 +469,10 @@ function fromCloud(payload) {
   data.expenses = arr(payload.expenses);
   data.settings = payload.settings ? [payload.settings] : [];
   data.ledger_book = payload.ledger_book ? [payload.ledger_book] : [];
+  const attention = payload.attention && typeof payload.attention === 'object' ? payload.attention : null;
+  data.attention = attention && Array.isArray(attention.rows)
+    ? { ready: attention.ready === true, rows: attention.rows, viewer: String(attention.viewer || '') }
+    : { ready: false, rows: [], viewer: '' };
   return data;
 }
 function looksLikeState(p) { return !!p && typeof p === 'object' && (Array.isArray(p.clients) || Array.isArray(p.loans) || Array.isArray(p.employees)); }
@@ -535,6 +552,9 @@ export class LedjaaDB {
       try { console.info('[ledjaa-db] cloud state unavailable (' + this.sync.lastError + ') — using ' + this.sync.source + ' tables'); } catch (e) { }
     }
     this._loadQueue();
+    // A queue saved by an older page can replay loan statuses and audit rows over the
+    // book just loaded from the server. Drop those. New edits after this boot queue again.
+    if (payload) this.discardStaleReplay();
     if (this.queue.length) this._scheduleFlush(400);
     return this;
   }
@@ -708,6 +728,12 @@ export class LedjaaDB {
     this.sync.pending = this.queue.length + this._inflight.length;
     lsSet(QUEUE_KEY, JSON.stringify({ v: 1, savedAt: nowIso(), ops: [...this._inflight, ...this.queue] }));
   }
+  discardStaleReplay() {
+    const drop = op => op && (op.table === 'loans' || op.table === 'audit_log');
+    this.queue = this.queue.filter(op => !drop(op));
+    this._inflight = this._inflight.filter(op => !drop(op));
+    this._saveQueue();
+  }
   _loadQueue() {
     try { const p = JSON.parse(lsGet(QUEUE_KEY) || 'null'); if (p && Array.isArray(p.ops)) this.queue = p.ops.concat(this.queue); } catch (e) { }
     this.sync.pending = this.queue.length;
@@ -721,9 +747,9 @@ export class LedjaaDB {
   }
   async _post(body) {
     const L = W.__ledger;
-    // Same rule as the mirror in ledger-sync.js: without a key the queue is kept, never POSTed
-    // (an unauthenticated /sync would only earn a 401 and a retry every minute).
-    if (L && typeof L.cfg === 'function' && !(L.cfg() || {}).key) throw new Error('No ledger API url/key configured');
+    // Staff sign-in is an httpOnly cookie, not a bearer key in the browser. The audit
+    // mirror already POSTs /sync with that cookie. Loan writes must use the same path,
+    // or mark-paid lands in audit_log and never in public.loans.
     if (L && typeof L.api === 'function') return unwrap(L.api('POST', '/sync', body));
     const cfg = readCfg();
     if (!apiBase(cfg) || !cfg.key) throw new Error('No ledger API url/key configured');
@@ -850,7 +876,8 @@ export class LedjaaDB {
     return {
       clients: this.rows('clients').map(row => clientToConsole(row, (users[row.officer_id] || {}).name)),
       loans: this.rows('loans').map(loanToConsole),
-      employees: this.rows('users').filter(u => u.role !== 'client').map(u => userToConsole(u, this.staffMetrics(u.id).book_value))
+      employees: this.rows('users').filter(u => u.role !== 'client').map(u => userToConsole(u, this.staffMetrics(u.id).book_value)),
+      attention: this.data.attention || { ready: false, rows: [], viewer: '' }
     };
   }
 }

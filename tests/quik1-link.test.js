@@ -57,7 +57,7 @@ function boot(route) {
   }
   class FakeDate extends Date { static now() { return timers.now; } }
   const fetch = async (url, init = {}) => {
-    const call = { url: String(url), method: init.method || 'GET', headers: init.headers || {}, body: init.body ? JSON.parse(init.body) : null };
+    const call = { url: String(url), method: init.method || 'GET', headers: init.headers || {}, credentials: init.credentials || '', body: init.body ? JSON.parse(init.body) : null };
     calls.push(call);
     return route(call);
   };
@@ -334,4 +334,53 @@ test('local admin helpers and cross-tab sync keep working; storage failures neve
   localStorage.throwOnSet = false;
   Link.reset();
   assert.deepEqual(plain(Link.getState()), EMPTY);
+});
+
+test('submitIdentity posts only to the authenticated route and leaves public signup unchanged', async () => {
+  const { Link, calls } = boot(() => json(200, { idMasked: '*********9087' }));
+  const bad = await Link.submitIdentity('123');
+  assert.equal(bad.ok, false);
+  assert.equal(calls.length, 0);
+  const id = '9912314800084';
+  const res = await Link.submitIdentity(id);
+  assert.equal(res.ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, API + '/identity');
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].credentials, 'same-origin');
+  assert.equal(calls[0].body.idNumber, id);
+  Link.submitSignup({ name: 'Thandi Mokoena', idnum: id, phone: '0820000000' });
+  await drain();
+  const signup = calls.find(c => c.url.endsWith('/signups'));
+  assert.equal(signup.body.idnum, undefined);
+  assert.equal(signup.body.idNumber, undefined);
+  assert.equal(JSON.stringify(signup.body).includes(id), false);
+});
+
+test('a successful identity post keeps only the last four digits on the local signup', async () => {
+  let accept = false;
+  const full = '9912314800084';
+  const { Link, calls, localStorage } = boot(c => {
+    if (String(c.url).endsWith('/identity')) return accept ? json(200, { idMasked: '*********9087' }) : json(503, { error: 'Server not configured' });
+    return json(201, { id: c.body && c.body.id, status: 'Pending review' });
+  });
+  Link.submitSignup({ name: 'Thandi Mokoena', idnum: full, idNumber: full, phone: '0820000000' });
+  await drain();
+  assert.equal(Link.getState().signups[0].idnum, full);
+  const failed = await Link.submitIdentity(full);
+  assert.equal(failed.ok, false);
+  assert.equal(Link.getState().signups[0].idnum, full);
+  assert.equal(localStorage.getItem('quik1-link-v1').includes(full), true);
+  accept = true;
+  const res = await Link.submitIdentity(full);
+  assert.equal(res.ok, true);
+  const rec = Link.getState().signups[0];
+  assert.equal(rec.idnum, '0084');
+  assert.equal(rec.idNumber, undefined);
+  assert.equal(JSON.stringify(rec).includes(full), false);
+  assert.equal(localStorage.getItem('quik1-link-v1').includes(full), false);
+  assert.equal(String(localStorage.getItem('quik1-link-v1.outbox') || '').includes(full), false);
+  const posted = calls.filter(c => String(c.url).endsWith('/signups') || String(c.url).endsWith('/identity'));
+  assert.equal(posted.some(c => JSON.stringify(c.body).includes(full) && !String(c.url).endsWith('/identity')), false);
+  assert.equal(calls.filter(c => String(c.url).endsWith('/identity')).pop().body.idNumber, full);
 });

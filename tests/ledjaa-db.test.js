@@ -115,6 +115,14 @@ test('toConsoleState maps loans with schedule, paid instalments and status like 
   assert.equal(s.employees[0].added, '1 Nov 2025');
 });
 
+test('a settled loan stays settled_early on the console object', () => {
+  const row = m.loanToConsole({ id: 'l_synth', ref: 'SYN-4401', client_id: 'c_synth', principal: 100, status: 'settled_early', schedule: ['2026-05-25'], instalments_paid: 1 });
+  assert.equal(row.status, 'paid');
+  assert.equal(row.dbStatus, 'settled_early');
+  const closed = m.loanToConsole({ id: 'l_wo', ref: 'SYN-4402', client_id: 'c_synth', principal: 100, status: 'written_off', schedule: [] });
+  assert.equal(closed.dbStatus, 'written_off');
+});
+
 test('status normalisation both ways', () => {
   assert.equal(m.statusToConsole('written_off'), 'written off');
   assert.equal(m.statusToConsole('settled_early'), 'paid');
@@ -331,4 +339,42 @@ test('a failed sync keeps the queue, backs off and persists it', async () => {
   await db.flush();
   assert.equal(db.sync.status, 'ready');
   assert.equal(db.sync.pending, 0);
+});
+
+test('a cloud boot drops a queued loan status and audit replay', async () => {
+  const raw = JSON.parse(localStorage.getItem('ledjaa.db.queue') || '{"ops":[]}');
+  raw.ops = [
+    { table: 'loans', op: 'upsert', rows: [{ id: 'l_paid', status: 'paid' }] },
+    { table: 'audit_log', op: 'insert', rows: [{ id: 'al_old', type: 'DEBIT FAILED', ref: 'SYN-1' }] },
+  ];
+  localStorage.setItem('ledjaa.db.queue', JSON.stringify(raw));
+  db.queue = [];
+  db._inflight = [];
+  await db._boot();
+  assert.equal(db.sync.source, 'cloud');
+  assert.equal(db.queue.some(op => op.table === 'loans' || op.table === 'audit_log'), false);
+  assert.equal(db.find('loans', 'l_paid').status, 'paid', 'the server row is not rewritten by the dropped queue');
+});
+
+test('a staff session with no bearer key still posts the loan update', async () => {
+  const prev = globalThis.__ledger;
+  calls.length = 0;
+  db.queue = [];
+  db._inflight = [];
+  db._holdUntil = 0;
+  globalThis.__ledger = {
+    cfg: () => ({ key: '', url: 'https://ledger.test/api/ledger' }),
+    api: (method, path, body) => globalThis.fetch('https://ledger.test/api/ledger' + path, { method, body: JSON.stringify(body) })
+  };
+  try {
+    db.update('loans', 'l_paid', { status: 'overdue' });
+    await db.flush();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'https://ledger.test/api/ledger/sync');
+    assert.equal(calls[0].body.ops[0].table, 'loans');
+    assert.equal(calls[0].body.ops[0].rows[0].status, 'overdue');
+    assert.equal(db.sync.pending, 0);
+  } finally {
+    globalThis.__ledger = prev;
+  }
 });

@@ -16,7 +16,7 @@ On the import screen:
 * Framework Preset: **Other**
 * Build Command: leave **empty** (toggle off any override)
 * Output Directory: leave **blank**
-* Install Command: leave default (there is nothing to install)
+* Install Command: leave default. Vercel installs the WebAuthn packages. There is no build step.
 * Root Directory: `./`
 
 `vercel.json` in the repo already sets `framework: null` (no build), and `package.json` pins the
@@ -56,10 +56,18 @@ browser, in git, or in the staff UI.
 | `LEDGER_AI_PROVIDER` | Optional when both reader keys are set: `anthropic` or `openai`. |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
 | `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
-| `QUIK1_SESSION_SECRET` | Required for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. |
+| `QUIK1_SESSION_SECRET` | Required with `QUIK1_BORROWER_PIN=1` for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. Sign-in stays off when this is missing or shorter. |
 | `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
 | `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
+| `QUIK1_LOCKOUT_MINUTES` | Optional. How long that lock lasts before the counter resets. Default 15. A new invite still clears it immediately. |
 | `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
+| `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
+| `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
+| `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent. The phone says "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access." These are not the staff voice credentials. |
+| `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to exactly `1` next to `QUIK1_SESSION_SECRET`. `true`, `yes`, `on`, and a spaced `1` stay off. Leave unset and sign-in stays off. |
+| `QUIK1_ID_KEY` | Exactly 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this matches that pattern. A preview can sign in without it. |
+| `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
+| `QUIK1_ID_HMAC_KEY` | Required to store an SA ID. Separate key of exactly 64 hex characters. ID storage fails closed with 503 without it. Production sign-in stays off until this is exactly 64 hex characters. A preview can sign in without it. Leave unset until that intake is turned on. |
 
 Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
 to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
@@ -80,14 +88,17 @@ Nothing existing is altered.
 
 Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
 adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
-Supabase Auth, and it does not change the staff sign-up allowlist. Set `QUIK1_SESSION_SECRET`
-(32 or more characters) before a client can choose a PIN. Live PIN also needs
-`QUIK1_BORROWER_PIN=1`, and it stays off when `VERCEL_ENV` is production or the host is
-quik1.app or quik1ledger.com (including www). Leave that flag unset in production. Leave the secret unset and redeeming an
-invite answers "Server not configured". Until both borrower migrations are applied, Ledger
-shows "Quik1 access not set up yet" and does not create an invite.
+Supabase Auth, and it does not change the staff sign-up allowlist. `QUIK1_BORROWER_PIN`
+must be exactly `1`. It is the single live switch, including production, and it sits next to
+`QUIK1_SESSION_SECRET` (32 or more characters). Leave either one unset and redeem answers 503.
+On a production deployment (`VERCEL_ENV=production`, or quik1.app, www.quik1.app,
+quik1ledger.com, www.quik1ledger.com, ecoloans-six.vercel.app) sign-in also stays off until
+`QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters. A preview needs
+only the flag and the session secret.
+Until both borrower migrations are applied, Ledger shows "Quik1 access not set up yet" and
+does not create an invite.
 
-Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT=1` and the
+Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT` is exactly `1` and the
 deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The
 service role is not sent to the browser. Leave the preview flag unset on quik1.app.
 
@@ -98,8 +109,60 @@ NuPay or a bank. Optional `QUIK1_DOC_MAX_BYTES` caps an upload (default about 1.
 same `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`, and `QUIK1_SESSION_SECRET`
 already used by the bridge are enough. No new secret is required.
 
+Then paste and run `supabase/migrations/20261110120000_quik1_borrower_guard.sql` after the
+two files above. It stops if `q1_borrowers` is missing. It adds recognised devices, email
+device links, the attempt log (with a 90-day `expires_at` and `q1_purge_auth_attempts()`
+for the SQL editor), and encrypted ID columns on `q1_borrowers`. It does not recreate the
+earlier tables. Do not apply it from the app, and do not re-run the 7 Nov application
+migrations. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must each be exactly 64 hex characters
+before production PIN sign-in will run, and the same rule applies before a signed-in borrower
+can store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
+`QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then says
+"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."
+No link is issued. Staff can still reset the device from Ledger. The PIN is not changed.
+That reset also revokes open sessions and passkeys, and lets the next correct PIN trust
+one new phone within 24 hours when email cannot be sent. Leave `QUIK1_BORROWER_PIN`
+unset until that sign-in should be live.
+
+Then paste and run `supabase/migrations/20261110143000_quik1_signin.sql` after the
+guard file. It stops if those tables are missing. It adds sign-in purpose on email
+links, the attempt-log columns, and the passkey tables. Challenges are stored only
+as a SHA-256 hash. Do not apply it from the app.
+
+`supabase/migrations/20261110150000_quik1_client_hmac.sql` is separate and later.
+apply only after #37 review approval; backfill needs QUIK1_ID_HMAC_KEY. It adds
+only `id_hmac` and `phone_hmac` on `clients`, with their checks and one partial
+unique index. It does not depend on another clients migration. Until either
+column exists, ID and cellphone sign-in says to use email. Do not apply it from
+the app. `scripts/backfill-client-hmac.js` is dry-run unless `--commit` is passed,
+prints counts only, and refuses to run without `QUIK1_ID_HMAC_KEY`.
+
+Leave the new variables below unset. No email provider is chosen. Passkeys use the
+same switch as the PIN.
+
+| Name | What it does |
+| --- | --- |
+| `QUIK1_SIGNIN_COOLDOWN_SECONDS` | Optional. Seconds before another email or ID link can be asked for. Default 60. |
+| `QUIK1_SIGNIN_HOURLY_CAP` | Optional. Email sign-in links per address per hour. Default 5. |
+| `QUIK1_ID_PHONE_HOURLY_CAP` | Optional. ID and cellphone attempts per hour. Default 5. Tighter than the general auth cap. |
+| `QUIK1_PASSKEY_REGISTER_MINUTES` | Optional. How recently the borrower must have signed in before saving Face ID. Default 15. |
+
+`QUIK1_OTP_TTL_MINUTES` is also the lifetime of these sign-in links. The relying party
+for Face ID on quik1.app is `quik1.app` (www included) so the home-screen app is not
+inside another origin. There is no separate passkey flag and no SMS sign-in. An ID
+and cellphone never open a session; they only ask for the email already on the client.
+That match needs `QUIK1_ID_HMAC_KEY` plus `clients.id_hmac` and `clients.phone_hmac`. If any of those is missing, the answer is 503, "Sign in with your email for now", not a link.
+Storing an ID from a signed-in session also stays off until both `QUIK1_ID_KEY` and
+`QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters.
+
 If the repo's commit history says the migration was already applied by Claude through the
 Supabase MCP, running it again is harmless.
+
+Then paste and run `supabase/migrations/20261110103000_ledger_attention.sql`. That file adds
+the staff acknowledgement table for the "accounts need attention" popup. Do not apply it from
+the app. Until it is applied, an acknowledgement is kept in that browser for the signed-in
+staff email, and it still clears when the loan's overdue episode changes. After it is applied,
+the same acknowledgement is stored per staff email and loan.
 
 ## 4. Connect LEDGER
 

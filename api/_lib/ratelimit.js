@@ -14,11 +14,12 @@ export function createLimiter({ limit = 30, windowMs = 60_000, maxKeys = 10_000 
     limit, windowMs,
     check(key, now = Date.now()) {
       prune(now);
+      const cap = typeof limit === 'function' ? limit() : limit;
       let e = hits.get(key);
       if (!e || e.resetAt <= now) { e = { count: 0, resetAt: now + windowMs }; hits.set(key, e); }
       e.count += 1;
-      const ok = e.count <= limit;
-      return { ok, remaining: Math.max(0, limit - e.count), retryAfter: Math.max(1, Math.ceil((e.resetAt - now) / 1000)), resetAt: e.resetAt };
+      const ok = e.count <= cap;
+      return { ok, remaining: Math.max(0, cap - e.count), retryAfter: Math.max(1, Math.ceil((e.resetAt - now) / 1000)), resetAt: e.resetAt };
     },
     reset() { hits.clear(); },
     size() { return hits.size; }
@@ -37,3 +38,10 @@ export function clientIp(req) {
 // default leaves headroom for a couple of pending records or tabs; QUIK1_RATE_LIMIT overrides it.
 const PUBLIC_LIMIT = Math.max(1, parseInt(process.env.QUIK1_RATE_LIMIT, 10) || 120);
 export const publicLimiter = createLimiter({ limit: PUBLIC_LIMIT, windowMs: 60_000 });
+
+// PIN, OTP, invite redeem, and ID intake. Separate from the public poll budget.
+export function authRateLimit() {
+  const n = parseInt(process.env.QUIK1_AUTH_RATE_LIMIT, 10);
+  return Number.isFinite(n) && n >= 3 && n <= 200 ? n : 30;
+}
+export const authLimiter = createLimiter({ limit: authRateLimit, windowMs: 15 * 60 * 1000 });

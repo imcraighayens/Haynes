@@ -17,8 +17,9 @@ export function createFakePostgrest(seed = {}) {
   const base = clone(seed);
   let db = clone(base);
   const log = []; // { method, table, rows|patch, filters, prefer } for every write
+  let hidden = new Map(); // table -> Set of column names that answer 42703
 
-  function reset(next) { if (next) Object.assign(base, clone(next)); db = clone(base); log.length = 0; }
+  function reset(next) { if (next) Object.assign(base, clone(next)); db = clone(base); log.length = 0; hidden = new Map(); }
 
   function pkOf(table) { return table === 'q1_repayments' ? 'key' : 'id'; }
   function rowsOf(table) {
@@ -148,6 +149,17 @@ export function createFakePostgrest(seed = {}) {
       const body = init.body == null ? null : (typeof init.body === 'string' ? JSON.parse(init.body) : init.body);
       const pk = pkOf(table);
       const wantRep = /return=representation/.test(prefer);
+      const missing = hidden.get(table);
+      if (missing && missing.size) {
+        const cols = [];
+        const sel = sp.get('select');
+        if (sel && sel.trim() && sel.trim() !== '*') sel.split(',').forEach(s => { const c = s.trim(); if (c) cols.push(c); });
+        const addKeys = row => { if (row && typeof row === 'object' && !Array.isArray(row)) cols.push(...Object.keys(row)); };
+        if (Array.isArray(body)) body.forEach(addKeys); else addKeys(body);
+        for (const col of cols) {
+          if (missing.has(col)) throw httpError(400, '42703', `column "${col}" of relation "${table}" does not exist`);
+        }
+      }
 
       if (method === 'GET' || method === 'HEAD') {
         let out = order(rows.filter(r => matches(r, filters)), sp.get('order'));
@@ -209,7 +221,8 @@ export function createFakePostgrest(seed = {}) {
     log, handle, reset,
     table(name) { return rowsOf(name) || []; },
     find(name, id) { const pk = pkOf(name); return (rowsOf(name) || []).find(r => String(r[pk]) === String(id)) || null; },
-    writes(table, method) { return log.filter(w => (!table || w.table === table) && (!method || w.method === method)); }
+    writes(table, method) { return log.filter(w => (!table || w.table === table) && (!method || w.method === method)); },
+    hideColumns(table, cols) { hidden.set(table, new Set(cols)); }
   };
 }
 

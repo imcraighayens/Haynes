@@ -79,6 +79,8 @@
   }
   function logToAudit(e) {
     var at = ms(e.at); if (at == null) at = atFromLabel(e.date, Date.now());
+    // id is the idempotency key. assignLogIds derives it from the entry content, and
+    // audit_log inserts ignore a duplicate id, so a retry does not add a second row.
     return { id: String(e.id), at: new Date(at).toISOString(), type: str(e.type, '—'), ref: str(e.ref, '—'), customer: str(e.customer, '—'), amount: num(e.amount), by: str(e.by, '—'), comment: str(e.comment) };
   }
 
@@ -300,23 +302,24 @@
     return list;
   }
 
-  // Seeds localStorage from the cloud state. DB wins; local records the DB does not know yet are
-  // kept and re-queued. Returns the ops queued.
+  // Seeds localStorage from the cloud state. The server book is authoritative: a browser
+  // snapshot must not be uploaded back as audit rows or loan statuses. Returns ops queued
+  // for records the server does not own (none of the log or the loans).
   function applyState(st) {
     var now = Date.now(), ops = [];
     var sv = readJSON(KEYS.console, null); if (!sv || typeof sv !== 'object') sv = null;
     var localEmp = (sv && sv.employees) || [], names = {}, idsByName = {};
     ((st && st.employees) || []).concat(localEmp).forEach(function (e) { if (e && e.id && e.name) { names[e.id] = e.name; idsByName[e.name] = idsByName[e.name] || e.id; } });
 
-    // logbook ← audit_log (merge by id)
+    // logbook ← audit_log. Local logbook rows are not uploaded. After a rebuild the
+    // browser still holds pre-import events under new ids; pushing them recreates the trail.
+    var serverBook = !!(st && (Array.isArray(st.loans) || Array.isArray(st.audit_log) || Array.isArray(st.clients)));
     var dbLog = ((st && st.audit_log) || []).map(function (r) { return auditToLog(r, names); });
-    var localLog = assignLogIds((sv && Array.isArray(sv.logbook)) ? sv.logbook : [], now).list;
-    // A local entry counts as "in the DB" by id, or by content: a browser that logged entries before
-    // the bridge existed holds the same rows under different ids, and must not re-insert them.
-    var dbIds = {}, dbKeys = {}; dbLog.forEach(function (e) { dbIds[e.id] = 1; dbKeys[logKey(e)] = 1; });
-    var extraLog = localLog.filter(function (e) { return !dbIds[e.id] && !dbKeys[logKey(e)]; });
-    extraLog.forEach(function (e) { ops.push({ table: 'audit_log', op: 'insert', rows: [logToAudit(e)] }); });
-    var logbook = dbLog.concat(extraLog).sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+    var logbook = dbLog.sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+    if (serverBook) {
+      pending = pending.filter(function (op) { return op && op.table !== 'audit_log' && op.table !== 'loans'; });
+      persistQueue();
+    }
 
     // petty ← petty_cash
     var localPetty = (sv && Array.isArray(sv.petty)) ? sv.petty : [], lp = {}; localPetty.forEach(function (p) { if (p && p.id) lp[p.id] = p; });
@@ -325,6 +328,9 @@
     petty.sort(function (a, b) { return String(b.iso || '').localeCompare(String(a.iso || '')); });
 
     var payload = Object.assign(ensureBook(sv).book, { logbook: logbook, petty: petty });
+    // Loans are loaded from the server by the data adapter. Leaving the browser's
+    // copy here is how a stale status was pushed back over public.loans.
+    if (serverBook) payload.loans = [];
     payload.applications = mergeApplications(payload.applications, st && st.applications);
     seedSeq(payload, 'loanSeq', st && st.loans);
     seedSeq(payload, 'clientSeq', st && st.clients);
