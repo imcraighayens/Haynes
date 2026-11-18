@@ -14,17 +14,23 @@ const flags = fs.readFileSync(path.join(root, 'api/_lib/quik1-flags.js'), 'utf8'
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261110143000_quik1_signin.sql'), 'utf8');
 const pw = loadPlaywright();
 
-test('biometric follows the PIN kill switch and guest mode is sample-only', () => {
+test('biometric follows the PIN kill switch and the guest tour is gone', () => {
   assert.match(flags, /export function borrowerBiometricLive\(req\) \{\s*return borrowerPinLive\(req\);/);
   assert.equal(flags.includes('QUIK1_ALLOW_PRODUCTION_AUTH'), false);
   assert.match(quik, /isUserVerifyingPlatformAuthenticatorAvailable/);
   assert.match(quik, /showFaceId:!!s\.platformAuth&&!!s\.biometricLive&&s\.pinPhase==='sign'&&!s\.inviteCode/);
   assert.match(quik, /data-q-face="1"/);
-  assert.match(quik, /data-q-browse="1"/);
-  assert.match(quik, /Browsing as guest\./);
-  assert.match(quik, /Sample Borrower/);
-  assert.match(quik, /if\(this\.state\.guest\) return Promise\.resolve\(null\)/);
-  assert.match(quik, /if\(this\.state\.guest\)\{ this\.setState\(\{guestGate:'Sign in to borrow\.'\}\); return; \}/);
+  assert.match(quik, /data-q-forgot="1"/);
+  assert.match(quik, /showForgotPin:!!s\.emailLive/);
+  assert.match(quik, /Choose '\+PIN_LENGTH\+' numbers/);
+  assert.equal(quik.includes('Browse the app'), false);
+  assert.equal(quik.includes('Sample Borrower'), false);
+  assert.equal(quik.includes('sample data'), false);
+  assert.equal(quik.includes('seedLoan'), false);
+  assert.equal(quik.includes('seedGrowth'), false);
+  assert.equal(quik.includes('#invite='), false);
+  assert.match(quik, /#verify=/);
+  assert.match(quik, /#reset=/);
   assert.match(migration, /Do not run this from the app/);
   assert.match(migration, /revoke all on table public\.q1_webauthn_credentials from public, anon, authenticated/);
   assert.match(migration, /90-day retention mark/);
@@ -84,64 +90,33 @@ test('the Face ID button stays hidden when the platform authenticator is unavail
     assert.equal(await page.evaluate(dismissSplash), true);
     await page.waitForTimeout(200);
     assert.equal(await page.locator('[data-q-face]').count(), 0);
-    assert.equal(await page.locator('[data-q-browse]').count(), 1);
+    assert.equal(await page.locator('[data-q-browse]').count(), 0);
   } finally {
     await browser.close();
     await new Promise((resolve) => host.server.close(resolve));
   }
 });
 
-test('guest browse makes no authenticated or Ledger API calls', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
+test('the login screen has no guest tour and hides Forgot PIN until email is live', { skip: pw ? false : 'playwright not resolvable (npm i -g playwright && npx playwright install chromium)', timeout: 120000 }, async () => {
   const host = await startStaticHost();
-    const browser = await pw.chromium.launch({
-      executablePath: fs.existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined,
-      args: ['--no-sandbox', '--disable-dev-shm-usage']
-    });
+  const browser = await pw.chromium.launch({
+    executablePath: fs.existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined,
+    args: ['--no-sandbox', '--disable-dev-shm-usage']
+  });
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  const urls = [];
-  let watch = false;
-  page.on('request', (req) => { if (watch) urls.push(req.url()); });
   try {
     await page.goto(host.origin + '/quik1/', { waitUntil: 'domcontentloaded' });
     await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: 20000 });
     assert.equal(await page.evaluate(dismissSplash), true);
-    await page.locator('[data-q-browse]').waitFor({ state: 'visible' });
-    watch = true;
-    await page.locator('[data-q-browse]').click();
-    await pageWaitFor(page, () => /Browsing as guest/.test(document.body.innerText) && /Sample Borrower/.test(document.body.innerText), null, { timeoutMs: 10000 });
-    const toured = await page.evaluate(() => {
-      const root = document.getElementById('dc-root');
-      const key = Object.keys(root).find((k) => k.startsWith('__reactContainer'));
-      const stack = [root[key]];
-      const seen = new Set();
-      let logic = null;
-      while (stack.length) {
-        const node = stack.pop();
-        if (!node || seen.has(node)) continue;
-        seen.add(node);
-        const sn = node.stateNode;
-        if (sn && sn.logic && sn.logic.state && 'screen' in sn.logic.state) logic = sn.logic;
-        if (node.child) stack.push(node.child);
-        if (node.sibling) stack.push(node.sibling);
-      }
-      if (!logic || logic.state.guest !== true) return false;
-      logic.setState({ screen: 'schedule' });
-      logic.setState({ screen: 'amount', withdrawMode: true });
-      logic.setState({ screen: 'support' });
-      logic.switchPanel('loan', false);
-      logic.askQ1('What do I owe?');
-      logic.apiFetch('/me', { headers: { accept: 'application/json' } });
-      logic.apiFetch('/loans', { headers: { accept: 'application/json' } });
-      logic.submitWithdrawal();
-      return logic.state.guest === true && logic.state.guestGate === 'Sign in to borrow.';
-    });
-    assert.equal(toured, true);
-    await page.waitForTimeout(400);
-    const leaked = urls.filter((u) => /\/api\/(quik1|ledger)\b/.test(u) || /\/api\/q1\b/.test(u));
-    assert.deepEqual(leaked, []);
-    const text = await page.evaluate(() => document.body.innerText);
-    assert.match(text, /Sample/);
-    assert.equal(/EC-901|Book Client A|ECL-/.test(text), false);
+    await pageWaitFor(page, () => /Email me a link/.test(document.body.innerText), null, { timeoutMs: 8000 });
+    const hidden = await page.evaluate(() => ({
+      browse: document.querySelectorAll('[data-q-browse]').length,
+      forgot: document.querySelectorAll('[data-q-forgot]').length,
+      sample: /Sample Borrower|sample data|Browsing as guest/.test(document.body.innerText)
+    }));
+    assert.equal(hidden.browse, 0);
+    assert.equal(hidden.forgot, 0);
+    assert.equal(hidden.sample, false);
   } finally {
     await browser.close();
     await new Promise((resolve) => host.server.close(resolve));

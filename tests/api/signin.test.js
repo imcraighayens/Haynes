@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
+import { tempPinLimiter } from '../../api/_lib/borrower.js';
 import { setEmailSender } from '../../api/_lib/email.js';
 import { idHmac, phoneHmac, luhnOk, stampClientIdentity } from '../../api/_lib/sa-id.js';
 import { SIGNIN_PAD_MS } from '../../api/_lib/signin.js';
@@ -51,6 +52,7 @@ const seed = {
   q1_devices: [],
   q1_otp_challenges: [],
   q1_auth_attempts: [],
+  q1_temp_pin_sets: [],
   audit_log: []
 };
 
@@ -110,15 +112,14 @@ function pendingCookie(res) {
 }
 
 async function pinAccount() {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId: CLIENT_A }
+  const set = await call(ledger, {
+    method: 'POST', path: ['quik1-temp-pin'], headers: { authorization: 'Bearer ' + STAFF },
+    body: { clientId: CLIENT_A, pin: PIN_OK, pinConfirm: PIN_OK }
   });
-  assert.equal(created.statusCode, 201, created.body);
-  const redeemed = await call(quik1, {
-    method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-  });
-  assert.equal(redeemed.statusCode, 200, redeemed.body);
-  return redeemed.json().accountRef;
+  assert.equal(set.statusCode, 200, set.body);
+  const borrower = fake.db.q1_borrowers.find(row => row.client_id === CLIENT_A);
+  assert.ok(borrower);
+  return borrower.id;
 }
 
 let restore = () => {};
@@ -126,6 +127,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
     authLimiter.reset();
+    tempPinLimiter.reset();
     sent.length = 0;
     setEmailSender({
       enabled: true,

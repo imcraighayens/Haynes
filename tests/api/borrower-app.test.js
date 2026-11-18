@@ -5,6 +5,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
+import { tempPinLimiter } from '../../api/_lib/borrower.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
 import { pinNotAcceptedMessage } from '../../api/_lib/pin.js';
@@ -49,7 +50,9 @@ const seed = {
   q1_sessions: [],
   q1_devices: [],
   q1_otp_challenges: [],
-  q1_auth_attempts: []
+  q1_auth_attempts: [],
+  q1_temp_pin_sets: [],
+  audit_log: []
 };
 
 const fake = createFakePostgrest(seed);
@@ -91,15 +94,18 @@ function cookieHeader(res) {
 }
 
 async function signIn(clientId, pin) {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId }
+  const set = await call(ledger, {
+    method: 'POST', path: ['quik1-temp-pin'], headers: { authorization: 'Bearer ' + STAFF },
+    body: { clientId, pin, pinConfirm: pin }
   });
-  assert.equal(created.statusCode, 201);
-  const redeemed = await call(quik1, {
-    method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin, pinConfirm: pin }
+  assert.equal(set.statusCode, 200, set.body);
+  const borrower = fake.db.q1_borrowers.find(row => row.client_id === clientId);
+  const logged = await call(quik1, {
+    method: 'POST', path: ['login'],
+    body: { accountRef: borrower.id, pin }
   });
-  assert.equal(redeemed.statusCode, 200);
-  return cookieHeader(redeemed);
+  assert.equal(logged.statusCode, 200, logged.body);
+  return cookieHeader(logged);
 }
 
 let restore = () => {};
@@ -107,6 +113,7 @@ describe('borrower book', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
     authLimiter.reset();
+    tempPinLimiter.reset();
     fake.reset();
     process.env.QUIK1_BORROWER_PIN = '1';
     restore();
@@ -514,8 +521,7 @@ describe('borrower book', { concurrency: false }, () => {
         method: 'POST', path: ['invites', 'redeem'],
         body: { code: 'a'.repeat(64), pin: PIN_A, pinConfirm: PIN_A }
       });
-      assert.equal(redeemed.statusCode, 503, code);
-      assert.equal(redeemed.json().error, 'Quik1 access not set up yet');
+      assert.equal(redeemed.statusCode, 404, code);
       assert.equal(redeemed.headers['set-cookie'], undefined);
 
       const stale = mintBorrowerToken({ sid: 'qs_out', bid: 'qb_out', cid: CLIENT_A });
@@ -531,8 +537,7 @@ describe('borrower book', { concurrency: false }, () => {
         method: 'POST', path: ['quik1-invites', 'qi_missing', 'revoke'],
         headers: { authorization: 'Bearer ' + STAFF }
       });
-      assert.equal(revoked.statusCode, 503, code);
-      assert.equal(revoked.json().error, 'Quik1 access not set up yet');
+      assert.equal(revoked.statusCode, 404, code);
       assert.equal(revoked.json().ok, undefined);
     }
   });

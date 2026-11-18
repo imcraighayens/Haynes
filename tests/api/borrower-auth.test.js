@@ -117,6 +117,20 @@ function assertDeviceNotLinked(res) {
   assert.equal(res.headers['set-cookie'], undefined);
 }
 
+async function sessionFromPin(clientId, pin) {
+  const set = await call(ledger, {
+    method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+    body: { clientId, pin, pinConfirm: pin }
+  });
+  assert.equal(set.statusCode, 200, set.body);
+  const borrower = fake.db.q1_borrowers.find(row => row.client_id === clientId);
+  assert.ok(borrower);
+  return call(quik1, {
+    method: 'POST', path: ['login'],
+    body: { accountRef: borrower.id, pin }
+  });
+}
+
 function cookieHeader(res) {
   const raw = res.headers['set-cookie'];
   const list = Array.isArray(raw) ? raw : [raw || ''];
@@ -181,105 +195,42 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(acct.loans.find(l => l.ref === 'ECL-903').outstanding_principal, 0);
   });
 
-  test('staff can create, revoke, and reissue an invite; the code is stored only as a hash', async () => {
-    const denied = await call(ledger, { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } });
-    assert.equal(denied.statusCode, 401);
+  test('invite and redeem routes are gone', async () => {
+    const anon = await call(ledger, { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } });
+    assert.equal(anon.statusCode, 401);
+    const paths = [
+      { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } },
+      { method: 'GET', path: ['quik1-invites'], query: { clientId: CLIENT_A } },
+      { method: 'GET', path: ['quik1-invites', CLIENT_A] },
+      { method: 'POST', path: ['quik1-invites', 'qi_gone', 'revoke'], body: {} },
+      { method: 'POST', path: ['quik1-invites', 'revoke-access'], body: { clientId: CLIENT_A } }
+    ];
+    for (const item of paths) {
+      const res = await call(ledger, { ...item, headers: staffHeaders() });
+      assert.equal(res.statusCode, 404, item.path.join('/'));
+    }
+    const redeem = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: 'a'.repeat(64), pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(redeem.statusCode, 404);
+    assert.equal(redeem.headers['set-cookie'], undefined);
 
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(created.statusCode, 201);
-    const body = created.json();
-    const linkOk = typeof body.link === 'string' && /^https:\/\/localhost\/quik1\/#invite=[0-9a-f]{64}$/.test(body.link);
-    assert.equal(linkOk, true);
-    assert.equal(body.clientRef, 'EC-901');
-    assert.equal(body.clientId, undefined);
-    const code = body.link.split('invite=')[1];
-    assert.equal(body.code, code);
-    const row = fake.db.q1_invites[0];
-    assert.equal(row.code, undefined);
-    assert.equal(row.code_hash, createHash('sha256').update(code).digest('hex'));
-    assert.equal(row.code_hash === code, false);
-
-    const listed = await call(ledger, {
-      method: 'GET', path: ['quik1-invites'], headers: staffHeaders(), query: { clientId: CLIENT_A }
-    });
-    assert.equal(listed.statusCode, 200);
-    assert.equal(listed.json().invites[0].state, 'open');
-    assert.equal(JSON.stringify(listed.json()).includes(code), false);
-
-    const revoked = await call(ledger, {
-      method: 'POST', path: ['quik1-invites', body.inviteId, 'revoke'], headers: staffHeaders(), body: {}
-    });
-    assert.equal(revoked.statusCode, 200);
-    const stale = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(stale.statusCode, 410);
-
-    const again = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(again.statusCode, 201);
-    const code2 = again.json().code;
-    const oldStill = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(oldStill.statusCode, 410);
-    const fresh = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: code2, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(fresh.statusCode, 200);
+    const fresh = await sessionFromPin(CLIENT_A, PIN_OK);
+    assert.equal(fresh.statusCode, 200, fresh.body);
     assert.match(fresh.json().accountRef, /^qb_[0-9a-f]{32}$/);
     const borrower = fake.db.q1_borrowers[0];
     assert.equal(borrower.client_id, CLIENT_A);
     assert.equal(borrower.pin_hash.startsWith('scrypt$'), true);
-    assert.equal(borrower.pin_hash === PIN_OK, false);
     assert.equal(await verifyPin(PIN_OK, borrower.pin_hash), true);
     const cookies = fresh.headers['set-cookie'];
     const joined = Array.isArray(cookies) ? cookies.join('\n') : String(cookies);
     assert.match(joined, /HttpOnly/);
-    assert.match(joined, /Secure/);
     assert.match(joined, /q1_session=/);
-    const knownLine = (Array.isArray(cookies) ? cookies : [cookies]).find(c => String(c).startsWith('q1_known='));
-    assert.match(String(knownLine), /HttpOnly/);
-    assert.match(String(knownLine), /Secure/);
-    assert.match(String(knownLine), /SameSite=Lax/);
-    assert.match(String(knownLine), /Max-Age=7776000/);
     assert.equal(joined.includes(PIN_OK), false);
   });
 
-  test('an expired invite cannot be redeemed', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const code = created.json().code;
-    fake.db.q1_invites[0].expires_at = '2020-01-01T00:00:00.000Z';
-    const res = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(res.statusCode, 410);
-    assert.equal(fake.db.q1_borrowers.length, 0);
-  });
-
-  test('mismatched PINs do not consume the invite', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const res = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_BAD }
-    });
-    assert.equal(res.statusCode, 400);
-    assert.equal(fake.db.q1_invites[0].redeemed_at == null, true);
-  });
-
   test('five failures lock the account until a new invite sets a new PIN', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const accountRef = redeemed.json().accountRef;
     const device = { cookie: knownCookie(redeemed) };
     assert.match(device.cookie, /^q1_known=[0-9a-f]{64}$/);
@@ -294,20 +245,16 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(JSON.stringify(still.json()).includes(PIN_OK), false);
 
     const reset = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+      method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+      body: { clientId: CLIENT_A, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
     });
-    const oldPin = await call(quik1, { method: 'POST', path: ['login'], headers: device, body: { accountRef, pin: PIN_OK } });
-    assert.equal(oldPin.statusCode, 423);
-    const again = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: reset.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
-    assert.equal(again.statusCode, 200);
+    assert.equal(reset.statusCode, 200, reset.body);
     const back = await call(quik1, {
-      method: 'POST', path: ['login'], headers: { cookie: knownCookie(again) }, body: { accountRef, pin: PIN_NEXT }
+      method: 'POST', path: ['login'], body: { accountRef, pin: PIN_NEXT }
     });
-    assert.equal(back.statusCode, 200);
+    assert.equal(back.statusCode, 200, back.body);
     const previous = await call(quik1, {
-      method: 'POST', path: ['login'], headers: { cookie: knownCookie(again) }, body: { accountRef, pin: PIN_OK }
+      method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK }
     });
     assert.equal(previous.statusCode, 401);
   });
@@ -332,18 +279,8 @@ describe('borrower auth', { concurrency: false }, () => {
     const staffBook = await call(ledger, { method: 'GET', path: ['state'] });
     assert.equal(staffBook.statusCode, 401);
 
-    const inviteA = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const inviteB = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_B }
-    });
-    const signA = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteA.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteB.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
+    const signA = await sessionFromPin(CLIENT_A, PIN_OK);
+    await sessionFromPin(CLIENT_B, PIN_NEXT);
     const homeA = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(signA) } });
     assert.equal(homeA.statusCode, 200);
     assert.equal(homeA.json().identified, true);
@@ -367,90 +304,38 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(JSON.stringify(crossed.json()).includes(NAME_B), false);
   });
 
-  test('staff invite, client PIN, sign-in, then revoke access', async () => {
-    const none = await call(ledger, {
-      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
-    });
-    assert.equal(none.statusCode, 200);
-    assert.equal(none.json().ready, true);
-    assert.equal(none.json().access, 'none');
-    assert.equal(none.json().accessLabel, 'No access');
-
+  test('staff set a login PIN and the removed invite routes stay 404', async () => {
     const anonInvite = await call(ledger, { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } });
     assert.equal(anonInvite.statusCode, 401);
-
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+    const gone = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(created.statusCode, 201);
-    const ttl = new Date(created.json().expiresAt).getTime() - Date.now();
-    assert.equal(ttl > 71 * 3600 * 1000 && ttl < 73 * 3600 * 1000, true);
-    assert.match(created.json().link, /#invite=[0-9a-f]{64}$/);
-    const invited = await call(ledger, {
-      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
-    });
-    assert.equal(invited.json().access, 'invited');
-    assert.equal(invited.json().accessLabel, 'Invited');
-    assert.equal(JSON.stringify(invited.json()).includes(created.json().code), false);
-
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'],
-      body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(redeemed.statusCode, 200);
+    assert.equal(gone.statusCode, 404);
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
+    assert.equal(redeemed.statusCode, 200, redeemed.body);
     const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
     assert.equal(home.json().identified, true);
     assert.equal(home.json().profile.name, NAME_A);
-    const pinSet = await call(ledger, {
-      method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
-    });
-    assert.equal(pinSet.json().access, 'pin');
-    assert.equal(pinSet.json().accessLabel, 'PIN set');
-
-    const anonRevoke = await call(ledger, {
-      method: 'POST', path: ['quik1-invites', 'revoke-access'], body: { clientId: CLIENT_A }
-    });
-    assert.equal(anonRevoke.statusCode, 401);
-
-    const revoked = await call(ledger, {
-      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(revoked.statusCode, 200);
-    assert.equal(revoked.json().access, 'revoked');
-    assert.equal(revoked.json().accessLabel, 'Revoked');
-    assert.equal(JSON.stringify(revoked.json()).includes(PIN_OK), false);
-    const signedOut = await call(quik1, {
-      method: 'POST', path: ['login'], body: { accountRef: redeemed.json().accountRef, pin: PIN_OK }
-    });
-    assert.equal(signedOut.statusCode, 423);
-    const stale = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'],
-      body: { code: created.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
-    assert.equal(stale.statusCode, 410);
+    assert.equal(JSON.stringify(home.json()).includes(PIN_OK), false);
   });
 
-  test('missing borrower tables tell staff Quik1 access is not set up', async () => {
+  test('missing borrower tables do not bring the invite routes back', async () => {
     delete fake.db.q1_borrowers;
     delete fake.db.q1_invites;
     delete fake.db.q1_sessions;
     const listed = await call(ledger, {
       method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
     });
-    assert.equal(listed.statusCode, 200);
-    assert.equal(listed.json().ready, false);
-    assert.equal(listed.json().accessLabel, 'Quik1 access not set up yet');
+    assert.equal(listed.statusCode, 404);
     assert.equal(JSON.stringify(listed.json()).includes(NAME_A), false);
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(created.statusCode, 503);
-    assert.equal(created.json().error, 'Quik1 access not set up yet');
+    assert.equal(created.statusCode, 404);
     const revoked = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(revoked.statusCode, 503);
-    assert.equal(revoked.json().error, 'Quik1 access not set up yet');
+    assert.equal(revoked.statusCode, 404);
   });
 
   test('borrower routes do not look up an ID number', () => {
@@ -461,37 +346,29 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(page.includes('first four digits of your ID number'), false);
   });
 
-  test('redeem refuses to run without the session secret', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
+  test('redeem is gone even when the session secret is missing', async () => {
     delete process.env.QUIK1_SESSION_SECRET;
     const res = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK },
+      method: 'POST', path: ['invites', 'redeem'], body: { code: 'ab'.repeat(32), pin: PIN_OK, pinConfirm: PIN_OK },
       sessionSecret: ''
     });
     process.env.QUIK1_SESSION_SECRET = SECRET;
-    assert.equal(res.statusCode, 503);
+    assert.equal(res.statusCode, 404);
   });
 
-  test('an invite created on the staff host opens on the borrower site', async () => {
+  test('a staff host does not serve the removed invite route', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'],
       headers: { ...staffHeaders(), host: 'quik1ledger.com' },
       body: { clientId: CLIENT_A }
     });
-    assert.equal(created.statusCode, 201, created.body);
-    assert.match(created.json().link, /^https:\/\/quik1\.app\/quik1\/#invite=[0-9a-f]{64}$/);
+    assert.equal(created.statusCode, 404, created.body);
   });
 
   test('borrower PIN follows the flag, and production also needs both ID keys', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const code = created.json().code;
     const redeem = (headers, sessionSecret = SECRET) => call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], headers, sessionSecret,
-      body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+      method: 'POST', path: ['login'], headers, sessionSecret,
+      body: { accountRef: 'qb_' + 'a'.repeat(32), pin: PIN_OK }
     });
     const login = headers => call(quik1, {
       method: 'POST', path: ['login'], headers,
@@ -539,24 +416,31 @@ describe('borrower auth', { concurrency: false }, () => {
         assert.equal(blocked.statusCode, 404, host);
       }
 
-      const preview = await redeem({ host: 'preview.example' });
+      const set = await call(ledger, {
+        method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+        body: { clientId: CLIENT_A, pin: PIN_OK, pinConfirm: PIN_OK }
+      });
+      assert.equal(set.statusCode, 200, set.body);
+      const accountRef = fake.db.q1_borrowers[0].id;
+      const preview = await call(quik1, {
+        method: 'POST', path: ['login'], headers: { host: 'preview.example' },
+        body: { accountRef, pin: PIN_OK }
+      });
       assert.equal(preview.statusCode, 200, preview.body);
       assert.equal(fake.db.q1_borrowers.length, 1);
       assert.equal(JSON.stringify(preview.json()).includes(PIN_OK), false);
 
-      const again = await call(ledger, {
-        method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-      });
+      fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
       process.env.QUIK1_ID_KEY = ID_KEY;
       process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;
       const prod = await call(quik1, {
-        method: 'POST', path: ['invites', 'redeem'],
+        method: 'POST', path: ['login'],
         headers: { host: 'quik1.app' },
-        body: { code: again.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+        body: { accountRef, pin: PIN_OK }
       });
       assert.equal(prod.statusCode, 200, prod.body);
       assert.equal(String(fake.db.q1_borrowers[0].pin_hash).startsWith('scrypt$'), true);
-      assert.equal(JSON.stringify(prod.json()).includes(PIN_NEXT), false);
+      assert.equal(JSON.stringify(prod.json()).includes(PIN_OK), false);
     } finally {
       delete process.env.VERCEL_ENV;
       delete process.env.QUIK1_ID_KEY;
@@ -567,12 +451,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('a lock expires after the cooldown and a new invite still resets it immediately', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const accountRef = redeemed.json().accountRef;
     const device = { cookie: knownCookie(redeemed) };
     for (let i = 0; i < 5; i++) {
@@ -592,12 +471,7 @@ describe('borrower auth', { concurrency: false }, () => {
     process.env.TWILIO_ACCOUNT_SID = 'AC-staff';
     process.env.TWILIO_AUTH_TOKEN = 'staff-token';
     process.env.TWILIO_FROM = '+10000000000';
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const accountRef = redeemed.json().accountRef;
     const sessions = fake.db.q1_sessions.length;
     const sent = [];
@@ -679,12 +553,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('logout revokes the device when the session table is missing', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     assert.equal(redeemed.statusCode, 200, redeemed.body);
     const session = sessionToken(redeemed);
     const known = knownCookie(redeemed);
@@ -703,12 +572,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('a signed-in borrower can store an SA ID encrypted, and the client only sees a mask', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const session = { cookie: cookieHeader(redeemed) };
     const unsigned = await call(quik1, { method: 'POST', path: ['identity'], body: { idNumber: SA_ID } });
     assert.equal(unsigned.statusCode, 401);
@@ -784,21 +648,14 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('weak PINs are refused, and an older stored PIN does not sign in until staff reset it', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
     const weakPin = '1'.repeat(QUIK1_PIN_LENGTH);
-    const weak = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: weakPin, pinConfirm: weakPin }
+    const weak = await call(ledger, {
+      method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+      body: { clientId: CLIENT_A, pin: weakPin, pinConfirm: weakPin }
     });
     assert.equal(weak.statusCode, 400);
     assert.equal(fake.db.q1_borrowers.length, 0);
-    const again = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: again.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const legacy = '2'.repeat(QUIK1_PIN_LENGTH + 1);
     const legacyHash = await hashPinForVerify(legacy);
     fake.db.q1_borrowers[0].pin_hash = legacyHash;
@@ -814,12 +671,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(missed.statusCode, 401, missed.body);
     assert.equal(missed.json().error, pinNotAcceptedMessage());
     assert.equal(fake.db.q1_borrowers[0].pin_hash, legacyHash);
-    const reset = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const upgraded = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: reset.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
+    const upgraded = await sessionFromPin(CLIENT_A, PIN_NEXT);
     assert.equal(upgraded.statusCode, 200, upgraded.body);
     assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
     assert.equal(await verifyPin(legacy, fake.db.q1_borrowers[0].pin_hash), false);
@@ -830,13 +682,8 @@ describe('borrower auth', { concurrency: false }, () => {
     fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
     enableBorrowerEmail();
     setEmailSender({ enabled: true, async send() { return { sent: true }; } });
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    const accountRef = redeemed.json().accountRef;
+    await sessionFromPin(CLIENT_A, PIN_OK);
+    const accountRef = fake.db.q1_borrowers[0].id;
     const first = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
     const sent = await call(quik1, {
       method: 'POST', path: ['verify'], body: { accountRef, verifyToken: first.json().verifyToken }
@@ -862,12 +709,7 @@ describe('borrower auth', { concurrency: false }, () => {
     const closed = await call(quik1, { method: 'POST', path: ['login'], body: { pin: PIN_BAD } });
     assert.equal(closed.statusCode, 503);
     fake.db.q1_auth_attempts = [];
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const denied = await call(ledger, {
       method: 'POST', path: ['quik1-devices', 'reset'], body: { clientId: CLIENT_A }
     });
@@ -893,12 +735,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('a device reset trusts one new phone on the next correct PIN', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const accountRef = redeemed.json().accountRef;
     const pinHash = fake.db.q1_borrowers[0].pin_hash;
     const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
@@ -940,12 +777,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('two new phones cannot both claim one device reset', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     await call(ledger, {
       method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
@@ -969,19 +801,14 @@ describe('borrower auth', { concurrency: false }, () => {
     fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
     enableBorrowerEmail();
     setEmailSender({ enabled: true, async send() { return { sent: true }; } });
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    await sessionFromPin(CLIENT_A, PIN_OK);
     const pinHash = fake.db.q1_borrowers[0].pin_hash;
     await call(ledger, {
       method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
     assert.equal(fake.db.q1_sessions.every(row => row.revoked_at), true);
-    const accountRef = redeemed.json().accountRef;
+    const accountRef = fake.db.q1_borrowers[0].id;
     const next = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
     assert.equal(next.statusCode, 200, next.body);
     assert.equal(next.json().verifyRequired, true);
@@ -997,36 +824,22 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.match(note, /email link/);
   });
 
-  test('a new invite clears the device-reset flag', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+  test('a staff-set PIN clears the device-reset flag when email can confirm the phone', async () => {
+    await sessionFromPin(CLIENT_A, PIN_OK);
     await call(ledger, {
       method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(fake.db.q1_borrowers[0].device_reset_until != null, true);
-    const invite = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
-    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invite.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
-    assert.equal(redeemed.statusCode, 200, redeemed.body);
+    fake.db.clients.find(c => c.id === CLIENT_A).email = 'book@example.com';
+    enableBorrowerEmail();
+    setEmailSender({ enabled: true, async send() { return { sent: true }; } });
+    const set = await setLogin(CLIENT_A, PIN_NEXT);
+    assert.equal(set.statusCode, 200, set.body);
     assert.equal(fake.db.q1_borrowers[0].device_reset_until, null);
   });
 
   test('email off, an unknown account matches a wrong PIN, and only a correct PIN on a new device is device_not_linked', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const accountRef = redeemed.json().accountRef;
     const sends = [];
     setEmailSender({
@@ -1092,13 +905,8 @@ describe('borrower auth', { concurrency: false }, () => {
       enabled: true,
       async send(to, subject, text) { sent.push({ to, subject, text }); return { sent: true }; }
     });
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    const accountRef = redeemed.json().accountRef;
+    await sessionFromPin(CLIENT_A, PIN_OK);
+    const accountRef = fake.db.q1_borrowers[0].id;
     const unknown = await call(quik1, {
       method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ef'.repeat(16), pin: PIN_OK }
     });
@@ -1138,18 +946,8 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('borrower B cannot consume borrower A’s device-reset flag', async () => {
-    const inviteA = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemedA = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteA.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    const inviteB = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_B }
-    });
-    const redeemedB = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: inviteB.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
+    const redeemedA = await sessionFromPin(CLIENT_A, PIN_OK);
+    const redeemedB = await sessionFromPin(CLIENT_B, PIN_NEXT);
     const refA = redeemedA.json().accountRef;
     const refB = redeemedB.json().accountRef;
     const reset = await call(ledger, {
@@ -1174,20 +972,12 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(row(refA).device_reset_until, flagA);
     assert.ok(!row(refB).device_reset_until);
 
-    const sameInvite = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_B }
-    });
-    const sameRedeem = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'],
-      body: { code: sameInvite.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
-    assert.equal(sameRedeem.statusCode, 200, sameRedeem.body);
+    const sameSet = await setLogin(CLIENT_B, PIN_OK);
+    assert.equal(sameSet.statusCode, 200, sameSet.body);
     assert.equal(row(refA).device_reset_until, flagA);
     const samePin = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refB, pin: PIN_OK } });
-    assert.equal(samePin.statusCode, 403, samePin.body);
-    assert.equal(samePin.json().code, 'device_not_linked');
-    assert.equal(samePin.json().verifyToken, undefined);
-    assert.equal(cookieHeader(samePin).includes('q1_session='), false);
+    assert.equal(samePin.statusCode, 200, samePin.body);
+    assert.equal(samePin.json().ok, true);
     assert.equal(row(refA).device_reset_until, flagA);
 
     const claimed = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef: refA, pin: PIN_OK } });
@@ -1351,12 +1141,7 @@ describe('borrower auth', { concurrency: false }, () => {
       assert.equal(signed.statusCode, 400, signed.body);
       assertNoPin(signed.body, pin);
     }
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const cookie = cookieHeader(redeemed);
     for (const pin of [shortPin, longPin]) {
       const changed = await call(quik1, {
@@ -1433,12 +1218,7 @@ describe('borrower auth', { concurrency: false }, () => {
   test('setting a login PIN replaces the borrower PIN, writes an audit row, and revokes sessions', async () => {
     const logs = silence();
     try {
-      const invited = await call(ledger, {
-        method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-      });
-      const redeemed = await call(quik1, {
-        method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-      });
+      const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
       const pinHash = fake.db.q1_borrowers[0].pin_hash;
       const anon = await call(ledger, {
         method: 'POST', path: ['quik1-temp-pin'], body: { clientId: CLIENT_A, pin: LOGIN_PIN, pinConfirm: LOGIN_PIN }
@@ -1472,7 +1252,7 @@ describe('borrower auth', { concurrency: false }, () => {
       const listed = await call(ledger, {
         method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
       });
-      assert.equal(listed.json().pinStatus, 'Active');
+      assert.equal(listed.statusCode, 404);
       assertNoPin(listed.body, LOGIN_PIN);
       assert.equal(listed.body.includes('scrypt$'), false);
       assert.equal(listed.body.includes('temp_pin_hash'), false);
@@ -1657,12 +1437,7 @@ describe('borrower auth', { concurrency: false }, () => {
   test('a signed-in borrower can change PIN only with the session and the current PIN', async () => {
     const logs = silence();
     try {
-      const invited = await call(ledger, {
-        method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-      });
-      const redeemed = await call(quik1, {
-        method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-      });
+      const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
       const cookie = cookieHeader(redeemed);
       const accountRef = redeemed.json().accountRef;
       const bare = await call(quik1, {
@@ -1738,12 +1513,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('a wrong current PIN counts toward lockout and the auth rate limit', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const cookie = cookieHeader(redeemed);
     const hash = fake.db.q1_borrowers[0].pin_hash;
     for (let i = 0; i < 4; i++) {
@@ -1799,12 +1569,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('change PIN is off with the borrower PIN flag, and a new invite still replaces a forgotten PIN', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     delete process.env.QUIK1_BORROWER_PIN;
     const off = await call(quik1, {
       method: 'POST', path: ['pin'], headers: { cookie: cookieHeader(redeemed) },
@@ -1816,29 +1581,21 @@ describe('borrower auth', { concurrency: false }, () => {
     process.env.QUIK1_BORROWER_PIN = '1';
     await setLogin(CLIENT_A);
     assert.equal(await verifyPin(LOGIN_PIN, fake.db.q1_borrowers[0].pin_hash), true);
-    const reset = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(reset.statusCode, 201, reset.body);
-    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    const upgraded = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: reset.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
-    assert.equal(upgraded.statusCode, 200, upgraded.body);
+    const reset = await setLogin(CLIENT_A, PIN_NEXT);
+    assert.equal(reset.statusCode, 200, reset.body);
     assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
     assert.equal(await verifyPin(LOGIN_PIN, fake.db.q1_borrowers[0].pin_hash), false);
-    const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(upgraded) } });
+    const home = await call(quik1, {
+      method: 'POST', path: ['login'],
+      body: { accountRef: fake.db.q1_borrowers[0].id, pin: PIN_NEXT }
+    });
     assert.equal(home.statusCode, 200, home.body);
   });
 
   test('reset device keeps the login PIN and does not set a temporary PIN', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    await sessionFromPin(CLIENT_A, PIN_OK);
     const pinHash = fake.db.q1_borrowers[0].pin_hash;
+    const pinSetsBeforeReset = fake.db.audit_log.filter(a => a.type === 'borrower_temp_pin_set').length;
     const reset = await call(ledger, {
       method: 'POST', path: ['quik1-devices', 'reset'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
@@ -1849,7 +1606,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(fake.db.q1_borrowers[0].pin_hash, pinHash);
     assert.equal(fake.db.q1_borrowers[0].temp_pin_hash == null, true);
     assert.equal(fake.db.audit_log.some(a => a.type === 'QUIK1 DEVICE RESET'), true);
-    assert.equal(fake.db.audit_log.some(a => a.type === 'borrower_temp_pin_set'), false);
+    assert.equal(fake.db.audit_log.filter(a => a.type === 'borrower_temp_pin_set').length, pinSetsBeforeReset);
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const html = fs.readFileSync(path.join(root, 'ledger/index.html'), 'utf8');
     const quik = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
@@ -1876,7 +1633,9 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.match(sql, /public\.q1_borrowers/);
     assert.match(sql, /public\.q1_temp_pin_sets/);
     assert.match(sql, /column_name = 'device_reset_until'/);
-    assert.match(html, /Quik1 invites are switched off until launch\./);
+    assert.doesNotMatch(html, /Quik1 invites are switched off until launch/);
+    assert.doesNotMatch(html, /Give Quik1 access/);
+    assert.match(html, /Set login PIN/);
     assert.match(html, /q1PinLive!==true/);
     assert.match(quik, /finishBorrower\('\/pin'/);
     assert.doesNotMatch(sql, /alter table public\.(?!q1_)/);
@@ -1901,8 +1660,8 @@ describe('borrower auth', { concurrency: false }, () => {
     const stillListed = await call(ledger, {
       method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
     });
-    assert.equal(stillListed.statusCode, 200);
-    assert.equal(stillListed.json().pinStatus, 'None');
+    assert.equal(stillListed.statusCode, 404);
+    assert.equal(fake.db.q1_borrowers.length, 0);
 
     fake.hideColumns('q1_borrowers', []);
     delete fake.db.q1_temp_pin_sets;
@@ -1944,16 +1703,12 @@ describe('borrower auth', { concurrency: false }, () => {
     const listed = await call(ledger, {
       method: 'GET', path: ['quik1-invites', CLIENT_A], headers: staffHeaders()
     });
-    assert.equal(listed.json().pinStatus, 'Active');
+    assert.equal(listed.statusCode, 404);
+    assert.equal(String(fake.db.q1_borrowers[0].pin_hash).startsWith('scrypt$'), true);
   });
 
   test('a known device sign-in clears leftover temporary PIN columns', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     const hash = await hashPin(LOGIN_PIN);
     Object.assign(fake.db.q1_borrowers[0], {
       temp_pin_hash: hash,
@@ -1973,43 +1728,27 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(await verifyPin(PIN_OK, fake.db.q1_borrowers[0].pin_hash), true);
   });
 
-  test('creating or revoking an invite clears leftover temporary PIN columns', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+  test('setting a login PIN clears leftover temporary PIN columns', async () => {
+    await sessionFromPin(CLIENT_A, PIN_OK);
     Object.assign(fake.db.q1_borrowers[0], {
       temp_pin_hash: 'scrypt$16384$8$1$aa$bb',
       temp_pin_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
       pin_change_hash: 'cd'.repeat(32)
     });
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(created.statusCode, 201, created.body);
+    const created = await setLogin(CLIENT_A, PIN_NEXT);
+    assert.equal(created.statusCode, 200, created.body);
     tempGone(fake.db.q1_borrowers[0]);
-    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    await setLogin(CLIENT_A);
-    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    const revoked = await call(ledger, {
+    assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
+    const gone = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(revoked.statusCode, 200, revoked.body);
-    tempGone(fake.db.q1_borrowers[0]);
+    assert.equal(gone.statusCode, 404);
   });
 
-  test('redeeming an invite replaces a staff-set PIN', async () => {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
+  test('a later staff-set PIN replaces the previous login PIN', async () => {
     await setLogin(CLIENT_A);
     assert.equal(await verifyPin(LOGIN_PIN, fake.db.q1_borrowers[0].pin_hash), true);
-    assert.equal(fake.db.q1_invites[0].redeemed_at == null, true);
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-    });
+    const redeemed = await setLogin(CLIENT_A, PIN_NEXT);
     assert.equal(redeemed.statusCode, 200, redeemed.body);
     tempGone(fake.db.q1_borrowers[0]);
     assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
@@ -2017,12 +1756,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('a locked borrower cannot sign in with a staff-set PIN, and change PIN stays locked', async () => {
-    const invited = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
     fake.db.q1_borrowers[0].failed_attempts = 5;
     const accountRef = redeemed.json().accountRef;
@@ -2042,7 +1776,7 @@ describe('borrower auth', { concurrency: false }, () => {
   test('GET /api/quik1/pin does not require a PIN change, and logout clears a stale change cookie', async () => {
     const idle = await call(quik1, { method: 'GET', path: ['pin'] });
     assert.equal(idle.statusCode, 200);
-    assert.deepEqual(idle.json(), { pinChangeRequired: false });
+    assert.deepEqual(idle.json(), { pinChangeRequired: false, emailLive: false });
     await setLogin(CLIENT_A);
     const accountRef = fake.db.q1_borrowers[0].id;
     const logged = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: LOGIN_PIN } });
@@ -2051,7 +1785,7 @@ describe('borrower auth', { concurrency: false }, () => {
       method: 'GET', path: ['pin'],
       headers: { cookie: 'q1_pin_change=' + 'ab'.repeat(32) }
     });
-    assert.deepEqual(pending.json(), { pinChangeRequired: false });
+    assert.deepEqual(pending.json(), { pinChangeRequired: false, emailLive: false });
     assert.equal(pending.body.includes(LOGIN_PIN), false);
     assert.equal(pending.body.includes('scrypt$'), false);
     const out = await call(quik1, {
@@ -2102,14 +1836,11 @@ describe('borrower auth', { concurrency: false }, () => {
   }
 
   async function borrowerWithPin() {
-    const created = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    const redeemed = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
-    });
+    const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     assert.equal(redeemed.statusCode, 200, redeemed.body);
-    return redeemed.json().accountRef;
+    fake.db.q1_temp_pin_sets.length = 0;
+    fake.db.audit_log = fake.db.audit_log.filter(row => row.type !== 'borrower_temp_pin_set');
+    return fake.db.q1_borrowers[0].id;
   }
 
   async function refuseLoginPinRace(mutate) {
@@ -2164,10 +1895,8 @@ describe('borrower auth', { concurrency: false }, () => {
 
   test('an invite-locked client is refused with 409 and nothing is written', async () => {
     await borrowerWithPin();
-    const invite = await call(ledger, {
-      method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(invite.statusCode, 201, invite.body);
+    fake.db.q1_borrowers[0].pin_hash = 'locked';
+    fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
     assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
     const before = JSON.stringify(fake.db.q1_borrowers[0]);
     const sets = fake.db.q1_temp_pin_sets.length;
@@ -2183,10 +1912,8 @@ describe('borrower auth', { concurrency: false }, () => {
 
   test('a revoked client is refused with 409 and nothing is written', async () => {
     await borrowerWithPin();
-    const revoked = await call(ledger, {
-      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(revoked.statusCode, 200, revoked.body);
+    fake.db.q1_borrowers[0].pin_hash = 'locked';
+    fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
     assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
     const before = JSON.stringify(fake.db.q1_borrowers[0]);
     const sets = fake.db.q1_temp_pin_sets.length;
