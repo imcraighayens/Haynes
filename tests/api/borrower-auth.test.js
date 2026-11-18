@@ -1359,6 +1359,16 @@ describe('borrower auth', { concurrency: false }, () => {
     const accountRef = redeemed.json().accountRef;
     const odd = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: malformed } });
     assert.equal(odd.statusCode, 400, odd.body);
+    const four = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: shortPin } });
+    assert.equal(four.statusCode, 400, four.body);
+    assertNoPin(four.body, shortPin);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
+    const fourCurrent = await call(quik1, {
+      method: 'POST', path: ['pin'], headers: { cookie },
+      body: { currentPin: shortPin, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    assert.equal(fourCurrent.statusCode, 400, fourCurrent.body);
+    assertNoPin(fourCurrent.body, shortPin);
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     for (const pin of [shortPin, longPin]) {
       const changed = await call(quik1, {

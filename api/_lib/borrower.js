@@ -1081,10 +1081,10 @@ export async function changeBorrowerPin(req, body, res) {
   await clearExpiredLock(row);
   if (isLocked(row)) lockedError();
   const current = body && typeof body.currentPin === 'string' ? body.currentPin : '';
-  // The current PIN is compared at whatever length the stored hash verifies.
-  // A digit string we cannot compare is a 400 and does not count. A comparable
-  // miss, including a live-length guess against an older hash, is the normal 401.
-  // The replacement PIN is still exactly QUIK1_PIN_LENGTH.
+  // The current PIN is compared only at the live length or exactly one digit
+  // longer. Anything else, including a shorter digit string, is a 400 and does
+  // not count. A comparable miss is the normal 401. The replacement PIN is
+  // still exactly QUIK1_PIN_LENGTH.
   if (!isVerifiablePin(current)) rejectPinShape();
   const checks = await comparePins(current, row.pin_hash);
   if (!checks.realOk) await noteFailure(row, 'pin', req);
@@ -1107,8 +1107,9 @@ export function pinChangePending() {
 }
 
 // Lock (423), then the stored PIN, then device_not_linked.
-// A 4-, 5-, or 6-digit entry is compared with the hash. It signs in only when
-// that compare matches, so a 6-digit PIN works only for a hash of those digits.
+// A 5-digit entry, or exactly one digit longer, is compared with the hash. It
+// signs in only when that compare matches, so a 6-digit PIN works only for a
+// hash of those digits. A shorter digit string is a 400 and does not count.
 // The hash does not store its length, and this writes nothing to detect it.
 // A null borrower is the unknown-account 401. device_not_linked is only after
 // the PIN matches.

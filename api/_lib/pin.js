@@ -31,13 +31,13 @@ export function isPin(v) {
   return digitPin(v, QUIK1_PIN_LENGTH);
 }
 
-// Lengths that may already be stored. The hash does not record its length, so
+// The live length, and exactly one digit longer. That longer length is the only
+// older login PIN that was ever issued. The hash does not record its length, so
 // sign-in and Change PIN compare these against the stored hash. A new PIN is
-// still exactly QUIK1_PIN_LENGTH. A mismatch returns false and does not throw.
+// still exactly QUIK1_PIN_LENGTH. A shorter digit string is not compared.
+// A mismatch returns false and does not throw.
 export function isVerifiablePin(v) {
-  return digitPin(v, QUIK1_PIN_LENGTH)
-    || digitPin(v, QUIK1_PIN_LENGTH - 1)
-    || digitPin(v, QUIK1_PIN_LENGTH + 1);
+  return digitPin(v, QUIK1_PIN_LENGTH) || digitPin(v, QUIK1_PIN_LENGTH + 1);
 }
 
 // Digits, but not a length we can compare. These are refused before lockout.
