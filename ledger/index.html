@@ -3171,7 +3171,7 @@ class Component extends DCLogic {
       this.setState({q1Invite:this.q1FromStatus(base, j)});
     },()=>{
       if(this._q1For!==clientId) return;
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, pinStatus:'None', tempPin:'', tempPin2:'', pinMsg:''})});
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, pinStatus:'Unknown', tempPin:'', tempPin2:'', pinMsg:''})});
     });
   }
   q1Digits(e){
@@ -3362,12 +3362,12 @@ class Component extends DCLogic {
     const pinConfirm=String(base.tempPin2||'');
     const cleared=Object.assign({}, base, {tempPin:'', tempPin2:'', pinMsg:'', pinBusy:true});
     this.setState({q1Invite:cleared});
-    const inviteLock="Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
+    const raced='This client changed while you were setting the PIN. Try again.';
     const finish=(patch)=>{
       this._tempPinBusy=false;
       this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, patch, {pinBusy:false, tempPin:'', tempPin2:''})}));
     };
-    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?inviteLock:'Could not set the login PIN.'});
+    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?raced:'Could not set the login PIN.'});
     if(!id) return fail();
     this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
       const status=(j&&j.pinStatus)||'Active';

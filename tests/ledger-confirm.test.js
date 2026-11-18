@@ -255,6 +255,36 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
   });
 });
 
+test('a failed Quik1 status fetch shows Unknown beside Set login PIN', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.route('**/api/ledger/features', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
+    }));
+    await page.route('**/api/ledger/quik1-invites/**', route => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'down' }) });
+    });
+    try {
+      await boot(page, api.origin);
+      await page.locator('[title="Clients"]').first().dispatchEvent('click');
+      await pageWaitFor(page, () => /on the book/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await page.locator('[data-screen-label="Clients"]').getByText('Test Client One', { exact: true }).first().dispatchEvent('click');
+      await page.getByText('Open full workspace', { exact: true }).dispatchEvent('click');
+      await pageWaitFor(page, () => {
+        const label = [...document.querySelectorAll('div')].find(el => el.childNodes.length === 1 && el.textContent.trim() === 'QUIK1 PIN');
+        const status = label && label.nextElementSibling;
+        const button = [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Set login PIN');
+        return !!status && status.textContent.trim() === 'Unknown' && button;
+      }, null, { timeoutMs: 8000 });
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
 test('two clicks on Set login PIN send one request, then the button is ready again', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const browser = await pw.chromium.launch();

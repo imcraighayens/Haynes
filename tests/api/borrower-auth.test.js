@@ -12,7 +12,7 @@ import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken, deviceCookie, DEVICE_MAX_AGE } from '../../api/_lib/quik1-session.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
-import { authIpHash, deviceMatches, tempPinLimiter, TEMP_PIN_INVITE_LOCK } from '../../api/_lib/borrower.js';
+import { authIpHash, deviceMatches, tempPinLimiter } from '../../api/_lib/borrower.js';
 import { mintStaffSession, staffCookieHeader, STAFF_COOKIE } from '../../api/_lib/auth.js';
 import { decryptId, idHmac, phoneHmac, luhnOk } from '../../api/_lib/sa-id.js';
 
@@ -1463,7 +1463,9 @@ describe('borrower auth', { concurrency: false }, () => {
       const audit = fake.db.audit_log.find(a => a.type === 'borrower_temp_pin_set');
       assert.ok(audit);
       assert.match(audit.by, /^key:[0-9a-f]{16}$/);
-      assert.equal(audit.comment, 'client_id=' + CLIENT_A);
+      assert.equal(audit.comment, 'q1_borrower=' + row.id);
+      assert.equal(JSON.stringify(audit).includes(CLIENT_A), false);
+      assert.equal(JSON.stringify(audit).includes('client_id'), false);
       assert.equal(typeof audit.at, 'string');
       assertNoPin(JSON.stringify(audit), LOGIN_PIN);
       assert.equal(JSON.stringify(fake.db.q1_temp_pin_sets).includes(LOGIN_PIN), false);
@@ -1991,12 +1993,14 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(created.statusCode, 201, created.body);
     tempGone(fake.db.q1_borrowers[0]);
     assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    await setLogin(CLIENT_A);
-    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
+    const set = await setLogin(CLIENT_A);
+    assert.equal(set.statusCode, 200, set.body);
+    assert.match(fake.db.q1_borrowers[0].pin_hash, /^scrypt\$/);
     const revoked = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(revoked.statusCode, 200, revoked.body);
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
     tempGone(fake.db.q1_borrowers[0]);
   });
 
@@ -2129,7 +2133,8 @@ describe('borrower auth', { concurrency: false }, () => {
     try {
       const refused = await setLogin(CLIENT_A);
       assert.equal(refused.statusCode, 409, refused.body);
-      assert.equal(refused.json().error, TEMP_PIN_INVITE_LOCK);
+      assert.equal(refused.json().error, 'This client changed while you were setting the PIN. Try again.');
+      assert.equal(refused.body.includes('invite'), false);
       assert.equal(refused.body.includes(LOGIN_PIN), false);
     } finally {
       globalThis.fetch = prev;
@@ -2159,49 +2164,84 @@ describe('borrower auth', { concurrency: false }, () => {
     noPinMaterial(recorded[0], [LOGIN_PIN, PIN_OK]);
     const audit = fake.db.audit_log.find(row => row.type === 'borrower_temp_pin_set');
     assert.ok(audit);
+    assert.equal(audit.comment, 'q1_borrower=' + fake.db.q1_borrowers[0].id);
     noPinMaterial(audit, [LOGIN_PIN, PIN_OK]);
+    assert.equal(JSON.stringify(audit).includes(CLIENT_A), false);
+    assert.equal(JSON.stringify(audit).includes('client_id'), false);
   });
 
-  test('an invite-locked client is refused with 409 and nothing is written', async () => {
+  async function assertLockReplacedAndSignsIn() {
+    const set = await setLogin(CLIENT_A);
+    assert.equal(set.statusCode, 200, set.body);
+    assert.equal(set.json().ok, true);
+    assert.equal(set.json().pinStatus, 'Active');
+    assertNoPin(set.body, LOGIN_PIN);
+    const row = fake.db.q1_borrowers[0];
+    assert.match(row.pin_hash, /^scrypt\$/);
+    assert.equal(await verifyPin(LOGIN_PIN, row.pin_hash), true);
+    assert.equal(await verifyPin(PIN_OK, row.pin_hash), false);
+    assert.equal(row.locked_at, null);
+    assert.equal(row.failed_attempts, 0);
+    tempGone(row);
+    const audit = fake.db.audit_log.find(entry => entry.type === 'borrower_temp_pin_set');
+    assert.ok(audit);
+    assert.equal(audit.comment, 'q1_borrower=' + row.id + ' replaced_lock=true');
+    const dumped = JSON.stringify(audit);
+    assert.equal(dumped.includes(LOGIN_PIN), false);
+    assert.equal(dumped.includes(PIN_OK), false);
+    assert.equal(dumped.includes('scrypt$'), false);
+    assert.equal(dumped.includes(CLIENT_A), false);
+    assert.equal(dumped.includes('client_id'), false);
+    const signed = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: row.id, pin: LOGIN_PIN }
+    });
+    assert.equal(signed.statusCode, 200, signed.body);
+    assert.equal(signed.json().ok, true);
+    assertNoPin(signed.body, LOGIN_PIN);
+  }
+
+  test('a pin_hash locked row takes a staff set PIN, writes an audit row, and signs in', async () => {
     await borrowerWithPin();
     const invite = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(invite.statusCode, 201, invite.body);
     assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    const before = JSON.stringify(fake.db.q1_borrowers[0]);
-    const sets = fake.db.q1_temp_pin_sets.length;
-    const audits = fake.db.audit_log.filter(row => row.type === 'borrower_temp_pin_set').length;
-    const refused = await setLogin(CLIENT_A);
-    assert.equal(refused.statusCode, 409);
-    assert.equal(refused.json().error, TEMP_PIN_INVITE_LOCK);
-    assert.equal(refused.body.includes(LOGIN_PIN), false);
-    assert.equal(JSON.stringify(fake.db.q1_borrowers[0]), before);
-    assert.equal(fake.db.q1_temp_pin_sets.length, sets);
-    assert.equal(fake.db.audit_log.filter(row => row.type === 'borrower_temp_pin_set').length, audits);
+    await assertLockReplacedAndSignsIn();
   });
 
-  test('a revoked client is refused with 409 and nothing is written', async () => {
+  test('a revoked lock row takes a staff set PIN, writes an audit row, and signs in', async () => {
     await borrowerWithPin();
     const revoked = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     assert.equal(revoked.statusCode, 200, revoked.body);
     assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
-    const before = JSON.stringify(fake.db.q1_borrowers[0]);
-    const sets = fake.db.q1_temp_pin_sets.length;
-    const audits = fake.db.audit_log.filter(row => row.type === 'borrower_temp_pin_set').length;
-    const refused = await setLogin(CLIENT_A);
-    assert.equal(refused.statusCode, 409);
-    assert.equal(refused.json().error, TEMP_PIN_INVITE_LOCK);
-    assert.equal(refused.body.includes(LOGIN_PIN), false);
-    assert.equal(JSON.stringify(fake.db.q1_borrowers[0]), before);
-    assert.equal(fake.db.q1_temp_pin_sets.length, sets);
-    assert.equal(fake.db.audit_log.filter(row => row.type === 'borrower_temp_pin_set').length, audits);
+    await assertLockReplacedAndSignsIn();
     const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
     const html = fs.readFileSync(path.join(root, 'ledger/index.html'), 'utf8');
-    assert.equal(html.includes(TEMP_PIN_INVITE_LOCK), true);
+    const oldInvite = "Send a new invite instead. This client's Quik1 access stays locked until they redeem one.";
+    assert.equal(html.includes(oldInvite), false);
+    assert.equal(html.includes('This client changed while you were setting the PIN. Try again.'), true);
     assert.match(html, /e\.status===409/);
+  });
+
+  test('locked_at with a non-scrypt hash takes a staff set PIN, writes an audit row, and signs in', async () => {
+    const id = 'qb_' + 'ab'.repeat(16);
+    fake.db.q1_borrowers.push({
+      id,
+      client_id: CLIENT_A,
+      pin_hash: 'sha256$not-scrypt',
+      failed_attempts: 4,
+      locked_at: new Date().toISOString(),
+      temp_pin_hash: 'scrypt$16384$8$1$aa$bb',
+      temp_pin_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+      temp_pin_spent_hash: 'spent',
+      pin_change_hash: 'cd'.repeat(32),
+      pin_change_expires_at: new Date(Date.now() + 60000).toISOString()
+    });
+    await assertLockReplacedAndSignsIn();
+    assert.equal(fake.db.q1_borrowers[0].id, id);
   });
 
   test('a revoke that sets pin_hash to locked before the write is a 409 and writes nothing', async () => {
