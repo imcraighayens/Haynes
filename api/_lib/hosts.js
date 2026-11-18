@@ -12,12 +12,14 @@
 export const STAFF_HOSTS = [
   'quik1ledger.com',
   'www.quik1ledger.com',
-  'ecoloans-six.vercel.app'
+  'ecoloans-six.vercel.app',
+  'ledger.ecoloan.co.za'
 ];
 
 export const BORROWER_HOSTS = [
   'quik1.app',
-  'www.quik1.app'
+  'www.quik1.app',
+  'quik1.ecoloan.co.za'
 ];
 
 export const OPEN_HOSTS = [

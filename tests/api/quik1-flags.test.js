@@ -107,7 +107,14 @@ describe('quik1 auth config gates', { concurrency: false }, () => {
       'prefix-ecoloans-six.vercel.app',
       'ecoloans-six-preview.vercel.app',
       'quik1.app.evil.example',
-      'notquik1.app'
+      'notquik1.app',
+      'ecoloans.co.za',
+      'ledger.ecoloans.co.za',
+      'quik1.ecoloans.co.za',
+      'evil-ledger.ecoloan.co.za',
+      'ledger.ecoloan.co.za.evil.com',
+      'evil-quik1.ecoloan.co.za',
+      'quik1.ecoloan.co.za.evil.com'
     ];
     for (const host of near) {
       assert.equal(isProductionDeployment(req(host)), false, host);
@@ -165,7 +172,7 @@ describe('quik1 auth config gates', { concurrency: false }, () => {
     process.env.QUIK1_SESSION_SECRET = SECRET;
     const short = 'a'.repeat(63);
     const nonHex = 'g'.repeat(64);
-    const hosts = ['quik1.app', 'www.quik1.app', 'quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app'];
+    const hosts = ['quik1.app', 'www.quik1.app', 'quik1.ecoloan.co.za', 'quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app', 'ledger.ecoloan.co.za'];
     for (const host of hosts) {
       process.env.QUIK1_ID_KEY = short;
       process.env.QUIK1_ID_HMAC_KEY = HMAC_KEY;

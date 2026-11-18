@@ -19,6 +19,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -51,6 +55,10 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         },
         {
           "type": "host",
@@ -89,6 +97,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -240,6 +252,50 @@
       "permanent": false
     },
     {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied",
+      "permanent": false
+    },
+    {
       "source": "/ledger",
       "has": [
         {
@@ -267,6 +323,17 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/ledger",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         }
       ],
       "destination": "/ledger/",
@@ -333,6 +400,17 @@
         {
           "type": "host",
           "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.ecoloan.co.za"
         }
       ],
       "destination": "/quik1/",
@@ -401,6 +479,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -432,6 +514,10 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         },
         {
           "type": "host",
@@ -469,6 +555,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -500,6 +590,10 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         },
         {
           "type": "host",
@@ -537,6 +631,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -568,6 +666,10 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         },
         {
           "type": "host",
@@ -605,6 +707,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -636,6 +742,10 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        },
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         },
         {
           "type": "host",
@@ -673,6 +783,10 @@
         },
         {
           "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        },
+        {
+          "type": "host",
           "value": "localhost"
         },
         {
@@ -871,6 +985,66 @@
       "destination": "/api/denied"
     },
     {
+      "source": "/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/app",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
+      "source": "/api/quik1/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/api/denied"
+    },
+    {
       "source": "/",
       "has": [
         {
@@ -886,6 +1060,16 @@
         {
           "type": "host",
           "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.ecoloan.co.za"
         }
       ],
       "destination": "/quik1/index.html"
@@ -916,6 +1100,16 @@
         {
           "type": "host",
           "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/ledger/index.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
         }
       ],
       "destination": "/ledger/index.html"
@@ -997,6 +1191,16 @@
       "destination": "/quik1/manifest.webmanifest"
     },
     {
+      "source": "/manifest.webmanifest",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.ecoloan.co.za"
+        }
+      ],
+      "destination": "/quik1/manifest.webmanifest"
+    },
+    {
       "source": "/sw.js",
       "has": [
         {
@@ -1012,6 +1216,16 @@
         {
           "type": "host",
           "value": "www.quik1.app"
+        }
+      ],
+      "destination": "/quik1/sw.js"
+    },
+    {
+      "source": "/sw.js",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1.ecoloan.co.za"
         }
       ],
       "destination": "/quik1/sw.js"

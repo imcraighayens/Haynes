@@ -97,6 +97,62 @@ test('near-miss hosts are not on the allow-list', () => {
   assert.equal(apiRole('quik1.app', ''), 'borrower');
 });
 
+test('ledger.ecoloan.co.za serves Ledger and quik1.ecoloan.co.za serves Quik1', () => {
+  const staff = 'ledger.ecoloan.co.za';
+  const borrower = 'quik1.ecoloan.co.za';
+  assert.equal(STAFF_HOSTS.includes(staff), true);
+  assert.equal(BORROWER_HOSTS.includes(staff), false);
+  assert.equal(apiRole(staff, ''), 'staff');
+  assert.equal(apiRole('', staff), 'staff');
+  assert.equal(apiSideAllowed(apiRole(staff, ''), 'ledger'), true);
+  assert.equal(BORROWER_HOSTS.includes(borrower), true);
+  assert.equal(STAFF_HOSTS.includes(borrower), false);
+  assert.equal(apiRole(borrower, ''), 'borrower');
+  assert.equal(apiRole('', borrower), 'borrower');
+  assert.equal(apiSideAllowed(apiRole(borrower, ''), 'quik1'), true);
+  assert.equal(apiRole(staff, borrower), 'conflict');
+  assert.equal(apiSideAllowed('staff', 'quik1'), false);
+  assert.equal(apiSideAllowed('borrower', 'ledger'), false);
+
+  const staffRoot = vercel.rewrites.find(r => r.source === '/' && r.destination === '/ledger/index.html' && hostValues(r, 'has').includes(staff));
+  assert.ok(staffRoot, 'staff host rewrites / to Ledger');
+  const borrowerRoot = vercel.rewrites.find(r => r.source === '/' && r.destination === '/quik1/index.html' && hostValues(r, 'has').includes(borrower));
+  assert.ok(borrowerRoot, 'borrower host rewrites / to Quik1');
+  for (const source of ['/quik1', '/quik1/', '/quik1/:path*', '/app']) {
+    const onStaff = vercel.redirects.find(r => r.source === source && r.destination === '/api/denied' && hostValues(r, 'has').includes(staff));
+    assert.ok(onStaff, source);
+    assert.equal(onStaff.permanent, false, source);
+    assert.equal(vercel.redirects.some(r => r.source === source && r.destination === '/api/denied' && hostValues(r, 'has').includes(borrower)), false, source);
+  }
+  for (const source of STAFF_PAGES) {
+    const deny = vercel.redirects.find(r => r.source === source && r.destination === '/api/denied' && r.missing);
+    assert.ok(deny, source);
+    assert.equal(deny.permanent, false, source);
+    assert.equal(hostValues(deny, 'missing').includes(staff), true, source);
+    assert.equal(hostValues(deny, 'missing').includes(borrower), false, source);
+  }
+
+  const unlisted = [
+    'ecoloans.co.za',
+    'www.ecoloans.co.za',
+    'ledger.ecoloans.co.za',
+    'quik1.ecoloans.co.za',
+    'ecoloan.co.za',
+    'www.ledger.ecoloan.co.za',
+    'www.quik1.ecoloan.co.za',
+    'evil-ledger.ecoloan.co.za',
+    'ledger.ecoloan.co.za.evil.com',
+    'evil-quik1.ecoloan.co.za',
+    'quik1.ecoloan.co.za.evil.com'
+  ];
+  const allowed = new Set([...STAFF_HOSTS, ...BORROWER_HOSTS, ...OPEN_HOSTS]);
+  for (const host of unlisted) {
+    assert.equal(allowed.has(host), false, host);
+    assert.equal(apiRole(host, ''), 'other', host);
+    assert.equal(apiRole('', host), 'other', host);
+  }
+});
+
 test('api role refuses a borrower host on staff routes and a staff host on borrower routes', () => {
   assert.equal(apiRole('', ''), 'open');
   assert.equal(apiRole('', 'localhost:3000'), 'open');
@@ -141,6 +197,8 @@ test('handlers honour the host guard', async () => {
   assert.equal(await hit(quik1, 'quik1ledger.com', '/api/quik1/signups'), 404);
   assert.equal(await hit(quik1, 'www.quik1ledger.com', '/api/quik1/applications'), 404);
   assert.equal(await hit(quik1, 'ecoloans-six.vercel.app', '/api/quik1/signups'), 404);
+  assert.equal(await hit(ledger, 'quik1.ecoloan.co.za', '/api/ledger/state'), 404);
+  assert.equal(await hit(quik1, 'ledger.ecoloan.co.za', '/api/quik1/signups'), 404);
   const marketing = await hit(ecoloans, 'quik1ledger.com', '/api/ecoloans/applications');
   assert.notEqual(marketing, 404);
 });

@@ -3137,7 +3137,7 @@ class Component extends DCLogic {
   demoResetAllowed(){
     let host='';
     try{ host=String(location.hostname||'').toLowerCase(); }catch(e){}
-    if(host==='quik1ledger.com'||host==='www.quik1ledger.com'||host==='ecoloans-six.vercel.app') return false;
+    if(host==='quik1ledger.com'||host==='www.quik1ledger.com'||host==='ecoloans-six.vercel.app'||host==='ledger.ecoloan.co.za') return false;
     return this._demoResetAllowed===true;
   }
   resetDemo(){ if(!this.demoResetAllowed()) return; try{ localStorage.setItem('evoltConsoleV4','null'); }catch(e){} location.reload(); }
