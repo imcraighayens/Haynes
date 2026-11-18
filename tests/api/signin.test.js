@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
-import { idHmac, phoneHmac, luhnOk, stampClientIdentity } from '../../api/_lib/sa-id.js';
+import { idHmac, phoneHmac, luhnOk, normaliseSaId, stampClientIdentity } from '../../api/_lib/sa-id.js';
+import { authIpHash } from '../../api/_lib/borrower.js';
 import { resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
 import { SIGNIN_PAD_MS } from '../../api/_lib/signin.js';
 
@@ -510,17 +511,25 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('each ID has its own 15-minute attempt budget', async () => {
     await pinAccount();
-    const unknownId = '0000000000000';
+    const unknownId = '8001015000086';
+    assert.equal(normaliseSaId(unknownId), unknownId);
+    assert.notEqual(unknownId, SA_ID);
     const pin = '13579';
+    const ip = '198.51.100.77';
     for (let i = 0; i < 5; i++) {
       const miss = await call(quik1, {
         method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': '198.51.100.77' },
+        headers: { 'x-forwarded-for': ip },
         body: { idNumber: unknownId, pin }
       });
       assert.equal(miss.statusCode, 401, miss.body);
       assert.equal(miss.body.includes(unknownId), false);
     }
+    const budgetRows = fake.db.q1_auth_attempts.filter(row => row.subject_hash === idHmac(unknownId));
+    assert.equal(budgetRows.length, 5);
+    assert.equal(budgetRows.every(row => row.kind === 'id_phone'), true);
+    assert.equal(budgetRows.every(row => row.ip_hash !== authIpHash(ip)), true);
+    assert.equal(JSON.stringify(budgetRows).includes(unknownId), false);
     resetVerifyCalls();
     const blocked = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
@@ -538,6 +547,50 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(other.statusCode, 401, other.body);
     assert.equal(other.json().error, 'PIN not accepted');
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 1);
+  });
+
+  test('ID PIN rows use id_phone and do not change the ID-and-phone limits', async () => {
+    await pinAccount();
+    const sql = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../supabase/migrations/20261110143000_quik1_signin.sql'), 'utf8');
+    const allowed = [...sql.matchAll(/check \(kind in \(([^)]+)\)\)/g)].map(hit => hit[1].split(',').map(part => part.trim().replace(/'/g, '')));
+    const kinds = allowed.find(list => list.includes('id_phone'));
+    assert.ok(kinds);
+    assert.equal(kinds.includes('id_pin'), false);
+    const ip = '198.51.100.60';
+    process.env.QUIK1_ID_PHONE_HOURLY_CAP = '1';
+    try {
+      const pinTry = await call(quik1, {
+        method: 'POST', path: ['signin', 'id'],
+        headers: { 'x-forwarded-for': ip },
+        body: { idNumber: SA_ID, pin: '13579' }
+      });
+      assert.equal(pinTry.statusCode, 401, pinTry.body);
+      const budget = fake.db.q1_auth_attempts.filter(row => row.subject_hash === idHmac(SA_ID));
+      assert.equal(budget.length, 1);
+      assert.equal(budget[0].kind, 'id_phone');
+      assert.ok(kinds.includes(budget[0].kind));
+      const emailSubject = createHash('sha256').update(`q1-id_phone|${SECRET}|${SA_ID}|27825550199`).digest('hex');
+      assert.notEqual(emailSubject, idHmac(SA_ID));
+      const link = await call(quik1, {
+        method: 'POST', path: ['signin', 'id'],
+        headers: { 'x-forwarded-for': ip },
+        body: { idNumber: SA_ID, phone: PHONE }
+      });
+      assert.equal(link.statusCode, 200, link.body);
+      const emailRow = fake.db.q1_auth_attempts.find(row => row.subject_hash === emailSubject);
+      assert.ok(emailRow);
+      assert.equal(emailRow.kind, 'id_phone');
+      assert.notEqual(emailRow.subject_hash, budget[0].subject_hash);
+      const again = await call(quik1, {
+        method: 'POST', path: ['signin', 'id'],
+        headers: { 'x-forwarded-for': ip },
+        body: { idNumber: SA_ID, phone: PHONE }
+      });
+      assert.equal(again.statusCode, 429, again.body);
+      assert.equal(again.headers['retry-after'], '3600');
+    } finally {
+      delete process.env.QUIK1_ID_PHONE_HOURLY_CAP;
+    }
   });
 
   test('the clients HMAC migration owns both columns and can be re-run', () => {

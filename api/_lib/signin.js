@@ -323,13 +323,27 @@ async function borrowerForId(idMac) {
 const ID_PIN_BUDGET = 5;
 const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
 
+// q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
+// The per-ID rows use id_phone so that insert succeeds. Their subject is the
+// id_hmac, not the email-link subject (that one hashes the ID and the phone).
+function idPinSubject(mac) {
+  return mac || subjectHash('id_phone', 'none');
+}
+
+// Same address as the other attempt rows, under a prefix the ID-and-phone
+// counters do not query. Those counters keep counting only their own rows.
+function budgetIpHash(req) {
+  const ip = clientIp(req) || 'unknown';
+  return createHash('sha256').update(`q1-id-pin-budget|${sessionSecret() || 'unset'}|${ip}`).digest('hex');
+}
+
 async function assertIdPinBudget(subject, res) {
   const since = new Date(Date.now() - ID_PIN_WINDOW_MS).toISOString();
   let n = 0;
   try {
     n = await count('q1_auth_attempts', {
       subject_hash: eq(subject),
-      kind: eq('id_pin'),
+      kind: eq('id_phone'),
       created_at: 'gte.' + since
     });
   } catch {
@@ -352,17 +366,18 @@ async function signInByIdPin(req, body, res) {
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const digits = normaliseSaId(rawId);
   const mac = digits ? idHmac(digits) : null;
-  const subject = subjectHash('id_pin', mac || 'none');
+  const subject = idPinSubject(mac);
   const borrower = mac ? await borrowerForId(mac) : null;
   const alreadyLocked = isLocked(borrower);
   if (!alreadyLocked) await assertIdPinBudget(subject, res);
+  const ipHash = budgetIpHash(req);
   try {
     const out = await signInWithPin(req, borrower, pin);
-    await logAuthAttempt(borrower && borrower.id, 'id_pin', req, subject);
+    await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
     return out;
   } catch (err) {
     if (!alreadyLocked && (!(err instanceof HttpError) || err.status !== 400)) {
-      await logAuthAttempt(borrower && borrower.id, 'id_pin', req, subject);
+      await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
     }
     throw err;
   }
