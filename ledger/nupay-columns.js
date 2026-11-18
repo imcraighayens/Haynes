@@ -12,8 +12,9 @@
 //   - Rejected inserts "Rejected Reason" and "Rejected Reason Description"
 //     immediately before "Migrated".
 //
-// Transaction-report headers are still unconfirmed. Those aliases live below
-// the mandate names. PIF rate and the flat floor are the numbers NuPay can change.
+// Transaction-report headers. Action Date is the instalment date. Debit Value
+// is the numeric amount; the words Usage, Fixed, and Variable are labels, not
+// amounts. PIF rate and the flat floor are the numbers NuPay can change.
 
 export const PIF = {
   rate: 0.02234,
@@ -102,9 +103,9 @@ export const FIELD_ALIASES = {
   branchNumber: ['branch number', 'branch code', 'debtor branch number'],
   phone: ['phone number', 'phone', 'cell', 'cellphone', 'mobile', 'mobile number', 'debtor telephone number'],
   email: ['email', 'email address', 'debtor email', 'debtor email address'],
-  actionDate: ['action date', 'transaction date', 'cycle date', 'collection date', 'debit date', 'presentment date'],
+  actionDate: ['action date', 'actiondate', 'transaction date', 'cycle date', 'collection date', 'debit date', 'presentment date'],
   firstInstalmentDate: ['date of first instalment', 'date of first installment', 'first collection date', 'first instalment date'],
-  debitAmount: ['debit amount', 'transaction amount', 'collected amount', 'amount'],
+  debitAmount: ['debit amount', 'debit value', 'transaction amount', 'collected amount', 'amount'],
   originalAmount: ['original amount'],
   pifValue: ['pif value', 'pif'],
   adjAmount: ['adj amount', 'adjustment amount'],
@@ -133,6 +134,8 @@ export function normHeader(value) {
   return String(value == null ? '' : value)
     .replace(/^\uFEFF/, '')
     .trim()
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
     .toLowerCase()
     .replace(/[_./]+/g, ' ')
     .replace(/[^a-z0-9 ]+/g, ' ')
