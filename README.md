@@ -209,15 +209,16 @@ copy is the source of truth and wins on the next load.
   the Vercel env var and pasting the new value in Settings.
 * **Quik1 borrowers sign in with a PIN they choose.** Staff create a single-use invite
   from a client row (`POST /api/ledger/quik1-invites`). The client opens the link, enters a
-  6-digit PIN twice, and the server stores only a salted scrypt hash. Weak patterns
-  (one repeated digit, or a straight run such as 123456) are refused. Returning visits
+  5-digit PIN twice, and the server stores only a salted scrypt hash. Weak patterns
+  (one repeated digit, or a straight run such as 12345) are refused. A 4- or 6-digit
+  PIN does not sign in; staff set a new 5-digit PIN. Returning visits
   on a recognised device send the account reference plus that PIN. A new device needs
   a single-use email link when `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, and
   `QUIK1_EMAIL_API_KEY` are set, and never on a production host. Leave them unset:
   no link is issued, and the phone says "This phone isn't linked yet. Please contact
   EcoLoans and we'll reset your access." Five failed PIN attempts lock
   the account for 15 minutes (`QUIK1_LOCKOUT_MINUTES`); a new staff invite clears the
-  lock immediately. A 4-digit PIN already on file still signs in until the next invite.
+  lock immediately. An older 4- or 6-digit PIN does not sign in.
   Borrower book routes, including `GET /api/quik1/me` and available credit, answer 401
   with no session. A signed-in borrower can submit an SA ID (`POST /api/quik1/identity`).
   It is stored as AES-256-GCM ciphertext under `QUIK1_ID_KEY` and the client receives

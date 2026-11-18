@@ -11,7 +11,7 @@ const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
 const CLIENT_A = 'c_bio_a';
-const PIN_OK = '246810';
+const PIN_OK = '24681';
 
 process.env.SUPABASE_URL = URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
@@ -414,7 +414,7 @@ describe('borrower webauthn', { concurrency: false }, () => {
     const again = await call(quik1, {
       method: 'POST', path: ['pin'],
       headers: { cookie: 'q1_pin_change=' + token },
-      body: { pin: '802468', pinConfirm: '802468' }
+      body: { pin: '80246', pinConfirm: '80246' }
     });
     assert.equal(again.statusCode, 401, again.body);
     assert.equal(again.json().accountRef, undefined);
@@ -429,7 +429,7 @@ describe('borrower webauthn', { concurrency: false }, () => {
     assert.equal(fake.db.q1_webauthn_credentials[0].revoked_at == null, true);
     const set = await call(ledger, {
       method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
-      body: { clientId: CLIENT_A, pin: '864209', pinConfirm: '864209' }
+      body: { clientId: CLIENT_A, pin: '86420', pinConfirm: '86420' }
     });
     assert.equal(set.statusCode, 200, set.body);
     assert.ok(fake.db.q1_webauthn_credentials[0].revoked_at);

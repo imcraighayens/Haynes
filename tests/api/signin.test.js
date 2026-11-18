@@ -15,7 +15,7 @@ const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
 const CLIENT_A = 'c_sign_a';
-const PIN_OK = '246810';
+const PIN_OK = '24681';
 const HMAC_KEY = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
 const EMAIL = 'ada@example.com';
 const PHONE = '825550199';
@@ -419,6 +419,46 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     } finally {
       globalThis.fetch = installed;
     }
+  });
+
+  test('SA ID and PIN sign in against the stored client HMAC and stay generic', async () => {
+    await pinAccount();
+    const wrongPin = '13579';
+    const unknownId = '0000000000000';
+    assert.equal(luhnOk(unknownId), true);
+    assert.notEqual(unknownId, SA_ID);
+    const wrong = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
+    const unknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: unknownId, pin: PIN_OK } });
+    assert.equal(wrong.statusCode, 401, wrong.body);
+    assert.equal(unknown.statusCode, 401, unknown.body);
+    assert.equal(wrong.json().error, unknown.json().error);
+    assert.equal(wrong.json().error, 'PIN not accepted');
+    assert.equal(wrong.body.includes(SA_ID), false);
+    assert.equal(unknown.body.includes(unknownId), false);
+    assert.equal(wrong.body.includes(wrongPin), false);
+    assert.equal(unknown.body.includes(PIN_OK), false);
+    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
+    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(unknownId), false);
+    const legacy = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '135790' } });
+    assert.equal(legacy.statusCode, 401, legacy.body);
+    assert.equal(legacy.json().error, 'PIN not accepted');
+    const matched = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
+    assert.notEqual(matched.statusCode, 401, matched.body);
+    assert.equal(matched.body.includes(SA_ID), false);
+    assert.equal(matched.body.includes(PIN_OK), false);
+    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 60 * 1000).toISOString(); });
+    fake.db.q1_borrowers[0].failed_attempts = 0;
+    fake.db.q1_borrowers[0].locked_at = null;
+    for (let i = 0; i < 4; i++) {
+      const miss = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
+      assert.equal(miss.statusCode, 401, miss.body);
+    }
+    const locked = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
+    assert.equal(locked.statusCode, 423, locked.body);
+    assert.equal(locked.body.includes(SA_ID), false);
+    const still = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
+    assert.equal(still.statusCode, 423, still.body);
+    assert.equal(still.json().error, locked.json().error);
   });
 
   test('the clients HMAC migration owns both columns and can be re-run', () => {

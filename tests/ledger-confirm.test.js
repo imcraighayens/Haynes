@@ -330,21 +330,21 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
       });
     });
     const fields = () => page.evaluate(() => {
-      const pin = document.querySelector('input[placeholder="6 digits"]');
+      const pin = document.querySelector('input[placeholder="5 digits"]');
       const confirm = document.querySelector('input[placeholder="Confirm"]');
       return { pin: pin ? pin.value : null, confirm: confirm ? confirm.value : null };
     });
     const openDialog = async () => {
       await page.getByRole('button', { name: 'Set temporary PIN', exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => !!document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => !!document.querySelector('input[placeholder="5 digits"]'), null, { timeoutMs: 8000 });
     };
     const typePins = async () => {
-      await page.locator('input[placeholder="6 digits"]').fill('246810');
-      await page.locator('input[placeholder="Confirm"]').fill('246810');
+      await page.locator('input[placeholder="5 digits"]').fill('24681');
+      await page.locator('input[placeholder="Confirm"]').fill('24681');
       await pageWaitFor(page, () => {
-        const pin = document.querySelector('input[placeholder="6 digits"]');
+        const pin = document.querySelector('input[placeholder="5 digits"]');
         const confirm = document.querySelector('input[placeholder="Confirm"]');
-        return pin && pin.value === '246810' && confirm && confirm.value === '246810';
+        return pin && pin.value === '24681' && confirm && confirm.value === '24681';
       }, null, { timeoutMs: 8000 });
     };
     try {
@@ -353,7 +353,7 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
       await openDialog();
       await typePins();
       await page.keyboard.press('Escape');
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="5 digits"]'), null, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
 
@@ -363,19 +363,19 @@ test('a temporary PIN left in the dialog is gone after close, Esc, and a success
         const close = title && title.parentElement && [...title.parentElement.children].find(el => el.textContent.trim() === '✕');
         if (close) close.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="5 digits"]'), null, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
 
       await typePins();
       await page.locator('[data-temp-pin-submit]').dispatchEvent('click');
       await pageWaitFor(page, () => {
-        const pin = document.querySelector('input[placeholder="6 digits"]');
+        const pin = document.querySelector('input[placeholder="5 digits"]');
         const confirm = document.querySelector('input[placeholder="Confirm"]');
         return pin && pin.value === '' && confirm && confirm.value === '' && /Temporary PIN set/.test(document.body.innerText);
       }, null, { timeoutMs: 8000 });
       await page.keyboard.press('Escape');
-      await pageWaitFor(page, () => !document.querySelector('input[placeholder="6 digits"]'), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => !document.querySelector('input[placeholder="5 digits"]'), null, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
     } finally {

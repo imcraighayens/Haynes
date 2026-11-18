@@ -1,13 +1,13 @@
 // Staff invites and borrower PIN sign-in.
 // A new device is confirmed by an email link when borrower email is live.
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
-// An ID number is never used to look anyone up. ID and cellphone
-// sign-in, when used, matches a keyed HMAC on the client row.
+// ID sign-in matches a keyed HMAC already stored on the Ledger client row.
+// The raw ID number is not logged, stored again, or returned.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isPin, isLegacyPin, isChosenPin } from './pin.js';
+import { hashPin, verifyPin, isPin, isVerifiablePin, isChosenPin, chosenPinMessage, QUIK1_PIN_LENGTH } from './pin.js';
 import { borrowerBook } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
@@ -452,11 +452,11 @@ export async function revokeAccess(clientId) {
 
 let dummyHash = '';
 async function dummyPinHash() {
-  if (!dummyHash) dummyHash = await hashPin('000000');
+  if (!dummyHash) dummyHash = await hashPin('0'.repeat(QUIK1_PIN_LENGTH));
   return dummyHash;
 }
 async function burnPinTime(pin) {
-  await verifyPin(isPin(pin) ? pin : '000000', await dummyPinHash());
+  await verifyPin(isVerifiablePin(pin) ? pin : '0'.repeat(QUIK1_PIN_LENGTH), await dummyPinHash());
 }
 
 function rejectPin() {
@@ -642,7 +642,7 @@ export async function redeemInvite(req, body, res) {
   const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
   const pin = typeof body.pin === 'string' ? body.pin : '';
   const pinConfirm = typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
-  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, 'Choose a 6-digit PIN that is not a run or all one digit');
+  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, chosenPinMessage());
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
 
@@ -918,15 +918,15 @@ async function comparePins(pin, realHash, tempHash) {
   const realStored = typeof realHash === 'string' && realHash.startsWith('scrypt$') ? realHash : null;
   const tempStored = typeof tempHash === 'string' && tempHash.startsWith('scrypt$') ? tempHash : null;
   const dummy = await dummyPinHash();
-  const realProbe = isPin(pin) || isLegacyPin(pin) ? pin : '000000';
-  const tempProbe = isPin(pin) ? pin : '000000';
+  const probe = isVerifiablePin(pin) ? pin : '0'.repeat(QUIK1_PIN_LENGTH);
   const [realHit, tempHit] = await Promise.all([
-    verifyPin(realProbe, realStored || dummy),
-    verifyPin(tempProbe, tempStored || dummy)
+    verifyPin(probe, realStored || dummy),
+    verifyPin(probe, tempStored || dummy)
   ]);
+  // A 4- or 6-digit secret can still be compared, but it never signs anyone in.
   return {
-    realOk: !!(realStored && realHit),
-    tempOk: !!(tempStored && tempHit)
+    realOk: !!(isPin(pin) && realStored && realHit),
+    tempOk: !!(isPin(pin) && tempStored && tempHit)
   };
 }
 
@@ -1000,7 +1000,7 @@ function chosenPair(body) {
   const pin = body && typeof body.pin === 'string' ? body.pin : '';
   const pinConfirm = body && typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
   if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) {
-    throw new HttpError(400, 'Choose a 6-digit PIN that is not a run or all one digit');
+    throw new HttpError(400, chosenPinMessage());
   }
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   return pin;
@@ -1283,7 +1283,7 @@ export async function loginBorrower(req, body, res) {
   }
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
-  if (!(isPin(pin) || isLegacyPin(pin)) || !ACCOUNT_REF.test(accountRef)) {
+  if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
     rejectPin();

@@ -91,6 +91,10 @@ function startRootHost() {
       res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, name)).pipe(res);
     }
+    if (urlPath === '/shared/pin-length.js') {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+      return fs.createReadStream(path.resolve(dir, '../shared/pin-length.js')).pipe(res);
+    }
     if (urlPath === '/' || urlPath === '/index.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, 'index.html')).pipe(res);
@@ -126,7 +130,7 @@ test('a new device with email off renders the unlinked copy', { skip: pw ? false
       }));
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
       await pageWaitFor(page, () => /Your PIN\. Not an ID number/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
-      for (const digit of '246810') {
+      for (const digit of '24681') {
         await page.evaluate(label => {
           const button = [...document.querySelectorAll('button')].find(el => (el.textContent || '').trim() === label);
           if (!button) throw new Error('missing key ' + label);
@@ -159,7 +163,7 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
     assert.equal(pageErrors.filter(e => !isKnownPageError(e)).length, 0);
     const assets = requested.filter(u => /\.(js|png|woff2|webp|mp4)(\?|$)/.test(u));
     assert.ok(assets.length > 0, 'the page requested scripts and images');
-    const rootShell = new Set(['/sw.js']);
+    const rootShell = new Set(['/sw.js', '/shared/pin-length.js']);
     assert.ok(assets.every(u => {
       const p = new URL(u).pathname;
       return p.startsWith('/quik1/') || rootShell.has(p);

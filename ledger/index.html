@@ -5,6 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledger</title>
+<script type="module" src="/shared/pin-length.js"></script>
 <script>
 /* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
    "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
@@ -2476,7 +2477,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                   <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}">
                   <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys. The PIN works once and expires after 72 hours.</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="6 digits" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
+                    <input type="password" inputmode="numeric" maxlength="{{ q1PinMax }}" autocomplete="off" spellcheck="false" placeholder="{{ q1PinHint }}" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
                     <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" spellcheck="false" placeholder="Confirm" value="{{ q1TempPin2 }}" sc-camel-on-change="{{ q1TempPin2Change }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
                   </div>
                   <button type="button" data-temp-pin-submit disabled="{{ q1PinHold }}" aria-disabled="{{ q1PinAria }}" aria-busy="{{ q1PinAria }}" sc-camel-on-click="{{ q1SetTempPin }}" style="margin-top:10px;width:100%;padding:10px 14px;border-radius:10px;border:0;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">Set temporary PIN</button>
@@ -3175,7 +3176,7 @@ class Component extends DCLogic {
     });
   }
   q1Digits(e){
-    return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0,6);
+    return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0, globalThis.QUIK1_PIN_LENGTH||5);
   }
   openQuik1Invite(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
@@ -6757,6 +6758,8 @@ class Component extends DCLogic {
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
         q1PinStatus: q.pinStatus||'None',
+        q1PinMax:String(globalThis.QUIK1_PIN_LENGTH||5),
+        q1PinHint:(globalThis.QUIK1_PIN_LENGTH||5)+' digits',
         q1TempPin: q.tempPin||'', q1TempPin2: q.tempPin2||'',
         q1PinMsg: q.pinMsg||'', q1PinMsgOn: !!(q.pinMsg&&!q.busy),
         q1TempPinChange:(e)=>this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite, {tempPin:this.q1Digits(e), pinMsg:''})})),

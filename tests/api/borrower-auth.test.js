@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
-import { hashPin, verifyPin, resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
+import { hashPin, hashPinForVerify, verifyPin, resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken, deviceCookie, DEVICE_MAX_AGE } from '../../api/_lib/quik1-session.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
@@ -26,9 +26,9 @@ const CLIENT_A = 'c_book_a';
 const CLIENT_B = 'c_book_b';
 const NAME_A = 'Book Client A';
 const NAME_B = 'Book Client B';
-const PIN_OK = '246810';
-const PIN_BAD = '135791';
-const PIN_NEXT = '802468';
+const PIN_OK = '24681';
+const PIN_BAD = '13579';
+const PIN_NEXT = '80246';
 const SA_ID = '9912314800084';
 const ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const HMAC_KEY = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
@@ -783,12 +783,12 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(persisted.body.includes(PIN_BAD), false);
   });
 
-  test('weak PINs are refused and a legacy 4-digit hash still signs in until the next invite', async () => {
+  test('weak PINs are refused and a 4-digit or 6-digit PIN does not sign in', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     const weak = await call(quik1, {
-      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: '123456', pinConfirm: '123456' }
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: '12345', pinConfirm: '12345' }
     });
     assert.equal(weak.statusCode, 400);
     assert.equal(fake.db.q1_borrowers.length, 0);
@@ -798,13 +798,18 @@ describe('borrower auth', { concurrency: false }, () => {
     const redeemed = await call(quik1, {
       method: 'POST', path: ['invites', 'redeem'], body: { code: again.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
     });
-    const legacy = '1357';
-    fake.db.q1_borrowers[0].pin_hash = await hashPin(legacy);
+    const legacy = '135790';
+    fake.db.q1_borrowers[0].pin_hash = await hashPinForVerify(legacy);
     const accountRef = redeemed.json().accountRef;
     const old = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
     });
-    assert.equal(old.statusCode, 200, old.body);
+    assert.equal(old.statusCode, 401, old.body);
+    assert.equal(old.body.includes(legacy), false);
+    const four = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: '1357' }
+    });
+    assert.equal(four.statusCode, 401, four.body);
     const reset = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
@@ -1250,7 +1255,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(DEVICE_MAX_AGE, 90 * 24 * 3600);
     assert.equal(baked.includes('Max-Age=34560000'), false);
   });
-  const TEMP_PIN = '864209';
+  const TEMP_PIN = '86420';
 
   function pinChangeCookie(res) {
     const raw = res.headers['set-cookie'];
@@ -1496,7 +1501,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assertNoPin(listed.body, PIN_NEXT);
     assert.equal(listed.body.includes('scrypt$'), false);
     const reusedToken = await call(quik1, {
-      method: 'POST', path: ['pin'], headers: { cookie }, body: { pin: '908172', pinConfirm: '908172' }
+      method: 'POST', path: ['pin'], headers: { cookie }, body: { pin: '90817', pinConfirm: '90817' }
     });
     assert.equal(reusedToken.statusCode, 401);
     assert.equal(fake.db.q1_sessions.filter(s => !s.revoked_at).length, 1);
