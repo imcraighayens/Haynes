@@ -249,14 +249,16 @@ test('Ask Q1 and the chat sheet are wired to the visual viewport', () => {
   assert.match(quik, /interactive-widget=resizes-visual/);
   assert.match(keyboard, /shouldStickChat/);
   assert.match(keyboard, /scrollChatLog/);
-  assert.match(quik, /html\.q-kb \.q-ask \{[^}]*bottom: var\(--q-kb, 0px\) !important/);
-  assert.match(quik, /html\.q-kb \.q-ask \{[^}]*padding-bottom: 0 !important/);
-  assert.match(quik, /html\.q-kb \.q-ask \{[^}]*animation: none !important/);
-  assert.match(quik, /html\.q-kb \.q-chat \{[^}]*bottom: var\(--q-kb, 0px\) !important/);
-  assert.match(quik, /html\.q-kb \.q-chat-bar \{[^}]*padding-bottom: 0 !important/);
+  assert.match(quik, /\.q-chat,\s*\.q-dock \{\s*bottom: calc\(var\(--q-kb, 0px\) \+ var\(--q-gap, 0px\)\);/);
+  assert.match(quik, /html\.q-kb \.q-chat,\s*html\.q-kb \.q-dock \{\s*--q-gap: 0px;/);
+  assert.match(quik, /html\.q-kb \{\s*--q-pad: 0px;\s*--q-ask-anim: none;\s*--q-chat-pad: 0px;/);
+  assert.doesNotMatch(quik, /html\.q-kb[^{]*\{[^}]*!important/);
+  assert.doesNotMatch(quik, /--q-keyboard/);
+  assert.doesNotMatch(quik, /_onKb/);
+  assert.match(quik, /top:calc\(108px \+ var\(--q-safe-top\)\)/);
   // Closed keyboard still uses the physical bottom and the home-indicator inset.
-  assert.match(quik, /class="q-dock q-ask" style="position:absolute;right:18px;bottom:0;z-index:44;[^"]*padding-bottom:env\(safe-area-inset-bottom\);animation:q-float/);
-  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /class="q-dock q-ask" style="position:absolute;right:18px;z-index:44;[^"]*padding-bottom:var\(--q-pad, env\(safe-area-inset-bottom\)\);animation:var\(--q-ask-anim, q-float/);
+  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;z-index:45;padding-bottom:var\(--q-pad, env\(safe-area-inset-bottom\)\)/);
   assert.match(quik, /height:\s*100lvh\s*!important/);
   assert.doesNotMatch(quik, /height:\s*100dvh\s*!important/);
   assert.match(quik, /user-scalable=no/);
