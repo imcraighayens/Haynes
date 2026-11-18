@@ -1451,6 +1451,8 @@ describe('borrower auth', { concurrency: false }, () => {
     fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
     const locked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: LOGIN_PIN } });
     assert.equal(locked.statusCode, 423);
+    assert.equal(locked.json().error, 'Quik1 is locked. Ask your loan officer to set a new PIN.');
+    assert.equal(/invite/i.test(locked.json().error), false);
     assert.equal(locked.headers['set-cookie'], undefined);
     fake.db.q1_borrowers[0].failed_attempts = 0;
     fake.db.q1_borrowers[0].locked_at = null;
@@ -1579,6 +1581,8 @@ describe('borrower auth', { concurrency: false }, () => {
       body: { currentPin: PIN_BAD, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
     });
     assert.equal(locked.statusCode, 423, locked.body);
+    assert.equal(locked.json().error, 'Quik1 is locked. Ask your loan officer to set a new PIN.');
+    assert.equal(/invite/i.test(locked.json().error), false);
     assert.equal(fake.db.q1_borrowers[0].failed_attempts, 5);
     assert.equal(fake.db.q1_borrowers[0].locked_at != null, true);
     const still = await call(quik1, {
