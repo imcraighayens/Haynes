@@ -147,6 +147,14 @@ export function demoResetAllowed(req) {
   return true;
 }
 
+// Full loan-book replace is a bulk reload. It stays available off production.
+// NODE_ENV=production or a production host refuses it, whatever the manager PIN.
+export function bookReloadAllowed(req) {
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') return false;
+  if (PRODUCTION_HOSTS.has(requestHostname(req))) return false;
+  return true;
+}
+
 // LEDGER_MANAGER_PIN is a server env secret. Prefix sha256: stores only the hex digest.
 // The submitted value is never echoed and is never compared in the browser.
 export function verifyManagerPin(pin) {
