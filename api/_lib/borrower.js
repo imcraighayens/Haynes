@@ -92,12 +92,12 @@ export async function guardAuth(req, res) {
 
 const ATTEMPT_KEEP_MS = 90 * 24 * 3600 * 1000;
 
-async function noteAttempt(borrowerId, kind, req, subjectHash) {
+async function noteAttempt(borrowerId, kind, req, subjectHash, ipHash) {
   const row = {
     id: 'qa_' + randomBytes(8).toString('hex'),
     borrower_id: borrowerId || null,
     kind,
-    ip_hash: authIpHash(clientIp(req) || 'unknown'),
+    ip_hash: ipHash || authIpHash(clientIp(req) || 'unknown'),
     expires_at: new Date(Date.now() + ATTEMPT_KEEP_MS).toISOString()
   };
   if (subjectHash) row.subject_hash = subjectHash;
@@ -108,8 +108,8 @@ async function noteAttempt(borrowerId, kind, req, subjectHash) {
   }
 }
 
-export async function logAuthAttempt(borrowerId, kind, req, subjectHash) {
-  return noteAttempt(borrowerId, kind, req, subjectHash);
+export async function logAuthAttempt(borrowerId, kind, req, subjectHash, ipHash) {
+  return noteAttempt(borrowerId, kind, req, subjectHash, ipHash);
 }
 
 export function hashInviteCode(code) {
