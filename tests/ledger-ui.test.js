@@ -19,6 +19,17 @@ test('the staff nav is the original nine items plus NuPay', () => {
   assert.match(html, /lgPrev/);
 });
 
+test('d and src attributes are not raw templates', () => {
+  const bad = [];
+  const re = /(?:^|[\s<])(d|src)\s*=\s*(["'])([^"']*\{\{[^"']*)\2/g;
+  for (const match of html.matchAll(re)) bad.push(match[1] + '=' + match[2] + match[3] + match[2]);
+  assert.deepEqual(bad, []);
+  assert.match(html, /sc-camel-d="\{\{ f\.i1 \}\}"/);
+  assert.match(html, /sc-camel-src="\{\{ reelSrc \}\}"/);
+  assert.match(html, /sc-camel-points="\{\{ chartLine \}\}"/);
+  assert.match(html, /sc-camel-d="\{\{ s\.iconPath \}\}"/);
+});
+
 test('loan and client collections are tables with a search, status text, and paging', () => {
   assert.match(html, /role="table" aria-label="Loan book"/);
   assert.match(html, /data-col="ref">Ref number/);
