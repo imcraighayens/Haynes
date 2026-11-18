@@ -804,12 +804,15 @@ describe('borrower auth', { concurrency: false }, () => {
     const old = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
     });
-    assert.equal(old.statusCode, 401, old.body);
+    assert.equal(old.statusCode, 400, old.body);
+    assert.equal(old.json().error, 'Enter a 5-digit PIN');
     assert.equal(old.body.includes(legacy), false);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     const four = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: '1357' }
     });
-    assert.equal(four.statusCode, 401, four.body);
+    assert.equal(four.statusCode, 400, four.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     const reset = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });

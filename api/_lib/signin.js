@@ -13,6 +13,7 @@ import { borrowerEmailLive, emailSender } from './email.js';
 import { sessionSecret, pendingDeviceCookie, requestIsSecure } from './quik1-session.js';
 import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
+import { isPin, enterPinMessage } from './pin.js';
 
 const LOCKED_PLACEHOLDER = 'locked';
 const SIGNIN_CLOSED = 'Sign in with your email for now';
@@ -319,17 +320,52 @@ async function borrowerForId(idMac) {
   }
 }
 
+const ID_PIN_BUDGET = 5;
+const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
+
+async function assertIdPinBudget(subject, res) {
+  const since = new Date(Date.now() - ID_PIN_WINDOW_MS).toISOString();
+  let n = 0;
+  try {
+    n = await count('q1_auth_attempts', {
+      subject_hash: eq(subject),
+      kind: eq('id_pin'),
+      created_at: 'gte.' + since
+    });
+  } catch {
+    throw new HttpError(503, 'Server not configured');
+  }
+  if (n >= ID_PIN_BUDGET) {
+    if (res) res.setHeader('Retry-After', '900');
+    throw new HttpError(429, 'Too many attempts');
+  }
+}
+
 async function signInByIdPin(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
   if (!hmacKey()) throw signInClosed();
+  const pin = body && typeof body.pin === 'string' ? body.pin : '';
   await guardAuth(req, res);
+  if (!isPin(pin)) throw new HttpError(400, enterPinMessage());
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
-  const pin = body && typeof body.pin === 'string' ? body.pin : '';
   const digits = normaliseSaId(rawId);
-  const borrower = digits ? await borrowerForId(idHmac(digits)) : null;
-  return signInWithPin(req, borrower, pin);
+  const mac = digits ? idHmac(digits) : null;
+  const subject = subjectHash('id_pin', mac || 'none');
+  const borrower = mac ? await borrowerForId(mac) : null;
+  const alreadyLocked = isLocked(borrower);
+  if (!alreadyLocked) await assertIdPinBudget(subject, res);
+  try {
+    const out = await signInWithPin(req, borrower, pin);
+    await logAuthAttempt(borrower && borrower.id, 'id_pin', req, subject);
+    return out;
+  } catch (err) {
+    if (!alreadyLocked && (!(err instanceof HttpError) || err.status !== 400)) {
+      await logAuthAttempt(borrower && borrower.id, 'id_pin', req, subject);
+    }
+    throw err;
+  }
 }
 
 export async function requestIdPhoneSignIn(req, body, res) {

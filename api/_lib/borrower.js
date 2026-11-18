@@ -7,7 +7,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isPin, isVerifiablePin, isChosenPin, chosenPinMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { hashPin, verifyPin, isPin, isWrongLengthPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, QUIK1_PIN_LENGTH } from './pin.js';
 import { borrowerBook } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
@@ -461,6 +461,10 @@ async function burnPinTime(pin) {
 
 function rejectPin() {
   throw new HttpError(401, 'PIN not accepted');
+}
+
+function rejectPinShape() {
+  throw new HttpError(400, enterPinMessage());
 }
 
 const DEVICE_NOT_LINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
@@ -1218,6 +1222,7 @@ export async function pinChangePending(req) {
 // Lock (423), then acceptTemporaryPin, then device_not_linked.
 // acceptTemporaryPin does not check the lock. A null borrower is the unknown-account 401.
 export async function signInWithPin(req, borrower, pin) {
+  if (isWrongLengthPin(pin)) rejectPinShape();
   if (!borrower) {
     await comparePins(pin, null, null);
     await noteAttempt(null, 'pin', req);
@@ -1283,6 +1288,7 @@ export async function loginBorrower(req, body, res) {
   }
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
+  if (isWrongLengthPin(pin)) rejectPinShape();
   if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
