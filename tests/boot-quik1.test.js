@@ -20,7 +20,7 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
     try {
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => PIN_COPY.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
       const boot = await page.evaluate(() => ({
         bundlerErr: !!document.getElementById('__bundler_err'),
         link: window.Quik1Link && ['getState', 'subscribe', 'submitApplication', 'submitRequest', 'submitSignup', 'decide', 'decideSignup', 'confirmRepayment', 'repaymentFor', 'decisionFor', 'reset'].every(k => typeof window.Quik1Link[k] === 'function')
@@ -134,7 +134,7 @@ test('a new device with email off renders the unlinked copy', { skip: pw ? false
         body: JSON.stringify({ error: copy, code: 'device_not_linked', deviceNotLinked: true })
       }));
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => PIN_COPY.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
       for (const digit of SAMPLE_PIN) {
         await page.evaluate(label => {
           const button = [...document.querySelectorAll('button')].find(el => (el.textContent || '').trim() === label);
@@ -161,7 +161,7 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
   page.on('request', r => requested.push(r.url()));
   try {
     await page.goto(host.origin + '/', { waitUntil: 'load' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && PIN_COPY.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+    await pageWaitFor(page, (copy) => /Enter your PIN/.test(document.body.innerText) && copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
     const text = await page.evaluate(() => document.body.innerText);
     assert.equal(/\{\{/.test(text), false, 'no raw template markers');
     assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');
