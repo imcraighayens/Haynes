@@ -31,7 +31,8 @@ async function boot(page, origin) {
 }
 
 async function openAccess(page) {
-  await page.locator('[title="Access"]').first().dispatchEvent('click');
+  await page.locator('[title="Clients"]').first().dispatchEvent('click');
+  await page.locator('[title="Quik1 access"]').first().dispatchEvent('click');
   await pageWaitFor(page, () => /Invite/.test(document.body.innerText), null, { timeoutMs: 8000 });
 }
 
