@@ -463,8 +463,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
   .admin-screen .admin-stats{display:flex !important;flex-direction:column !important;flex-wrap:nowrap !important;overflow:visible !important;width:100% !important;min-width:0}
   .admin-screen .admin-stats>div{flex:1 1 auto !important;width:100% !important;min-width:0 !important;max-width:100% !important}
   .admin-screen .admin-stats>div div{white-space:normal !important;overflow-wrap:anywhere}
-  .markets-grid{display:flex !important;flex-direction:column !important;height:auto !important;min-height:0 !important;grid-auto-rows:auto !important}
-  .markets-grid>[data-card]{width:100% !important;height:auto !important;min-height:0 !important;grid-column:auto !important;grid-row:auto !important;overflow:visible !important}
+  .markets-grid,.home-grid{display:flex !important;flex-direction:column !important;height:auto !important;min-height:0 !important;grid-auto-rows:auto !important}
+  .markets-grid>[data-card],.home-grid>[data-card]{width:100% !important;height:auto !important;min-height:220px !important;grid-column:auto !important;grid-row:auto !important;overflow:visible !important}
   .news-chips{flex-wrap:nowrap !important;overflow-x:auto}
   .cal-dow{letter-spacing:0 !important;font-size:11px !important}
   .cal-head{flex-wrap:wrap !important;overflow:visible !important}
@@ -566,83 +566,10 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             <div class="page-date-full" style="color:#e4dfd4;font-weight:600;font-size:13px;letter-spacing:.04em;white-space:nowrap;min-width:0">{{ screenSub }}</div>
             <div class="page-date-short">{{ screenSubShort }}</div>
           </div>
-          <div class="{{ headClass }}"><div role="button" tabindex="0" data-kbd="1" class="icon-btn import-btn" aria-label="Import bank report" data-tip="Import bank report" sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="height:44px;padding:0 12px;gap:6px;flex:none;border-radius:11px;border:1px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer;font:700 14px 'Plus Jakarta Sans',sans-serif" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg><span>Import</span></div><sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div class="loan-tools" sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ loanMoreOpen }}" hint-placeholder-val="{{ false }}"><div class="loan-pop" role="menu"><button type="button" class="pager-btn" sc-camel-on-click="{{ openBankRep }}">Import bank report</button><button type="button" class="pager-btn" sc-camel-on-click="{{ openBulk }}">Bulk upload</button></div></sc-if><sc-if value="{{ isLoanMenu }}" hint-placeholder-val="{{ false }}"><button type="button" class="loan-more pager-btn" aria-label="More loan actions" sc-camel-on-click="{{ toggleLoanMore }}">More</button></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
+          <div class="{{ headClass }}"><div role="button" tabindex="0" data-kbd="1" class="icon-btn import-btn" aria-label="Import bank report" data-tip="Import bank report" sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="height:44px;padding:0 12px;gap:6px;flex:none;border-radius:11px;border:1px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer;font:700 14px 'Plus Jakarta Sans',sans-serif" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg><span>Import</span></div><sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div class="loan-tools" sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ loanMoreOpen }}" hint-placeholder-val="{{ false }}"><div class="loan-pop" role="menu"><button type="button" class="pager-btn" sc-camel-on-click="{{ openBankRep }}">Import bank report</button><button type="button" class="pager-btn" sc-camel-on-click="{{ openBulk }}">Bulk upload</button></div></sc-if><sc-if value="{{ isLoanMenu }}" hint-placeholder-val="{{ false }}"><button type="button" class="loan-more pager-btn" aria-label="More loan actions" sc-camel-on-click="{{ toggleLoanMore }}">More</button></sc-if><sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if><sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn" title="Quik1 access" sc-camel-on-click="{{ goAccess }}">Quik1 access</button></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
       </div>
         <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
-          <div class="home">
-            <p class="home-lead">What needs action today. Each count opens a filtered list.</p>
-            <div class="act-tiles">
-              <sc-for list="{{ actionTiles }}" as="t" hint-placeholder-count="5">
-                <sc-if value="{{ t.live }}" hint-placeholder-val="{{ true }}">
-                <button type="button" class="{{ t.cls }}" sc-camel-on-click="{{ t.go }}">
-                  <span class="act-k">{{ t.label }}</span>
-                  <span class="act-n">{{ t.count }}</span>
-                  <span class="act-s">{{ t.sub }}</span>
-                  <span class="act-chev" aria-hidden="true">›</span>
-                </button>
-                </sc-if>
-                <sc-if value="{{ t.held }}" hint-placeholder-val="{{ false }}">
-                <button type="button" class="{{ t.cls }} is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">
-                  <span class="act-k">{{ t.label }}</span>
-                  <span class="act-n">{{ t.count }}</span>
-                  <span class="act-s">{{ t.sub }}</span>
-                  <span class="act-s">Invites off until launch</span>
-                </button>
-                </sc-if>
-              </sc-for>
-            </div>
-            <div class="needs-head">
-              <div class="needs-title">Needs action</div>
-              <button type="button" class="linkish" sc-camel-on-click="{{ goLoansAll }}">View all loans</button>
-            </div>
-            <div class="act-scroll">
-              <sc-if value="{{ actionHas }}" hint-placeholder-val="{{ true }}">
-              <div class="act-table" role="table" aria-label="Needs action">
-                <div class="act-row act-head" role="row">
-                  <div role="columnheader">Client</div>
-                  <div role="columnheader">Ref</div>
-                  <div role="columnheader">Status</div>
-                  <div role="columnheader" class="num">Balance</div>
-                  <div role="columnheader">Due</div>
-                  <div role="columnheader" class="num">Days overdue</div>
-                  <div role="columnheader">Action</div>
-                </div>
-                <sc-for list="{{ actionRows }}" as="a" hint-placeholder-count="3">
-                  <div class="act-row" role="row">
-                    <div role="cell" class="cell-clip" title="{{ a.customer }}">{{ a.customer }}</div>
-                    <div role="cell" class="cell-clip" title="{{ a.ref }}">{{ a.ref }}</div>
-                    <div role="cell"><span style="{{ a.statusStyle }}">{{ a.statusLabel }}</span></div>
-                    <div role="cell" class="num">{{ a.balance }}<span class="m-only"> balance</span></div>
-                    <div role="cell"><div class="due-k">Next instalment due</div><div>{{ a.nextDue }}</div><div class="due-k">Final due</div><div>{{ a.finalDue }}</div></div>
-                    <div role="cell" class="num">{{ a.days }}<sc-if value="{{ a.daysOn }}" hint-placeholder-val="{{ false }}"><span class="m-only"> days overdue</span></sc-if></div>
-                    <div role="cell"><button type="button" class="row-act" sc-camel-on-click="{{ a.open }}">{{ a.act }}</button></div>
-                  </div>
-                </sc-for>
-              </div>
-              </sc-if>
-              <sc-if value="{{ actionEmpty }}" hint-placeholder-val="{{ false }}">
-                <div class="all-clear">
-                  <div class="all-clear-title">All clear</div>
-                  <p>Nothing is overdue or due in the next 7 days.</p>
-                </div>
-              </sc-if>
-            </div>
-          </div>
-        </sc-if>
-        <sc-if value="{{ isMarkets }}" hint-placeholder-val="{{ false }}">
-          <div class="subnav" role="tablist" aria-label="Reports">
-            <sc-for list="{{ reportTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" data-report-tab="{{ t.id }}" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
-          </div>
-          <sc-if value="{{ isNuPay }}" hint-placeholder-val="{{ false }}">
-            <div id="nupay-tab-drop" class="np-drop">
-              <h3>Upload a NuPay file</h3>
-              <p>CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.</p>
-              <button type="button" class="np-btn primary np-choose" id="nupay-tab-choose">Choose file</button>
-              <input id="nupay-tab-file" type="file" accept=".csv,.xlsx,.zip,text/csv" aria-label="NuPay file" style="display:none">
-            </div>
-          </sc-if>
-          <sc-if value="{{ showMarketsGrid }}" hint-placeholder-val="{{ true }}">
-          <div ref="{{ gridRef }}" class="markets-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
+          <div ref="{{ gridRef }}" class="home-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
 
 <div data-card="0" class="{{ newsCardCls }}" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;grid-row:span 2;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none">
@@ -665,7 +592,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div style="flex:1 1 0;min-height:64px;position:relative;border-radius:14px;overflow:hidden;background:#05060a;color:#fff">
                   <sc-if value="{{ reelPlaying }}" hint-placeholder-val="{{ false }}">
                     <div style="{{ reelThumbStyle }}"></div>
-                    <iframe src="{{ reelSrc }}" title="{{ reelTitle }}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen="true" style="position:absolute;left:0;right:0;top:34px;bottom:0;width:100%;height:calc(100% - 34px);border:0;background:transparent"></iframe>
+                    <iframe sc-camel-src="{{ reelSrc }}" title="{{ reelTitle }}" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen="true" style="position:absolute;left:0;right:0;top:34px;bottom:0;width:100%;height:calc(100% - 34px);border:0;background:transparent"></iframe>
                   </sc-if>
                   <sc-if value="{{ reelIdle }}" hint-placeholder-val="{{ true }}">
                     <div sc-camel-on-click="{{ reelPlay }}" style="position:absolute;inset:0;cursor:pointer">
@@ -812,12 +739,18 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             </div>
 
           </div>
-          </sc-if>
         </sc-if>
         <sc-if value="{{ isLoans }}" hint-placeholder-val="{{ false }}">
         <input value="{{ q }}" sc-camel-on-change="{{ qChange }}" placeholder="Search…" aria-label="Search loans by client or reference" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
-        <div class="filter-bar" role="tablist" aria-label="Loan status">
-          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="7"><div role="tab" tabindex="0" data-kbd="1" aria-selected="{{ f.sel }}" class="{{ f.cls }}" sc-camel-on-click="{{ f.go }}" style="{{ f.style }}">{{ f.name }} <span>{{ f.count }}</span></div></sc-for>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;width:100%" role="tablist" aria-label="Loan status">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6"><div role="tab" tabindex="0" data-kbd="1" aria-selected="{{ f.sel }}" sc-camel-on-click="{{ f.go }}" style="{{ f.style }}" style-hover="transform:translateY(-2px)">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0"><div style="{{ f.iconBox }}"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path sc-camel-d="{{ f.i1 }}"></path><sc-if value="{{ f.i2On }}" hint-placeholder-val="{{ false }}"><path sc-camel-d="{{ f.i2 }}"></path></sc-if></svg></div><div style="font:600 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ f.name }}</div></div>
+              <div style="{{ f.countStyle }}">{{ f.count }}</div>
+            </div>
+            <div style="font:700 15px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:8px">{{ f.amt }}</div>
+            <div style="{{ f.barStyle }}"></div>
+          </div></sc-for>
         </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0;transition:box-shadow .22s ease">
           <div class="book-scroll">
@@ -849,11 +782,26 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
     </div>
     </sc-if>
 
+
+    <sc-if value="{{ isNuPay }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px clamp(16px,2vw,24px);height:100%;box-sizing:border-box;overflow:auto" data-screen-label="NuPay">
+        <div style="font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:6px">NuPay</div>
+        <div style="font-size:14px;color:var(--mut);margin-bottom:14px;max-width:640px">Read-only transaction report. Nothing is uploaded or written to the book.</div>
+        <button type="button" class="pager-btn" data-report-tab="nupay" style="margin-bottom:12px">NuPay report</button>
+        <div id="nupay-tab-drop" class="np-drop">
+          <h3>Upload a NuPay file</h3>
+          <p>CSV, XLSX, or a NuPay zip. Up to 10 MB. Nothing is uploaded or written.</p>
+          <button type="button" class="np-btn primary np-choose" id="nupay-tab-choose">Choose file</button>
+          <input id="nupay-tab-file" type="file" accept=".csv,.xlsx,.zip,text/csv" aria-label="NuPay file" style="display:none">
+        </div>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ isClients }}" hint-placeholder-val="{{ false }}">
       <div style="padding:14px clamp(16px,2.6vw,34px) 16px;animation:fadeUp .25s ease;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden" data-screen-label="Clients">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex:none">
           <div style="font:700 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em">Clients <span style="color:var(--mut);font-weight:500;font-size:14px;margin-left:8px">{{ clientCount }} on the book</span></div>
-          <div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goAddClient }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;border-radius:8px;background:var(--acc);font-size:14px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap">Add client</div>
+          <div style="display:flex;gap:8px;align-items:center"><div role="button" tabindex="0" data-kbd="1" title="Quik1 access" sc-camel-on-click="{{ goAccess }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border-radius:8px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;white-space:nowrap">Quik1 access</div><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goAddClient }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;border-radius:8px;background:var(--acc);font-size:14px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap">Add client</div></div>
       </div>
         <input value="{{ clientQ }}" sc-camel-on-change="{{ clientQChange }}" placeholder="Search client or ref" aria-label="Search clients" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:12px;flex:none">
         <div style="border:1px solid var(--line);border-radius:10px;background:var(--panel);flex:1;min-height:0;overflow:auto">
@@ -1035,6 +983,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           <input type="date" value="{{ lgFrom }}" sc-camel-on-change="{{ lgFromChange }}" style="background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:7px 10px;color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;color-scheme:dark">
           <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.08em">TO</div>
           <input type="date" value="{{ lgTo }}" sc-camel-on-change="{{ lgToChange }}" style="background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:7px 10px;color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;color-scheme:dark">
+          <input value="{{ lgQ }}" sc-camel-on-change="{{ lgQChange }}" placeholder="Search…" aria-label="Search the log" style="min-width:140px;flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:7px 10px;color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif">
           <div style="margin-left:auto;font:600 10.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">{{ lgCount }}</div>
         </div>
         <div style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
@@ -1050,6 +999,11 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           </div>
           </sc-for>
       </div>
+        <div class="pager">
+          <div role="button" tabindex="0" data-kbd="1" class="pager-btn" sc-camel-on-click="{{ lgPrev }}">Previous</div>
+          <div style="font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ lgPageLabel }}</div>
+          <div role="button" tabindex="0" data-kbd="1" class="pager-btn" sc-camel-on-click="{{ lgNext }}">Next</div>
+        </div>
     </div>
       </div></div>
     </sc-if>
@@ -1095,7 +1049,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         </div>
         <div class="adm-block-cash" style="display:flex;align-items:baseline;gap:10px;margin:8px 0 12px;flex-wrap:wrap"><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--ink);letter-spacing:.14em">Income, expenses and losses</div><div style="font:500 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim)">What we earned and what went out</div></div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px;margin-bottom:26px" class="admin-stats adm-block-cash">
-          <div sc-camel-on-click="{{ admOpenBook }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:rgba(198,244,50,.14);display:flex;align-items:center;justify-content:center;color:#C6F432"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"></path><path d="M4 10h16M9 10v9"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">MONTHLY LEDGER</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgBook.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgBook.sub }}</div><div style="margin-top:auto"><svg sc-camel-view-box="0 0 800 200" sc-camel-preserve-aspect-ratio="none" style="display:block;width:100%;height:44px"><polygon points="{{ chartArea }}" fill="rgba(198,244,50,.16)"></polygon><polyline points="{{ chartLine }}" fill="none" stroke="#C6F432" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline></svg></div></div>
+          <div sc-camel-on-click="{{ admOpenBook }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:rgba(198,244,50,.14);display:flex;align-items:center;justify-content:center;color:#C6F432"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"></path><path d="M4 10h16M9 10v9"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">MONTHLY LEDGER</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgBook.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgBook.sub }}</div><div style="margin-top:auto"><svg sc-camel-view-box="0 0 800 200" sc-camel-preserve-aspect-ratio="none" style="display:block;width:100%;height:44px"><polygon sc-camel-points="{{ chartArea }}" fill="rgba(198,244,50,.16)"></polygon><polyline sc-camel-points="{{ chartLine }}" fill="none" stroke="#C6F432" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline></svg></div></div>
           <div sc-camel-on-click="{{ admOpenExp }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:var(--blueSoft);display:flex;align-items:center;justify-content:center;color:var(--blue)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><path d="M9 8h6M9 12h6"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">OFFICE EXPENSES · MONTHLY</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgExp.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgExp.sub }}</div><div style="margin-top:auto"><div style="display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--panel3);gap:2px"><div style="{{ lgExp.a }}"></div></div></div></div>
           <div sc-camel-on-click="{{ admPetty }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:var(--amberSoft);display:flex;align-items:center;justify-content:center;color:var(--amber)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.3"></circle></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">PETTY CASH · OUTSTANDING</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgPetty.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgPetty.sub }}</div></div>
           <div sc-camel-on-click="{{ admOpenBook }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;cursor:pointer;min-width:0;min-height:172px;box-sizing:border-box;transition:border-color .2s ease, transform .22s cubic-bezier(.22,.8,.28,1)" style-hover="border-color:#C6F432;transform:translateY(-2px)"><div style="display:flex;align-items:center;gap:10px"><div style="width:34px;height:34px;flex:none;border-radius:12px;background:var(--redSoft);display:flex;align-items:center;justify-content:center;color:var(--red)"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg></div><div style="font:700 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut);letter-spacing:.08em;line-height:1.3">WRITTEN OFF</div></div><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><div style="font:700 clamp(20px,2vw,26px) 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)">{{ lgWo.val }}</div></div><div style="font:500 11.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);line-height:1.45;text-wrap:pretty">{{ lgWo.sub }}</div><div style="margin-top:auto"><div style="display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--panel3);gap:2px"><div style="{{ lgWo.a }}"></div></div></div></div>
@@ -1356,11 +1310,11 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 
     <sc-if value="{{ isAccess }}" hint-placeholder-val="{{ false }}">
       <div style="padding:16px clamp(16px,2vw,24px);height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden" data-screen-label="Quik1 access">
-        <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif;margin-bottom:8px">Access</div>
-        <div class="subnav" role="tablist" aria-label="Access">
-          <sc-for list="{{ accessTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">
+          <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif">Quik1 access</div>
+          <div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goClients }}" style="font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;min-height:40px;display:inline-flex;align-items:center">Back to clients</div>
         </div>
-        <div style="font-size:14px;color:var(--mut);margin:4px 0 12px">Give Quik1 access, or open applications and messages. Nothing here sends a debit.</div>
+        <div style="font-size:14px;color:var(--mut);margin:4px 0 12px">Give access, resend an invite, revoke it, reset a device, or set a temporary PIN. Nothing here sends a debit.</div>
         <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><p id="q1-gate-note" class="gate-note">Quik1 invites are switched off until launch.</p></sc-if>
         <div style="flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)">
           <div class="sheet-5" role="table" aria-label="Client access">
@@ -1392,18 +1346,15 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 
     <sc-if value="{{ isApplications }}" hint-placeholder-val="{{ false }}">
       <div style="padding:16px clamp(16px,2vw,24px);animation:fadeUp .25s ease;height:100%;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden" data-screen-label="Applications inbox">
-        <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif;margin-bottom:8px">Access</div>
-        <div class="subnav" role="tablist" aria-label="Access">
-          <sc-for list="{{ accessTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
-        </div>
         <div style="flex:none;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
           <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">APPLICATIONS <span style="color:var(--dim);font-weight:500;font-size:12px;letter-spacing:.08em;margin-left:8px;white-space:nowrap">{{ appNewCount }} NEW · {{ appTotal }} TOTAL</span></div>
           <div style="display:flex;align-items:center;gap:8px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;color:var(--dim)"><span style="width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)"></span>MOBILE APP · LIVE FEED<div sc-camel-on-click="{{ qkSyncNow }}" title="{{ qkTitle }}" style="display:flex;align-items:center;gap:7px;margin-left:6px;padding:5px 11px 5px 6px;border-radius:99px;border:1px solid rgba(255,255,255,.55);box-shadow:0 0 10px -2px rgba(255,255,255,.35);color:var(--ink);cursor:pointer;white-space:nowrap" style-hover="border-color:#FFFFFF"><span style="width:18px;height:18px;border-radius:50%;background:#FFFFFF;display:grid;place-items:center"><span style="width:11px;height:9px;border-radius:4px;background:#0B0620;display:flex;align-items:center;justify-content:center;gap:2px"><span style="width:2px;height:3px;background:#FDD10D;border-radius:1px"></span><span style="width:2px;height:3px;background:#FDD10D;border-radius:1px"></span></span></span>{{ qkLabel }}</div></div>
       </div>
-        <div style="flex:none;font-size:12.5px;color:var(--mut);margin-bottom:20px;max-width:640px">Loan applications submitted from the borrower mobile app land here. Review, run affordability, then approve into a loan or decline — every decision is logged.</div>
+        <div style="flex:none;font-size:12.5px;color:var(--mut);margin-bottom:20px;max-width:640px">Loan applications from the website and the Quik1 app land here. Review, run affordability, then approve into a loan or decline — every decision is logged. Closing a row leaves it in this list.</div>
         <div style="flex:none;display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <sc-for list="{{ appFilters }}" as="f" hint-placeholder-count="4"><div sc-camel-on-click="{{ f.go }}" style="{{ f.style }}">{{ f.label }} <span style="opacity:.6">{{ f.count }}</span></div></sc-for>
       </div>
+        <input value="{{ appQ }}" sc-camel-on-change="{{ appQChange }}" placeholder="Search…" aria-label="Search applications" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:10px;flex:none">
         <div ref="{{ inboxScrollRef }}" style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
           <div class="clip-row" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div></div><div>APPLICANT</div><div>AMOUNT</div><div>PURPOSE / TERM</div><div>SUBMITTED</div><div>STATUS</div></div>
           <sc-for list="{{ appRows }}" as="a" hint-placeholder-count="4">
@@ -1418,6 +1369,11 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           </sc-for>
           <sc-if value="{{ appEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:26px 18px;text-align:center;font-size:12.5px;color:var(--dim);border-top:1px solid var(--line)">No applications in this view.</div></sc-if>
       </div>
+        <div class="pager">
+          <div role="button" tabindex="0" data-kbd="1" class="pager-btn" sc-camel-on-click="{{ appPrev }}">Previous</div>
+          <div style="font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ appPageLabel }}</div>
+          <div role="button" tabindex="0" data-kbd="1" class="pager-btn" sc-camel-on-click="{{ appNext }}">Next</div>
+        </div>
     </div>
     </sc-if>
 
@@ -1465,10 +1421,6 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 
     <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
       <div style="padding:16px clamp(16px,2vw,24px);animation:fadeUp .25s ease;height:100%;box-sizing:border-box;overflow:auto" data-screen-label="Quik1 messages">
-        <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif;margin-bottom:8px">Access</div>
-        <div class="subnav" role="tablist" aria-label="Access">
-          <sc-for list="{{ accessTabs }}" as="t" hint-placeholder-count="3"><div role="tab" tabindex="0" data-kbd="1" sc-camel-on-click="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</div></sc-for>
-        </div>
         <div style="font:700 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.02em;margin-bottom:8px">QUIK1 MESSAGES</div>
         <div style="font-size:12.5px;color:var(--mut);margin-bottom:18px;max-width:640px">Messages from signed-in clients. A reply shows on their phone. Nothing here sends a debit order or a payout.</div>
         <sc-if value="{{ q1ThreadsEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:22px 0;font-size:13px;color:var(--dim)">No messages yet.</div></sc-if>
@@ -1956,7 +1908,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div sc-camel-on-click="{{ toggleSms }}" style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:12px;border:1px solid var(--line2);color:var(--mut);font-size:12px;font-weight:600;cursor:pointer" style-hover="border-color:var(--accText);color:var(--ink)"><svg width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 3z"></path></svg>Text</div>
                 <div style="width:1px;height:22px;background:var(--line);margin:0 4px"></div>
                 <div style="font:500 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em">SET STATUS</div>
-                <sc-for list="{{ histStatusPicks }}" as="s" hint-placeholder-count="4"><div sc-camel-on-click="{{ s.pick }}" style="{{ s.style }}"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ s.iconPath }}"></path></svg>{{ s.label }}</div></sc-for>
+                <sc-for list="{{ histStatusPicks }}" as="s" hint-placeholder-count="4"><div sc-camel-on-click="{{ s.pick }}" style="{{ s.style }}"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path sc-camel-d="{{ s.iconPath }}"></path></svg>{{ s.label }}</div></sc-for>
             </div>
               <sc-if value="{{ smsOpen }}" hint-placeholder-val="{{ false }}">
                 <div style="border:1px solid var(--line2);border-radius:14px;padding:12px 14px;margin-bottom:16px;background:var(--panel)">
@@ -4489,7 +4441,7 @@ class Component extends DCLogic {
     });
   }
   navIcon(r, active){
-    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], collections:['M12 8v5l3 2','M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18'], access:['M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6','M5 19v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1'], reports:['M4 19V5','M4 19h16','M8 16v-5','M12 16V8','M16 16v-3'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'], messages:['M5 6.5h14v9H10l-4 3.5v-3.5H5Z'] };
+    const P = { notifications:['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9','M10.3 21a1.94 1.94 0 0 0 3.4 0'], dashboard:['M4 4h7v6H4z','M13 4h7v9h-7z','M13 16h7v4h-7z','M4 13h7v7H4z'], loans:['M3 6h18v12H3z','M3 10.5h18','M6.5 15h4'], collections:['M12 8v5l3 2','M12 3a9 9 0 1 0 0 18 9 9 0 1 0 0-18'], access:['M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6','M5 19v-1a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v1'], reports:['M4 19V5','M4 19h16','M8 16v-5','M12 16V8','M16 16v-3'], clients:['M17 20v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1','M10.5 11a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8'], employees:['M4 5h16v14H4z','M12 11.6a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6','M8.6 16.4a3.4 3.4 0 0 1 6.8 0'], logbook:['M8 6h12','M8 12h12','M8 18h12','M4 6h.01','M4 12h.01','M4 18h.01'], ledger:['M4 20h16','M6.5 20v-6','M11 20V8','M15.5 20v-9'], petty:['M3 8.5h15a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h11','M16 13.5h.5'], applications:['M4 13h4l1.5 3h5L16 13h4','M4 13V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7','M4 13v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5'], messages:['M5 6.5h14v9H10l-4 3.5v-3.5H5Z'], nupay:['M4 7h16v10H4z','M4 11h16','M8 15h3'] };
     const paths = (P[r]||[]).map((d,i)=>React.createElement('path',{key:i,d}));
     return React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round',style:{flex:'none'}}, paths);
   }
@@ -4937,24 +4889,24 @@ class Component extends DCLogic {
     const st = this.roleScope(this.state), fmt = this.fmt.bind(this);
     const orgName = this.props.orgName ?? (this._org && this._org.name) ?? 'Ecoloans';
     const mono = "font:500 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;";
-    const navDefs = [['dashboard','DASHBOARD'],['clients','CLIENTS'],['loans','LOANS'],['collections','COLLECTIONS'],['access','ACCESS'],['reports','REPORTS'],['ledger','ADMIN']];
+    const navDefs = [['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']];
     const appNewCount = st.applications.filter(a=>a.status==='new').length;
     const notif = this.notifItems();
     const notifFlagged = notif.filter(n=>n.flagged).length;
     const navItems = navDefs.map(([r,label])=>{
-      const active = st.route===r || (r==='loans'&&st.route==='newloan') || (r==='clients'&&(st.route==='addclient'||st.route==='clientview')) || (r==='access'&&(st.route==='access'||st.route==='applications'||st.route==='messages')) || (r==='reports'&&(st.route==='reports'||st.route==='logbook'||st.route==='petty'));
+      const active = st.route===r || (r==='loans'&&st.route==='newloan') || (r==='clients'&&(st.route==='addclient'||st.route==='clientview'||st.route==='access')) || (r==='notifications'&&st.modal==='notif');
       const nice = label.charAt(0)+label.slice(1).toLowerCase();
       const col = !!st.navCollapsed;
       const go = ()=>{
-        if(r==='collections') return this.setState({route:'collections', filter:'collections', loanPage:0, menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false});
-        if(r==='access') return this.setState({route:'access', accessTab:'invites', menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false});
-        if(r==='reports') return this.setState({route:'reports', reportTab:'markets', menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false});
+        if(r==='notifications') return this.setState({modal:'notif', modalStack:[], menuId:null, navDrawer:false});
+        if(r==='nupay') return this.setState({route:'nupay', reportTab:'nupay', menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false});
         if(r==='loans') return this.setState({route:'loans', filter: this.state.filter==='collections'?'all':this.state.filter, loanPage:0, menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false});
         this.nav(r);
       };
+      const badgeCount = r==='applications' ? appNewCount : r==='notifications' ? notif.length : 0;
       return {label: col ? '' : nice, title: nice, go, current: active?'page':'false',
         style:this.cssObj("display:flex;align-items:center;"+(col?'justify-content:center;gap:0;padding:8px 0;':'gap:8px;padding:8px 12px;')+"min-height:40px;border-radius:8px;cursor:pointer;white-space:nowrap;font:"+(active?'700':'500')+" 14px 'Plus Jakarta Sans',sans-serif;"+(active?'background:var(--ink);color:var(--bg)':'color:var(--ink)')),
-        badge: (r==='access'&&appNewCount>0) ? React.createElement('span',{style:{font:"700 12px 'Plus Jakarta Sans',sans-serif",background:'var(--acc)',color:'var(--accInk)',borderRadius:'99px',padding:'1px 7px',marginLeft:'auto',lineHeight:1.5}}, appNewCount) : '',
+        badge: badgeCount>0 ? React.createElement('span',{style:{font:"700 12px 'Plus Jakarta Sans',sans-serif",background:r==='notifications'?'var(--red)':'var(--acc)',color:r==='notifications'?'#fff':'var(--accInk)',borderRadius:'99px',padding:'1px 7px',marginLeft:col?'0':'auto',lineHeight:1.5}}, badgeCount) : '',
         icon: this.navIcon(r, active)};
     });
     const clientById = id => st.clients.find(c=>c.id===id) || {};
@@ -5189,7 +5141,7 @@ class Component extends DCLogic {
       ['REMAINING SCHEDULE', upcoming.length + (upcoming.length===1?' INSTALMENT':' INSTALMENTS'), fmt(upcoming.reduce((t,x)=>t+x.amt,0))],
     ].map(r=>({k:r[0], v:r[1], sub:r[2]}));
     const activityRows = st.logbook.slice(0,4).map(g=>({type:g.type, customer:g.customer, date:g.date, typeStyle:this.cssObj("font:500 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.05em;white-space:nowrap;color:"+(g.type==='LOAN ISSUED'?'var(--blue)':g.type==='LOAN DELETED'||g.type.indexOf('OVERDUE')>=0?'var(--red)':g.type==='LOAN EDITED'?'var(--amber)':'var(--mut)'))}));
-    const filterDefs = [['all','ALL','M4 6h16M4 12h16M4 18h16'],['collections','Due and overdue',''],['issued','Issued','M12 5v14M5 12h14'],['duetoday','Due today','M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z'],['overdue','Overdue','M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L14.4 3.9a2 2 0 00-3.4 0z'],['paid','Paid','M20 6 9 17l-5-5'],['written off','Written off','M18 6 6 18M6 6l12 12']];
+    const filterDefs = [['all','ALL','M4 6h16M4 12h16M4 18h16'],['issued','ISSUED','M12 5v14M5 12h14'],['duetoday','DUE TODAY','M12 7v5l3 2M12 3a9 9 0 100 18 9 9 0 000-18z'],['overdue','OVERDUE','M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L14.4 3.9a2 2 0 00-3.4 0z'],['paid','PAID','M20 6 9 17l-5-5'],['written off','WRITTEN OFF','M18 6 6 18M6 6l12 12']];
     const todayIds = {}, staleIds = {}; this.notifItems().forEach(n=>{ if(n.kind==='today') todayIds[n.loan.id]=1; if(n.kind==='stale') staleIds[n.loan.id]=1; });
     const openL = l => l.status!=='paid' && l.status!=='written off';
     const inFilter = (l,f) => f==='all' ? true
@@ -5207,17 +5159,17 @@ class Component extends DCLogic {
     const shown = (l) => q ? (String(l.ref||'').toLowerCase().includes(q) || (clientById(l.clientId).name||'').toLowerCase().includes(q)) : inMonth(l);
     const counts = f => st.loans.filter(l=>inFilter(l,f) && shown(l)).length;
     const STAT = {all:'var(--mut)', collections:'var(--amber)', issued:'var(--blue)', duetoday:'var(--amber)', overdue:'var(--red)', paid:'var(--green)', 'written off':'var(--dim)', writtenoff:'var(--dim)'};
-    const filterSource = st.route==='collections' ? filterDefs.filter(d=>d[0]==='duetoday'||d[0]==='overdue') : filterDefs.filter(d=>d[0]!=='collections');
+    const filterSource = filterDefs;
     const filters = filterSource.map(([f,label,iconPath])=>({
       label: label+' '+counts(f), iconPath, go:()=>this.setState({filter:f, loanPage:0}),
-      amt: fmt(st.loans.filter(l=>inFilter(l,f)).reduce((a,l)=>a+this.dueAmt(l),0)),
-      style:this.cssObj('flex:1 1 auto;min-width:max-content;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;padding:12px 14px;border-radius:14px;white-space:nowrap;transition:box-shadow .22s cubic-bezier(.22,.8,.28,1), transform .22s cubic-bezier(.22,.8,.28,1), background .2s ease, color .2s ease, transform .18s ease;'+"")
+      amt: fmt(st.loans.filter(l=>inFilter(l,f) && shown(l)).reduce((a,l)=>a+this.dueAmt(l),0)),
+      style:this.cssObj('flex:1 1 auto;min-width:0;cursor:pointer')
     }));
-    filters.forEach((x,i)=>{ const f=filterSource[i][0], on=st.filter===f || (st.route==='collections' && st.filter==='collections' && (f==='duetoday'||f==='overdue')), c=STAT[f]||'var(--ink)', n=counts(f);
+    filters.forEach((x,i)=>{ const f=filterSource[i][0], on=st.filter===f, c=STAT[f]||'var(--ink)', n=counts(f);
       x.name = filterSource[i][1]; x.count = String(n);
       x.cls = 'filter-chip'+(on?' is-on':'');
       x.sel = on ? 'true' : 'false';
-      x.style = this.cssObj("display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:6px 12px;border-radius:8px;cursor:pointer;font:600 14px 'Plus Jakarta Sans',sans-serif;white-space:nowrap;"+(on?'background:#f7f4ee;color:#14120e;border:1px solid #f7f4ee;box-shadow:inset 0 -3px 0 #14120e':'background:var(--panel);color:#f7f4ee;border:1px solid var(--line2)'));
+      x.style = this.cssObj("position:relative;overflow:hidden;cursor:pointer;min-width:0;padding:10px 12px 12px;border-radius:14px;box-sizing:border-box;transition:transform .22s cubic-bezier(.22,.8,.28,1), box-shadow .22s ease, background .2s ease;box-shadow:var(--cardLift);"+(on?'background:var(--ink);color:var(--bg)':'background:var(--glass);color:var(--ink);border:1px solid var(--glassLine)')+(n===0&&!on?';opacity:.55':''));
       const IC = {
         all:['M12 3l9 5-9 5-9-5 9-5z','M3 13l9 5 9-5'],
         issued:['M7 17L17 7','M8 7h9v9'],
@@ -5226,7 +5178,7 @@ class Component extends DCLogic {
         paid:['M8 12.5l2.5 2.5L16 9.5','M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z'],
         'written off':['M9 9l6 6M15 9l-6 6','M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z']
       }[f] || ['M4 12h16',''];
-      x.i1 = IC[0]; x.i2 = IC[1];
+      x.i1 = IC[0]; x.i2 = IC[1]; x.i2On = !!IC[1];
       x.iconBox = this.cssObj('width:26px;height:26px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;color:'+c+';background:'+(on?'var(--bg)':'var(--panel3)'));
       x.countStyle = this.cssObj("font:700 10px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:99px;"+(on?'background:var(--bg);color:var(--ink)':'background:var(--panel3);color:var(--mut)'));
       x.barStyle = this.cssObj('position:absolute;left:0;right:0;bottom:0;height:3px;background:'+c+';opacity:'+(on?'1':'0')+';transition:opacity .2s ease');
@@ -5522,19 +5474,19 @@ class Component extends DCLogic {
       storageUsed: (()=>{ const mb=180+st.clients.length*3*45+st.clients.length*20+st.contractVault.length*30; return (mb/1024).toFixed(1)+' GB'; })(),
       storageBarStyle: this.cssObj('height:100%;border-radius:99px;background:var(--acc);width:'+Math.min(100,Math.round((180+st.clients.length*3*45+st.clients.length*20+st.contractVault.length*30)/1024/10*100))+'%'),
       ...this.roleVals(),
-      dashWrapStyle: this.cssObj('box-sizing:border-box;padding:16px clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:12px;animation:fadeUp .2s ease;'+(st.route==='dashboard'||st.route==='loans'||st.route==='collections'?'height:100%;overflow:hidden;min-height:0':'')),
-      mainCls: st.route==='reports' ? 'is-reports' : '',
-      isDash: st.route==='dashboard'||st.route==='loans'||st.route==='collections'||st.route==='reports',
-      isDashboard: st.route==='dashboard', isLoans: st.route==='loans'||st.route==='collections',
-      isMarkets: st.route==='reports', showStrip: st.route==='reports',
-      showPageHeading: st.route!=='reports',
+      dashWrapStyle: this.cssObj('box-sizing:border-box;padding:12px clamp(12px,2vw,20px);display:flex;flex-direction:column;gap:10px;animation:fadeUp .2s ease;'+(st.route==='dashboard'||st.route==='loans'?'height:100%;overflow:auto;min-height:0':'')),
+      mainCls: '',
+      isDash: st.route==='dashboard'||st.route==='loans',
+      isDashboard: st.route==='dashboard', isLoans: st.route==='loans',
+      isMarkets: false, showStrip: st.route==='dashboard',
+      showPageHeading: true,
       isBookTools: st.route==='loans', isLoanAction: st.route==='dashboard'||st.route==='loans',
       isLoanMenu: st.route==='loans', loanMoreOpen: !!(st.loanMore && st.route==='loans'),
       toggleLoanMore: ()=>this.setState(p=>({loanMore:!p.loanMore})),
       headClass: 'head-actions'+(st.route==='loans'?' is-loans':''),
-      screenTitle: st.route==='loans'?'Loans':st.route==='collections'?'Collections':st.route==='reports'?'Reports':'Dashboard',
-      screenSub: st.route==='loans'?'LOAN BOOK':st.route==='collections'?'DUE AND OVERDUE':st.route==='reports'?(st.reportTab==='nupay'?'NUPAY':'MARKETS'):this.todayHeader(),
-      screenSubShort: st.route==='loans'?'Loan book':st.route==='collections'?'Due and overdue':st.route==='reports'?(st.reportTab==='nupay'?'NuPay':'Markets'):this.todayLabel(),
+      screenTitle: st.route==='loans'?'LOANS':'DASHBOARD',
+      screenSub: st.route==='loans'?'LOAN BOOK':this.todayHeader(),
+      screenSubShort: st.route==='loans'?'Loan book':this.todayLabel(),
       q1GateOff: this.state.borrowerGate!==true, q1GateOn: this.state.borrowerGate===true,
       admTab: st.admTab||'cash',
       admCashCls: 'pager-btn'+((st.admTab||'cash')==='cash'?' is-on':''),
@@ -5544,7 +5496,7 @@ class Component extends DCLogic {
       admStaffSel: (st.admTab||'cash')==='staff'?'true':'false',
       admSetSel: (st.admTab||'cash')==='settings'?'true':'false',
       admTabCash: ()=>this.setState({admTab:'cash'}), admTabStaff: ()=>this.setState({admTab:'staff'}), admTabSettings: ()=>this.setState({admTab:'settings'}),
-      pageTitle: ({dashboard:'Dashboard',loans:'Loans',collections:'Collections',clients:'Clients',addclient:'Add client',newloan:'Issue loan',clientview:'Client',access:'Access',applications:'Applications',messages:'Messages',reports:'Reports',logbook:'Audit log',petty:'Petty cash',ledger:'Admin',settings:'Settings'})[st.route] || 'Ledger',
+      pageTitle: ({dashboard:'Dashboard',loans:'Loans',clients:'Clients',addclient:'Add client',newloan:'Issue loan',clientview:'Client',access:'Quik1 access',applications:'Applications',messages:'Messages',nupay:'NuPay',logbook:'Logbook',petty:'Petty cash',ledger:'Admin',settings:'Settings'})[st.route] || 'Ledger',
       openDrawer: ()=>this.setState(p=>({navDrawer:!p.navDrawer})), closeDrawer: ()=>this.setState({navDrawer:false}),
       dbErrorOn: !!st.dbError,
       ...(()=>{
@@ -5578,9 +5530,9 @@ class Component extends DCLogic {
         const tabStyle = on => this.cssObj("min-height:36px;padding:6px 12px;border-radius:8px;cursor:pointer;font:600 14px 'Plus Jakarta Sans',sans-serif;"+(on?'background:var(--ink);color:var(--bg)':'color:var(--ink);border:1px solid var(--line2)'));
         const accessHere = st.route==='messages' ? 'messages' : st.route==='applications' ? 'applications' : (st.route==='access' ? (st.accessTab||'invites') : '');
         const accessTabs = [['invites','Invites'],['applications','Applications'],['messages','Messages']].map(([id,label])=>({label, style:tabStyle(accessHere===id), go:()=>this.setState({route:'access', accessTab:id, menuId:null, modal:null, modalStack:[], navDrawer:false})}));
-        const reportHere = st.route==='reports' && st.reportTab==='nupay' ? 'nupay' : st.route==='logbook' ? 'audit' : st.route==='petty' ? 'petty' : 'markets';
-        const reportTabs = [['markets','Markets'],['audit','Audit'],['nupay','NuPay']].map(([id,label])=>({id, label, style:tabStyle(reportHere===id), go:()=>{ if(id==='nupay'){ this.setState({route:'reports', reportTab:'nupay', navDrawer:false, modal:null, modalStack:[], admPane:null}); return; } this.setState({route:id==='markets'?'reports':'logbook', reportTab:id, navDrawer:false, modal:null, modalStack:[], admPane:null}); }}));
-        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: (st.route==='reports'||st.route==='logbook') && !st.admPane, isNuPay: reportHere==='nupay', showMarketsGrid: st.route==='reports' && reportHere!=='nupay', isAccess: st.route==='access' && accessHere==='invites' };
+        const reportHere = st.route==='nupay' || st.reportTab==='nupay' ? 'nupay' : 'markets';
+        const reportTabs = [['markets','Markets'],['audit','Audit'],['nupay','NuPay']].map(([id,label])=>({id, label, style:tabStyle(reportHere===id), go:()=>this.nav(id==='nupay'?'nupay':id==='audit'?'logbook':'dashboard')}));
+        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: false, isNuPay: st.route==='nupay', showMarketsGrid: st.route==='dashboard', isAccess: st.route==='access' };
       })(),
       ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
       ...(()=>{ const rl=st.reel; if(!rl) return {reelOn:false, reelPlaying:false, reelIdle:false};
@@ -5640,11 +5592,16 @@ class Component extends DCLogic {
         const counts = { all:st.applications.length, new:0, reviewing:0, approved:0, declined:0 };
         st.applications.forEach(a=>{ counts[a.status]=(counts[a.status]||0)+1; });
         const fdefs=[['all','ALL'],['new','NEW'],['reviewing','REVIEWING'],['approved','APPROVED'],['declined','DECLINED']];
-        const appFilters = fdefs.map(([k,label])=>({label, count:counts[k]||0, go:()=>this.setState({appFilter:k}),
+        const appFilters = fdefs.map(([k,label])=>({label, count:counts[k]||0, go:()=>this.setState({appFilter:k, appPage:0}),
           style:this.cssObj("display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:99px;cursor:pointer;font:600 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;"+(st.appFilter===k?'background:var(--accSoft);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)':'color:var(--mut);border:1px solid var(--line)'))}));
-        const list = st.applications.filter(a=>st.appFilter==='all'||a.status===st.appFilter);
+        const aq = String(st.appQ||'').trim().toLowerCase();
+        const matched = st.applications.filter(a=>(st.appFilter==='all'||a.status===st.appFilter) && (!aq || [a.name,a.phone,a.purpose,a.source].join(' ').toLowerCase().includes(aq)));
+        const appSize = 12;
+        const appPages = Math.max(1, Math.ceil(matched.length / appSize) || 1);
+        const appPage = Math.min(Math.max(0, st.appPage||0), appPages-1);
+        const list = matched.slice(appPage*appSize, appPage*appSize+appSize);
         const appRows = list.map(a=>{ const existing=a.existingClientId?clientById(a.existingClientId):null;
-          return { name:a.name, tagline:(existing?'RETURNING · '+existing.ref:'NEW APPLICANT')+' · '+a.phone,
+          return { name:a.name, tagline:(a.source?a.source+' · ':'')+(existing?'RETURNING · '+existing.ref:'NEW APPLICANT')+' · '+a.phone,
             amountFmt:fmt(a.amount), purpose:a.purpose, termFmt:a.term+(a.term>1?' months':' month'), submitted:a.submitted,
             statusLabel:(meta[a.status]||meta.new)[0], statusStyle:pill(a.status),
             rowStyle:this.cssObj('display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:13px 18px;font-size:13px;border-top:1px solid var(--line);align-items:center;cursor:pointer'+(a.inboxFresh?';background:color-mix(in srgb,var(--acc) 12%,transparent)':'')),
@@ -5682,14 +5639,18 @@ class Component extends DCLogic {
               this.toast('Application from '+av.name+' declined — logged'); } };
         }
         const qa=this.qkApp(), qOn=!!(qa&&qa.on&&qa.url), ago=this._qkAt?Math.max(0,Math.round((Date.now()-this._qkAt)/60000)):null;
-        return { isApplications: st.route==='applications' || (st.route==='access' && st.accessTab==='applications'), appNewCount, appTotal: st.applications.length,
+        return { isApplications: st.route==='applications', appNewCount, appTotal: st.applications.length,
           inboxScrollRef: this._inboxScrollRef || (this._inboxScrollRef = el=>{ this._inboxScroll = el; }),
+          appQ: st.appQ||'', appQChange:(e)=>this.setState({appQ:e.target.value, appPage:0}),
+          appPageLabel: (appPage+1)+' / '+appPages,
+          appPrev: ()=>this.setState(p=>({appPage: Math.max(0,(p.appPage||0)-1)})),
+          appNext: ()=>this.setState(p=>({appPage: Math.min(appPages-1,(p.appPage||0)+1)})),
           qkLabel: !qOn?'LINK QUIK1':this._qkErr?'QUIK1 · ERROR':this._qkBusy?'QUIK1 · SYNCING…':('QUIK1 · '+(ago==null?'SYNC NOW':ago<1?'JUST NOW':ago+' MIN AGO')),
           qkTitle: !qOn?'Link the Quik1 loan app so Q1 brings new applications here':this._qkErr?('Last sync failed: '+this._qkErr):'Q1 checks Quik1 every minute. Click to check now.',
           qkSyncNow: ()=>this.qkSync(true),
           appFilters, appRows, appEmpty: appRows.length===0,
           appDetailOn: !!av, appD: appD||{}, appClose:()=>this.setState({appViewId:null}),
-          isMessages: st.route==='messages' || (st.route==='access' && st.accessTab==='messages'),
+          isMessages: st.route==='messages',
           q1ThreadsEmpty: !(st.q1Threads||[]).length,
           q1Threads: (st.q1Threads||[]).map(t=>{
             const drafts=st.q1Drafts||{};
@@ -5709,6 +5670,7 @@ class Component extends DCLogic {
       })(),
       isLedgerLocked: st.route==='ledger' && !st.ledgerUnlocked, isLedgerOpen: st.route==='ledger' && st.ledgerUnlocked,
       goLogbook:()=>this.nav('logbook'), goPetty:()=>this.setState({route:'ledger', admPane:'petty', menuId:null, modal:null, modalStack:[], navDrawer:false}), goNewLoan:()=>this.nav('newloan'), goLoans:()=>this.nav('loans'),
+      goAccess:()=>this.setState({route:'access', accessTab:'invites', menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false}),
       goLoansAll:()=>{ this.setState({filter:'all'}); this.nav('loans'); },
       goOverdue:()=>{ this.setState({filter:'overdue'}); this.nav('loans'); },
       goLedger:()=>this.nav('ledger'), goClients:()=>this.nav('clients'), goAddClient:()=>{ this._docFiles=[]; this.setState({route:'addclient',wizStep:1,ac:{},acOfficer:null,docs:[],docExtracted:false,docProcessing:false}); },
@@ -5777,8 +5739,16 @@ class Component extends DCLogic {
             style:this.cssObj("padding:6px 12px;border-radius:99px;font:600 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;"+(on?'background:var(--ink);color:var(--bg)':'border:1px solid var(--line2);color:var(--mut)'))}; })
         }; })(),
       logRows: (()=>{ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); const from=st.lgFrom||'', to=st.lgTo||'';
-        return st.logbook.filter(g=>{ if(!from&&!to) return true; const p=this.slParse(String(g.date||'').split('·')[0].trim().toLowerCase().replace(/\b[a-z]/g,m=>m.toUpperCase())); if(!p) return false; const d=iso(p); return (!from||d>=from)&&(!to||d<=to); }); })().map(g=>({...g, amountFmt: g.amount ? fmt(g.amount) : '—',
+        const q=String(st.lgQ||'').trim().toLowerCase();
+        const all=st.logbook.filter(g=>{ if(q && ![g.ref,g.customer,g.type,g.comment].join(' ').toLowerCase().includes(q)) return false; if(!from&&!to) return true; const p=this.slParse(String(g.date||'').split('·')[0].trim().toLowerCase().replace(/\b[a-z]/g,m=>m.toUpperCase())); if(!p) return false; const d=iso(p); return (!from||d>=from)&&(!to||d<=to); });
+        const size=12, pages=Math.max(1, Math.ceil(all.length/size)||1), page=Math.min(Math.max(0, st.lgPage||0), pages-1);
+        this._lgPageLabel=(page+1)+' / '+pages; this._lgPages=pages;
+        return all.slice(page*size, page*size+size); })().map(g=>({...g, amountFmt: g.amount ? fmt(g.amount) : '—',
         typeStyle:this.cssObj("font:500 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:"+(g.type==='LOAN ISSUED'?'var(--blue)':g.type==='LOAN DELETED'?'var(--red)':g.type==='PII UNMASKED'?'var(--amber)':g.type==='LOAN EDITED'?'var(--amber)':'var(--mut)'))})),
+      lgQ: st.lgQ||'', lgQChange:(e)=>this.setState({lgQ:e.target.value, lgPage:0}),
+      lgPageLabel: this._lgPageLabel||'1 / 1',
+      lgPrev: ()=>this.setState(p=>({lgPage: Math.max(0,(p.lgPage||0)-1)})),
+      lgNext: ()=>this.setState(()=>({lgPage: Math.min((this._lgPages||1)-1, (this.state.lgPage||0)+1)})),
       staffBoxStyle:this.cssObj('width:360px;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;padding:30px 28px;box-shadow:var(--modalShadow);'+(st.staffError?'animation:shake .3s ease':'')),
       staffEmail: st.staffEmail||'', staffPass: st.staffPass||'', staffError: !!st.staffError,
       staffEmailChange:(e)=>this.setState({staffEmail:e.target.value, staffError:false}),
