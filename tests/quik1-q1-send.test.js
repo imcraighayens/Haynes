@@ -121,11 +121,25 @@ test('Ask Q1 send stays visible, disabled when empty, and above the inset on pho
         document.documentElement.style.setProperty('--q-kb', '280px');
         document.documentElement.classList.add('q-kb');
       });
-      await page.waitForTimeout(50);
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-q-ai-sheet]');
+        return el && getComputedStyle(el).transform === 'none' && getComputedStyle(el.parentElement).transform === 'none';
+      });
       const raised = await sendButton(page);
-      const sheetBox = await page.locator('[data-q-ai-sheet]').evaluate((el) => el.getBoundingClientRect().bottom);
-      assert.ok(Math.abs(sheetBox - (viewport.height - 280)) <= 2, viewport.width + ' sheet is flush on a 280px keyboard (' + sheetBox + ')');
-      assert.ok(raised.bottom <= viewport.height - 280 + 2, viewport.width + ' send sits on a 280px keyboard (' + raised.bottom + ')');
+      const sheetBox = await page.locator('[data-q-ai-sheet]').evaluate((el) => {
+        const sheet = el.getBoundingClientRect();
+        const frame = el.closest('.q-frame').getBoundingClientRect();
+        const bar = el.querySelector('.q-chat-bar');
+        return {
+          gap: frame.bottom - sheet.bottom,
+          bottom: getComputedStyle(el).bottom,
+          pad: bar ? getComputedStyle(bar).paddingBottom : ''
+        };
+      });
+      assert.equal(sheetBox.bottom, '280px', viewport.width + ' sheet bottom is only the keyboard offset');
+      assert.equal(sheetBox.pad, '0px', viewport.width + ' composer padding does not add a gap');
+      assert.ok(Math.abs(sheetBox.gap - 280) <= 1, viewport.width + ' sheet is flush on a 280px keyboard (' + sheetBox.gap + ')');
+      assert.ok(raised.bottom <= viewport.height - 280 + 4, viewport.width + ' send sits on a 280px keyboard (' + raised.bottom + ')');
       assert.ok(raised.top >= 0, viewport.width + ' send stays in the viewport');
 
       await page.evaluate(() => {
