@@ -15,12 +15,12 @@ async function boot(page, origin) {
     localStorage.setItem('ledjaa.theme.v3', 'dark');
   }, { origin, key: LEDGER_KEY });
   await page.goto(origin + '/ledger/', { waitUntil: 'load' });
-  await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Reports/.test(document.body.innerText), null, { timeoutMs: 20000 });
+  await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /DASHBOARD/.test(document.body.innerText), null, { timeoutMs: 20000 });
   if (await page.getByText('Acknowledge all', { exact: true }).count()) await clickText(page, 'Acknowledge all');
 }
 
 async function openNuPay(page) {
-  await clickText(page, 'Reports');
+  await page.locator('[title="Nupay"]').first().dispatchEvent('click');
   await page.waitForSelector('[data-report-tab="nupay"]', { state: 'attached' });
   await page.locator('[data-report-tab="nupay"]').first().dispatchEvent('click');
   await page.waitForSelector('#nupay-tab-drop', { state: 'attached' });
