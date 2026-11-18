@@ -451,6 +451,10 @@ function rejectPinShape() {
   throw new HttpError(400, enterPinMessage());
 }
 
+function rejectPinShape() {
+  throw new HttpError(400, enterPinMessage());
+}
+
 const DEVICE_NOT_LINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
 
 function deviceNotLinked() {

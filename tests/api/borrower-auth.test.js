@@ -808,6 +808,12 @@ describe('borrower auth', { concurrency: false }, () => {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
     });
     assert.equal(oldShape.statusCode, 400, oldShape.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
+    const four = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: '1'.repeat(QUIK1_PIN_LENGTH - 1) }
+    });
+    assert.equal(four.statusCode, 400, four.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     const missed = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: PIN_OK }
     });
