@@ -16,7 +16,7 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
     try {
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => /Enter the 6-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, () => /Your PIN\. Not an ID number/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       const boot = await page.evaluate(() => ({
         bundlerErr: !!document.getElementById('__bundler_err'),
         link: window.Quik1Link && ['getState', 'subscribe', 'submitApplication', 'submitRequest', 'submitSignup', 'decide', 'decideSignup', 'confirmRepayment', 'repaymentFor', 'decisionFor', 'reset'].every(k => typeof window.Quik1Link[k] === 'function')
@@ -91,6 +91,10 @@ function startRootHost() {
       res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, name)).pipe(res);
     }
+    if (urlPath === '/shared/pin-length.js') {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+      return fs.createReadStream(path.resolve(dir, '../shared/pin-length.js')).pipe(res);
+    }
     if (urlPath === '/' || urlPath === '/index.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, 'index.html')).pipe(res);
@@ -125,8 +129,8 @@ test('a new device with email off renders the unlinked copy', { skip: pw ? false
         body: JSON.stringify({ error: copy, code: 'device_not_linked', deviceNotLinked: true })
       }));
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, () => /Enter the 6-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
-      for (const digit of '246810') {
+      await pageWaitFor(page, () => /Your PIN\. Not an ID number/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+      for (const digit of '24681') {
         await page.evaluate(label => {
           const button = [...document.querySelectorAll('button')].find(el => (el.textContent || '').trim() === label);
           if (!button) throw new Error('missing key ' + label);
@@ -152,14 +156,14 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
   page.on('request', r => requested.push(r.url()));
   try {
     await page.goto(host.origin + '/', { waitUntil: 'load' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && /Enter the 6-digit PIN you chose/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText) && /Your PIN\. Not an ID number/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
     const text = await page.evaluate(() => document.body.innerText);
     assert.equal(/\{\{/.test(text), false, 'no raw template markers');
     assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');
     assert.equal(pageErrors.filter(e => !isKnownPageError(e)).length, 0);
     const assets = requested.filter(u => /\.(js|png|woff2|webp|mp4)(\?|$)/.test(u));
     assert.ok(assets.length > 0, 'the page requested scripts and images');
-    const rootShell = new Set(['/sw.js']);
+    const rootShell = new Set(['/sw.js', '/shared/pin-length.js']);
     assert.ok(assets.every(u => {
       const p = new URL(u).pathname;
       return p.startsWith('/quik1/') || rootShell.has(p);

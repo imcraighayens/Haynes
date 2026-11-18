@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Quik1">
 <link rel="apple-touch-icon" href="/quik1/apple-touch-icon.png">
+<script type="module" src="/shared/pin-length.js"></script>
 <script>
 /* Installed iOS app: mark the document before first paint so the phone
    frame never letterboxes a Home Screen launch. */
@@ -526,7 +527,7 @@ input,button,textarea{font-family:inherit}
     <!-- ── Splash ────────────────────────────────────────────── -->
     <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
       <div class="q-bleed" style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;overflow:hidden">
-        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
         <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
         <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:calc(24px + var(--q-safe-top, env(safe-area-inset-top, 0px))) calc(34px + env(safe-area-inset-right)) calc(24px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px))) calc(34px + env(safe-area-inset-left));box-sizing:border-box">
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="position:relative;z-index:1;width:168px;height:auto;display:block">
@@ -1491,12 +1492,12 @@ input,button,textarea{font-family:inherit}
     <!-- ── Login ─────────────────────────────────────────────── -->
     <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
       <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#0C0E13">
-        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
-      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))">
-          <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
+      <div class="q-login" style="flex:1;min-height:0;overflow:hidden;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;background:transparent;color:#FFFFFF;padding:0 calc(22px + env(safe-area-inset-right)) calc(108px + env(safe-area-inset-bottom)) calc(22px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <div style="position:relative;z-index:1;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;text-align:left;padding-top:calc(12px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:hidden">
+          <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:72px;height:auto;display:block;margin-bottom:8px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
             <h1 style="margin:0;font-size:46px;font-weight:500;line-height:1.05;letter-spacing:-.04em;text-wrap:balance">Are you short before payday<span style="color:#FDD10D">?</span> We've got you<span style="color:#FDD10D">.</span></h1>
@@ -1504,8 +1505,8 @@ input,button,textarea{font-family:inherit}
             <p style="margin:22px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.7);max-width:32ch;text-wrap:pretty">Borrow from R500 and pay it back on payday. One flat fee of {{ ratePct }}, and you'll know in minutes.</p>
           </sc-if>
           <sc-if value="{{ loginStepHeadOn }}">
-            <h1 style="margin:0;font-size:36px;font-weight:500;line-height:1.08;letter-spacing:-.035em;text-wrap:balance">{{ loginHead }}<span style="color:#FDD10D">.</span></h1>
-            <p style="margin:8px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.65);max-width:32ch;text-wrap:pretty">{{ loginSub }}</p>
+            <h1 style="margin:0;font-size:28px;font-weight:500;line-height:1.08;letter-spacing:-.035em;text-wrap:balance">{{ loginHead }}<span style="color:#FDD10D">.</span></h1>
+            <p style="margin:4px 0 0;font-size:14px;line-height:1.35;color:rgba(255,255,255,.65);max-width:34ch;text-wrap:pretty">{{ loginSub }}</p>
           </sc-if>
         </div>
 
@@ -1529,7 +1530,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginIdStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <label style="display:flex;flex-direction:column;gap:7px">
               <span style="font-size:13px;color:rgba(255,255,255,.6)">Mobile number</span>
               <span style="display:flex;align-items:center;gap:12px;height:60px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid {{ liPhoneBd }}">
@@ -1554,7 +1555,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginReturnStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <div style="display:flex;align-items:center;gap:12px">
               <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(255,255,255,.24);display:grid;place-items:center">
                 <svg sc-camel-view-box="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#FDD10D;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M7 10.5V8a5 5 0 0 1 10 0v2.5M5.8 10.5h12.4a1.6 1.6 0 0 1 1.6 1.6v6.3a1.6 1.6 0 0 1-1.6 1.6H5.8a1.6 1.6 0 0 1-1.6-1.6v-6.3a1.6 1.6 0 0 1 1.6-1.6Z"></path></svg>
@@ -1575,7 +1576,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginPhoneStep }}" hint-placeholder-val="{{ true }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <div style="display:flex;flex-direction:column;gap:7px">
               <label style="font-size:13px;color:rgba(255,255,255,.6)">Mobile number</label>
               <div style="display:flex;align-items:center;gap:12px;height:60px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)">
@@ -1601,9 +1602,18 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
                 <sc-if value="{{ loginOtpStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
-            <sc-if value="{{ pinNote }}">
-              <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
+          <div style="position:relative;z-index:1;flex:0 0 auto;display:flex;flex-direction:column;padding-bottom:0;gap:8px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+            <sc-if value="{{ pinNoteOn }}">
+              <p style="margin:0;font-size:13px;line-height:1.35;color:#FF8A7A">{{ pinNote }}</p>
+            </sc-if>
+            <sc-if value="{{ showPinBack }}">
+              <button sc-camel-on-click="{{ onSignInBack }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Back</button>
+            </sc-if>
+            <sc-if value="{{ showIdEntry }}">
+              <label style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:13px;color:rgba(255,255,255,.6)">SA ID number</span>
+                <input data-q-idpin="1" value="{{ liId }}" sc-camel-on-change="{{ onLiId }}" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="13" placeholder="13 digits" style="height:44px;padding:0 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:16px;letter-spacing:.04em">
+              </label>
             </sc-if>
             <sc-if value="{{ showAccountRef }}">
               <label style="display:flex;flex-direction:column;gap:7px">
@@ -1612,15 +1622,18 @@ input,button,textarea{font-family:inherit}
               </label>
             </sc-if>
             <div style="display:flex;gap:10px">
-              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="6">
-                <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
+              <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="{{ pinCellCount }}">
+                <div style="flex:1;height:46px;border-radius:14px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:22px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
               <sc-for list="{{ keypad }}" as="key" hint-placeholder-count="12">
-                <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
+                <button sc-camel-on-click="{{ key.onClick }}" style="height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:18px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
+            <sc-if value="{{ showUseId }}">
+              <button sc-camel-on-click="{{ onUseId }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Use ID number</button>
+            </sc-if>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
               <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
               <sc-if value="{{ showBrowse }}" hint-placeholder-val="{{ true }}">
@@ -1635,7 +1648,7 @@ input,button,textarea{font-family:inherit}
               <p style="margin:0;font-size:13px;line-height:1.45;color:rgba(255,255,255,.72)">Biometric sign-in is not set up yet. Your PIN still works.</p>
             </sc-if>
             <sc-if value="{{ showFaceId }}">
-              <button data-q-face="1" sc-camel-on-click="{{ onFaceId }}" aria-label="Sign in with Face ID" style="width:100%;height:56px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:999px;border:1px solid rgba(253,209,13,.55);background:rgba(253,209,13,.12);cursor:pointer;font-size:16px;font-weight:600;color:#FDD10D">
+              <button data-q-face="1" sc-camel-on-click="{{ onFaceId }}" aria-label="Sign in with Face ID" style="width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:999px;border:1px solid rgba(253,209,13,.55);background:rgba(253,209,13,.12);cursor:pointer;font-size:15px;font-weight:600;color:#FDD10D">
                 <svg sc-camel-view-box="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#FDD10D;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0"></path></svg>
                 <span style="display:block;white-space:nowrap;line-height:1">{{ biometricCta }}</span>
               </button>
@@ -2602,8 +2615,8 @@ input,button,textarea{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{ showAuthDock }}">
-        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
-        <div class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:45;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
+        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.35;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
+        <div data-q-authdock="1" class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:46;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
         <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ authDockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
@@ -2771,6 +2784,7 @@ input,button,textarea{font-family:inherit}
 </script>
 <script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
   const SALARY_DAY=25;
+  const PIN_LENGTH=globalThis.QUIK1_PIN_LENGTH;
   const DUE_DATE=(()=>{
     const now=new Date(2026,7,20);
     let d=new Date(now.getFullYear(),now.getMonth(),SALARY_DAY-1);
@@ -2848,11 +2862,18 @@ input,button,textarea{font-family:inherit}
     playVideos(){
       [this._splashVid,this._loginVid].forEach(r=>{
         const v=r.current;
-        if(!v||!v.paused) return;
-        v.muted=true; v.defaultMuted=true;
+        if(!v) return;
+        v.muted=true; v.defaultMuted=true; v.loop=true;
+        v.removeAttribute('poster');
         v.setAttribute('muted',''); v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); v.setAttribute('autoplay','');
+        if(!v._q1bound){
+          v._q1bound=true;
+          v.addEventListener('error',()=>{ v.style.visibility='hidden'; });
+          v.addEventListener('playing',()=>{ v.style.visibility='visible'; });
+        }
+        if(!v.paused) return;
         const p=v.play();
-        if(p&&p.catch) p.catch(()=>{ if(!this._vidTap){ this._vidTap=()=>{ this.playVideos(); }; ['touchstart','click'].forEach(ev=>window.addEventListener(ev,this._vidTap,{once:true,passive:true})); } });
+        if(p&&p.catch) p.catch(()=>{});
       });
     }
     componentDidUpdate(pp,ps){
@@ -2881,6 +2902,12 @@ input,button,textarea{font-family:inherit}
       this._bubLogin=()=>{ clearTimeout(this._bubT); this._loginAt=Date.now(); this.setState({bubbleOn:false,bubbleIdx:null}); bub(FIRST); };
       this._loginAt=Date.now(); bub(FIRST);
       this._t0=Date.now();
+      this._vidWake=()=>{ if(document.hidden) return; this.playVideos(); };
+      document.addEventListener('visibilitychange',this._vidWake);
+      window.addEventListener('pageshow',this._vidWake);
+      window.addEventListener('focus',this._vidWake);
+      window.addEventListener('touchstart',this._vidWake,{passive:true});
+      window.addEventListener('click',this._vidWake);
       setTimeout(()=>this.playVideos(),60);
       this._splash=setInterval(()=>{
         const e=Date.now()-this._t0;
@@ -2913,7 +2940,7 @@ input,button,textarea{font-family:inherit}
         email:!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email||'')?'Enter a valid email address':'',
         employer:(u.employment!=='Self-employed'&&!(u.employer||'').trim())?'Who do you work for?':'',
         income:(parseInt(u.income||'0',10)<1000)?'Monthly take-home pay, at least R1 000':'',
-        pin:!/^\d{6}$/.test(u.pin||'')?'Choose 6 digits':'',
+        pin:!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(u.pin||'')?'Choose '+PIN_LENGTH+' digits':'',
         pin2:(u.pin2!==u.pin)?'PINs do not match':''
       };
       const F=(k,label,ph,o)=>Object.assign({label,ph,value:u[k]||'',onChange:set(k,o&&o.fmt),type:'text',mode:'text',max:80,prefix:'',ls:'0',
@@ -2923,8 +2950,8 @@ input,button,textarea{font-family:inherit}
            F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'})],
         2:[F('employer',u.employment==='Self-employed'?'Business name (optional)':'Employer','Company name'),
            F('income','Monthly take-home pay','0',{mode:'numeric',max:7,fmt:digits(7),prefix:'R'})],
-        3:[F('pin','Create a 6-digit PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'}),
-           F('pin2','Confirm PIN','••••••',{type:'password',mode:'numeric',max:6,fmt:digits(6),ls:'.28em'})]
+        3:[F('pin','Create a '+PIN_LENGTH+'-digit PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'}),
+           F('pin2','Confirm PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'})]
       }[step];
       const stepKeys={1:['name','idnum','phone','email'],2:['employer','income'],3:['pin','pin2']}[step];
       const chip=(k,v)=>({label:v,go:()=>this.setState(st=>({su:{...st.su,[k]:v}})),bg:u[k]===v?'#FDD10D':'rgba(255,255,255,.05)',fg:u[k]===v?'#0B0620':'#FFFFFF',bd:u[k]===v?'#FDD10D':'rgba(255,255,255,.12)'});
@@ -2938,10 +2965,10 @@ input,button,textarea{font-family:inherit}
         isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
         suStep:step, suStep2:step===2, suStep3:step===3,
         suStepName:{1:'About you',2:'Work and pay',3:'Pick a PIN'}[step],
-        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 6 numbers you will remember. You use them to open the app.'}[step],
+        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose '+PIN_LENGTH+' numbers you will remember. You use them to open the app.'}[step],
         suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
         suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
-        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these 6 digits to log in. Keep them to yourself.'}[step],
+        suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these '+PIN_LENGTH+' digits to log in. Keep them to yourself.'}[step],
         suFields:fields, suError:s.suError||'',
         suEmp:['Permanent','Contract','Self-employed','Part-time'].map(v=>chip('employment',v)),
         suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
@@ -3008,7 +3035,7 @@ input,button,textarea{font-family:inherit}
           E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
           E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
     }
-    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); if(this._vidWake){ document.removeEventListener('visibilitychange',this._vidWake); window.removeEventListener('pageshow',this._vidWake); window.removeEventListener('focus',this._vidWake); window.removeEventListener('touchstart',this._vidWake); window.removeEventListener('click',this._vidWake); } }
   
     _cards=React.createRef();
     _aiScroll=React.createRef();
@@ -3699,8 +3726,17 @@ input,button,textarea{font-family:inherit}
     }
     submitBorrowerPin(pin){
       if(this.state.pinBusy) return;
-      if(!/^\d{6}$/.test(pin)) return;
+      if(!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(pin)) return;
       const st=this.state;
+      if(st.pinPhase==='idpin'){
+        const id=String(st.liId||'').replace(/\D/g,'');
+        if(id.length!==13){
+          this.setState({otp:'', pinNote:'Enter the 13 digits of your ID, then your PIN.'});
+          return;
+        }
+        this.finishBorrower('/signin/id', {idNumber:id, pin:pin});
+        return;
+      }
       if(st.pinPhase==='change'||st.pinPhase==='change2'){
         if(st.pinPhase!=='change2'){
           this.setState({pinFirst:pin, pinPhase:'change2', otp:'', pinNote:''});
@@ -3738,7 +3774,8 @@ input,button,textarea{font-family:inherit}
         .then(async r=>{
           let j=null; try{ j=await r.json(); }catch(e){ j=null; }
           if(r.status===423){
-            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
+            const stay=this.state.pinPhase==='idpin'?'idpin':'sign';
+            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:stay, pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
             return;
           }
           if(j&&j.deviceNotLinked===true){
@@ -3765,7 +3802,7 @@ input,button,textarea{font-family:inherit}
           if(!r.ok){
             const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
             const phase=this.state.pinPhase;
-            const back=(phase==='change'||phase==='change2')?'change':(this.state.inviteCode?'choose':'sign');
+            const back=(phase==='change'||phase==='change2')?'change':(this.state.inviteCode?'choose':(phase==='idpin'?'idpin':'sign'));
             this.setState({pinBusy:false, otp:'', pinFirst:'', pinPhase:back, pinNote:msg});
             return;
           }
@@ -3989,8 +4026,8 @@ input,button,textarea{font-family:inherit}
         docs:'Upload your latest payslip or bank statement. Clear photos are processed fastest.',
         kyc:'We need to verify who you are. Follow the prompts to scan your ID and take a selfie.',
         who:'Pick if this loan is for you or for your business.',
-        signup:'Sign up takes 3 short steps: your details, your work and pay, then a 6-digit PIN. Tap Back any time to change something.',
-        login:'Enter the 6-digit PIN you chose. It is not your ID number.'};
+        signup:'Sign up takes 3 short steps: your details, your work and pay, then a '+PIN_LENGTH+'-digit PIN. Tap Back any time to change something.',
+        login:'Enter your PIN. It is not your ID number.'};
       const txt=G[k]||'I am Q1. Ask me anything about this page or your account.';
       const last=st.aiChat[st.aiChat.length-1];
       const add=!(last&&last.from==='bot'&&last.text===txt);
@@ -4167,17 +4204,25 @@ input,button,textarea{font-family:inherit}
         Object.assign(v,{menuIsGrid:view==='grid',menuIsList:view==='list',menuViewX:view==='list'?'34px':'0px',
           menuGridInk:view==='grid'?'#0B0620':'rgba(var(--q-fg),.6)',menuListInk:view==='list'?'#0B0620':'rgba(var(--q-fg),.6)',
           onMenuGrid:()=>setV('grid'),onMenuList:()=>setV('list'),gridIconInk:'var(--q-accent)'}); }
-      { const onAuth=false;
+      { const savedFace=this.readWebauthn();
+        const faceTrusted=!!s.platformAuth&&!!s.biometricLive&&!!savedFace&&!s.inviteCode;
+        const onAuth=!!s.splashDone&&(s.screen==='login'||s.screen==='signup');
         v.showAuthDock=onAuth;
+        if(onAuth) v.showFaceId=false;
         if(onAuth){
-          const cur=s.screen==='signup'?'signup':s.loginMode==='return'?'face':s.loginMode==='pin'?'pin':s.loginMode==='id'?'id':'signup';
+          const cur=s.screen==='signup'?'signup':(s.pinPhase==='idphone'||s.pinPhase==='idpin'||s.pinPhase==='emailin')?'id':'pin';
           const act0=s.authTap||cur;
+          const keepPin=!!s.inviteCode||s.pinPhase==='change'||s.pinPhase==='change2'||s.pinPhase==='choose'||s.pinPhase==='confirm';
           v.authDockItems=[
-            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,loginIntro:false})},
-            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false})},
-            {k:'id',label:'Sign in',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',otpMode:false,loginIntro:false,liError:''})},
-            {k:'signup',label:'Sign up',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
-          ].map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')) g0(); },
+            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>{
+              if(!faceTrusted){ this.setState({screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,otp:'',loginIntro:false,pinNote:'Sign in with your PIN once. Face ID is offered on this phone after that.'}); return; }
+              this.setState({screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,loginIntro:false,pinNote:''});
+              this.unlockBiometric();
+            }},
+            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState(keepPin?{screen:'login',loginMode:'pin',otpMode:true,loginIntro:false}:{screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,otp:'',pinNote:'',loginIntro:false})},
+            {k:'id',label:'ID',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',pinPhase:'idpin',otpMode:true,otp:'',loginIntro:false,liError:'',pinNote:'',liId:''})},
+            {k:'signup',label:'New user',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
+          ].filter(d=>d.k!=='face'||faceTrusted).map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')||d.k==='face') g0(); },
             gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,pad:act?'18px':'13px',
             labelX:act?'0px':'-6px',labelBlur:act?'0px':'3px',labelDelay:act?'.12s':'0s',
             bg:act?'#FDD10D':'transparent',ink:act?'#0B0620':'rgba(255,255,255,.75)',
@@ -4408,7 +4453,7 @@ input,button,textarea{font-family:inherit}
         loginIntroStep:s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false,
         ...(()=>{ if(s.screen!=='login') return {loginStepHeadOn:false};
           const pin=s.loginMode==='pin';
-          const [h,sub]=['Enter your PIN','The 6 digits you chose. It is not an ID number.'];
+          const [h,sub]=['Enter your PIN','Your PIN. Not an ID number.'];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
         onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
@@ -4642,8 +4687,8 @@ input,button,textarea{font-family:inherit}
         onReturning:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
-        otpTitle:'Enter your 6-digit PIN',
-        otpSub:'Enter the 6-digit PIN you chose. It is not your ID number.',
+        otpTitle:'Enter your PIN',
+        otpSub:'Your PIN. Not an ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
           const sp={fill:'none',stroke:Y,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'};
           return E('span',{style:{position:'relative',width:'26px',height:'26px',display:'block'}},
@@ -4902,15 +4947,16 @@ input,button,textarea{font-family:inherit}
   
         phone:s.phone, phoneError:s.phoneError,
         onPhone:e=>this.setState({phone:e.target.value,phoneError:''}),
-        otpCells:[0,1,2,3,4,5].map(i=>({char:s.otp[i]||''})),
+        pinCellCount:PIN_LENGTH,
+        otpCells:Array.from({length:PIN_LENGTH},(_,i)=>({char:s.otp[i]||''})),
         keypad:['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>({
           label:k,
           onClick:()=>{
             if(!k) return;
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
-              const next=(st.otp+k).slice(0,6);
-              if(next.length===6) setTimeout(()=>this.submitBorrowerPin(next), 320);
+              const next=(st.otp+k).slice(0,PIN_LENGTH);
+              if(next.length===PIN_LENGTH) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -5812,35 +5858,42 @@ input,button,textarea{font-family:inherit}
         loginEmailStep:s.screen==='login'&&s.pinPhase==='emailin',
         loginIdSignStep:s.screen==='login'&&s.pinPhase==='idphone',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
+        loginHead:s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Enter it again':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Enter it again':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idpin'?'Use ID number':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'This phone needs a reset':'Enter your PIN',
         loginSub:s.pinPhase==='unlinked'
           ?"Please contact EcoLoans and we'll reset your access."
           :s.pinPhase==='change'
-          ?'Choose a 6-digit PIN, then enter it again. It replaces the temporary one.'
+          ?'Enter it twice. It replaces the temporary one.'
           :s.pinPhase==='change2'
-          ?'Enter that PIN again. It replaces the temporary one.'
+          ?'Same PIN again.'
           :s.pinPhase==='choose'
-          ?'Choose a 6-digit PIN, then enter it again. It is not taken from an ID number.'
+          ?'Enter it twice. Not an ID number.'
           :s.pinPhase==='confirm'
-          ?'Enter that PIN again. It is not taken from an ID number.'
+          ?'Same PIN again.'
           :s.pinPhase==='email'
           ?'Open the link on this phone. It works once, then this device is remembered.'
           :s.pinPhase==='emailin'
-          ?'If this email is on your account, we send one link to this phone. It expires and works once.'
+          ?'If this email is on file, we send one link. It works once.'
+          :s.pinPhase==='idpin'
+          ?'Your SA ID, then your PIN.'
           :s.pinPhase==='idphone'
-          ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
+          ?'We email a link. ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
           ?'Staff can reset this device in Ledger. Your PIN stays the same.'
-          :'Enter the 6-digit PIN you chose. It is not your ID number.',
+          :'Your PIN. Not an ID number.',
         pinNote:s.pinNote||'',
+        pinNoteOn:!!s.pinNote&&s.pinPhase!=='email'&&s.pinPhase!=='staff',
+        showPinBack:s.screen==='login'&&(s.pinPhase==='email'||s.pinPhase==='staff'||s.pinPhase==='unlinked'||s.pinPhase==='idpin'),
+        showUseId:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showIdEntry:s.screen==='login'&&s.pinPhase==='idpin',
+        onUseId:()=>this.setState({screen:'login',pinPhase:'idpin',otp:'',pinNote:'',liId:'',loginIntro:false}),
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
-        showMethods:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showMethods:false,
         onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinNote:'', signEmail:s.signEmail||''}),
         onIdPhoneSignIn:()=>this.setState({pinPhase:'idphone', pinNote:'', liError:''}),
         onSendEmailLink:()=>this.sendNeutralSignIn('/signin/email', {email:s.signEmail||''}),
         onSendIdPhone:()=>this.sendNeutralSignIn('/signin/id', {phone:s.liPhone||'', idNumber:s.liId||''}),
-        onSignInBack:()=>this.setState({pinPhase:'sign', pinNote:''}),
+        onSignInBack:()=>this.setState({pinPhase:'sign', pinNote:'', otp:'', liId:''}),
         showFaceId:!!s.platformAuth&&!!s.biometricLive&&s.pinPhase==='sign'&&!s.inviteCode,
         biometricCta:/iPhone|iPad/.test((typeof navigator!=='undefined'&&navigator.userAgent)||'')?'Sign in with Face ID':'Sign in with fingerprint',
         onFaceId:()=>this.unlockBiometric(),
@@ -5854,7 +5907,7 @@ input,button,textarea{font-family:inherit}
         showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
+        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='change'&&s.pinPhase!=='change2'&&s.pinPhase!=='idpin',
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',

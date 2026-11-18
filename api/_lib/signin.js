@@ -13,6 +13,7 @@ import { borrowerEmailLive, emailSender } from './email.js';
 import { sessionSecret, pendingDeviceCookie, requestIsSecure } from './quik1-session.js';
 import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
+import { isPin, enterPinMessage } from './pin.js';
 
 const LOCKED_PLACEHOLDER = 'locked';
 const SIGNIN_CLOSED = 'Sign in with your email for now';
@@ -287,8 +288,107 @@ function missingRelation(err) {
   return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
 }
 
+// ID number plus PIN. The ID is matched as the HMAC already stored on the
+// Ledger client. Unknown ID and a wrong PIN are the same refusal.
+async function borrowerForId(idMac) {
+  if (!idMac) return null;
+  let rows;
+  try {
+    rows = await select('clients', {
+      select: 'id,deleted_at',
+      id_hmac: eq(idMac),
+      deleted_at: 'is.null',
+      limit: 2
+    });
+  } catch (err) {
+    if (missingColumn(err)) throw signInClosed();
+    if (missingRelation(err)) return null;
+    throw err;
+  }
+  if (!rows || rows.length !== 1 || rows[0].deleted_at) return null;
+  try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at,device_reset_until',
+      client_id: eq(rows[0].id)
+    });
+    if (!borrower || borrower.client_id !== rows[0].id) return null;
+    return borrower;
+  } catch (err) {
+    if (missingColumn(err)) throw signInClosed();
+    if (missingRelation(err)) return null;
+    throw err;
+  }
+}
+
+const ID_PIN_BUDGET = 5;
+const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
+
+// q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
+// The per-ID rows use id_phone so that insert succeeds. Their subject is the
+// id_hmac, not the email-link subject (that one hashes the ID and the phone).
+function idPinSubject(mac) {
+  return mac || subjectHash('id_phone', 'none');
+}
+
+// Same address as the other attempt rows, under a prefix the ID-and-phone
+// counters do not query. Those counters keep counting only their own rows.
+function budgetIpHash(req) {
+  const ip = clientIp(req) || 'unknown';
+  return createHash('sha256').update(`q1-id-pin-budget|${sessionSecret() || 'unset'}|${ip}`).digest('hex');
+}
+
+async function assertIdPinBudget(subject, res) {
+  const since = new Date(Date.now() - ID_PIN_WINDOW_MS).toISOString();
+  let n = 0;
+  try {
+    n = await count('q1_auth_attempts', {
+      subject_hash: eq(subject),
+      kind: eq('id_phone'),
+      created_at: 'gte.' + since
+    });
+  } catch {
+    throw new HttpError(503, 'Server not configured');
+  }
+  if (n >= ID_PIN_BUDGET) {
+    if (res) res.setHeader('Retry-After', '900');
+    throw new HttpError(429, 'Too many attempts');
+  }
+}
+
+async function signInByIdPin(req, body, res) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
+  if (!hmacKey()) throw signInClosed();
+  const pin = body && typeof body.pin === 'string' ? body.pin : '';
+  await guardAuth(req, res);
+  if (!isPin(pin)) throw new HttpError(400, enterPinMessage());
+  await assertClientHmacColumns();
+  const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
+  const digits = normaliseSaId(rawId);
+  const mac = digits ? idHmac(digits) : null;
+  const subject = idPinSubject(mac);
+  const borrower = mac ? await borrowerForId(mac) : null;
+  const alreadyLocked = isLocked(borrower);
+  if (!alreadyLocked) await assertIdPinBudget(subject, res);
+  const ipHash = budgetIpHash(req);
+  try {
+    const out = await signInWithPin(req, borrower, pin);
+    await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
+    return out;
+  } catch (err) {
+    if (!alreadyLocked && (!(err instanceof HttpError) || err.status !== 400)) {
+      await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
+    }
+    throw err;
+  }
+}
+
 export async function requestIdPhoneSignIn(req, body, res) {
-  if (body && typeof body.pin === 'string' && body.pin) return signInByIdPhone(req, body, res);
+  if (body && typeof body.pin === 'string' && body.pin) {
+    const rawPhone = body.phone || body.cellphone ? String(body.phone || body.cellphone).trim() : '';
+    if (rawPhone) return signInByIdPhone(req, body, res);
+    return signInByIdPin(req, body, res);
+  }
   ready(req);
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
