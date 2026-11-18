@@ -1,8 +1,8 @@
 // Staff invites and borrower PIN sign-in.
 // A new device is confirmed by an email link when borrower email is live.
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
-// An ID number is never used to look anyone up. ID and cellphone
-// sign-in, when used, matches a keyed HMAC on the client row.
+// ID sign-in matches a keyed HMAC already stored on the Ledger client row.
+// The raw ID number is not logged, stored again, or returned.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
