@@ -3143,7 +3143,7 @@ class Component extends DCLogic {
     },(e)=>{
       const text=this.q1FailText(e);
       const unavailable=/not set up/i.test(text);
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:!unavailable, access:unavailable?'unavailable':'none', accessLabel:unavailable?text:'No access', error:text})});
+      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:!unavailable, access:unavailable?'unavailable':'none', accessLabel:unavailable?text:'No access', error:text, pinStatus:'Unknown'})});
     });
   }
   giveQuik1Access(){
@@ -3192,7 +3192,8 @@ class Component extends DCLogic {
   }
   inviteView(c){
     const gate=this.borrowerGateOn();
-    const j=(this._inviteMap&&c&&this._inviteMap[c.id])||null;
+    const missed=!!(c&&this._inviteMiss&&this._inviteMiss[c.id]);
+    const j=missed?null:((this._inviteMap&&c&&this._inviteMap[c.id])||null);
     const access=(j&&j.access)||'none';
     const invites=(j&&j.invites)||[];
     const open=invites.find(x=>x&&x.state==='open');
@@ -3206,7 +3207,7 @@ class Component extends DCLogic {
       detail=exp?('Expires '+this.shortDay(exp)):'';
     } else if(newest&&newest.state==='expired'){ kind='expired'; status='Expired'; }
     const pinish=access==='pin'||access==='locked';
-    return { kind, status, detail, pin:(j&&j.pinStatus)||'None', off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
+    return { kind, status, detail, pin:missed?'Unknown':((j&&j.pinStatus)||'None'), off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
   }
   ensureInviteMap(){
     const ids=(this.state.clients||[]).map(c=>c.id).filter(Boolean);
@@ -3215,12 +3216,14 @@ class Component extends DCLogic {
     this._invKey=key;
     Promise.all(ids.map(id=>this.staffApi('GET','/quik1-invites/'+encodeURIComponent(id)).then(j=>[id,j],()=>[id,null]))).then(pairs=>{
       const map={};
-      pairs.forEach(([id,j])=>{ if(j) map[id]=j; });
+      const miss={};
+      pairs.forEach(([id,j])=>{ if(j) map[id]=j; else miss[id]=true; });
       this._inviteMap=map;
+      this._inviteMiss=miss;
       if(this._invKey===key) this.forceUpdate();
     });
   }
-  refreshInvites(){ this._invKey=''; this._inviteMap={}; this.ensureInviteMap(); }
+  refreshInvites(){ this._invKey=''; this._inviteMap={}; this._inviteMiss={}; this.ensureInviteMap(); }
   sendInviteFor(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
     if(!this.borrowerGateOn()||!clientId) return;

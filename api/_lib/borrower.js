@@ -466,7 +466,7 @@ function canEmailNewDevice(req, address) {
 }
 
 function lockedError() {
-  throw new HttpError(423, 'This account is locked. Wait and try again, or ask your loan officer for a new invite.');
+  throw new HttpError(423, 'Quik1 is locked. Ask your loan officer to set a new PIN.');
 }
 
 function lockActive(borrower, now = Date.now()) {

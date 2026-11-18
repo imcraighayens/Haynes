@@ -30,6 +30,29 @@ test('d and src attributes are not raw templates', () => {
   assert.match(html, /sc-camel-d="\{\{ s\.iconPath \}\}"/);
 });
 
+test('openQuik1Invite shows Unknown when the status fetch fails', () => {
+  const blankStart = html.indexOf('q1Blank(c){');
+  const blank = html.slice(blankStart, html.indexOf('q1FromStatus(base, j){', blankStart));
+  assert.match(blank, /pinStatus:'None'/);
+  const start = html.indexOf('openQuik1Invite(clientId, ev){');
+  const fn = html.slice(start, html.indexOf('giveQuik1Access(){', start));
+  const err = fn.slice(fn.indexOf(',(e)=>{'));
+  assert.ok(err.length > 0);
+  assert.match(err, /pinStatus:'Unknown'/);
+  assert.doesNotMatch(err, /pinStatus:'None'/);
+});
+
+test('inviteView shows Unknown for a status fetch dropped from the map', () => {
+  const start = html.indexOf('inviteView(c){');
+  const fn = html.slice(start, html.indexOf('ensureInviteMap(){', start));
+  assert.match(fn, /_inviteMiss\[c\.id\]/);
+  assert.match(fn, /pin:missed\?'Unknown':\(\(j&&j\.pinStatus\)\|\|'None'\)/);
+  const mapStart = html.indexOf('ensureInviteMap(){');
+  const mapFn = html.slice(mapStart, html.indexOf('refreshInvites(){', mapStart));
+  assert.match(mapFn, /if\(j\) map\[id\]=j; else miss\[id\]=true/);
+  assert.match(mapFn, /this\._inviteMiss=miss/);
+});
+
 test('a failed Quik1 status fetch labels the Set PIN panel Unknown', () => {
   const start = html.indexOf('ensureQuik1Status(clientId){');
   assert.ok(start > 0);
