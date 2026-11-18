@@ -30,7 +30,7 @@ test('safe-area variables pad the top chrome and the dock keeps the bottom inset
   assert.match(quik, /drawerHeadTop:'calc\(34px \+ var\(--q-safe-top, env\(safe-area-inset-top, 0px\)\)\)'/);
   const backs = quik.match(/<span style="display:block;white-space:nowrap;line-height:1;letter-spacing:0">Back<\/span>/g);
   assert.equal(backs && backs.length, 2, 'both Back labels are nowrap spans so iOS does not overlap the glyphs');
-  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;bottom:0;z-index:45;padding-bottom:env\(safe-area-inset-bottom\)/);
+  assert.match(quik, /class="q-dock" style="position:absolute;left:18px;z-index:45;padding-bottom:var\(--q-pad, env\(safe-area-inset-bottom\)\)/);
   assert.match(quik, /homePadBottom:'calc\(76px \+ env\(safe-area-inset-bottom\)\)'/);
 });
 
@@ -119,7 +119,7 @@ test('register and home headers sit at or below a 59px top inset at 390x844', { 
     const home = await page.evaluate((viewportHeight) => {
       const header = document.querySelector('[data-q-safe-header="home"]');
       const row = header.firstElementChild;
-      const dock = [...document.querySelectorAll('.q-dock')].find((el) => el.getClientRects().length && /padding-bottom:\s*env\(safe-area-inset-bottom\)/.test(el.getAttribute('style') || ''));
+      const dock = [...document.querySelectorAll('.q-dock')].find((el) => el.getClientRects().length && /padding-bottom:\s*var\(--q-pad,\s*env\(safe-area-inset-bottom\)\)/.test(el.getAttribute('style') || ''));
       const box = dock ? dock.getBoundingClientRect() : null;
       return {
         pad: parseFloat(getComputedStyle(header).paddingTop),
@@ -131,7 +131,7 @@ test('register and home headers sit at or below a 59px top inset at 390x844', { 
     }, VIEW.height);
     assert.ok(home.pad >= INSET, 'home header padding ' + home.pad + ' is below the ' + INSET + 'px inset');
     assert.ok(home.rowTop >= INSET, 'home header row top ' + home.rowTop + ' overlaps the inset');
-    assert.match(home.dockStyle, /padding-bottom:\s*env\(safe-area-inset-bottom\)/);
+    assert.match(home.dockStyle, /padding-bottom:\s*var\(--q-pad,\s*env\(safe-area-inset-bottom\)\)/);
     assert.ok(Math.abs(home.dockBottom - home.viewportHeight) < 2, 'dock still sits on the physical bottom');
   } finally {
     await browser.close();
