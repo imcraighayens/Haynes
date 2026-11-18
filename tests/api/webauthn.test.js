@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
+import { verifyPin } from '../../api/_lib/pin.js';
 import { b64urlEncode, cborEncode, sha256 } from '../../api/_lib/webauthn.js';
 import { rpIdForHost } from '../../api/_lib/borrower-webauthn.js';
 
@@ -11,7 +12,7 @@ const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
 const CLIENT_A = 'c_bio_a';
-const PIN_OK = '246810';
+const PIN_OK = '24680';
 
 process.env.SUPABASE_URL = URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-test';
@@ -414,7 +415,7 @@ describe('borrower webauthn', { concurrency: false }, () => {
     const again = await call(quik1, {
       method: 'POST', path: ['pin'],
       headers: { cookie: 'q1_pin_change=' + token },
-      body: { pin: '802468', pinConfirm: '802468' }
+      body: { pin: '80246', pinConfirm: '80246' }
     });
     assert.equal(again.statusCode, 401, again.body);
     assert.equal(again.json().accountRef, undefined);
@@ -422,18 +423,20 @@ describe('borrower webauthn', { concurrency: false }, () => {
     assert.equal(fake.db.q1_sessions.length, sessions + 1);
   });
 
-  test('setting a temporary PIN revokes passkeys so an assertion opens no session', async () => {
+  test('setting a login PIN revokes passkeys so an assertion opens no session', async () => {
     const cookie = await pinSession();
     const device = await enrolPlatform(cookie);
     const sessions = fake.db.q1_sessions.length;
     assert.equal(fake.db.q1_webauthn_credentials[0].revoked_at == null, true);
     const set = await call(ledger, {
       method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
-      body: { clientId: CLIENT_A, pin: '864209', pinConfirm: '864209' }
+      body: { clientId: CLIENT_A, pin: '86420', pinConfirm: '86420' }
     });
     assert.equal(set.statusCode, 200, set.body);
     assert.ok(fake.db.q1_webauthn_credentials[0].revoked_at);
-    assert.match(fake.db.q1_borrowers[0].temp_pin_hash, /^scrypt\$/);
+    assert.match(fake.db.q1_borrowers[0].pin_hash, /^scrypt\$/);
+    assert.equal(await verifyPin('86420', fake.db.q1_borrowers[0].pin_hash), true);
+    assert.equal(fake.db.q1_borrowers[0].temp_pin_hash, null);
     const assertionData = authData({ rpId: 'quik1.test', flags: 0x01 | 0x04, signCount: 1 });
     const assertionClient = clientData('webauthn.get', 'challenge-after-revoke');
     const signature = sign('sha256', Buffer.concat([assertionData, createHash('sha256').update(assertionClient).digest()]), device.privateKey);

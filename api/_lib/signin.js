@@ -233,7 +233,7 @@ export async function requestEmailSignIn(req, body, res) {
   return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
 }
 
-// A submitted PIN uses the same order as loginBorrower: lock (423), acceptTemporaryPin, device_not_linked.
+// A submitted PIN uses the same order as loginBorrower: lock (423), the real PIN, device_not_linked.
 // The email-link path below is unchanged and does not check a PIN.
 async function signInByIdPhone(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');

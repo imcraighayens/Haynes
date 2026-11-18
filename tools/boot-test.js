@@ -48,6 +48,15 @@ const server = http.createServer((req, res) => {
   let rel = urlPath === '/' ? fileArg : urlPath.replace(/^\/+/, '');
   if (rel === mount) rel = fileArg;
   else if (rel.startsWith(mount + '/')) rel = rel.slice(mount.length + 1) || fileArg;
+  const sharedRoot = path.resolve(dir, '..');
+  if (rel.startsWith('shared/')) {
+    const sharedFile = path.resolve(sharedRoot, rel);
+    if (sharedFile.startsWith(sharedRoot + path.sep) && fs.existsSync(sharedFile) && !fs.statSync(sharedFile).isDirectory()) {
+      const ext = sharedFile.split('.').pop().toLowerCase();
+      res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
+      return fs.createReadStream(sharedFile).pipe(res);
+    }
+  }
   const file = path.resolve(dir, rel);
   if (!file.startsWith(dir + path.sep) && file !== dir) { res.writeHead(403); return res.end('forbidden'); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('not found: ' + urlPath); }
