@@ -191,7 +191,9 @@ rows (types: PAYMENT RECEIVED, LOAN UPDATED, DEBIT FAILED, NUPAY IMPORT, MANDATE
     petty_cash, bank_tx (newest 500), expenses, settings|null, ledger_book:{updated_at}|null, server_time}`
     (include `deleted_at` rows; client filters). Unlimited tables are paged through PostgREST's
     `db-max-rows` cap and checked against `Content-Range`; a snapshot that cannot be completed is a
-    503 `partial state`, never a truncated book.
+    503 `partial state`, never a truncated book. A missing `applications` relation (`PGRST205` or
+    `42P01`) returns `applications: []` and `warnings: ['applications_unavailable']` with a server
+    warning, not a 502. Any other table, and any other error on `applications`, is still a 502.
   * `POST sync` body `{ops:[{table, op:'upsert'|'insert'|'update'|'soft_delete', rows?, id?, patch?, reason?}]}`
     — applies in order with per-table whitelists; `audit_log` and `bank_tx` accept insert/upsert
     only (ignore duplicates: `on_conflict=id` + `resolution=ignore-duplicates`); `settings` is
