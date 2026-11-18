@@ -37,6 +37,7 @@ describe('shipped ledger HTML', () => {
     assert.match(html, /<sc-if value="\{\{ showResetDemo \}\}"/);
     assert.match(html, /quik1ledger\.com/);
     assert.match(html, /ecoloans-six\.vercel\.app/);
+    assert.match(html, /ledger\.ecoloan\.co\.za/);
     assert.match(html, /if\(!this\.demoResetAllowed\(\)\) return/);
     assert.match(html, /action:'delete_loan'/);
     assert.match(html, /action:'replace_book'/);
@@ -69,6 +70,8 @@ describe('demo reset flag', () => {
       assert.equal(demoResetAllowed(req('quik1ledger.com')), false);
       assert.equal(demoResetAllowed(req('www.quik1ledger.com')), false);
       assert.equal(demoResetAllowed(req('ecoloans-six.vercel.app')), false);
+      assert.equal(demoResetAllowed(req('ledger.ecoloan.co.za')), false);
+      assert.equal(demoResetAllowed(req('quik1.ecoloan.co.za')), true);
       process.env.NODE_ENV = 'production';
       assert.equal(demoResetAllowed(req('localhost')), false);
     } finally {

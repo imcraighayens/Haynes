@@ -131,7 +131,7 @@ export function staffCookieHeader(token, exp, { clear = false } = {}) {
   return parts.join('; ');
 }
 
-const PRODUCTION_HOSTS = new Set(['quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app']);
+const PRODUCTION_HOSTS = new Set(['quik1ledger.com', 'www.quik1ledger.com', 'ecoloans-six.vercel.app', 'ledger.ecoloan.co.za']);
 
 export function requestHostname(req) {
   return requestHost(req).replace(/:\d+$/, '');

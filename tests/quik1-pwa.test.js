@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BORROWER_HOSTS } from '../api/_lib/hosts.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const quik = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
@@ -123,11 +124,13 @@ test('service worker caches the shell and never the video or /api', () => {
 
 test('quik1.app root rewrite does not retarget ledger or admin', () => {
   const rootRewrites = vercel.rewrites.filter(r => r.source === '/manifest.webmanifest' || r.source === '/sw.js');
-  assert.equal(rootRewrites.length, 4);
+  assert.equal(rootRewrites.length, BORROWER_HOSTS.length * 2);
   assert.ok(rootRewrites.every(r => r.destination.startsWith('/quik1/')));
-  assert.ok(rootRewrites.every(r => (r.has || []).some(h => h.type === 'host' && String(h.value).endsWith('quik1.app'))));
-  const rootLedger = vercel.rewrites.filter(r => r.source === '/' && r.destination === '/ledger/index.html');
+  const aliased = [...new Set(rootRewrites.flatMap(r => (r.has || []).filter(h => h.type === 'host').map(h => h.value)))];
+  assert.deepEqual(aliased.sort(), [...BORROWER_HOSTS].sort());
+  const rootLedger = vercel.redirects.filter(r => r.source === '/' && r.destination === '/ledger/');
   assert.ok(rootLedger.some(r => (r.has || []).some(h => h.value === 'quik1ledger.com')));
+  assert.ok(vercel.rewrites.some(r => r.source === '/' && r.destination === '/quik1/index.html' && (r.has || []).some(h => h.value === 'quik1.app')));
   assert.equal(vercel.redirects.some(r => r.source === '/' && !r.has), false);
   assert.doesNotMatch(ledger, /manifest\.webmanifest/);
   assert.doesNotMatch(ledger, /serviceWorker\.register/);

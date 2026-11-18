@@ -92,7 +92,8 @@ Supabase Auth, and it does not change the staff sign-up allowlist. `QUIK1_BORROW
 must be exactly `1`. It is the single live switch, including production, and it sits next to
 `QUIK1_SESSION_SECRET` (32 or more characters). Leave either one unset and redeem answers 503.
 On a production deployment (`VERCEL_ENV=production`, or quik1.app, www.quik1.app,
-quik1ledger.com, www.quik1ledger.com, ecoloans-six.vercel.app) sign-in also stays off until
+quik1.ecoloan.co.za, quik1ledger.com, www.quik1ledger.com, ecoloans-six.vercel.app,
+ledger.ecoloan.co.za) sign-in also stays off until
 `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters. A preview needs
 only the flag and the session secret.
 Until both borrower migrations are applied, Ledger shows "Quik1 access not set up yet" and
