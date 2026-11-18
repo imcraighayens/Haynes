@@ -24,6 +24,12 @@ test('vercel.json repeats the allow-list and does not send every host to Ledger'
     assert.equal(rule.permanent, false);
     assert.deepEqual(hostValues(rule, 'has'), [hostValues(rule, 'has')[0]]);
   }
+  // The staff apex redirects are generated from STAFF_HOSTS and come before every other route.
+  assert.deepEqual(vercel.redirects.slice(0, STAFF_HOSTS.length).map(r => hostValues(r, 'has')[0]), [...STAFF_HOSTS]);
+  assert.equal(vercel.redirects.findIndex(r => r.source !== '/' || r.destination !== '/ledger/'), STAFF_HOSTS.length);
+  const rootCache = vercel.headers.filter(h => h.source === '/');
+  assert.equal(rootCache.length, 1);
+  assert.deepEqual(rootCache[0].headers, [{ key: 'Cache-Control', value: 'no-store' }]);
 
   // Static files are served before rewrites, so the cross-host pages must be redirects.
   // After deploy, without following the redirect:

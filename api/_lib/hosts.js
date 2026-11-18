@@ -7,8 +7,11 @@
 // vercel.json redirects (not rewrites) hide these pages. Rewrites run after the
 // filesystem, so a rewrite never replaces ledger/index.html or quik1/index.html.
 // Redirects run first. wrap() still refuses the cross-host APIs.
-// A staff host's "/" is a 307 to /ledger/. The Ledger file's relative scripts
-// only resolve inside that directory. Open hosts still rewrite "/" in place.
+// A staff host's "/" is a 307 to /ledger/, and those redirects are the first
+// routes in vercel.json. Open hosts still rewrite "/" in place. A published
+// project route can rewrite "/" before the deployment rules; ledger/index.html
+// then leaves "/" itself. The Ledger file's relative scripts only resolve
+// inside that directory.
 // Host values are matched as the Host header presents them, including a local port.
 
 export const STAFF_HOSTS = [
