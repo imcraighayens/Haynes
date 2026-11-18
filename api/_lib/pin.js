@@ -31,18 +31,19 @@ export function isPin(v) {
   return digitPin(v, QUIK1_PIN_LENGTH);
 }
 
-// The live length, and exactly one digit longer. That longer length is the only
-// older login PIN that was ever issued. The hash does not record its length, so
-// sign-in and Change PIN compare these against the stored hash. A new PIN is
-// still exactly QUIK1_PIN_LENGTH. A shorter digit string is not compared.
-// A mismatch returns false and does not throw.
-export function isVerifiablePin(v) {
-  return digitPin(v, QUIK1_PIN_LENGTH) || digitPin(v, QUIK1_PIN_LENGTH + 1);
+// A digit string of some other length. Letters and empty values are not this:
+// those stay on the generic refusal path.
+export function isWrongLengthPin(v) {
+  return allDigits(v) && !isPin(v);
 }
 
-// Digits, but not a length we can compare. These are refused before lockout.
-export function isWrongLengthPin(v) {
-  return allDigits(v) && !isVerifiablePin(v);
+// Lengths that may already be stored. Sign-in and a new PIN do not accept these
+// unless they are exactly QUIK1_PIN_LENGTH. verifyPin uses this so a shorter or
+// longer stored secret compares instead of throwing.
+export function isVerifiablePin(v) {
+  return digitPin(v, QUIK1_PIN_LENGTH)
+    || digitPin(v, QUIK1_PIN_LENGTH - 1)
+    || digitPin(v, QUIK1_PIN_LENGTH + 1);
 }
 
 export function isWeakPin(pin) {

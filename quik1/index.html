@@ -1596,9 +1596,6 @@ input,button,textarea{font-family:inherit}
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
-            <sc-if value="{{ showPinGo }}" hint-placeholder-val="{{ false }}">
-              <button type="button" data-q-pin-go="1" sc-camel-on-click="{{ onPinGo }}" style="width:100%;height:52px;border-radius:999px;border:0;background:#FDD10D;cursor:pointer;font-size:16px;font-weight:700;color:#0B0620">Continue</button>
-            </sc-if>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
               <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
               <sc-if value="{{ showBrowse }}" hint-placeholder-val="{{ true }}">
@@ -2875,17 +2872,6 @@ input,button,textarea{font-family:inherit}
       this.prepareBorrowerAuth();
       this.preparePreview();
       this.probeBiometric();
-      this._onPinKey=(e)=>{
-        if(e.key!=='Enter') return;
-        const st=this.state;
-        if(st.screen!=='login'||st.pinBusy) return;
-        if(st.pinPhase!=='sign'&&st.pinPhase!=='current') return;
-        const pin=String(st.otp||'');
-        if(pin.length!==PIN_LENGTH&&pin.length!==PIN_LENGTH+1) return;
-        e.preventDefault();
-        this.submitBorrowerPin(pin);
-      };
-      window.addEventListener('keydown', this._onPinKey);
     }
     signupVals(){
       const s=this.state, u=s.su||{step:1}, step=u.step||1, tried=!!s.suTried;
@@ -2993,7 +2979,7 @@ input,button,textarea{font-family:inherit}
           E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
           E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
     }
-    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); if(this._onPinKey) window.removeEventListener('keydown', this._onPinKey); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
   
     _cards=React.createRef();
     _aiScroll=React.createRef();
@@ -3676,12 +3662,8 @@ input,button,textarea{font-family:inherit}
     }
     submitBorrowerPin(pin){
       if(this.state.pinBusy) return;
+      if(!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(pin)) return;
       const st=this.state;
-      const stored=st.pinPhase==='sign'||st.pinPhase==='current';
-      const digits=/^\d+$/.test(pin);
-      const live=digits&&pin.length===PIN_LENGTH;
-      const older=digits&&pin.length===PIN_LENGTH+1;
-      if(stored?! (live||older) : !live) return;
       if(st.pinPhase==='current'){
         this.setState({pinCurrent:pin, pinPhase:'change', otp:'', pinNote:'', pinFirst:''});
         return;
@@ -3763,11 +3745,7 @@ input,button,textarea{font-family:inherit}
           try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
           const saved=this.readWebauthn();
           const offer=!!this.state.platformAuth&&!!this.state.biometricLive&&!(saved&&saved.accountRef===accountRef);
-          const typed=body&&typeof body.pin==='string'?body.pin:'';
-          const legacyNote=path==='/login'&&typed.length===PIN_LENGTH+1
-            ?'You can set a new '+PIN_LENGTH+'-digit PIN in your profile. This PIN still works until you do.'
-            :'';
-          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', pinCurrent:'', otp:'', challengeId:'', biometricOffer:offer, guest:false, sentNote:legacyNote});
+          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', pinCurrent:'', otp:'', challengeId:'', biometricOffer:offer, guest:false});
           this.openLedgerHome();
         })
         .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
@@ -4892,19 +4870,16 @@ input,button,textarea{font-family:inherit}
   
         phone:s.phone, phoneError:s.phoneError,
         onPhone:e=>this.setState({phone:e.target.value,phoneError:''}),
-        pinCellCount:(s.pinPhase==='sign'||s.pinPhase==='current')?PIN_LENGTH+1:PIN_LENGTH,
-        otpCells:Array.from({length:(s.pinPhase==='sign'||s.pinPhase==='current')?PIN_LENGTH+1:PIN_LENGTH},(_,i)=>({char:s.otp[i]||''})),
-        showPinGo:(s.pinPhase==='sign'||s.pinPhase==='current')&&(s.otp||'').length>=PIN_LENGTH&&(s.otp||'').length<=PIN_LENGTH+1,
-        onPinGo:()=>this.submitBorrowerPin(s.otp||''),
+        pinCellCount:PIN_LENGTH,
+        otpCells:Array.from({length:PIN_LENGTH},(_,i)=>({char:s.otp[i]||''})),
         keypad:['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>({
           label:k,
           onClick:()=>{
             if(!k) return;
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
-              const stored=st.pinPhase==='sign'||st.pinPhase==='current';
-              const next=(st.otp+k).slice(0,stored?PIN_LENGTH+1:PIN_LENGTH);
-              if(!stored&&next.length===PIN_LENGTH) setTimeout(()=>this.submitBorrowerPin(next), 320);
+              const next=(st.otp+k).slice(0,PIN_LENGTH);
+              if(next.length===PIN_LENGTH) setTimeout(()=>this.submitBorrowerPin(next), 320);
               return {otp:next};
             });
           }
@@ -5793,7 +5768,7 @@ input,button,textarea{font-family:inherit}
         loginStepHeadOn:s.screen==='login',
         loginHead:s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
         loginSub:s.pinPhase==='current'
-          ?'Enter the PIN you use now, then press Continue. Then choose a new one.'
+          ?'Enter the '+PIN_LENGTH+'-digit PIN you use now. Then choose a new one.'
           :s.pinPhase==='unlinked'
           ?"Please contact EcoLoans and we'll reset your access."
           :s.pinPhase==='change'
@@ -5812,7 +5787,7 @@ input,button,textarea{font-family:inherit}
           ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
           ?'Staff can reset this device in Ledger. Your PIN stays the same.'
-          :'Enter the PIN you use, then press Continue. It is not your ID number.',
+          :'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),

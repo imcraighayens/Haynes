@@ -7,7 +7,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isWrongLengthPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { hashPin, verifyPin, isPin, isWrongLengthPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from './pin.js';
 import { borrowerBook, requireBorrower } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
@@ -1081,11 +1081,12 @@ export async function changeBorrowerPin(req, body, res) {
   await clearExpiredLock(row);
   if (isLocked(row)) lockedError();
   const current = body && typeof body.currentPin === 'string' ? body.currentPin : '';
-  // The current PIN is compared only at the live length or exactly one digit
-  // longer. Anything else, including a shorter digit string, is a 400 and does
-  // not count. A comparable miss is the normal 401. The replacement PIN is
-  // still exactly QUIK1_PIN_LENGTH.
-  if (!isVerifiablePin(current)) rejectPinShape();
+  // The current PIN is verified against the stored hash. A previous length is not
+  // a second accepted shape here: it is a 400, same as sign-in, and does not count
+  // toward lockout. A current PIN of the live length that does not match the hash
+  // is the normal wrong-PIN 401, including when the hash was made from an older PIN.
+  // Those holders get a new PIN from staff.
+  if (!isPin(current)) rejectPinShape();
   const checks = await comparePins(current, row.pin_hash);
   if (!checks.realOk) await noteFailure(row, 'pin', req);
   const pin = chosenPair(body || {});
@@ -1106,20 +1107,11 @@ export function pinChangePending() {
   return { pinChangeRequired: false };
 }
 
-// Lock (423), then the stored PIN, then device_not_linked.
-// A 5-digit entry, or exactly one digit longer, is compared with the hash. It
-// signs in only when that compare matches, so a 6-digit PIN works only for a
-// hash of those digits. A shorter digit string is a 400 and does not count.
-// The hash does not store its length, and this writes nothing to detect it.
+// Lock (423), then the real PIN, then device_not_linked.
 // A null borrower is the unknown-account 401. device_not_linked is only after
 // the PIN matches.
 export async function signInWithPin(req, borrower, pin) {
   if (isWrongLengthPin(pin)) rejectPinShape();
-  if (!isVerifiablePin(pin)) {
-    await comparePins(pin, null);
-    await noteAttempt(null, 'pin', req);
-    rejectPin();
-  }
   if (!borrower) {
     await comparePins(pin, null);
     await noteAttempt(null, 'pin', req);
@@ -1185,7 +1177,7 @@ export async function loginBorrower(req, body, res) {
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
   if (isWrongLengthPin(pin)) rejectPinShape();
-  if (!isVerifiablePin(pin) || !ACCOUNT_REF.test(accountRef)) {
+  if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
     rejectPin();
