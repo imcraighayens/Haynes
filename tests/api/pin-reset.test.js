@@ -340,6 +340,55 @@ describe('forgot PIN', { concurrency: false }, () => {
     assert.equal(fake.db.q1_otp_challenges.length, 0);
   });
 
+  test('a rejected audit insert still stores the new PIN', async () => {
+    const borrower = await setPin();
+    const asked = await call(quik1, { method: 'POST', path: ['pin', 'reset'], body: { email: EMAIL } });
+    const token = resetToken();
+    const prev = globalThis.fetch;
+    const logs = [];
+    const origErr = console.error;
+    console.error = (...args) => { logs.push(args.map(part => String(part)).join(' ')); };
+    globalThis.fetch = async (url, init) => {
+      const method = String((init && init.method) || 'GET').toUpperCase();
+      if (method === 'POST' && String(url).includes('/audit_log')) {
+        throw new Error('audit down ' + PIN_NEXT + ' scrypt$' + token + ' ' + CLIENT_A);
+      }
+      return prev(url, init);
+    };
+    try {
+      const consumed = await call(quik1, {
+        method: 'POST', path: ['pin', 'reset', 'consume'],
+        headers: { cookie: cookiePart(asked, 'q1_pending') },
+        body: { token }
+      });
+      assert.equal(consumed.statusCode, 200, consumed.body);
+      assert.match(cookiePart(consumed, 'q1_pin_change'), /^q1_pin_change=[0-9a-f]{64}$/);
+      const changeToken = cookiePart(consumed, 'q1_pin_change').split('=')[1];
+      const done = await call(quik1, {
+        method: 'POST', path: ['pin'],
+        headers: { cookie: cookiePart(consumed, 'q1_pin_change') },
+        body: { pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+      });
+      assert.equal(done.statusCode, 200, done.body);
+      assert.match(done.json().accountRef, /^qb_/);
+      assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
+      const text = logs.join('\n');
+      assert.match(text, /borrower_pin_reset_link/);
+      assert.match(text, /borrower_pin_reset/);
+      assert.match(text, new RegExp(borrower.id));
+      assert.equal(text.includes(PIN_NEXT), false);
+      assert.equal(text.includes(PIN_OK), false);
+      assert.equal(text.includes('scrypt$'), false);
+      assert.equal(text.includes(token), false);
+      assert.equal(text.includes(changeToken), false);
+      assert.equal(text.includes(CLIENT_A), false);
+      assert.equal(text.includes(EMAIL), false);
+    } finally {
+      globalThis.fetch = prev;
+      console.error = origErr;
+    }
+  });
+
   test('staff can still set a login PIN', async () => {
     delete process.env.QUIK1_EMAIL_FROM;
     delete process.env.QUIK1_EMAIL_API_URL;

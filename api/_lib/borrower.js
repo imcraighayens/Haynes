@@ -853,6 +853,8 @@ export function pinChangePending(req) {
 
 const RESET_LINK = 'This link is no longer valid';
 
+// Best-effort after the PIN or pin-change row is already stored. A failed
+// audit insert must not turn a finished reset into an error for the borrower.
 async function writePinAudit(type, borrowerId) {
   try {
     await insert('audit_log', [{
@@ -865,8 +867,8 @@ async function writePinAudit(type, borrowerId) {
       by: 'quik1',
       comment: 'q1_borrower=' + borrowerId
     }], { returning: false });
-  } catch (err) {
-    if (!missingTable(err)) throw err;
+  } catch {
+    console.error('quik1 pin audit failed', type, borrowerId);
   }
 }
 
