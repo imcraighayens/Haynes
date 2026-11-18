@@ -153,6 +153,18 @@ test('a 401 or a failed state fetch keeps the book behind the login', async () =
   assert.ok(await ok.L.state);
 });
 
+test('an applications_unavailable warning on a 200 state does not keep the gate up', async () => {
+  const state = { ...STATE, applications: [], warnings: ['applications_unavailable'] };
+  const booted = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state, withGate: true });
+  assert.equal(booted.L.error, null);
+  assert.equal(booted.L.needsUnlock, false);
+  assert.equal(booted.gate.removed, true);
+  assert.equal(booted.head.children.length, 1, 'the book runtime is injected');
+  const sv = booted.read('evoltConsoleV4');
+  assert.deepEqual(sv.applications, []);
+  assert.equal('warnings' in sv, false);
+});
+
 test('a no-state boot fills only the missing book lists and keeps whatever the browser already held', async () => {
   const sv0 = { clients: [{ id: 'c1' }], loans: [{ id: 'l1' }], logbook: [], theme: 'dark', loanSeq: 101 };
   const { read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0 }, state: { error: 'nope' }, stateStatus: 503 });
