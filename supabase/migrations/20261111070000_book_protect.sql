@@ -4,10 +4,10 @@
 -- It does not rewrite, delete, or truncate rows, and it does not drop or
 -- alter existing columns or the existing *_no_delete triggers.
 --
--- 13 tables. LIVE_TABLE in ledger/ledjaa-db.js maps users, clients, loans,
+-- 14 tables. LIVE_TABLE in ledger/ledjaa-db.js maps users, clients, loans,
 -- and applications onto employees, clients, loans, and applications.
--- The other nine are the payment, audit, signup, and Quik1 application
--- tables the migrations and the ledger snapshot already use.
+-- The others are the payment, audit, signup, settings, and Quik1
+-- application tables the migrations and the ledger snapshot already use.
 --   public.employees          TRUNCATE + DELETE revoked. No delete path.
 --   public.clients            TRUNCATE + DELETE revoked. App soft-deletes.
 --   public.loans              TRUNCATE + DELETE revoked. App soft-deletes.
@@ -17,10 +17,12 @@
 --   public.petty_cash         TRUNCATE + DELETE revoked. No delete path.
 --   public.expenses           TRUNCATE + DELETE revoked. App soft-deletes.
 --   public.ledger_book        TRUNCATE + DELETE revoked. No delete path.
+--   public.settings           TRUNCATE + DELETE revoked. App only upserts org.
 --   public.q1_signups         TRUNCATE + DELETE revoked. No delete path.
 --   public.q1_requests        TRUNCATE + DELETE revoked. No delete path.
 --   public.q1_repayments      TRUNCATE + DELETE revoked. No delete path.
 --   quik1.applications        TRUNCATE + DELETE revoked. No delete path.
+--                             ID number and bank fields are left out of book_audit.
 -- Revoke is from PUBLIC, anon, authenticated, service_role, and any other
 -- grantee except postgres. SELECT, INSERT, and UPDATE are left as they are.
 --
@@ -68,6 +70,7 @@ begin
       ('public', 'petty_cash'),
       ('public', 'expenses'),
       ('public', 'ledger_book'),
+      ('public', 'settings'),
       ('public', 'q1_signups'),
       ('public', 'q1_requests'),
       ('public', 'q1_repayments'),
@@ -100,6 +103,7 @@ begin
       ('public', 'petty_cash'),
       ('public', 'expenses'),
       ('public', 'ledger_book'),
+      ('public', 'settings'),
       ('public', 'q1_signups'),
       ('public', 'q1_requests'),
       ('public', 'q1_repayments'),
@@ -174,13 +178,10 @@ begin
 end
 $seq$;
 
-create schema if not exists audit;
-revoke all on schema audit from public, anon, authenticated, service_role;
-
-create or replace function audit.book_audit_row()
+create or replace function public.book_audit_row()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $function$
 declare
@@ -210,6 +211,25 @@ begin
     session_user::text
   );
 
+  -- quik1.applications carries the SA ID number and bank account. Those
+  -- keys are removed from the images. The rest of the row is kept.
+  if tg_table_schema = 'quik1' and tg_table_name = 'applications' then
+    if v_old is not null then
+      v_old := v_old - array[
+        'id_number', 'id_checksum_ok', 'phone', 'email',
+        'bank_name', 'bank_branch_code', 'bank_account_type',
+        'bank_holder', 'bank_account_no', 'bank_last4'
+      ]::text[];
+    end if;
+    if v_new is not null then
+      v_new := v_new - array[
+        'id_number', 'id_checksum_ok', 'phone', 'email',
+        'bank_name', 'bank_branch_code', 'bank_account_type',
+        'bank_holder', 'bank_account_no', 'bank_last4'
+      ]::text[];
+    end if;
+  end if;
+
   insert into public.book_audit (table_name, op, row_id, actor, old, new)
   values (tg_table_schema || '.' || tg_table_name, tg_op, v_id, v_actor, v_old, v_new);
 
@@ -220,7 +240,8 @@ begin
 end;
 $function$;
 
-revoke all on function audit.book_audit_row() from public, anon, authenticated, service_role;
+revoke all on function public.book_audit_row() from public, anon, authenticated;
+grant execute on function public.book_audit_row() to service_role;
 
 do $triggers$
 declare
@@ -238,6 +259,7 @@ begin
       ('public', 'petty_cash'),
       ('public', 'expenses'),
       ('public', 'ledger_book'),
+      ('public', 'settings'),
       ('public', 'q1_signups'),
       ('public', 'q1_requests'),
       ('public', 'q1_repayments'),
@@ -246,7 +268,7 @@ begin
   loop
     execute format('drop trigger if exists book_protect_row on %I.%I', sch, rel);
     execute format(
-      'create trigger book_protect_row after insert or update or delete on %I.%I for each row execute function audit.book_audit_row()',
+      'create trigger book_protect_row after insert or update or delete on %I.%I for each row execute function public.book_audit_row()',
       sch, rel
     );
   end loop;
@@ -256,7 +278,7 @@ $triggers$;
 comment on table public.book_audit is
   'Row images for the Ledger book. public.audit_log is not triggered. Forced RLS, no policies. postgres owns it. service_role may select and insert.';
 
-comment on function audit.book_audit_row() is
-  'Security definer trigger. search_path is empty. EXECUTE is revoked from the API roles.';
+comment on function public.book_audit_row() is
+  'Security invoker trigger. search_path is pinned empty. service_role may execute it; anon and authenticated may not.';
 
 commit;
