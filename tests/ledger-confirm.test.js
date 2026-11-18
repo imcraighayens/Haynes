@@ -37,7 +37,7 @@ async function boot(page, origin) {
 async function openAccess(page) {
   await page.locator('[title="Clients"]').first().dispatchEvent('click');
   await page.locator('[title="Quik1 access"]').first().dispatchEvent('click');
-  await pageWaitFor(page, () => /Invite/.test(document.body.innerText), null, { timeoutMs: 8000 });
+  await pageWaitFor(page, () => /Set login PIN/.test(document.body.innerText), null, { timeoutMs: 8000 });
 }
 
 test('cancel sends no revoke or reset, and confirm sends each post once', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
@@ -47,33 +47,33 @@ test('cancel sends no revoke or reset, and confirm sends each post once', { skip
     const calls = [];
     page.on('request', req => {
       if (req.method() !== 'POST') return;
-      if (/quik1-invites\/revoke-access|quik1-devices\/reset/.test(req.url())) calls.push(req.url());
+      if (/quik1-devices\/reset/.test(req.url())) calls.push(req.url());
     });
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
     let invite = INVITED;
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.continue();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(invite) });
     });
     try {
       await boot(page, api.origin);
       await openAccess(page);
-      await page.getByText('Revoke invite', { exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => /Revoke Quik1 access\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => /Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.getByText('Cancel', { exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => !/Revoke Quik1 access\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => !/Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.waitForTimeout(300);
       assert.equal(calls.length, 0);
 
-      await page.getByText('Revoke invite', { exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => /Revoke Quik1 access\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => /Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.locator('[data-confirm-ok]').dispatchEvent('click');
       await page.locator('[data-confirm-ok]').dispatchEvent('click').catch(() => {});
-      await pageWaitFor(page, () => !/Revoke Quik1 access\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
-      assert.equal(calls.filter(u => u.includes('revoke-access')).length, 1);
+      await pageWaitFor(page, () => !/Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      assert.equal(calls.filter(u => u.includes('quik1-devices/reset')).length, 1);
 
       invite = PIN;
       await page.reload({ waitUntil: 'domcontentloaded' });
@@ -85,13 +85,13 @@ test('cancel sends no revoke or reset, and confirm sends each post once', { skip
       await pageWaitFor(page, () => /Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.locator('[data-q1-confirm]').dispatchEvent('click');
       await pageWaitFor(page, () => !/Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
-      assert.equal(calls.filter(u => u.includes('quik1-devices/reset')).length, 0);
+      assert.equal(calls.filter(u => u.includes('quik1-devices/reset')).length, 1);
 
       await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
       await pageWaitFor(page, () => /Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.locator('[data-confirm-ok]').dispatchEvent('click');
       await pageWaitFor(page, () => !/Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
-      assert.equal(calls.filter(u => u.includes('quik1-devices/reset')).length, 1);
+      assert.equal(calls.filter(u => u.includes('quik1-devices/reset')).length, 2);
     } finally {
       await browser.close();
     }
@@ -104,26 +104,26 @@ test('confirm and cancel stay disabled for a delayed request, then the dialog cl
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const calls = [];
     page.on('request', req => {
-      if (req.method() === 'POST' && req.url().includes('revoke-access')) calls.push(req.url());
+      if (req.method() === 'POST' && req.url().includes('quik1-devices/reset')) calls.push(req.url());
     });
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(INVITED) });
     });
-    await page.route('**/api/ledger/quik1-invites/revoke-access', async route => {
+    await page.route('**/api/ledger/quik1-devices/reset', async route => {
       if (route.request().method() !== 'POST') return route.fallback();
       await new Promise(r => setTimeout(r, 1200));
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ready: true, access: 'none' }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, cleared: true }) });
     });
     try {
       await boot(page, api.origin);
       assert.equal(await page.evaluate(() => document.documentElement.lang), 'en-ZA');
       await openAccess(page);
-      await page.getByText('Revoke invite', { exact: true }).first().dispatchEvent('click');
+      await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
       await pageWaitFor(page, () => !!document.querySelector('[data-confirm-ok]'), null, { timeoutMs: 8000 });
       const before = await page.evaluate(() => {
         const ok = document.querySelector('[data-confirm-ok]');
@@ -151,15 +151,15 @@ test('confirm and cancel stay disabled for a delayed request, then the dialog cl
       await pageWaitFor(page, () => /on the book/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.locator('[data-screen-label="Clients"]').getByText('Test Client One', { exact: true }).first().dispatchEvent('click');
       await page.getByText('Open full workspace', { exact: true }).dispatchEvent('click');
-      await pageWaitFor(page, () => /Back to clients/.test(document.body.innerText) && /Revoke invite/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => /Back to clients/.test(document.body.innerText) && /Reset device/.test(document.body.innerText), null, { timeoutMs: 8000 });
       const posts = calls.length;
-      await page.getByText('Revoke invite', { exact: true }).first().dispatchEvent('click');
-      await pageWaitFor(page, () => /Revoke Quik1 access\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
+      await pageWaitFor(page, () => /Reset this client's device\?/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await page.locator('[data-confirm-cancel]').dispatchEvent('click');
       await pageWaitFor(page, () => !document.querySelector('[data-q1-confirm]'), null, { timeoutMs: 8000 });
       await page.waitForTimeout(400);
       assert.equal(calls.length, posts);
-      await page.getByText('Revoke invite', { exact: true }).first().dispatchEvent('click');
+      await page.getByText('Reset device', { exact: true }).first().dispatchEvent('click');
       await pageWaitFor(page, () => !!document.querySelector('[data-confirm-ok]'), null, { timeoutMs: 8000 });
       await page.locator('[data-confirm-ok]').dispatchEvent('click');
       await pageWaitFor(page, () => !document.querySelector('[data-q1-confirm]'), null, { timeoutMs: 8000 });
@@ -177,30 +177,24 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json', body: JSON.stringify({ demoReset: false })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
     try {
       await boot(page, api.origin);
       assert.equal(await page.evaluate(() => document.documentElement.lang), 'en-ZA');
-      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => /Invites off until launch/.test(b.textContent) && b.disabled), null, { timeoutMs: 8000 });
-      const held = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => /Invites off until launch/.test(b.textContent));
-        return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && b.getAttribute('aria-describedby') === 'q1-gate-note-global');
-      });
-      assert.equal(held, true);
       await page.locator('[title="Clients"]').first().dispatchEvent('click');
-      await pageWaitFor(page, () => /Invites off until launch/.test(document.body.innerText), null, { timeoutMs: 8000 });
+      await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Set login PIN' && b.disabled), null, { timeoutMs: 8000 });
       const rows = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Invites off until launch');
+        const buttons = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set login PIN');
         return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'));
       });
       assert.equal(rows, true);
       await openAccess(page);
       await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Reset device'), null, { timeoutMs: 8000 });
       const access = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device|Set login PIN/.test(b.textContent.trim()));
+        const buttons = [...document.querySelectorAll('button')].filter(b => /Reset device|Set login PIN/.test(b.textContent.trim()));
         const note = document.getElementById('q1-gate-note');
         const pin = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set login PIN');
         return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'))
@@ -246,7 +240,7 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
         const note = document.getElementById('q1-dialog-gate');
         const buttons = [...document.querySelectorAll('button')].filter(b => b.getAttribute('aria-describedby') === 'q1-dialog-gate');
         const pin = buttons.find(b => b.textContent.trim() === 'Set login PIN');
-        return !!note && buttons.length >= 3 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true')
+        return !!note && buttons.length >= 2 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true')
           && !!pin && pin.getAttribute('aria-describedby') === note.id;
       });
       assert.equal(dialog, true);
@@ -264,7 +258,7 @@ test('a failed Quik1 status fetch shows Unknown beside Set login PIN', { skip: p
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'down' }) });
     });
@@ -292,17 +286,17 @@ test('two clicks on Set login PIN send one request, then the button is ready aga
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const calls = [];
     page.on('request', req => {
-      if (req.method() === 'POST' && req.url().includes('/quik1-temp-pin')) calls.push(req.url());
+      if (req.method() === 'POST' && req.url().includes('/quik1-login-pin')) calls.push(req.url());
     });
     await page.route('**/api/ledger/features', route => route.fulfill({
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPin: true, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
-    await page.route('**/api/ledger/quik1-temp-pin', async route => {
+    await page.route('**/api/ledger/quik1-login-pin', async route => {
       if (route.request().method() !== 'POST') return route.fallback();
       await new Promise(r => setTimeout(r, 1200));
       return route.fulfill({
@@ -353,11 +347,11 @@ test('a login PIN left in the dialog is gone after close, Esc, and a successful 
       status: 200, contentType: 'application/json',
       body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
     }));
-    await page.route('**/api/ledger/quik1-invites/**', route => {
+    await page.route('**/api/ledger/quik1-access/**', route => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(PIN) });
     });
-    await page.route('**/api/ledger/quik1-temp-pin', route => {
+    await page.route('**/api/ledger/quik1-login-pin', route => {
       if (route.request().method() !== 'POST') return route.fallback();
       return route.fulfill({
         status: 200, contentType: 'application/json',

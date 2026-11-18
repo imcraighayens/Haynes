@@ -1,8 +1,9 @@
-// Staff invites and borrower PIN sign-in.
+// Borrower PIN sign-in, staff-set login PIN, and forgot-PIN.
 // A new device is confirmed by an email link when borrower email is live.
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
 // An ID number is never used to look anyone up. ID and cellphone
 // sign-in, when used, matches a keyed HMAC on the client row.
+// The 72-hour invite is gone. q1_invites and the temp_pin_* / pin_change_* columns stay.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
@@ -18,10 +19,9 @@ import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice, readPendingDevice,
   sessionCookie, deviceCookie, knownDeviceCookie, clearKnownCookie, clearSessionCookie,
   pendingDeviceCookie, clearPendingCookie, requestIsSecure,
-  clearPinChangeCookie
+  pinChangeCookie, clearPinChangeCookie, readPinChangeToken, PIN_CHANGE_TTL_SECONDS
 } from './quik1-session.js';
 
-const INVITE_CODE = /^[0-9a-f]{64}$/;
 const ACCOUNT_REF = /^qb_[0-9a-f]{32}$/;
 const LOCKED_PLACEHOLDER = 'locked';
 const PIN_SET_RACE = 'This client changed while you were setting the PIN. Try again.';
@@ -31,12 +31,6 @@ const TEMP_PIN_WINDOW_MS = 15 * 60 * 1000;
 // Per staff member and per client. The database count is the limit that survives a
 // cold start. This limiter blunts a burst on one warm instance the same way auth does.
 export const tempPinLimiter = createLimiter({ limit: TEMP_PIN_LIMIT, windowMs: TEMP_PIN_WINDOW_MS });
-
-export function inviteTtlMs() {
-  const h = parseInt(process.env.QUIK1_INVITE_TTL_HOURS, 10);
-  const hours = Number.isFinite(h) && h >= 1 && h <= 24 * 14 ? h : 72;
-  return hours * 3600 * 1000;
-}
 
 export function maxPinAttempts() {
   const n = parseInt(process.env.QUIK1_PIN_MAX_ATTEMPTS, 10);
@@ -112,21 +106,6 @@ export async function logAuthAttempt(borrowerId, kind, req, subjectHash) {
   return noteAttempt(borrowerId, kind, req, subjectHash);
 }
 
-export function hashInviteCode(code) {
-  return createHash('sha256').update(String(code), 'utf8').digest('hex');
-}
-
-function inviteLink(req, code) {
-  const rawHost = (header(req, 'x-forwarded-host') || header(req, 'host') || '').split(',')[0].trim().toLowerCase();
-  const host = /^[a-z0-9.-]+(?::\d{1,5})?$/.test(rawHost) ? rawHost : '';
-  // Staff pages do not serve /quik1, so an invite created there opens on the borrower site.
-  if (host && apiRole(host, '') === 'staff') return `https://quik1.app/quik1/#invite=${code}`;
-  const rawProto = (header(req, 'x-forwarded-proto') || 'https').split(',')[0].trim().toLowerCase();
-  const proto = rawProto === 'http' ? 'http' : 'https';
-  const origin = host ? `${proto}://${host}` : '';
-  return `${origin}/quik1/#invite=${code}`;
-}
-
 function requireSessionSecret() {
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
 }
@@ -140,23 +119,6 @@ async function liveClient(clientId) {
   if (!client || client.deleted_at) throw new HttpError(404, 'Client not found');
   return client;
 }
-
-function inviteState(row, now = Date.now()) {
-  if (!row) return 'missing';
-  if (row.revoked_at) return 'revoked';
-  if (row.redeemed_at) return 'redeemed';
-  if (new Date(row.expires_at).getTime() <= now) return 'expired';
-  return 'open';
-}
-
-const ACCESS_LABEL = {
-  none: 'No access',
-  invited: 'Invited',
-  pin: 'PIN set',
-  locked: 'Locked',
-  revoked: 'Revoked',
-  unavailable: 'Quik1 access not set up yet'
-};
 
 function missingTable(err) {
   const code = err && err.code ? String(err.code) : '';
@@ -187,70 +149,6 @@ async function relationMissing(table) {
     if (missingTable(err)) return true;
     throw err;
   }
-}
-
-function notSetUp() {
-  return new HttpError(503, ACCESS_LABEL.unavailable);
-}
-
-function accessFrom(borrower, invites, now = Date.now()) {
-  const list = Array.isArray(invites) ? invites : [];
-  const open = list.find(row => inviteState(row, now) === 'open') || null;
-  const newest = list[0] || null;
-  const hasPin = !!(borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$'));
-  const staffLocked = !!(borrower && (borrower.pin_hash === LOCKED_PLACEHOLDER || (borrower.locked_at && !hasPin)));
-  let access = 'none';
-  if (open) access = 'invited';
-  else if (hasPin && isLocked(borrower)) access = 'locked';
-  else if (hasPin) access = 'pin';
-  else if (staffLocked) access = 'revoked';
-  else if (newest && inviteState(newest, now) === 'revoked') access = 'revoked';
-  return { access, open };
-}
-
-function accessPayload(client, borrower, invites, now = Date.now()) {
-  const view = accessFrom(borrower, invites, now);
-  const mapped = (invites || []).map(row => ({
-    id: row.id,
-    state: inviteState(row, now),
-    expiresAt: row.expires_at,
-    createdAt: row.created_at
-  }));
-  return {
-    ready: true,
-    clientRef: client.ref || '',
-    locked: !!(borrower && (borrower.locked_at || borrower.pin_hash === LOCKED_PLACEHOLDER)),
-    hasPin: !!(borrower && borrower.pin_hash && String(borrower.pin_hash).startsWith('scrypt$')),
-    access: view.access,
-    accessLabel: ACCESS_LABEL[view.access],
-    pinStatus: borrowerPinStatus(borrower, now),
-    expiresAt: view.open ? view.open.expires_at : null,
-    inviteId: view.open ? view.open.id : null,
-    invites: mapped
-  };
-}
-
-function unavailablePayload(client) {
-  return {
-    ready: false,
-    clientRef: (client && client.ref) || '',
-    locked: false,
-    hasPin: false,
-    access: 'unavailable',
-    accessLabel: ACCESS_LABEL.unavailable,
-    pinStatus: 'None',
-    expiresAt: null,
-    inviteId: null,
-    invites: []
-  };
-}
-
-async function revokeOpenInvites(clientId, nowIso) {
-  await patchWhere('q1_invites', {
-    client_id: eq(clientId),
-    redeemed_at: 'is.null',
-    revoked_at: 'is.null'
-  }, { revoked_at: nowIso });
 }
 
 async function revokeSessions(borrowerId, nowIso) {
@@ -292,26 +190,6 @@ async function clearTempPinState(borrowerId, nowIso, extra = {}) {
   }
 }
 
-// A new invite is the reset. The previous PIN stops working until this code is redeemed.
-// A new invite also clears any leftover temporary-PIN columns. The login PIN stops
-// working until this code is redeemed.
-async function lockUntilRedeem(clientId, nowIso) {
-  const borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id',
-    client_id: eq(clientId)
-  });
-  if (!borrower) return;
-  await clearTempPinState(borrower.id, nowIso, {
-    pin_hash: LOCKED_PLACEHOLDER,
-    failed_attempts: maxPinAttempts(),
-    locked_at: nowIso,
-    device_reset_until: null
-  });
-  await revokeSessions(borrower.id, nowIso);
-  await revokeDevices(borrower.id, nowIso);
-  await revokePasskeys(borrower.id, nowIso);
-}
-
 async function revokePasskeys(borrowerId, nowIso) {
   try {
     await patchWhere('q1_webauthn_credentials', {
@@ -321,114 +199,6 @@ async function revokePasskeys(borrowerId, nowIso) {
   } catch (err) {
     if (!missingTable(err)) throw err;
   }
-}
-
-export async function createInvite(req, clientId, now = Date.now()) {
-  const client = await liveClient(clientId);
-  const nowIso = new Date(now).toISOString();
-  try {
-    await revokeOpenInvites(client.id, nowIso);
-    await lockUntilRedeem(client.id, nowIso);
-    const code = randomBytes(32).toString('hex');
-    const id = 'qi_' + randomBytes(8).toString('hex');
-    const who = staffIdentity(req);
-    const createdBy = who && who.email ? String(who.email).slice(0, 80) : 'ledger';
-    const expiresAt = new Date(now + inviteTtlMs()).toISOString();
-    await insert('q1_invites', [{
-      id,
-      client_id: client.id,
-      code_hash: hashInviteCode(code),
-      expires_at: expiresAt,
-      created_by: createdBy
-    }]);
-    return {
-      inviteId: id,
-      expiresAt,
-      code,
-      link: inviteLink(req, code),
-      clientRef: client.ref || ''
-    };
-  } catch (err) {
-    if (missingTable(err)) throw notSetUp();
-    throw err;
-  }
-}
-
-export async function revokeInvite(inviteId) {
-  if (!isSafeId(inviteId)) throw new HttpError(400, 'bad id');
-  const nowIso = new Date().toISOString();
-  try {
-    const rows = await patchWhere('q1_invites', {
-      id: eq(inviteId),
-      redeemed_at: 'is.null',
-      revoked_at: 'is.null'
-    }, { revoked_at: nowIso });
-    if (!rows.length) {
-      const row = await selectOne('q1_invites', { select: 'id', id: eq(inviteId) });
-      if (!row) throw new HttpError(404, 'Invite not found');
-    }
-  } catch (err) {
-    if (missingTable(err)) throw notSetUp();
-    throw err;
-  }
-  return { ok: true };
-}
-
-const ACCESS_BORROWER = 'id,locked_at,failed_attempts,pin_hash,temp_pin_hash,temp_pin_expires_at,device_reset_until';
-
-async function borrowerForAccess(clientId) {
-  try {
-    return await selectOne('q1_borrowers', {
-      select: ACCESS_BORROWER,
-      client_id: eq(clientId)
-    });
-  } catch (err) {
-    if (!columnMissing(err)) throw err;
-    return await selectOne('q1_borrowers', {
-      select: 'id,locked_at,failed_attempts,pin_hash',
-      client_id: eq(clientId)
-    });
-  }
-}
-
-// Active when a scrypt login PIN is stored. No hash and no digits.
-// Leftover temp_pin_* values are not a login PIN.
-export function borrowerPinStatus(borrower) {
-  if (!borrower) return 'None';
-  if (typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')) return 'Active';
-  return 'None';
-}
-
-export async function listInvites(clientId) {
-  const client = await liveClient(clientId);
-  try {
-    const borrower = await borrowerForAccess(client.id);
-    const invites = await select('q1_invites', {
-      select: 'id,expires_at,revoked_at,redeemed_at,created_at',
-      client_id: eq(client.id),
-      order: 'created_at.desc',
-      limit: 10
-    });
-    return accessPayload(client, borrower, invites || []);
-  } catch (err) {
-    if (missingTable(err)) return unavailablePayload(client);
-    throw err;
-  }
-}
-
-// Staff revoke. Open links die, and a PIN that was already set stops working
-// until the client opens a new invite and chooses another PIN.
-export async function revokeAccess(clientId) {
-  const client = await liveClient(clientId);
-  const nowIso = new Date().toISOString();
-  try {
-    await revokeOpenInvites(client.id, nowIso);
-    await lockUntilRedeem(client.id, nowIso);
-  } catch (err) {
-    if (missingTable(err)) throw notSetUp();
-    throw err;
-  }
-  return listInvites(client.id);
 }
 
 let dummyHash = '';
@@ -482,7 +252,7 @@ function failedAttemptLocked(borrower, now = Date.now()) {
   return lockActive(borrower, now);
 }
 
-// Revoke and a new invite both leave pin_hash 'locked'. A lock with no scrypt PIN is the same leftover lock.
+// A leftover lock is pin_hash 'locked', or locked_at with a hash that is not scrypt.
 function accessLocked(row) {
   if (!row) return false;
   if (row.pin_hash === LOCKED_PLACEHOLDER) return true;
@@ -490,8 +260,42 @@ function accessLocked(row) {
   return !scrypt && !!row.locked_at;
 }
 
+// New staff sets write borrower_login_pin_set. Older rows stay borrower_temp_pin_set.
+export function isStaffPinSetAudit(type) {
+  return type === 'borrower_login_pin_set' || type === 'borrower_temp_pin_set';
+}
+
+function pinStatusOf(borrower) {
+  if (borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')) return 'Active';
+  return 'None';
+}
+
+// Staff read of the login PIN. No invite, code, or link.
+export async function borrowerAccessStatus(clientId) {
+  const client = await liveClient(clientId);
+  let borrower = null;
+  try {
+    borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      client_id: eq(client.id)
+    });
+  } catch (err) {
+    if (missingTable(err) || schemaMissing(err)) {
+      return { ready: false, hasPin: false, pinStatus: 'Unknown', locked: false, access: 'unavailable' };
+    }
+    throw err;
+  }
+  const hasPin = pinStatusOf(borrower) === 'Active';
+  const locked = !!(borrower && (accessLocked(borrower) || isLocked(borrower)));
+  let access = 'none';
+  if (hasPin && isLocked(borrower)) access = 'locked';
+  else if (hasPin) access = 'pin';
+  else if (borrower && accessLocked(borrower)) access = 'locked';
+  return { ready: true, hasPin, pinStatus: pinStatusOf(borrower), locked, access };
+}
+
 // Writes the real login PIN. Clears a failed-attempt lock on a scrypt row, and
-// replaces a leftover invite or revoke lock: pin_hash 'locked', or locked_at
+// replaces a leftover lock: pin_hash 'locked', or locked_at
 // with a hash that is not scrypt. The patch stores the new hash, clears the
 // lock, and nulls leftover temp_pin_* columns.
 function loginPinPatch(row, pinHash, nowIso, deviceUntil) {
@@ -614,74 +418,6 @@ export function authCookies(minted, accountRef, req, deviceToken) {
   const out = [sessionCookie(minted.token, minted.exp, secure), deviceCookie(accountRef, secure)];
   if (deviceToken) out.push(knownDeviceCookie(deviceToken, secure));
   return out;
-}
-
-export async function redeemInvite(req, body, res) {
-  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
-  requireSessionSecret();
-  assertAuthRate(req, res);
-  const code = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
-  const pin = typeof body.pin === 'string' ? body.pin : '';
-  const pinConfirm = typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
-  if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, chosenPinMessage());
-  if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
-  if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
-
-  try {
-    await assertAttemptBudget(req, res);
-  } catch (err) {
-    if (err instanceof HttpError && err.status === 503 && await relationMissing('q1_invites')) throw notSetUp();
-    throw err;
-  }
-
-  try {
-  const row = await selectOne('q1_invites', {
-    select: 'id,client_id,expires_at,revoked_at,redeemed_at',
-    code_hash: eq(hashInviteCode(code))
-  });
-  if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
-  await liveClient(row.client_id);
-
-  const pinHash = await hashPin(pin);
-  const nowIso = new Date().toISOString();
-  const consumed = await patchWhere('q1_invites', {
-    id: eq(row.id),
-    redeemed_at: 'is.null',
-    revoked_at: 'is.null',
-    expires_at: 'gt.' + nowIso
-  }, { redeemed_at: nowIso });
-  if (!consumed.length) throw new HttpError(410, 'This invite is no longer valid');
-
-  let borrower = await selectOne('q1_borrowers', {
-    select: 'id,client_id',
-    client_id: eq(row.client_id)
-  });
-  if (borrower) {
-    await clearTempPinState(borrower.id, nowIso, {
-      pin_hash: pinHash,
-      failed_attempts: 0,
-      locked_at: null,
-      device_reset_until: null
-    });
-  } else {
-    const id = 'qb_' + randomBytes(16).toString('hex');
-    await insert('q1_borrowers', [{
-      id,
-      client_id: row.client_id,
-      pin_hash: pinHash,
-      failed_attempts: 0,
-      locked_at: null
-    }]);
-    borrower = { id, client_id: row.client_id };
-  }
-  await revokeDevices(borrower.id, nowIso);
-  const device = await trustDevice(borrower.id);
-  const { minted, accountRef } = await openSession(borrower);
-  return { accountRef, cookies: authCookies(minted, accountRef, req, device.token) };
-  } catch (err) {
-    if (missingTable(err)) throw notSetUp();
-    throw err;
-  }
 }
 
 export async function startBorrowerSession(borrower, req, now = Date.now()) {
@@ -851,10 +587,11 @@ export async function consumeEmailLink(req, body) {
   const token = typeof body.token === 'string' ? body.token.trim() : '';
   if (!/^[0-9a-f]{64}$/.test(token)) throw new HttpError(401, 'This link is no longer valid');
   const challenge = await selectOne('q1_otp_challenges', {
-    select: 'id,borrower_id,token_hash,device_hash,expires_at,consumed_at,channel',
+    select: 'id,borrower_id,token_hash,device_hash,expires_at,consumed_at,channel,purpose',
     token_hash: eq(hashToken(token))
   });
-  if (!challenge || challenge.channel !== 'email' || challenge.consumed_at || new Date(challenge.expires_at).getTime() <= Date.now()) {
+  // A forgot-PIN link reuses purpose signin. Its id starts with qr_, so it cannot open a session here.
+  if (!challenge || challenge.channel !== 'email' || String(challenge.id || '').startsWith('qr_') || challenge.consumed_at || new Date(challenge.expires_at).getTime() <= Date.now()) {
     throw new HttpError(401, 'This link is no longer valid');
   }
   if (!deviceMatches(req, challenge)) throw new HttpError(401, 'Open the link on the phone that asked for it');
@@ -980,8 +717,9 @@ async function phoneTrustUntil(req, clientId, now) {
 // phone, device_reset_until opens the same 24-hour window Reset Device uses,
 // and the next correct PIN links that phone through ordinary sign-in. When
 // email is live the window stays shut and the email link links the phone.
-// q1_temp_pin_sets and audit type borrower_temp_pin_set are the existing
-// staff-set record. The audit row stores no PIN, no hash, and no client id.
+// q1_temp_pin_sets is the existing staff-set record. New audit rows use
+// borrower_login_pin_set. Readers still count the older borrower_temp_pin_set
+// rows. The audit row stores no PIN, no hash, and no client id.
 // Its comment names the q1_borrowers id, and replaced_lock when this replaced
 // a leftover lock row.
 export async function setLoginPin(req, res, body) {
@@ -1047,7 +785,7 @@ export async function setLoginPin(req, res, body) {
       await insert('audit_log', [{
         id: 'aud_q1_' + randomBytes(6).toString('hex'),
         at: nowIso,
-        type: 'borrower_temp_pin_set',
+        type: 'borrower_login_pin_set',
         ref: client.ref || '—',
         customer: '—',
         amount: 0,
@@ -1108,9 +846,168 @@ export async function changeBorrowerPin(req, body, res) {
 }
 
 // Forced first-sign-in PIN change is retired. A stale q1_pin_change cookie
-// does not open that flow.
-export function pinChangePending() {
-  return { pinChangeRequired: false };
+// does not open that flow. emailLive tells the client whether Forgot PIN is on.
+export function pinChangePending(req) {
+  return { pinChangeRequired: false, emailLive: !!(req && borrowerEmailLive(req)) };
+}
+
+const RESET_LINK = 'This link is no longer valid';
+
+// Best-effort after the PIN or pin-change row is already stored. A failed
+// audit insert must not turn a finished reset into an error for the borrower.
+async function writePinAudit(type, borrowerId) {
+  try {
+    await insert('audit_log', [{
+      id: 'aud_q1_' + randomBytes(6).toString('hex'),
+      at: new Date().toISOString(),
+      type,
+      ref: '—',
+      customer: '—',
+      amount: 0,
+      by: 'quik1',
+      comment: 'q1_borrower=' + borrowerId
+    }], { returning: false });
+  } catch {
+    console.error('quik1 pin audit failed', type, borrowerId);
+  }
+}
+
+function resetClosed() {
+  throw new HttpError(503, 'PIN reset is not available');
+}
+
+function assertResetReady(req) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  requireSessionSecret();
+  if (!borrowerEmailLive(req)) resetClosed();
+}
+
+// The email token was already checked. This writes the 10-minute pin-change
+// token and does not open a session.
+export async function consumePinReset(req, body, res) {
+  assertResetReady(req);
+  await guardAuth(req, res);
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  await logAuthAttempt(null, 'email', req);
+  if (!/^[0-9a-f]{64}$/.test(token)) throw new HttpError(401, RESET_LINK);
+  const challenge = await selectOne('q1_otp_challenges', {
+    select: 'id,borrower_id,token_hash,device_hash,expires_at,consumed_at,channel,purpose',
+    token_hash: eq(hashToken(token))
+  });
+  const resetRow = challenge
+    && challenge.channel === 'email'
+    && challenge.purpose === 'signin'
+    && String(challenge.id || '').startsWith('qr_')
+    && !challenge.consumed_at
+    && new Date(challenge.expires_at).getTime() > Date.now();
+  if (!resetRow) throw new HttpError(401, RESET_LINK);
+  if (!deviceMatches(req, challenge)) throw new HttpError(401, 'Open the link on the phone that asked for it');
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+    id: eq(challenge.borrower_id)
+  });
+  if (!borrower) throw new HttpError(401, RESET_LINK);
+  await clearExpiredLock(borrower);
+  if (isLocked(borrower)) lockedError();
+  try { await liveClient(borrower.client_id); }
+  catch (e) {
+    if (e instanceof HttpError && e.status === 404) throw new HttpError(401, RESET_LINK);
+    throw e;
+  }
+  const nowIso = new Date().toISOString();
+  const consumed = await patchWhere('q1_otp_challenges', {
+    id: eq(challenge.id),
+    consumed_at: 'is.null'
+  }, { consumed_at: nowIso });
+  if (!consumed.length) throw new HttpError(401, RESET_LINK);
+  await invalidateChallenges(borrower.id, nowIso);
+  const changeToken = randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + PIN_CHANGE_TTL_SECONDS * 1000).toISOString();
+  try {
+    await update('q1_borrowers', { id: borrower.id }, {
+      pin_change_hash: hashToken(changeToken),
+      pin_change_expires_at: expiresAt,
+      updated_at: nowIso
+    });
+  } catch (err) {
+    if (schemaMissing(err)) throw migrationPending();
+    throw err;
+  }
+  await writePinAudit('borrower_pin_reset_link', borrower.id);
+  const secure = requestIsSecure(req);
+  return {
+    cookies: [pinChangeCookie(changeToken, secure), clearPendingCookie(secure)]
+  };
+}
+
+// Cookie only. No current PIN and no session until the new PIN is stored.
+// Then the same revocations as a staff-set PIN, plus trust for this phone.
+export async function completePinReset(req, body, res) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  requireSessionSecret();
+  if (!borrowerEmailLive(req)) throw new HttpError(401, RESET_LINK);
+  await guardAuth(req, res);
+  const token = readPinChangeToken(req);
+  await logAuthAttempt(null, 'pin', req);
+  if (!token) throw new HttpError(401, RESET_LINK);
+  const hash = hashToken(token);
+  let row;
+  try {
+    row = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at,pin_change_hash,pin_change_expires_at',
+      pin_change_hash: eq(hash)
+    });
+  } catch (err) {
+    if (schemaMissing(err)) throw migrationPending();
+    throw err;
+  }
+  if (!row || row.pin_change_hash !== hash) throw new HttpError(401, RESET_LINK);
+  if (!row.pin_change_expires_at || new Date(row.pin_change_expires_at).getTime() <= Date.now()) {
+    throw new HttpError(401, RESET_LINK);
+  }
+  await clearExpiredLock(row);
+  if (isLocked(row) || accessLocked(row)) lockedError();
+  try { await liveClient(row.client_id); }
+  catch (e) {
+    if (e instanceof HttpError && e.status === 404) throw new HttpError(401, RESET_LINK);
+    throw e;
+  }
+  const pin = chosenPair(body || {});
+  const pinHash = await hashPin(pin);
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const patch = {
+    pin_hash: pinHash,
+    failed_attempts: 0,
+    locked_at: null,
+    device_reset_until: null,
+    ...TEMP_PIN_CLEAR,
+    updated_at: nowIso
+  };
+  let updated;
+  try {
+    updated = await patchWhere('q1_borrowers', {
+      id: eq(row.id),
+      pin_change_hash: eq(hash),
+      pin_change_expires_at: 'gt.' + nowIso
+    }, patch);
+  } catch (err) {
+    if (schemaMissing(err)) throw migrationPending();
+    throw err;
+  }
+  if (!updated.length) throw new HttpError(401, RESET_LINK);
+  await writePinAudit('borrower_pin_reset', row.id);
+  await revokeDevices(row.id, nowIso);
+  await revokePasskeys(row.id, nowIso);
+  await invalidateChallenges(row.id, nowIso);
+  await revokeSessions(row.id, nowIso);
+  const device = await trustDevice(row.id, now);
+  const { minted, accountRef } = await openSession(row, now);
+  const secure = requestIsSecure(req);
+  return {
+    accountRef,
+    cookies: [...authCookies(minted, accountRef, req, device.token), clearPinChangeCookie(secure), clearPendingCookie(secure)]
+  };
 }
 
 // Lock (423), then the real PIN, then device_not_linked.

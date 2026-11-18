@@ -15,8 +15,9 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
-import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, changeBorrowerPin, pinChangePending } from './_lib/borrower.js';
-import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
+import { loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, changeBorrowerPin, pinChangePending, consumePinReset, completePinReset } from './_lib/borrower.js';
+import { requestEmailSignIn, requestIdPhoneSignIn, requestPinReset, padSignIn } from './_lib/signin.js';
+import { readPinChangeToken } from './_lib/quik1-session.js';
 import { biometricStatus, registerOptions, registerCredential, loginOptions, loginCredential } from './_lib/borrower-webauthn.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
@@ -247,10 +248,22 @@ function setCookies(res, list) {
   if (list && list.length) res.setHeader('Set-Cookie', list.length === 1 ? list[0] : list);
 }
 
-async function postRedeem(req, res) {
-  const out = await redeemInvite(req, await readBody(req, PUBLIC_BODY_CAP), res);
+async function postPinReset(req, res) {
+  const started = Date.now();
+  let out;
+  try {
+    out = await requestPinReset(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  } finally {
+    await padSignIn(started);
+  }
   setCookies(res, out.cookies);
-  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+  json(res, 200, out.body, req);
+}
+
+async function postPinResetConsume(req, res) {
+  const out = await consumePinReset(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  setCookies(res, out.cookies);
+  json(res, 200, { ok: true, pinChange: true }, req);
 }
 
 async function postBorrowerLogin(req, res) {
@@ -333,7 +346,15 @@ async function postIdentity(req, res) {
 }
 
 async function postSetNewPin(req, res) {
-  await changeBorrowerPin(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  const body = await readBody(req, PUBLIC_BODY_CAP);
+  const current = body && typeof body.currentPin === 'string' ? body.currentPin : '';
+  if (readPinChangeToken(req) && !current) {
+    const out = await completePinReset(req, body, res);
+    setCookies(res, out.cookies);
+    json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+    return;
+  }
+  await changeBorrowerPin(req, body, res);
   json(res, 200, { ok: true }, req);
 }
 
@@ -355,8 +376,14 @@ export default wrap('quik1', async (req, res) => {
   if (!rl.ok) { res.setHeader('Retry-After', String(rl.retryAfter)); throw new HttpError(429, 'Too many requests'); }
 
   const [head, id, ...rest] = pathParts(req, 'quik1');
-  if (rest.length) throw new HttpError(404, 'Not found');
   const method = req.method;
+  if (head === 'pin' && id === 'reset') {
+    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
+    if (rest.length === 0) return postPinReset(req, res);
+    if (rest.length === 1 && rest[0] === 'consume') return postPinResetConsume(req, res);
+    throw new HttpError(404, 'Not found');
+  }
+  if (rest.length) throw new HttpError(404, 'Not found');
 
   if (head === 'applications') {
     if (!id && method === 'POST') return postApplication(req, res, await readBody(req, PUBLIC_BODY_CAP));
@@ -397,10 +424,6 @@ export default wrap('quik1', async (req, res) => {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     return postBorrowerQ1(req, res);
-  } else if (head === 'invites') {
-    if (id !== 'redeem' || rest.length) throw new HttpError(404, 'Not found');
-    if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    return postRedeem(req, res);
   } else if (head === 'login') {
     if (id) throw new HttpError(404, 'Not found');
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');

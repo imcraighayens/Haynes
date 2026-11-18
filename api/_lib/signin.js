@@ -71,14 +71,15 @@ function isLocked(borrower, now = Date.now()) {
   return false;
 }
 
-function verifyPageLink(req, token) {
+function verifyPageLink(req, token, fragment = 'verify') {
+  const name = fragment === 'reset' ? 'reset' : 'verify';
   const rawHost = (header(req, 'x-forwarded-host') || header(req, 'host') || '').split(',')[0].trim().toLowerCase();
   const host = /^[a-z0-9.-]+(?::\d{1,5})?$/.test(rawHost) ? rawHost : '';
-  if (host && apiRole(host, '') === 'staff') return `https://quik1.app/quik1/#verify=${token}`;
+  if (host && apiRole(host, '') === 'staff') return `https://quik1.app/quik1/#${name}=${token}`;
   const rawProto = (header(req, 'x-forwarded-proto') || 'https').split(',')[0].trim().toLowerCase();
   const proto = rawProto === 'http' ? 'http' : 'https';
   const origin = host ? `${proto}://${host}` : '';
-  return `${origin}/quik1/#verify=${token}`;
+  return `${origin}/quik1/#${name}=${token}`;
 }
 
 function pendingCookies(req, pending) {
@@ -181,16 +182,19 @@ async function findByIdPhone(idMac, phoneMac) {
   return borrowerFromClient(rows[0]);
 }
 
-async function issueLink(req, borrower, to, pending) {
+async function issueLink(req, borrower, to, pending, kind = 'signin') {
   const mail = emailSender(req);
   if (!mail.enabled || !to) return;
+  const reset = kind === 'reset';
   const nowIso = new Date().toISOString();
   await patchWhere('q1_otp_challenges', {
     borrower_id: eq(borrower.id),
     consumed_at: 'is.null'
   }, { consumed_at: nowIso });
   const token = randomBytes(32).toString('hex');
-  const id = 'qo_' + randomBytes(8).toString('hex');
+  // purpose stays signin. The qr_ id and the #reset= fragment mark a PIN reset
+  // without a new purpose, which would need a migration.
+  const id = (reset ? 'qr_' : 'qo_') + randomBytes(8).toString('hex');
   const minutes = Math.max(1, Math.round(otpTtlMs() / 60000));
   await insert('q1_otp_challenges', [{
     id,
@@ -202,10 +206,13 @@ async function issueLink(req, borrower, to, pending) {
     expires_at: new Date(Date.now() + otpTtlMs()).toISOString(),
     consumed_at: null
   }]);
-  const link = verifyPageLink(req, token);
-  const text = `Open this link on the phone that asked for it. It expires in ${minutes} minutes and works once.\n${link}`;
+  const link = verifyPageLink(req, token, reset ? 'reset' : 'verify');
+  const text = reset
+    ? `Open this link on the phone that asked for it to choose a new PIN. It expires in ${minutes} minutes and works once.\n${link}`
+    : `Open this link on the phone that asked for it. It expires in ${minutes} minutes and works once.\n${link}`;
+  const subject = reset ? 'Choose a new Quik1 PIN' : 'Your Quik1 sign-in link';
   Promise.resolve()
-    .then(() => mail.send(to, 'Your Quik1 sign-in link', text))
+    .then(() => mail.send(to, subject, text))
     .then(sent => {
       if (!sent || !sent.sent) {
         return update('q1_otp_challenges', { id }, { consumed_at: new Date().toISOString() });
@@ -230,6 +237,26 @@ export async function requestEmailSignIn(req, body, res) {
   await logAuthAttempt(found ? found.borrower.id : null, 'email', req, subject);
   const pending = randomBytes(32).toString('hex');
   if (found) await issueLink(req, found.borrower, found.email, pending);
+  return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
+}
+
+// Same body as email sign-in, including when the address is unknown.
+// borrowerEmailLive keeps this off on production.
+export async function requestPinReset(req, body, res) {
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
+  if (!borrowerEmailLive(req)) throw new HttpError(503, 'PIN reset is not available');
+  await guardAuth(req, res);
+  const email = cleanEmail(body && body.email).toLowerCase();
+  const subject = subjectHash('email', email || 'none');
+  await assertSubjectBudget('email', subject, res);
+  // findByEmail only returns a scrypt PIN that is not attempt-locked. A leftover
+  // lock (pin_hash 'locked', or no scrypt PIN) gets this same generic body and
+  // no email. Staff set the new PIN.
+  const found = await findByEmail(email);
+  await logAuthAttempt(found ? found.borrower.id : null, 'email', req, subject);
+  const pending = randomBytes(32).toString('hex');
+  if (found) await issueLink(req, found.borrower, found.email, pending, 'reset');
   return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
 }
 

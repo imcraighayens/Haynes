@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
+import { tempPinLimiter } from '../../api/_lib/borrower.js';
 import { verifyPin } from '../../api/_lib/pin.js';
 import { b64urlEncode, cborEncode, sha256 } from '../../api/_lib/webauthn.js';
 import { rpIdForHost } from '../../api/_lib/borrower-webauthn.js';
@@ -85,16 +86,18 @@ function cookieHeader(res) {
 }
 
 async function pinSession() {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
+  const set = await call(ledger, {
+    method: 'POST', path: ['quik1-temp-pin'], headers: staffHeaders(),
+    body: { clientId: CLIENT_A, pin: PIN_OK, pinConfirm: PIN_OK }
   });
-  assert.equal(created.statusCode, 201, created.body);
-  const code = created.json().code;
-  const redeemed = await call(quik1, {
-    method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
+  assert.equal(set.statusCode, 200, set.body);
+  const borrower = fake.db.q1_borrowers.find(row => row.client_id === CLIENT_A);
+  const logged = await call(quik1, {
+    method: 'POST', path: ['login'],
+    body: { accountRef: borrower.id, pin: PIN_OK }
   });
-  assert.equal(redeemed.statusCode, 200, redeemed.body);
-  return cookieHeader(redeemed);
+  assert.equal(logged.statusCode, 200, logged.body);
+  return cookieHeader(logged);
 }
 
 function platformKey() {
@@ -135,6 +138,7 @@ describe('borrower webauthn', { concurrency: false }, () => {
   beforeEach(() => {
     publicLimiter.reset();
     authLimiter.reset();
+    tempPinLimiter.reset();
     process.env.QUIK1_BORROWER_PIN = '1';
     delete process.env.VERCEL_ENV;
     fake.reset(seed(true));
