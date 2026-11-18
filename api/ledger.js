@@ -2,7 +2,7 @@
 //   GET  /api/ledger/state                      full snapshot for boot
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
-import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
+import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP, logClientError } from './_lib/http.js';
 import { requireStaff, isSameOrigin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
 import { borrowerPinLive } from './_lib/quik1-flags.js';
 import { signInStaff } from './_lib/staff.js';
@@ -255,6 +255,10 @@ async function postSync(req, res) {
       const msg = e instanceof HttpError ? e.message : 'Internal error';
       const retryable = !(e instanceof HttpError) || e.message === 'Database unreachable'
         || (e.upstream != null && (e.upstream >= 500 || e.upstream === 429));
+      if (e instanceof HttpError && e.status >= 400 && e.status < 500) {
+        const row = op && (Array.isArray(op.rows) ? op.rows[0] : op.row);
+        logClientError('ledger', 'sync', e.status, e.code, row && row.ref);
+      }
       results.push({ ...base, count: 0, error: msg, retryable });
     }
   }

@@ -265,6 +265,182 @@ test('loan-status audit id is stable for the same request and a stale updated_at
   assert.equal(calls.filter(c => c.table === 'audit_log').length, 2);
 });
 
+test('loan-status marks an empty-schedule overdue loan paid, then writes the audit', async () => {
+  const loan = { id: 'l_synth', ref: 'DCPRD00028W9SK', client_id: 'c_synth', status: 'overdue', schedule: [], paid_dates: [], instalments_paid: 0, instalment_amount: 4140.47, deleted_at: null, updated_at: '2026-11-05T13:45:17.238028+00:00' };
+  const order = [];
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      order.push('loan');
+      if (r.url.searchParams.get('updated_at') !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log' && r.method === 'POST') { order.push('audit'); return { status: 200, body: r.body }; }
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'empty-paid' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  assert.ok(loan.instalments_paid >= 1);
+  assert.equal(loan.paid_dates.length, 1);
+  assert.deepEqual(order, ['loan', 'audit']);
+});
+
+test('loan-status marks a scheduled loan paid only by recording the whole schedule', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-SCHED', client_id: 'c_synth', status: 'issued', schedule: ['2026-09-01', '2026-10-01', '2026-11-01'], paid_dates: [], instalments_paid: 0, instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      if (r.url.searchParams.get('updated_at') !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'sched-paid' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  assert.ok(loan.instalments_paid >= 3);
+  assert.equal(loan.paid_dates.length, 1);
+});
+
+test('loan-status pay-next on an empty schedule records one instalment and can close it', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-EMPTY', client_id: 'c_synth', status: 'overdue', schedule: [], paid_dates: [], instalments_paid: 0, instalment_amount: 50, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      if (r.url.searchParams.get('updated_at') !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+  const step = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'overdue', instalmentsPaid: 1, requestId: 'empty-next' } });
+  assert.equal(step.statusCode, 200);
+  assert.equal(loan.status, 'overdue');
+  assert.equal(loan.instalments_paid, 1);
+  assert.equal(loan.paid_dates.length, 1);
+  const done = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', instalmentsPaid: 1, requestId: 'empty-close' } });
+  assert.equal(done.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  assert.ok(loan.instalments_paid >= 1);
+});
+
+test('loan-status compare-and-set keeps a microsecond updated_at', async () => {
+  const { timestampToken } = await import('../../api/_lib/loan-status.js');
+  const stamp = '2026-11-05T13:45:17.238028+00:00';
+  const truncated = new Date(stamp).toISOString();
+  assert.equal(timestampToken(stamp), stamp);
+  assert.equal(timestampToken('2026-11-05 13:45:17.238028+00'), '2026-11-05 13:45:17.238028+00');
+  assert.equal(timestampToken(new Date(stamp)), null);
+  assert.equal(truncated.includes('238028'), false);
+  const loan = { id: 'l_synth', ref: 'DCPRD00028W9SK', client_id: 'c_synth', status: 'overdue', schedule: [], paid_dates: [], instalments_paid: 0, instalment_amount: 10, deleted_at: null, updated_at: stamp };
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      const filter = r.url.searchParams.get('updated_at');
+      if (filter !== 'eq.' + stamp) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower', phone: '0820000000' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+  const res = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'call 0820000000', requestId: 'micro' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  const patch = calls.find(c => c.table === 'loans' && c.method === 'PATCH');
+  assert.equal(patch.url.searchParams.get('updated_at'), 'eq.' + stamp);
+  assert.match(patch.url.search, /238028/);
+  assert.doesNotMatch(patch.url.search, /17\.238Z/);
+});
+
+test('loan-status and sync 4xx are logged without names, ids or phones', async () => {
+  const logs = [];
+  const orig = console.error;
+  console.error = (line) => { logs.push(String(line)); };
+  try {
+    const loan = { id: 'l_synth', ref: 'DCPRD00028W9SK', client_id: 'c_synth', status: 'written_off', deleted_at: null, updated_at: '2026-11-05T13:45:17.238028+00:00' };
+    stubFetch(r => {
+      if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+      return { status: 200, body: [] };
+    });
+    const written = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Thandi 0820000000', requestId: 'log-written' } });
+    assert.equal(written.statusCode, 409);
+    const line = logs.find(l => l.includes('loan-status'));
+    assert.ok(line);
+    assert.match(line, /\[api:ledger\] loan-status 409 written_off DCPRD00028W9SK/);
+    assert.doesNotMatch(line, /Thandi|0820000000|l_synth|c_synth/);
+    logs.length = 0;
+    const bad = await call({ method: 'POST', path: ['sync'], body: { ops: [{ table: 'nope', op: 'upsert', rows: [{ id: 'l_secret', ref: 'SYN-1', name: 'Thandi', phone: '0820000000' }] }] } });
+    assert.equal(bad.statusCode, 200);
+    const syncLine = logs.find(l => l.includes('sync'));
+    assert.ok(syncLine);
+    assert.match(syncLine, /\[api:ledger\] sync 400 /);
+    assert.doesNotMatch(syncLine, /Thandi|0820000000|l_secret/);
+    assert.match(syncLine, /SYN-1/);
+  } finally {
+    console.error = orig;
+  }
+});
+
+test('sync keeps principal and instalment edits and still cannot rewind status', async () => {
+  stubFetch(r => {
+    if (r.method === 'GET' && r.table === 'loans') return { status: 200, body: [{ id: 'l1' }] };
+    if (r.method === 'PATCH') return { status: 200, body: [{ id: 'l1', ...r.body }] };
+    return { status: 200, body: r.body || [] };
+  });
+  const res = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l1', patch: { principal: 8800, instalment_amount: 1200, status: 'paid', status_at: '2020-01-01T00:00:00.000Z', instalments_paid: 9, paid_dates: ['2020-01-01'] } }
+  ] } });
+  assert.equal(res.statusCode, 200);
+  const patch = calls.find(c => c.method === 'PATCH').body;
+  assert.equal(patch.principal, 8800);
+  assert.equal(patch.instalment_amount, 1200);
+  assert.equal(patch.status, undefined);
+  assert.equal(patch.instalments_paid, undefined);
+  assert.equal(patch.paid_dates, undefined);
+});
+
+test('a paid loan is still paid on the next read, and a field edit does not rewind it', async () => {
+  const { createFakePostgrest } = await import('../../tools/fake-postgrest.js');
+  const stamp = '2026-11-05T13:45:17.238028+00:00';
+  const fake = createFakePostgrest({
+    clients: [{ id: 'c_synth', name: 'Synthetic Borrower' }],
+    loans: [{ id: 'l_synth', ref: 'DCPRD00028W9SK', client_id: 'c_synth', status: 'overdue', schedule: [], paid_dates: [], instalments_paid: 0, instalment_amount: 100, principal: 1500, deleted_at: null, updated_at: stamp }],
+    employees: [], applications: [], audit_log: [], petty_cash: [], bank_tx: [], expenses: [], settings: [], ledger_book: [], ledger_attention: []
+  });
+  globalThis.fetch = (url, init) => fake.handle(url, init);
+  const paid = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', requestId: 'stick' } });
+  assert.equal(paid.statusCode, 200, paid.body);
+  assert.equal(fake.db.loans[0].status, 'paid');
+  assert.ok(fake.db.loans[0].instalments_paid >= 1);
+  assert.ok(fake.db.loans[0].paid_dates.length >= 1);
+  const cas = fake.log.find(w => w.method === 'PATCH' && w.table === 'loans');
+  assert.equal(cas.filters.find(f => f.col === 'updated_at').val, stamp);
+  assert.equal(cas.count, 1);
+  assert.ok(fake.db.audit_log.some(a => a && a.ref === 'DCPRD00028W9SK' && /PAID/.test(String(a.type || ''))));
+  const again = await call({ path: ['state'] });
+  assert.equal(again.statusCode, 200, again.body);
+  assert.equal(again.json().loans.find(l => l.id === 'l_synth').status, 'paid');
+  const edited = await call({ method: 'POST', path: ['sync'], body: { ops: [
+    { table: 'loans', op: 'update', id: 'l_synth', patch: { principal: 8800, instalment_amount: 1200, status: 'overdue', instalments_paid: 0, paid_dates: [] } }
+  ] } });
+  assert.equal(edited.statusCode, 200, edited.body);
+  assert.equal(edited.json().ok, true);
+  assert.equal(fake.db.loans[0].principal, 8800);
+  assert.equal(fake.db.loans[0].instalment_amount, 1200);
+  assert.equal(fake.db.loans[0].status, 'paid');
+  assert.ok(fake.db.loans[0].instalments_paid >= 1);
+});
+
 test('a failed audit does not roll back a newer loan write', async () => {
   const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'issued', instalments_paid: 0, paid_dates: [], schedule: [], deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
   let wrote = '';
