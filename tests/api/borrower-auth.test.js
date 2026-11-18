@@ -2361,4 +2361,15 @@ describe('borrower auth', { concurrency: false }, () => {
       delete process.env.QUIK1_ID_PHONE_HOURLY_CAP;
     }
   });
+
+  test('a locked Quik1 screen uses the server PIN wording and does not mention an invite', () => {
+    const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const quik = fs.readFileSync(path.join(root, 'quik1/index.html'), 'utf8');
+    const start = quik.indexOf('if(r.status===423){');
+    assert.ok(start > 0);
+    const block = quik.slice(start, quik.indexOf('if(j&&j.deviceNotLinked===true)', start));
+    const note = /pinNote:'([^']*)'/.exec(block);
+    assert.equal(note && note[1], 'Quik1 is locked. Ask your loan officer to set a new PIN.');
+    assert.equal(/invite/i.test(block), false);
+  });
 });

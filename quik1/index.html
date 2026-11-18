@@ -3736,7 +3736,7 @@ input,button,textarea{font-family:inherit}
         .then(async r=>{
           let j=null; try{ j=await r.json(); }catch(e){ j=null; }
           if(r.status===423){
-            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'This account is locked. Wait and try again, or ask your loan officer for a new invite.'});
+            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'Quik1 is locked. Ask your loan officer to set a new PIN.'});
             return;
           }
           if(j&&j.deviceNotLinked===true){
