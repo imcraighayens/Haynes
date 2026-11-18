@@ -5161,7 +5161,7 @@ class Component extends DCLogic {
     const filterSource = filterDefs;
     const filters = filterSource.map(([f,label,iconPath])=>({
       label: label+' '+counts(f), iconPath, go:()=>this.setState({filter:f, loanPage:0}),
-      amt: fmt(st.loans.filter(l=>inFilter(l,f)).reduce((a,l)=>a+this.dueAmt(l),0)),
+      amt: fmt(st.loans.filter(l=>inFilter(l,f) && shown(l)).reduce((a,l)=>a+this.dueAmt(l),0)),
       style:this.cssObj('flex:1 1 auto;min-width:0;cursor:pointer')
     }));
     filters.forEach((x,i)=>{ const f=filterSource[i][0], on=st.filter===f, c=STAT[f]||'var(--ink)', n=counts(f);
