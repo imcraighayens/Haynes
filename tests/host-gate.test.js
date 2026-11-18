@@ -17,7 +17,13 @@ test('vercel.json repeats the allow-list and does not send every host to Ledger'
     assert.equal(STAFF_HOSTS.includes(host), false);
     assert.equal(BORROWER_HOSTS.includes(host), false);
   }
-  assert.equal(vercel.redirects.some(r => r.source === '/' && r.destination === '/ledger/'), false);
+  const staffApex = vercel.redirects.filter(r => r.source === '/' && r.destination === '/ledger/');
+  assert.equal(staffApex.some(r => !r.has), false);
+  assert.deepEqual(staffApex.map(r => hostValues(r, 'has')[0]).sort(), [...STAFF_HOSTS].sort());
+  for (const rule of staffApex) {
+    assert.equal(rule.permanent, false);
+    assert.deepEqual(hostValues(rule, 'has'), [hostValues(rule, 'has')[0]]);
+  }
 
   // Static files are served before rewrites, so the cross-host pages must be redirects.
   // After deploy, without following the redirect:
@@ -45,7 +51,7 @@ test('vercel.json repeats the allow-list and does not send every host to Ledger'
   assert.deepEqual(borrowerRoot.map(r => hostValues(r, 'has')[0]).sort(), [...BORROWER_HOSTS].sort());
 
   const staffRoot = vercel.rewrites.filter(r => r.source === '/' && r.destination === '/ledger/index.html');
-  assert.deepEqual(staffRoot.map(r => hostValues(r, 'has')[0]).sort(), [...STAFF_HOSTS, ...OPEN_HOSTS].sort());
+  assert.deepEqual(staffRoot.map(r => hostValues(r, 'has')[0]).sort(), [...OPEN_HOSTS].sort());
 
   const staffDeny = denied.filter(r => !r.has);
   assert.deepEqual(staffDeny.map(r => r.source).sort(), [...STAFF_PATHS].sort());
@@ -114,10 +120,17 @@ test('ledger.ecoloan.co.za serves Ledger and quik1.ecoloan.co.za serves Quik1', 
   assert.equal(apiSideAllowed('staff', 'quik1'), false);
   assert.equal(apiSideAllowed('borrower', 'ledger'), false);
 
-  const staffRoot = vercel.rewrites.find(r => r.source === '/' && r.destination === '/ledger/index.html' && hostValues(r, 'has').includes(staff));
-  assert.ok(staffRoot, 'staff host rewrites / to Ledger');
+  const staffApex = vercel.redirects.find(r => r.source === '/' && r.destination === '/ledger/' && hostValues(r, 'has').includes(staff));
+  assert.ok(staffApex, 'staff host 307s / to /ledger/');
+  assert.equal(staffApex.permanent, false);
+  assert.equal(vercel.rewrites.some(r => r.source === '/' && r.destination === '/ledger/index.html' && hostValues(r, 'has').includes(staff)), false);
+  const ledgerDir = vercel.redirects.find(r => r.source === '/ledger/' && r.destination === '/api/denied' && r.missing);
+  assert.ok(ledgerDir);
+  assert.equal(ledgerDir.permanent, false);
+  assert.equal(hostValues(ledgerDir, 'missing').includes(staff), true);
   const borrowerRoot = vercel.rewrites.find(r => r.source === '/' && r.destination === '/quik1/index.html' && hostValues(r, 'has').includes(borrower));
-  assert.ok(borrowerRoot, 'borrower host rewrites / to Quik1');
+  assert.ok(borrowerRoot, 'borrower host still rewrites / to Quik1');
+  assert.equal(vercel.redirects.some(r => r.source === '/' && r.destination === '/ledger/' && hostValues(r, 'has').includes(borrower)), false);
   for (const source of ['/quik1', '/quik1/', '/quik1/:path*', '/app']) {
     const onStaff = vercel.redirects.find(r => r.source === source && r.destination === '/api/denied' && hostValues(r, 'has').includes(staff));
     assert.ok(onStaff, source);

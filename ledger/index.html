@@ -6,8 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledger</title>
 <script>
-/* This file lives in /ledger/. quik1ledger.com rewrites "/" onto it, and
-   "/ledger" (no slash) serves the same HTML. Either URL makes ./ledger-sync.js
+/* This file lives in /ledger/. A staff host 307s "/" to /ledger/, where these
+   relative URLs resolve. Local dev still rewrites "/" onto this file, and
+   "/ledger" without a slash can too. Either of those URLs makes ./ledger-sync.js
    resolve outside /ledger/, the runtime never boots, and the uncompiled call
    dialog stays on screen with {{ ccName }} and a Cancel button that does nothing.
    Assets always live at /ledger/, so pin the base there before any relative URL. */
