@@ -804,15 +804,17 @@ describe('borrower auth', { concurrency: false }, () => {
     fake.db.q1_borrowers[0].pin_hash = legacyHash;
     const accountRef = redeemed.json().accountRef;
     assert.equal(await verifyPin(PIN_OK, legacyHash), false);
-    const oldShape = await call(quik1, {
-      method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
-    });
-    assert.equal(oldShape.statusCode, 400, oldShape.body);
     const missed = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: PIN_OK }
     });
     assert.equal(missed.statusCode, 401, missed.body);
     assert.equal(missed.json().error, pinNotAcceptedMessage());
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, legacyHash);
+    const withLegacy = await call(quik1, {
+      method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
+    });
+    assert.equal(withLegacy.statusCode, 200, withLegacy.body);
+    assert.equal(withLegacy.json().ok, true);
     assert.equal(fake.db.q1_borrowers[0].pin_hash, legacyHash);
     const reset = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -1338,18 +1340,14 @@ describe('borrower auth', { concurrency: false }, () => {
     assertNoPin(mismatch.body, PIN_NEXT);
   });
 
-  test('a PIN of the wrong length is rejected at set, change, and sign-in', async () => {
+  test('a new PIN is five digits only, and a malformed length does not count', async () => {
     const shortPin = '2'.repeat(QUIK1_PIN_LENGTH - 1);
     const longPin = '2'.repeat(QUIK1_PIN_LENGTH + 1);
+    const malformed = '2'.repeat(QUIK1_PIN_LENGTH + 2);
     for (const pin of [shortPin, longPin]) {
       const set = await setLogin(CLIENT_A, pin);
       assert.equal(set.statusCode, 400, set.body);
       assertNoPin(set.body, pin);
-      const signed = await call(quik1, {
-        method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ab'.repeat(16), pin }
-      });
-      assert.equal(signed.statusCode, 400, signed.body);
-      assertNoPin(signed.body, pin);
     }
     const invited = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
@@ -1358,6 +1356,10 @@ describe('borrower auth', { concurrency: false }, () => {
       method: 'POST', path: ['invites', 'redeem'], body: { code: invited.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
     });
     const cookie = cookieHeader(redeemed);
+    const accountRef = redeemed.json().accountRef;
+    const odd = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: malformed } });
+    assert.equal(odd.statusCode, 400, odd.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     for (const pin of [shortPin, longPin]) {
       const changed = await call(quik1, {
         method: 'POST', path: ['pin'], headers: { cookie },
@@ -1365,13 +1367,84 @@ describe('borrower auth', { concurrency: false }, () => {
       });
       assert.equal(changed.statusCode, 400, changed.body);
       assertNoPin(changed.body, pin);
-      const current = await call(quik1, {
-        method: 'POST', path: ['pin'], headers: { cookie },
-        body: { currentPin: pin, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
-      });
-      assert.equal(current.statusCode, 400, current.body);
-      assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     }
+    const junkCurrent = await call(quik1, {
+      method: 'POST', path: ['pin'], headers: { cookie },
+      body: { currentPin: malformed, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    assert.equal(junkCurrent.statusCode, 400, junkCurrent.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
+    assert.equal(await verifyPin(PIN_OK, fake.db.q1_borrowers[0].pin_hash), true);
+  });
+
+  test('a legacy PIN signs in at its stored length, and a live PIN rejects that length generically', async () => {
+    await setLogin(CLIENT_A, PIN_OK);
+    const accountRef = fake.db.q1_borrowers[0].id;
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
+    const legacy = '8'.repeat(QUIK1_PIN_LENGTH + 1);
+    const unknown = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'cd'.repeat(16), pin: legacy }
+    });
+    assert.equal(unknown.statusCode, 401, unknown.body);
+    assert.equal(unknown.json().error, pinNotAcceptedMessage());
+    const fiveUser = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: legacy } });
+    assert.equal(fiveUser.statusCode, 401, fiveUser.body);
+    assert.equal(fiveUser.json().error, unknown.json().error);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts, 1);
+    const happy = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(happy.statusCode, 200, happy.body);
+    assert.equal(happy.json().ok, true);
+    assert.equal(happy.json().pinChangeRequired, undefined);
+
+    const legacyHash = await hashPinForVerify(legacy);
+    fake.db.q1_borrowers[0].pin_hash = legacyHash;
+    fake.db.q1_borrowers[0].failed_attempts = 0;
+    fake.db.q1_borrowers[0].locked_at = null;
+    fake.db.q1_borrowers[0].device_reset_until = new Date(Date.now() + 3600 * 1000).toISOString();
+    const tooShort = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK } });
+    assert.equal(tooShort.statusCode, 401, tooShort.body);
+    assert.equal(tooShort.json().error, pinNotAcceptedMessage());
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, legacyHash);
+    const opened = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: legacy } });
+    assert.equal(opened.statusCode, 200, opened.body);
+    assert.equal(opened.json().ok, true);
+    assert.match(cookieHeader(opened), /q1_session=/);
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, legacyHash);
+
+    const changed = await call(quik1, {
+      method: 'POST', path: ['pin'], headers: { cookie: cookieHeader(opened) },
+      body: { currentPin: legacy, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
+    });
+    assert.equal(changed.statusCode, 200, changed.body);
+    assert.deepEqual(changed.json(), { ok: true });
+    assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
+    assert.equal(await verifyPin(legacy, fake.db.q1_borrowers[0].pin_hash), false);
+    const oldGone = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: legacy } });
+    assert.equal(oldGone.statusCode, 401, oldGone.body);
+    assert.equal(oldGone.json().error, pinNotAcceptedMessage());
+    const nowFive = await call(quik1, {
+      method: 'POST', path: ['login'],
+      headers: { cookie: knownCookie(opened) },
+      body: { accountRef, pin: PIN_NEXT }
+    });
+    assert.equal(nowFive.statusCode, 200, nowFive.body);
+  });
+
+  test('a wrong legacy-length PIN counts toward lockout like any other miss', async () => {
+    await setLogin(CLIENT_A, PIN_OK);
+    const accountRef = fake.db.q1_borrowers[0].id;
+    const legacy = '9'.repeat(QUIK1_PIN_LENGTH + 1);
+    const unknown = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ef'.repeat(16), pin: legacy }
+    });
+    for (let i = 0; i < 4; i++) {
+      const miss = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: legacy } });
+      assert.equal(miss.statusCode, 401, miss.body);
+      assert.equal(miss.json().error, unknown.json().error);
+    }
+    const locked = await call(quik1, { method: 'POST', path: ['login'], body: { accountRef, pin: legacy } });
+    assert.equal(locked.statusCode, 423, locked.body);
+    assert.equal(fake.db.q1_borrowers[0].failed_attempts, 5);
     assert.equal(await verifyPin(PIN_OK, fake.db.q1_borrowers[0].pin_hash), true);
   });
 

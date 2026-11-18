@@ -8,9 +8,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { LEDGER_KEY, BOOT_TIMEOUT_MS, loadPlaywright, launchBrowser, withMockApi, pageWaitFor, isKnownPageError } from './_boot-helpers.js';
-import { QUIK1_PIN_LENGTH } from '../shared/pin-length.js';
 
-const PIN_COPY = new RegExp('Enter the ' + QUIK1_PIN_LENGTH + '-digit PIN you chose');
+const PIN_COPY = /Enter the PIN you use, then press Continue/;
 const SAMPLE_PIN = '24680';
 
 const pw = loadPlaywright();
@@ -142,6 +141,7 @@ test('a new device with email off renders the unlinked copy', { skip: pw ? false
           button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         }, digit);
       }
+      await page.locator('[data-q-pin-go]').dispatchEvent('click');
       await pageWaitFor(page, text => document.body.innerText.includes(text), copy, { timeoutMs: BOOT_TIMEOUT_MS });
       const shown = await page.evaluate(() => document.body.innerText);
       assert.equal(shown.includes(copy), true);
