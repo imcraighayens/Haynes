@@ -1,0 +1,9 @@
+# ledger-ecoloans function settings. This file does not change the live project.
+# quik1-ai is deployed there with verify_jwt = false. Nothing in this repo calls it,
+# and borrower login is not live, so the next deploy must require a JWT.
+# Do not deploy from this change. Turn Verify JWT on in the dashboard, or redeploy later.
+
+project_id = "ledger-ecoloans"
+
+[functions.quik1-ai]
+verify_jwt = true

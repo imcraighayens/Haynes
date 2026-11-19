@@ -1,0 +1,231 @@
+# Deploy — first time (about 15 minutes)
+
+Everything below is copy-pasteable. You need: the GitHub repo, a Vercel account, the Supabase
+dashboard for project `ledger-ecoloans`, and a terminal with `openssl`.
+
+## 1. Import the repo into Vercel
+
+Open:
+
+```
+https://vercel.com/new/clone?repository-url=https://github.com/imcraighayens/Haynes&project-name=ecoloans&env=SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,LEDGER_KEY
+```
+
+On the import screen:
+
+* Framework Preset: **Other**
+* Build Command: leave **empty** (toggle off any override)
+* Output Directory: leave **blank**
+* Install Command: leave default. Vercel installs the WebAuthn packages. There is no build step.
+* Root Directory: `./`
+
+`vercel.json` in the repo already sets `framework: null` (no build), and `package.json` pins the
+functions to Node 22 (`engines.node`), so these settings are only confirmations. Fill in the three environment variables from step 2, then **Deploy**.
+
+## 2. Environment values
+
+| Name | Value |
+| --- | --- |
+| `SUPABASE_URL` | Supabase dashboard → **Project Settings → API → Project URL** (`https://<project-ref>.supabase.co`). Do not commit the ref. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → **Project Settings → API → Project API keys → `service_role`** (click *Reveal*). Server-only. Never paste it into either app, a browser, or git. |
+| `LEDGER_KEY` | Generate one now and keep it somewhere safe — you paste it into LEDGER in step 4: |
+
+```
+openssl rand -hex 32
+```
+
+Add all three to **Production** (and Preview if you want preview deployments to work).
+Changing a value later: Vercel → Project → Settings → Environment Variables → edit → **Redeploy**.
+
+Staff Admin sign-in is Supabase Auth on that same project, not `LEDGER_KEY`. The Admin
+screen asks for email and password (`POST /api/ledger/login`). The server checks them with
+GoTrue, then allows the session only when `public.employees` has an active row for that email
+(the same rule that keeps sign-up closed). The confirmed admin is `craig@ecoloan.co.za`. A
+second staff member is added by inserting another active employee row — there is no second
+address until then. Do not give staff `LEDGER_KEY` to paste into the sign-in form. The
+Settings connect field is still the machine secret for the bridge.
+
+Optional server-only values. Leave them unset until you are ready. None of them belong in the
+browser, in git, or in the staff UI.
+
+| Name | What it does |
+| --- | --- |
+| `LEDGER_MANAGER_PIN` | Required before a loan delete or a full book replace. Plain text, or `sha256:` plus the hex digest. |
+| `LEDGER_ALLOW_DEMO_RESET` | Set to `true` only on a non-production host to show Reset demo data. Production hosts and `NODE_ENV=production` keep it hidden. |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Document reader. Q1 chat answers from the book without these. If neither is set, the reader shows "Not configured". |
+| `LEDGER_AI_PROVIDER` | Optional when both reader keys are set: `anthropic` or `openai`. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
+| `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
+| `QUIK1_SESSION_SECRET` | Required with `QUIK1_BORROWER_PIN=1` for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. Sign-in stays off when this is missing or shorter. |
+| `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
+| `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
+| `QUIK1_LOCKOUT_MINUTES` | Optional. How long that lock lasts before the counter resets. Default 15. A new invite still clears it immediately. |
+| `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
+| `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
+| `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |
+| `QUIK1_EMAIL_FROM` / `QUIK1_EMAIL_API_URL` / `QUIK1_EMAIL_API_KEY` | Borrower email for a new-device link. Leave all three unset. Nothing is sent. The phone says "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access." These are not the staff voice credentials. |
+| `QUIK1_BORROWER_PIN` | Single live switch for borrower PIN sign-in, including production. Set to exactly `1` next to `QUIK1_SESSION_SECRET`. `true`, `yes`, `on`, and a spaced `1` stay off. Leave unset and sign-in stays off. |
+| `QUIK1_ID_KEY` | Exactly 64 hex characters. Encrypts an SA ID submitted by a signed-in borrower. Production sign-in also stays off until this matches that pattern. A preview can sign in without it. |
+| `QUIK1_ID_KEY_PREVIOUS` | Optional. Previous encryption key, used only to read older ciphertext. Leave unset. |
+| `QUIK1_ID_HMAC_KEY` | Required to store an SA ID. Separate key of exactly 64 hex characters. ID storage fails closed with 503 without it. Production sign-in stays off until this is exactly 64 hex characters. A preview can sign in without it. Leave unset until that intake is turned on. |
+
+Optional, for the marketing-site ingest only (`POST /api/ecoloans/applications`). Leave them unset
+to keep the defaults. They are separate from `QUIK1_HOURLY_CAP`, `QUIK1_PHONE_DAILY_CAP` and
+`QUIK1_RATE_LIMIT`.
+
+| Name | Default | What it caps |
+| --- | --- | --- |
+| `ECOLOANS_HOURLY_CAP` | 60 | new `source = ecoloan_web` applications in the last hour |
+| `ECOLOANS_PHONE_DAILY_CAP` | 3 | applications from the same phone in 24 hours |
+| `ECOLOANS_RATE_LIMIT` | 30 | requests per minute per IP on this route |
+
+## 3. Apply the database migration (once)
+
+Supabase dashboard → **SQL Editor → New query**, paste the whole file
+`supabase/migrations/20261029_quik1_bridge.sql` from the repo, **Run**. It is additive and
+idempotent (safe to run twice): two columns on `applications`, four new tables, staff-only RLS.
+Nothing existing is altered.
+
+Then paste and run `supabase/migrations/20261105_quik1_borrower_auth.sql` as well. That file
+adds the Quik1 invite, PIN-hash, and session tables. It does not create borrower logins in
+Supabase Auth, and it does not change the staff sign-up allowlist. `QUIK1_BORROWER_PIN`
+must be exactly `1`. It is the single live switch, including production, and it sits next to
+`QUIK1_SESSION_SECRET` (32 or more characters). Leave either one unset and redeem answers 503.
+On a production deployment (`VERCEL_ENV=production`, or quik1.app, www.quik1.app,
+quik1ledger.com, www.quik1ledger.com, ecoloans-six.vercel.app) sign-in also stays off until
+`QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters. A preview needs
+only the flag and the session secret.
+Until both borrower migrations are applied, Ledger shows "Quik1 access not set up yet" and
+does not create an invite.
+
+Staff can load one client's book in Quik1 only when `QUIK1_PREVIEW_VIEW_AS_CLIENT` is exactly `1` and the
+deployment is not production. That route still needs `LEDGER_KEY` or the staff cookie. The
+service role is not sent to the browser. Leave the preview flag unset on quik1.app.
+
+Then paste and run `supabase/migrations/20261106_quik1_borrower_app.sql`. That file adds the
+support-message table and a private `q1-documents` storage bucket. Do not apply it from the
+app. Withdrawals, new applications, and replies are status records only: they do not call
+NuPay or a bank. Optional `QUIK1_DOC_MAX_BYTES` caps an upload (default about 1.5 MB). The
+same `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LEDGER_KEY`, and `QUIK1_SESSION_SECRET`
+already used by the bridge are enough. No new secret is required.
+
+Then paste and run `supabase/migrations/20261110120000_quik1_borrower_guard.sql` after the
+two files above. It stops if `q1_borrowers` is missing. It adds recognised devices, email
+device links, the attempt log (with a 90-day `expires_at` and `q1_purge_auth_attempts()`
+for the SQL editor), and encrypted ID columns on `q1_borrowers`. It does not recreate the
+earlier tables. Do not apply it from the app, and do not re-run the 7 Nov application
+migrations. `QUIK1_ID_KEY` and `QUIK1_ID_HMAC_KEY` must each be exactly 64 hex characters
+before production PIN sign-in will run, and the same rule applies before a signed-in borrower
+can store an ID. A preview can sign in without them. Leave `QUIK1_EMAIL_FROM`,
+`QUIK1_EMAIL_API_URL`, and `QUIK1_EMAIL_API_KEY` unset. A new phone then says
+"This phone isn't linked yet. Please contact EcoLoans and we'll reset your access."
+No link is issued. Staff can still reset the device from Ledger. The PIN is not changed.
+That reset also revokes open sessions and passkeys, and lets the next correct PIN trust
+one new phone within 24 hours when email cannot be sent. Leave `QUIK1_BORROWER_PIN`
+unset until that sign-in should be live.
+
+Then paste and run `supabase/migrations/20261110143000_quik1_signin.sql` after the
+guard file. It stops if those tables are missing. It adds sign-in purpose on email
+links, the attempt-log columns, and the passkey tables. Challenges are stored only
+as a SHA-256 hash. Do not apply it from the app.
+
+`supabase/migrations/20261110150000_quik1_client_hmac.sql` is separate and later.
+apply only after #37 review approval; backfill needs QUIK1_ID_HMAC_KEY. It adds
+only `id_hmac` and `phone_hmac` on `clients`, with their checks and one partial
+unique index. It does not depend on another clients migration. Until either
+column exists, ID and cellphone sign-in says to use email. Do not apply it from
+the app. `scripts/backfill-client-hmac.js` is dry-run unless `--commit` is passed,
+prints counts only, and refuses to run without `QUIK1_ID_HMAC_KEY`.
+
+Leave the new variables below unset. No email provider is chosen. Passkeys use the
+same switch as the PIN.
+
+| Name | What it does |
+| --- | --- |
+| `QUIK1_SIGNIN_COOLDOWN_SECONDS` | Optional. Seconds before another email or ID link can be asked for. Default 60. |
+| `QUIK1_SIGNIN_HOURLY_CAP` | Optional. Email sign-in links per address per hour. Default 5. |
+| `QUIK1_ID_PHONE_HOURLY_CAP` | Optional. ID and cellphone attempts per hour. Default 5. Tighter than the general auth cap. |
+| `QUIK1_PASSKEY_REGISTER_MINUTES` | Optional. How recently the borrower must have signed in before saving Face ID. Default 15. |
+
+`QUIK1_OTP_TTL_MINUTES` is also the lifetime of these sign-in links. The relying party
+for Face ID on quik1.app is `quik1.app` (www included) so the home-screen app is not
+inside another origin. There is no separate passkey flag and no SMS sign-in. An ID
+and cellphone never open a session; they only ask for the email already on the client.
+That match needs `QUIK1_ID_HMAC_KEY` plus `clients.id_hmac` and `clients.phone_hmac`. If any of those is missing, the answer is 503, "Sign in with your email for now", not a link.
+Storing an ID from a signed-in session also stays off until both `QUIK1_ID_KEY` and
+`QUIK1_ID_HMAC_KEY` are each exactly 64 hex characters.
+
+If the repo's commit history says the migration was already applied by Claude through the
+Supabase MCP, running it again is harmless.
+
+Then paste and run `supabase/migrations/20261110103000_ledger_attention.sql`. That file adds
+the staff acknowledgement table for the "accounts need attention" popup. Do not apply it from
+the app. Until it is applied, an acknowledgement is kept in that browser for the signed-in
+staff email, and it still clears when the loan's overdue episode changes. After it is applied,
+the same acknowledgement is stored per staff email and loan.
+
+## 4. Connect LEDGER
+
+1. Open `https://<project>.vercel.app/ledger/` (the project URL is on the Vercel deployment page;
+   `https://<project>.vercel.app/` redirects there).
+2. **Settings → Supabase**. The URL is pre-filled with `…/api/ledger`; leave it.
+3. Paste your `LEDGER_KEY` into the key field → **Connect**. The status turns to connected.
+4. Reload the page once. Clients, loans, logbook and the rest now come from the database.
+
+## 5. Check the Quik1 link
+
+LEDGER → **Ledger** tab → **Q1 connected apps** card (it opens as a modal). `Quik1` is listed,
+pointing at `…/api/q1`, switched **on** with actions enabled. It was filled in automatically
+from the same key; if the key field there is empty, paste `LEDGER_KEY` again and save.
+
+## 6. Test an application end to end
+
+1. On a phone open `https://<project>.vercel.app/app` (redirects to `/quik1/`).
+2. Sign up (approved instantly), then **Apply** for a small amount.
+3. Within a minute the application appears in LEDGER's Q1 panel. Approve or decline it.
+4. The phone shows the verdict within a few seconds.
+
+## 7. Marketing site applications
+
+The public ingest is `POST https://<project>.vercel.app/api/ecoloans/applications` with
+`Content-Type: application/json`. No `LEDGER_KEY`. Required JSON: `name`, `phone`, and `amount`
+(1–50000). The live form can send `aName`, `aCell`, and `aAmt`. Income is optional: a number
+is stored on `net_income`; a pay band such as `takeHome` (`R5 000 to R10 000`) is stored on
+`meta.takeHome` and `net_income` defaults to `0`. Also accepted: `term`, `purpose` / `why`,
+`loanType` (`personal` or `business`), `email`, `employer`, `bank`, `province`, `docs` names.
+The response is
+`{ "id": "ew_…", "ref": "EW-…", "status": "new" }`.
+
+Browsers may call it from these exact origins:
+
+* `https://ecoloan.co.za`
+* `https://www.ecoloan.co.za`
+* `https://ecoloans.co.za`
+* `https://www.ecoloans.co.za`
+
+The row is stored in `applications` with `source = ecoloan_web` and waits for a staff decision.
+Details and a copy-paste `fetch` are in the README section **EcoLoans marketing site**.
+
+## 8. Custom domain (later)
+
+Vercel → Project → **Settings → Domains → Add** (`app.ecoloans.co.za`, for example) and set the
+CNAME it shows at your DNS provider. Nothing in the repo changes: the apps call `/api/…` on
+whatever origin they are served from.
+
+## 9. Rollback
+
+Vercel → Project → **Deployments** → pick the previous good deployment → **⋯ → Promote to
+Production**. Instant, no rebuild. The database is unaffected (the migration only adds).
+
+## Netlify
+
+The old Netlify site is no longer used by anything. Netlify → Site → **Site configuration →
+Danger zone → Delete this site**. If a domain was pointed at Netlify, move its DNS record to
+Vercel (step 8) first.
+
+## Day-to-day
+
+* Push to `main` → Vercel deploys automatically. Pull requests get preview URLs.
+* Rotate `LEDGER_KEY`: new `openssl rand -hex 32` → update the Vercel env var → Redeploy →
+  paste the new key in LEDGER Settings → Supabase → Connect.
+* Logs: Vercel → Project → **Logs** (functions log request outcomes only, never customer data).
