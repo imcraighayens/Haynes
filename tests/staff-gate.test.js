@@ -37,9 +37,11 @@ test('an unsigned visitor gets a splash and then the staff login, outside the bo
   assert.equal(q1Label('Synthetic Borrower', 'SYN-4401'), 'Synthetic Borrower\nNuPay ref: SYN-4401');
   assert.equal(q1Label('Synthetic Borrower', ''), 'Synthetic Borrower');
   assert.match(q1Label('Synthetic Client', 'SYNREF00028'), /NuPay ref: SYNREF00028/);
-  assert.doesNotMatch(ledger, /REVOKE ACCESS/);
+  assert.match(ledger, /REVOKE ACCESS/);
+  assert.match(ledger, /Revoke access/);
   assert.match(ledger, /Quik1 access not set up yet/);
-  assert.doesNotMatch(ledger, /\/quik1-invites\/revoke-access/);
+  assert.match(ledger, /\/quik1-invites\/revoke-access/);
+  assert.doesNotMatch(ledger, /Revoke invite/);
 });
 
 test('the NuPay page does not render the importer without a staff session', () => {

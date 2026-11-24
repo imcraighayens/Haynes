@@ -35,7 +35,7 @@ test('openQuik1Invite shows Unknown when the status fetch fails', () => {
   const blank = html.slice(blankStart, html.indexOf('q1FromStatus(base, j){', blankStart));
   assert.match(blank, /pinStatus:'None'/);
   const start = html.indexOf('openQuik1Invite(clientId, ev){');
-  const fn = html.slice(start, html.indexOf('giveQuik1Access(){', start));
+  const fn = html.slice(start, html.indexOf('borrowerGateOn(){', start));
   const err = fn.slice(fn.indexOf(',(e)=>{'));
   assert.ok(err.length > 0);
   assert.match(err, /pinStatus:'Unknown'/);
@@ -81,7 +81,10 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /No results for that search/);
   assert.match(html, /Set login PIN/);
   assert.doesNotMatch(html, /Give Quik1 access/);
-  assert.doesNotMatch(html, /data-label="REVOKE ACCESS"/);
+  assert.match(html, /data-label="REVOKE ACCESS"/);
+  assert.match(html, /Revoke access/);
+  assert.match(html, /\/quik1-invites\/revoke-access/);
+  assert.doesNotMatch(html, /Revoke invite/);
   assert.match(html, /Reset device/);
   assert.match(html, /\/quik1-devices\/reset/);
   assert.match(html, /Next instalment due/);

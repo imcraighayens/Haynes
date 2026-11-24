@@ -202,8 +202,7 @@ describe('borrower auth', { concurrency: false }, () => {
       { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } },
       { method: 'GET', path: ['quik1-invites'], query: { clientId: CLIENT_A } },
       { method: 'GET', path: ['quik1-invites', CLIENT_A] },
-      { method: 'POST', path: ['quik1-invites', 'qi_gone', 'revoke'], body: {} },
-      { method: 'POST', path: ['quik1-invites', 'revoke-access'], body: { clientId: CLIENT_A } }
+      { method: 'POST', path: ['quik1-invites', 'qi_gone', 'revoke'], body: {} }
     ];
     for (const item of paths) {
       const res = await call(ledger, { ...item, headers: staffHeaders() });
@@ -309,10 +308,6 @@ describe('borrower auth', { concurrency: false }, () => {
   test('staff set a login PIN and the removed invite routes stay 404', async () => {
     const anonInvite = await call(ledger, { method: 'POST', path: ['quik1-invites'], body: { clientId: CLIENT_A } });
     assert.equal(anonInvite.statusCode, 401);
-    const gone = await call(ledger, {
-      method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-    });
-    assert.equal(gone.statusCode, 404);
     const redeemed = await sessionFromPin(CLIENT_A, PIN_OK);
     assert.equal(redeemed.statusCode, 200, redeemed.body);
     const home = await call(quik1, { method: 'GET', path: ['me'], headers: { cookie: cookieHeader(redeemed) } });
@@ -382,7 +377,8 @@ describe('borrower auth', { concurrency: false }, () => {
     const revoked = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(revoked.statusCode, 404);
+    assert.equal(revoked.statusCode, 503, revoked.body);
+    assert.equal(revoked.json().error, 'Quik1 access not set up yet');
   });
 
   test('borrower routes do not look up an ID number', () => {
@@ -1796,10 +1792,42 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(created.statusCode, 200, created.body);
     tempGone(fake.db.q1_borrowers[0]);
     assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
-    const gone = await call(ledger, {
+  });
+
+  test('staff revoke access locks the PIN and a later set PIN signs in', async () => {
+    await sessionFromPin(CLIENT_A, PIN_OK);
+    const accountRef = fake.db.q1_borrowers[0].id;
+    const anon = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'revoke-access'], body: { clientId: CLIENT_A }
+    });
+    assert.equal(anon.statusCode, 401);
+    const revoked = await call(ledger, {
       method: 'POST', path: ['quik1-invites', 'revoke-access'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
-    assert.equal(gone.statusCode, 404);
+    assert.equal(revoked.statusCode, 200, revoked.body);
+    assert.equal(revoked.json().access, 'revoked');
+    assert.equal(revoked.json().accessLabel, 'Revoked');
+    assert.equal(revoked.json().hasPin, false);
+    assert.equal(JSON.stringify(revoked.json()).includes(PIN_OK), false);
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, 'locked');
+    assert.equal(fake.db.q1_sessions.every(row => row.revoked_at), true);
+    const signedOut = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef, pin: PIN_OK }
+    });
+    assert.equal(signedOut.statusCode, 423, signedOut.body);
+    const again = await setLogin(CLIENT_A, PIN_NEXT);
+    assert.equal(again.statusCode, 200, again.body);
+    assert.match(fake.db.q1_borrowers[0].pin_hash, /^scrypt\$/);
+    assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
+    const signed = await call(quik1, {
+      method: 'POST', path: ['login'], body: { accountRef: fake.db.q1_borrowers[0].id, pin: PIN_NEXT }
+    });
+    assert.equal(signed.statusCode, 200, signed.body);
+    assert.equal(signed.json().ok, true);
+    const inviteRevoke = await call(ledger, {
+      method: 'POST', path: ['quik1-invites', 'qi_gone', 'revoke'], headers: staffHeaders(), body: {}
+    });
+    assert.equal(inviteRevoke.statusCode, 404);
   });
 
   test('a later staff-set PIN replaces the previous login PIN', async () => {

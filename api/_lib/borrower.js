@@ -190,6 +190,146 @@ async function clearTempPinState(borrowerId, nowIso, extra = {}) {
   }
 }
 
+const ACCESS_LABEL = {
+  none: 'No access',
+  invited: 'Invited',
+  pin: 'PIN set',
+  locked: 'Locked',
+  revoked: 'Revoked',
+  unavailable: 'Quik1 access not set up yet'
+};
+
+function notSetUp() {
+  return new HttpError(503, ACCESS_LABEL.unavailable);
+}
+
+function inviteState(row, now = Date.now()) {
+  if (!row) return 'missing';
+  if (row.revoked_at) return 'revoked';
+  if (row.redeemed_at) return 'redeemed';
+  if (new Date(row.expires_at).getTime() <= now) return 'expired';
+  return 'open';
+}
+
+function borrowerPinStatus(borrower) {
+  if (!borrower) return 'None';
+  if (typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$')) return 'Active';
+  return 'None';
+}
+
+function accessFrom(borrower, invites, now = Date.now()) {
+  const list = Array.isArray(invites) ? invites : [];
+  const open = list.find(row => inviteState(row, now) === 'open') || null;
+  const newest = list[0] || null;
+  const hasPin = !!(borrower && typeof borrower.pin_hash === 'string' && borrower.pin_hash.startsWith('scrypt$'));
+  const staffLocked = !!(borrower && (borrower.pin_hash === LOCKED_PLACEHOLDER || (borrower.locked_at && !hasPin)));
+  let access = 'none';
+  if (open) access = 'invited';
+  else if (hasPin && isLocked(borrower)) access = 'locked';
+  else if (hasPin) access = 'pin';
+  else if (staffLocked) access = 'revoked';
+  else if (newest && inviteState(newest, now) === 'revoked') access = 'revoked';
+  return { access, open };
+}
+
+function accessPayload(client, borrower, invites, now = Date.now()) {
+  const view = accessFrom(borrower, invites, now);
+  const mapped = (invites || []).map(row => ({
+    id: row.id,
+    state: inviteState(row, now),
+    expiresAt: row.expires_at,
+    createdAt: row.created_at
+  }));
+  return {
+    ready: true,
+    clientRef: client.ref || '',
+    locked: !!(borrower && (borrower.locked_at || borrower.pin_hash === LOCKED_PLACEHOLDER)),
+    hasPin: !!(borrower && borrower.pin_hash && String(borrower.pin_hash).startsWith('scrypt$')),
+    access: view.access,
+    accessLabel: ACCESS_LABEL[view.access],
+    pinStatus: borrowerPinStatus(borrower),
+    expiresAt: view.open ? view.open.expires_at : null,
+    inviteId: view.open ? view.open.id : null,
+    invites: mapped
+  };
+}
+
+async function revokeOpenInvites(clientId, nowIso) {
+  await patchWhere('q1_invites', {
+    client_id: eq(clientId),
+    redeemed_at: 'is.null',
+    revoked_at: 'is.null'
+  }, { revoked_at: nowIso });
+}
+
+// Staff revoke locks the login PIN. It also closes any leftover open invite rows.
+// Choosing a new PIN is staff Set login PIN, not a new invite.
+async function lockUntilRedeem(clientId, nowIso) {
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id',
+    client_id: eq(clientId)
+  });
+  if (!borrower) return;
+  await clearTempPinState(borrower.id, nowIso, {
+    pin_hash: LOCKED_PLACEHOLDER,
+    failed_attempts: maxPinAttempts(),
+    locked_at: nowIso,
+    device_reset_until: null
+  });
+  await revokeSessions(borrower.id, nowIso);
+  await revokeDevices(borrower.id, nowIso);
+  await revokePasskeys(borrower.id, nowIso);
+}
+
+const ACCESS_BORROWER = 'id,locked_at,failed_attempts,pin_hash,temp_pin_hash,temp_pin_expires_at,device_reset_until';
+
+async function borrowerForAccess(clientId) {
+  try {
+    return await selectOne('q1_borrowers', {
+      select: ACCESS_BORROWER,
+      client_id: eq(clientId)
+    });
+  } catch (err) {
+    if (!columnMissing(err)) throw err;
+    return await selectOne('q1_borrowers', {
+      select: 'id,locked_at,failed_attempts,pin_hash',
+      client_id: eq(clientId)
+    });
+  }
+}
+
+async function listInvites(clientId) {
+  const client = await liveClient(clientId);
+  try {
+    const borrower = await borrowerForAccess(client.id);
+    const invites = await select('q1_invites', {
+      select: 'id,expires_at,revoked_at,redeemed_at,created_at',
+      client_id: eq(client.id),
+      order: 'created_at.desc',
+      limit: 10
+    });
+    return accessPayload(client, borrower, invites || []);
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
+  }
+}
+
+// Same lock as master: the PIN stops working, sessions and devices are revoked,
+// and a later staff set-PIN replaces the lock. The 72-hour invite routes stay gone.
+export async function revokeAccess(clientId) {
+  const client = await liveClient(clientId);
+  const nowIso = new Date().toISOString();
+  try {
+    await revokeOpenInvites(client.id, nowIso);
+    await lockUntilRedeem(client.id, nowIso);
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
+  }
+  return listInvites(client.id);
+}
+
 async function revokePasskeys(borrowerId, nowIso) {
   try {
     await patchWhere('q1_webauthn_credentials', {
