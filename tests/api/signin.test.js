@@ -9,8 +9,8 @@ import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
 import { idHmac, phoneHmac, luhnOk, normaliseSaId, stampClientIdentity } from '../../api/_lib/sa-id.js';
+import { pinNotAcceptedMessage, resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
 import { authIpHash } from '../../api/_lib/borrower.js';
-import { resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
 import { SIGNIN_PAD_MS } from '../../api/_lib/signin.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
@@ -434,7 +434,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(wrong.statusCode, 401, wrong.body);
     assert.equal(unknown.statusCode, 401, unknown.body);
     assert.equal(wrong.json().error, unknown.json().error);
-    assert.equal(wrong.json().error, 'PIN not accepted');
+    assert.equal(wrong.json().error, pinNotAcceptedMessage());
     assert.equal(wrong.body.includes(SA_ID), false);
     assert.equal(unknown.body.includes(unknownId), false);
     assert.equal(wrong.body.includes(wrongPin), false);
@@ -469,7 +469,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     resetVerifyCalls();
     const badId = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: 'not-an-id', pin: PIN_OK } });
     assert.equal(badId.statusCode, 401, badId.body);
-    assert.equal(badId.json().error, 'PIN not accepted');
+    assert.equal(badId.json().error, pinNotAcceptedMessage());
     assert.equal(badId.body.includes('not-an-id'), false);
     assert.equal(badId.body.includes(PIN_OK), false);
     assert.ok(verifyCallCount() > 0);
@@ -499,7 +499,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(wrong.statusCode, 401, wrong.body);
     assert.equal(unknown.statusCode, 401, unknown.body);
     assert.deepEqual(wrong.json(), unknown.json());
-    assert.equal(wrong.json().error, 'PIN not accepted');
+    assert.equal(wrong.json().error, pinNotAcceptedMessage());
     assert.ok(wrongCalls > 0);
     assert.equal(wrongCalls, unknownCalls);
     assert.equal(wrong.body.includes(SA_ID), false);
@@ -545,7 +545,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
       body: { idNumber: SA_ID, pin }
     });
     assert.equal(other.statusCode, 401, other.body);
-    assert.equal(other.json().error, 'PIN not accepted');
+    assert.equal(other.json().error, pinNotAcceptedMessage());
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 1);
   });
 

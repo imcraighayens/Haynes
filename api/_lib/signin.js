@@ -370,6 +370,7 @@ async function signInByIdPin(req, body, res) {
   const borrower = mac ? await borrowerForId(mac) : null;
   const alreadyLocked = isLocked(borrower);
   if (!alreadyLocked) await assertIdPinBudget(subject, res);
+  // ip_hash is namespaced ('q1-id-pin-budget|…') on purpose so these rows don't count toward the id_phone email-link IP cap, and it must not be changed back.
   const ipHash = budgetIpHash(req);
   try {
     const out = await signInWithPin(req, borrower, pin);
