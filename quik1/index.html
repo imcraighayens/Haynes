@@ -1626,9 +1626,9 @@ input,button,textarea{font-family:inherit}
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               <sc-for list="{{ keypad }}" as="key" hint-placeholder-count="12">
-                <button sc-camel-on-click="{{ key.onClick }}" style="height:44px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:18px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
+                <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
             <sc-if value="{{ showUseId }}">
@@ -1648,7 +1648,7 @@ input,button,textarea{font-family:inherit}
               <p style="margin:0;font-size:13px;line-height:1.45;color:rgba(255,255,255,.72)">Biometric sign-in is not set up yet. Your PIN still works.</p>
             </sc-if>
             <sc-if value="{{ showFaceId }}">
-              <button data-q-face="1" sc-camel-on-click="{{ onFaceId }}" aria-label="Sign in with Face ID" style="width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:999px;border:1px solid rgba(253,209,13,.55);background:rgba(253,209,13,.12);cursor:pointer;font-size:15px;font-weight:600;color:#FDD10D">
+              <button data-q-face="1" sc-camel-on-click="{{ onFaceId }}" aria-label="Sign in with Face ID" style="width:100%;height:56px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:999px;border:1px solid rgba(253,209,13,.55);background:rgba(253,209,13,.12);cursor:pointer;font-size:16px;font-weight:600;color:#FDD10D">
                 <svg sc-camel-view-box="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:#FDD10D;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0"></path></svg>
                 <span style="display:block;white-space:nowrap;line-height:1">{{ biometricCta }}</span>
               </button>
@@ -2615,8 +2615,8 @@ input,button,textarea{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{ showAuthDock }}">
-        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.35;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
-        <div data-q-authdock="1" class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:46;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
+        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
+        <div class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:45;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
         <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ authDockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">
@@ -2817,7 +2817,7 @@ input,button,textarea{font-family:inherit}
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
       profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
       bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false, challengeId:'',
-      guest:false, guestGate:'', platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, signEmail:'',
+      guest:false, guestGate:'', platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, emailSignIn:false, signEmail:'',
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
       aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
@@ -3154,14 +3154,14 @@ input,button,textarea{font-family:inherit}
         if(P&&typeof P.isUserVerifyingPlatformAuthenticatorAvailable==='function') platform=P.isUserVerifyingPlatformAuthenticatorAvailable();
       }catch(e){}
       const flag=this.apiFetch('/webauthn',{headers:{accept:'application/json'}})
-        .then(r=>r.ok?r.json():{enabled:false,ready:false})
-        .then(j=>j||{enabled:false,ready:false})
-        .catch(()=>({enabled:false,ready:false}));
+        .then(r=>r.ok?r.json():{enabled:false,ready:false,emailSignIn:false})
+        .then(j=>j||{enabled:false,ready:false,emailSignIn:false})
+        .catch(()=>({enabled:false,ready:false,emailSignIn:false}));
       Promise.all([Promise.resolve(platform).catch(()=>false), flag]).then(([ok,status])=>{
         if(this.state.guest) return;
         const enabled=!!(status&&status.enabled);
         const ready=!!(status&&status.ready);
-        this.setState({platformAuth:!!ok, biometricEnabled:enabled, biometricReady:ready, biometricLive:enabled&&ready});
+        this.setState({platformAuth:!!ok, biometricEnabled:enabled, biometricReady:ready, biometricLive:enabled&&ready, emailSignIn:!!(status&&status.emailSignIn)});
       });
     }
     passkeyFrameOk(){
@@ -4202,25 +4202,17 @@ input,button,textarea{font-family:inherit}
         Object.assign(v,{menuIsGrid:view==='grid',menuIsList:view==='list',menuViewX:view==='list'?'34px':'0px',
           menuGridInk:view==='grid'?'#0B0620':'rgba(var(--q-fg),.6)',menuListInk:view==='list'?'#0B0620':'rgba(var(--q-fg),.6)',
           onMenuGrid:()=>setV('grid'),onMenuList:()=>setV('list'),gridIconInk:'var(--q-accent)'}); }
-      { const savedFace=this.readWebauthn();
-        const faceTrusted=!!s.platformAuth&&!!s.biometricLive&&!!savedFace&&!s.inviteCode;
-        const onAuth=!!s.splashDone&&(s.screen==='login'||s.screen==='signup');
+      { const onAuth=false;
         v.showAuthDock=onAuth;
-        if(onAuth) v.showFaceId=false;
         if(onAuth){
-          const cur=s.screen==='signup'?'signup':(s.pinPhase==='idphone'||s.pinPhase==='idpin'||s.pinPhase==='emailin')?'id':'pin';
+          const cur=s.screen==='signup'?'signup':s.loginMode==='return'?'face':s.loginMode==='pin'?'pin':s.loginMode==='id'?'id':'signup';
           const act0=s.authTap||cur;
-          const keepPin=!!s.inviteCode||s.pinPhase==='change'||s.pinPhase==='change2'||s.pinPhase==='choose'||s.pinPhase==='confirm';
           v.authDockItems=[
-            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>{
-              if(!faceTrusted){ this.setState({screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,otp:'',loginIntro:false,pinNote:'Sign in with your PIN once. Face ID is offered on this phone after that.'}); return; }
-              this.setState({screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,loginIntro:false,pinNote:''});
-              this.unlockBiometric();
-            }},
-            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState(keepPin?{screen:'login',loginMode:'pin',otpMode:true,loginIntro:false}:{screen:'login',loginMode:'pin',pinPhase:'sign',otpMode:true,otp:'',pinNote:'',loginIntro:false})},
-            {k:'id',label:'ID',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',pinPhase:'idpin',otpMode:true,otp:'',loginIntro:false,liError:'',pinNote:'',liId:''})},
-            {k:'signup',label:'New user',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
-          ].filter(d=>d.k!=='face'||faceTrusted).map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')||d.k==='face') g0(); },
+            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,loginIntro:false})},
+            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false})},
+            {k:'id',label:'Sign in',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',otpMode:false,loginIntro:false,liError:''})},
+            {k:'signup',label:'Sign up',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
+          ].map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')) g0(); },
             gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,pad:act?'18px':'13px',
             labelX:act?'0px':'-6px',labelBlur:act?'0px':'3px',labelDelay:act?'.12s':'0s',
             bg:act?'#FDD10D':'transparent',ink:act?'#0B0620':'rgba(255,255,255,.75)',
@@ -5871,7 +5863,7 @@ input,button,textarea{font-family:inherit}
           :s.pinPhase==='choose'
           ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again. It is not taken from an ID number.'
           :s.pinPhase==='confirm'
-          ?'Same PIN again.'
+          ?'Enter that PIN again. It is not taken from an ID number.'
           :s.pinPhase==='email'
           ?'Open the link on this phone. It works once, then this device is remembered.'
           :s.pinPhase==='emailin'
@@ -5891,7 +5883,7 @@ input,button,textarea{font-family:inherit}
         onUseId:()=>this.setState({screen:'login',pinPhase:'idpin',otp:'',pinNote:'',liId:'',loginIntro:false}),
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
-        showMethods:false,
+        showMethods:!!s.emailSignIn&&s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
         onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinNote:'', signEmail:s.signEmail||''}),
         onIdPhoneSignIn:()=>this.setState({pinPhase:'idphone', pinNote:'', liError:''}),
         onSendEmailLink:()=>this.sendNeutralSignIn('/signin/email', {email:s.signEmail||''}),

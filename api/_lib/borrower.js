@@ -1116,17 +1116,29 @@ export function pinChangePending() {
 // Lock (423), then the real PIN, then device_not_linked.
 // A null borrower is the unknown-account 401. device_not_linked is only after
 // the PIN matches.
-export async function signInWithPin(req, borrower, pin) {
+// accountLock false is the ID-number path: a failure does not increment
+// failed_attempts or set locked_at, and an existing lock is the same 401.
+export async function signInWithPin(req, borrower, pin, opts) {
+  const accountLock = !opts || opts.accountLock !== false;
   if (isWrongLengthPin(pin)) rejectPinShape();
   if (!borrower) {
     await comparePins(pin, null);
-    await noteAttempt(null, 'pin', req);
+    if (accountLock) await noteAttempt(null, 'pin', req);
     rejectPin();
   }
-  await clearExpiredLock(borrower);
-  if (isLocked(borrower)) lockedError();
+  if (accountLock) await clearExpiredLock(borrower);
+  if (isLocked(borrower)) {
+    if (!accountLock) {
+      await comparePins(pin, null);
+      rejectPin();
+    }
+    lockedError();
+  }
   const checks = await comparePins(pin, borrower.pin_hash);
-  if (!checks.realOk) await noteFailure(borrower, 'pin', req);
+  if (!checks.realOk) {
+    if (!accountLock) rejectPin();
+    await noteFailure(borrower, 'pin', req);
+  }
   try { await liveClient(borrower.client_id); }
   catch (e) {
     if (e instanceof HttpError && e.status === 404) rejectPin();

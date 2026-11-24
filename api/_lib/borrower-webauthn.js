@@ -7,6 +7,7 @@ import { verifyRegistrationResponse, verifyAuthenticationResponse } from '@simpl
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, eq } from './supabase.js';
 import { borrowerBiometricLive } from './quik1-flags.js';
+import { borrowerEmailLive } from './email.js';
 import { requestHost, requestHostname } from './auth.js';
 import { requireBorrower } from './borrower-book.js';
 import { startBorrowerSession, guardAuth } from './borrower.js';
@@ -118,13 +119,14 @@ async function consumeChallenge(borrowerId, purpose, challenge, now = Date.now()
 }
 
 export async function biometricStatus(req) {
+  const emailSignIn = borrowerEmailLive(req);
   const enabled = borrowerBiometricLive(req);
-  if (!enabled) return { enabled: false, ready: false };
+  if (!enabled) return { enabled: false, ready: false, emailSignIn };
   try {
     await select('q1_webauthn_credentials', { select: 'id', limit: 1 });
-    return { enabled: true, ready: true };
+    return { enabled: true, ready: true, emailSignIn };
   } catch (err) {
-    if (missingTable(err)) return { enabled: true, ready: false };
+    if (missingTable(err)) return { enabled: true, ready: false, emailSignIn };
     throw err;
   }
 }

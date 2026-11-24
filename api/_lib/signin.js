@@ -289,7 +289,8 @@ function missingRelation(err) {
 }
 
 // ID number plus PIN. The ID is matched as the HMAC already stored on the
-// Ledger client. Unknown ID and a wrong PIN are the same refusal.
+// Ledger client. A known ID, an unknown ID, a bad-format ID and a locked
+// account are the same refusal. Failures do not lock the account.
 async function borrowerForId(idMac) {
   if (!idMac) return null;
   let rows;
@@ -324,10 +325,13 @@ const ID_PIN_BUDGET = 5;
 const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
 
 // q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
-// The per-ID rows use id_phone so that insert succeeds. Their subject is the
-// id_hmac, not the email-link subject (that one hashes the ID and the phone).
-function idPinSubject(mac) {
-  return mac || subjectHash('id_phone', 'none');
+// The per-ID rows use id_phone so that insert succeeds. A real ID uses its
+// id_hmac. A bad-format ID uses a keyed hash of the normalised input, so
+// each distinct value has its own budget. The raw input is not stored.
+function idPinSubject(mac, rawId) {
+  if (mac) return mac;
+  const normalised = String(rawId == null ? '' : rawId).trim().toLowerCase().replace(/[\s-]/g, '');
+  return subjectHash('id_phone', 'bad|' + normalised);
 }
 
 // Same address as the other attempt rows, under a prefix the ID-and-phone
@@ -366,18 +370,17 @@ async function signInByIdPin(req, body, res) {
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const digits = normaliseSaId(rawId);
   const mac = digits ? idHmac(digits) : null;
-  const subject = idPinSubject(mac);
+  const subject = idPinSubject(mac, rawId);
   const borrower = mac ? await borrowerForId(mac) : null;
-  const alreadyLocked = isLocked(borrower);
-  if (!alreadyLocked) await assertIdPinBudget(subject, res);
+  await assertIdPinBudget(subject, res);
   // ip_hash is namespaced ('q1-id-pin-budget|…') on purpose so these rows don't count toward the id_phone email-link IP cap, and it must not be changed back.
   const ipHash = budgetIpHash(req);
   try {
-    const out = await signInWithPin(req, borrower, pin);
+    const out = await signInWithPin(req, borrower, pin, { accountLock: false });
     await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
     return out;
   } catch (err) {
-    if (!alreadyLocked && (!(err instanceof HttpError) || err.status !== 400)) {
+    if (!(err instanceof HttpError) || err.status !== 400) {
       await logAuthAttempt(borrower && borrower.id, 'id_phone', req, subject, ipHash);
     }
     throw err;
