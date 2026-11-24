@@ -9,9 +9,10 @@
 // Redirects run first. wrap() still refuses the cross-host APIs.
 // A staff host's "/" is a 307 to /ledger/, and those redirects are the first
 // routes in vercel.json. Open hosts still rewrite "/" in place. A published
-// project route can rewrite "/" before the deployment rules; ledger/index.html
-// then leaves "/" itself. The Ledger file's relative scripts only resolve
-// inside that directory.
+// project route can rewrite "/" to the Ledger file before those redirects, and
+// the CDN then caches that static file. middleware.js runs before that cache
+// and returns the 307 with Cache-Control: no-store. The Ledger file's relative
+// scripts only resolve inside that directory.
 // Host values are matched as the Host header presents them, including a local port.
 
 export const STAFF_HOSTS = [
