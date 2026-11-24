@@ -15,7 +15,7 @@ import {
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
-import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, setNewBorrowerPin, pinChangePending } from './_lib/borrower.js';
+import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, changeBorrowerPin, pinChangePending } from './_lib/borrower.js';
 import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
 import { biometricStatus, registerOptions, registerCredential, loginOptions, loginCredential } from './_lib/borrower-webauthn.js';
 import {
@@ -255,11 +255,6 @@ async function postRedeem(req, res) {
 
 async function postBorrowerLogin(req, res) {
   const out = await loginBorrower(req, await readBody(req, PUBLIC_BODY_CAP), res);
-  if (out && out.pinChangeRequired) {
-    setCookies(res, out.cookies);
-    json(res, 200, { pinChangeRequired: true }, req);
-    return;
-  }
   if (out && out.verifyRequired) {
     json(res, 200, {
       verifyRequired: true,
@@ -306,11 +301,6 @@ async function postSignInId(req, res) {
   } finally {
     await padSignIn(started);
   }
-  if (out && out.pinChangeRequired) {
-    setCookies(res, out.cookies);
-    json(res, 200, { pinChangeRequired: true }, req);
-    return;
-  }
   if (out && out.accountRef) {
     setCookies(res, out.cookies);
     json(res, 200, { ok: true, accountRef: out.accountRef }, req);
@@ -343,9 +333,8 @@ async function postIdentity(req, res) {
 }
 
 async function postSetNewPin(req, res) {
-  const out = await setNewBorrowerPin(req, await readBody(req, PUBLIC_BODY_CAP), res);
-  setCookies(res, out.cookies);
-  json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+  await changeBorrowerPin(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  json(res, 200, { ok: true }, req);
 }
 
 async function postBorrowerLogout(req, res) {
