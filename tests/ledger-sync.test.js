@@ -153,6 +153,18 @@ test('a 401 or a failed state fetch keeps the book behind the login', async () =
   assert.ok(await ok.L.state);
 });
 
+test('an applications_unavailable warning on a 200 state does not keep the gate up', async () => {
+  const state = { ...STATE, applications: [], warnings: ['applications_unavailable'] };
+  const booted = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state, withGate: true });
+  assert.equal(booted.L.error, null);
+  assert.equal(booted.L.needsUnlock, false);
+  assert.equal(booted.gate.removed, true);
+  assert.equal(booted.head.children.length, 1, 'the book runtime is injected');
+  const sv = booted.read('evoltConsoleV4');
+  assert.deepEqual(sv.applications, []);
+  assert.equal('warnings' in sv, false);
+});
+
 test('a no-state boot fills only the missing book lists and keeps whatever the browser already held', async () => {
   const sv0 = { clients: [{ id: 'c1' }], loans: [{ id: 'l1' }], logbook: [], theme: 'dark', loanSeq: 101 };
   const { read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: sv0 }, state: { error: 'nope' }, stateStatus: 503 });
@@ -281,6 +293,45 @@ test('maps audit_log rows to console logbook entries and back', async () => {
   const org = read('evoltOrg'); assert.equal(org.name, 'Ecoloans'); assert.equal(org.legal, 'Ecoloans Finance (Pty) Ltd'); assert.equal(org.email, 'info@ecoloans.co.za'); assert.equal(org.admin, 'Craig Moatshe');
   assert.equal(read('ledjaa.clientRefHigh'), 15);
   assert.equal(L._.queue().length, 0, 'nothing to re-queue when local was empty');
+});
+
+test('website applications join the inbox with their ew_ id and survive a re-sync', async () => {
+  const web = { id: 'ew_aabbccddeeff', source: 'ecoloan_web', name: 'Web Applicant', phone: '0800000000', email: 'web@example.com', amount: 1500, term_months: 2, purpose: 'Stock', status: 'new', created_at: '2026-11-01T08:00:00Z', client_id: null, meta: { docs: ['id.pdf'] } };
+  const q1 = { id: 'ap_0123456789ab', source: 'quik1', name: 'App Applicant', phone: '0800000001', amount: 800, term_months: 1, purpose: 'Fees', status: 'new', created_at: '2026-11-02T08:00:00Z', client_id: null };
+  const returning = { id: 'ap_abcdefabcdef', source: 'quik1', name: 'Returning Applicant', phone: '0800000002', amount: 400, term_months: 1, purpose: 'Fees', status: 'new', created_at: '2026-11-03T08:00:00Z', client_id: 'c_existing' };
+  const other = { id: 'zz_001', source: 'partner_api', name: 'Other Applicant', amount: 100, status: 'new', created_at: '2026-11-04T08:00:00Z' };
+  const state = { ...STATE, applications: [web, q1, returning, other] };
+  const { L, read } = await boot({ local: { 'ledjaa.supabase': { key: 'k' } }, state });
+  let apps = read('evoltConsoleV4').applications;
+  const site = apps.find(a => a.id === 'ew_aabbccddeeff');
+  assert.ok(site, 'website row is in the inbox');
+  assert.equal(site.source, 'Website');
+  assert.equal(site.extId, 'ew_aabbccddeeff');
+  assert.equal(site.name, 'Web Applicant');
+  assert.equal(site.status, 'new');
+  const quick = apps.find(a => a.extId === 'ap_0123456789ab');
+  assert.ok(quick);
+  assert.equal(quick.id, 'qk_ap_0123456789ab');
+  assert.equal(quick.source, 'Quik1 app');
+  const back = apps.find(a => a.extId === 'ap_abcdefabcdef');
+  assert.equal(back.id, 'qk_ap_abcdefabcdef');
+  assert.equal(back.source, 'Quik1 · existing client');
+  assert.equal(apps.some(a => a.id === 'zz_001' || a.extId === 'zz_001' || String(a.id).includes('zz_001')), false);
+
+  L._.applyState(state);
+  apps = read('evoltConsoleV4').applications;
+  const again = apps.filter(a => a.id === 'ew_aabbccddeeff' || a.extId === 'ew_aabbccddeeff');
+  assert.equal(again.length, 1, 'a re-sync does not drop or duplicate the website row');
+  assert.equal(again[0].id, 'ew_aabbccddeeff');
+  assert.equal(again[0].source, 'Website');
+
+  const closed = { ...state, applications: [] };
+  const held = { clients: [], loans: [], applications: [{ id: 'ew_aabbccddeeff', extId: 'ew_aabbccddeeff', source: 'Website', name: 'Web Applicant', status: 'reviewing' }] };
+  const reopened = await boot({ local: { 'ledjaa.supabase': { key: 'k' }, evoltConsoleV4: held }, state: closed });
+  const kept = reopened.read('evoltConsoleV4').applications.filter(a => a.id === 'ew_aabbccddeeff');
+  assert.equal(kept.length, 1, 'closing the book and syncing an empty remote list keeps the website row');
+  assert.equal(kept[0].source, 'Website');
+  assert.equal(kept[0].status, 'reviewing');
 });
 
 test('a stale local book does not resurrect old audit rows or override a loan status', async () => {

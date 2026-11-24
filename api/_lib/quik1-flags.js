@@ -6,9 +6,11 @@ import { sessionSecret } from './quik1-session.js';
 const PRODUCTION_HOSTS = new Set([
   'quik1.app',
   'www.quik1.app',
+  'quik1.ecoloan.co.za',
   'quik1ledger.com',
   'www.quik1ledger.com',
-  'ecoloans-six.vercel.app'
+  'ecoloans-six.vercel.app',
+  'ledger.ecoloan.co.za'
 ]);
 
 const HEX_64 = /^[0-9a-fA-F]{64}$/;

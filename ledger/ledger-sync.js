@@ -225,13 +225,17 @@
 
   function clientRefNum(ref) { var m = String(ref || '').match(/(\d+)\s*$/); return m ? parseInt(m[1], 10) : 0; }
 
-  // Quik1 rows from the book join the inbox. Local-only rows stay. Same id: the book wins on status.
+  // Quik1 and website rows from the book join the inbox. Local-only rows stay.
+  // Same id: the book wins on status. Website ids stay ew_; they are not re-keyed.
+  function isWebsiteRow(row) { return String(row && row.source || '') === 'ecoloan_web'; }
+  function isInboxSource(source) { var s = String(source || ''); return s === 'quik1' || s === 'ecoloan_web'; }
   function appToConsole(row) {
     var meta = row && row.meta && typeof row.meta === 'object' ? row.meta : {};
     var docs = Array.isArray(meta.docs) ? meta.docs.map(function (d) { return typeof d === 'string' ? d : str(d && d.name, 'Document'); }) : [];
     var when = row && row.created_at ? new Date(row.created_at) : null;
+    var website = isWebsiteRow(row);
     return {
-      id: 'qk_' + str(row.id),
+      id: website ? str(row.id) : ('qk_' + str(row.id)),
       extId: str(row.id),
       name: str(row.name, 'Applicant'),
       phone: str(row.phone, '—'),
@@ -246,7 +250,7 @@
       bank: str(row.bank, '—'),
       docs: docs,
       status: str(row.status, 'new'),
-      source: row.client_id ? 'Quik1 · existing client' : 'Quik1 app',
+      source: website ? 'Website' : (row.client_id ? 'Quik1 · existing client' : 'Quik1 app'),
       submitted: when && !isNaN(when) ? labelOf(when).toUpperCase() : '',
       existingClientId: row.client_id || null
     };
@@ -255,7 +259,7 @@
     var seen = {}, out = [], i, row, mapped, prev;
     (Array.isArray(local) ? local : []).forEach(function (a) { if (a && a.id && !seen[a.id]) { seen[a.id] = a; out.push(a); } });
     (Array.isArray(remote) ? remote : []).forEach(function (r) {
-      if (!r || !r.id || String(r.source || '') !== 'quik1') return;
+      if (!r || !r.id || !isInboxSource(r.source)) return;
       mapped = appToConsole(r);
       prev = seen[mapped.id];
       if (!prev) { seen[mapped.id] = mapped; out.push(mapped); return; }

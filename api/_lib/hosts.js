@@ -7,17 +7,21 @@
 // vercel.json redirects (not rewrites) hide these pages. Rewrites run after the
 // filesystem, so a rewrite never replaces ledger/index.html or quik1/index.html.
 // Redirects run first. wrap() still refuses the cross-host APIs.
+// A staff host's "/" is a 307 to /ledger/. The Ledger file's relative scripts
+// only resolve inside that directory. Open hosts still rewrite "/" in place.
 // Host values are matched as the Host header presents them, including a local port.
 
 export const STAFF_HOSTS = [
   'quik1ledger.com',
   'www.quik1ledger.com',
-  'ecoloans-six.vercel.app'
+  'ecoloans-six.vercel.app',
+  'ledger.ecoloan.co.za'
 ];
 
 export const BORROWER_HOSTS = [
   'quik1.app',
-  'www.quik1.app'
+  'www.quik1.app',
+  'quik1.ecoloan.co.za'
 ];
 
 export const OPEN_HOSTS = [
