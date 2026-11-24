@@ -5,7 +5,7 @@ import { LEDGER_KEY, loadPlaywright, withMockApi, pageWaitFor } from './_boot-he
 import { QUIK1_PIN_LENGTH } from '../shared/pin-length.js';
 
 const PIN_HINT = QUIK1_PIN_LENGTH + ' digits';
-const SAMPLE_PIN = '24680';
+const SAMPLE_PIN = '2468';
 
 const pw = loadPlaywright();
 

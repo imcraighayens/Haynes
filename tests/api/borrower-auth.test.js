@@ -26,9 +26,9 @@ const CLIENT_A = 'c_book_a';
 const CLIENT_B = 'c_book_b';
 const NAME_A = 'Book Client A';
 const NAME_B = 'Book Client B';
-const PIN_OK = '24680';
-const PIN_BAD = '13579';
-const PIN_NEXT = '80246';
+const PIN_OK = '2468';
+const PIN_BAD = '1357';
+const PIN_NEXT = '8024';
 const SA_ID = '9912314800084';
 const ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const HMAC_KEY = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
@@ -807,7 +807,8 @@ describe('borrower auth', { concurrency: false }, () => {
     const oldShape = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
     });
-    assert.equal(oldShape.statusCode, 400, oldShape.body);
+    assert.equal(oldShape.statusCode, 401, oldShape.body);
+    assert.equal(oldShape.json().error, pinNotAcceptedMessage());
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     const four = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: '1'.repeat(QUIK1_PIN_LENGTH - 1) }
@@ -1210,7 +1211,11 @@ describe('borrower auth', { concurrency: false }, () => {
     const src = fs.readFileSync(path.join(root, 'api/_lib/borrower.js'), 'utf8');
     assert.doesNotMatch(env, /^QUIK1_EMAIL_API_KEY=\S/m);
     assert.doesNotMatch(env, /^QUIK1_BORROWER_PIN=1/m);
-    assert.doesNotMatch(env, /QUIK1_SMS/);
+    assert.doesNotMatch(env, /^QUIK1_SMS_\w+=\S/m);
+    assert.match(env, /^# QUIK1_SMS_PROVIDER=/m);
+    assert.match(env, /^# QUIK1_SMS_API_KEY=/m);
+    assert.match(env, /^# QUIK1_SMS_ACCOUNT_SID=/m);
+    assert.match(env, /^# QUIK1_SMS_AUTH_TOKEN=/m);
     assert.match(env, /^# QUIK1_EMAIL_FROM=/m);
     assert.match(env, /^# QUIK1_ID_KEY=/m);
     assert.equal(src.includes('sms.js'), false);
@@ -1266,7 +1271,7 @@ describe('borrower auth', { concurrency: false }, () => {
     assert.equal(DEVICE_MAX_AGE, 90 * 24 * 3600);
     assert.equal(baked.includes('Max-Age=34560000'), false);
   });
-  const LOGIN_PIN = '86420';
+  const LOGIN_PIN = '8642';
 
   function pinChangeCookie(res) {
     const raw = res.headers['set-cookie'];
@@ -1354,7 +1359,8 @@ describe('borrower auth', { concurrency: false }, () => {
       const signed = await call(quik1, {
         method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ab'.repeat(16), pin }
       });
-      assert.equal(signed.statusCode, 400, signed.body);
+      assert.equal(signed.statusCode, pin.length > QUIK1_PIN_LENGTH ? 401 : 400, signed.body);
+      if (pin.length > QUIK1_PIN_LENGTH) assert.equal(signed.json().error, pinNotAcceptedMessage());
       assertNoPin(signed.body, pin);
     }
     const invited = await call(ledger, {
@@ -1375,7 +1381,7 @@ describe('borrower auth', { concurrency: false }, () => {
         method: 'POST', path: ['pin'], headers: { cookie },
         body: { currentPin: pin, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
       });
-      assert.equal(current.statusCode, 400, current.body);
+      assert.equal(current.statusCode, pin.length > QUIK1_PIN_LENGTH ? 401 : 400, current.body);
       assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     }
     assert.equal(await verifyPin(PIN_OK, fake.db.q1_borrowers[0].pin_hash), true);
@@ -2286,44 +2292,40 @@ describe('borrower auth', { concurrency: false }, () => {
     return { saId, phone };
   }
 
-  test('a staff-set PIN works through ID and phone sign-in and stays refused while locked', async () => {
+  test('ID and phone with a PIN does not open a session, including when locked', async () => {
     const { saId, phone } = bindIdPhone();
     const set = await setLogin(CLIENT_A);
     assert.equal(set.statusCode, 200, set.body);
-    const challenges = fake.db.q1_otp_challenges.length;
     const ok = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
       body: { idNumber: saId, phone, pin: LOGIN_PIN }
     });
     assert.equal(ok.statusCode, 200, ok.body);
-    assert.equal(ok.json().ok, true);
-    assert.equal(ok.json().pinChangeRequired, undefined);
-    assert.match(ok.json().accountRef, /^qb_[0-9a-f]{32}$/);
-    assert.match(cookieHeader(ok), /q1_session=/);
+    assert.equal(ok.json().sent, true);
+    assert.equal(ok.json().accountRef, undefined);
+    assert.equal(cookieHeader(ok).includes('q1_session='), false);
     assert.equal(rawCookies(ok).includes('q1_pin_change='), false);
-    assert.equal(fake.db.q1_otp_challenges.length, challenges);
     assert.equal(ok.body.includes(LOGIN_PIN), false);
+    assert.equal(ok.body.includes(saId), false);
 
     const hash = fake.db.q1_borrowers[0].pin_hash;
     fake.db.q1_borrowers[0].failed_attempts = 5;
     fake.db.q1_borrowers[0].locked_at = new Date().toISOString();
+    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
     const locked = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
       body: { idNumber: saId, phone, pin: LOGIN_PIN }
     });
-    assert.equal(locked.statusCode, 423, locked.body);
-    assert.equal(fake.db.q1_borrowers[0].pin_hash, hash);
-    assert.equal(await verifyPin(LOGIN_PIN, hash), true);
-    assert.equal(cookieHeader(locked).includes('q1_session='), false);
-    assert.equal(fake.db.q1_otp_challenges.length, challenges);
-
     const unknown = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
       body: { idNumber: saId, phone: '825550100', pin: PIN_BAD }
     });
-    assert.equal(unknown.statusCode, 401, unknown.body);
-    assert.equal(unknown.json().error, pinNotAcceptedMessage());
-    assert.equal(fake.db.q1_otp_challenges.length, challenges);
+    assert.equal(locked.statusCode, 200, locked.body);
+    assert.deepEqual(locked.json(), unknown.json());
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, hash);
+    assert.equal(await verifyPin(LOGIN_PIN, hash), true);
+    assert.equal(cookieHeader(locked).includes('q1_session='), false);
+    assert.equal(cookieHeader(unknown).includes('q1_session='), false);
   });
 
   test('the ID and phone IP limit applies when the request includes a PIN', async () => {
@@ -2359,9 +2361,9 @@ describe('borrower auth', { concurrency: false }, () => {
         body: { idNumber: saId, phone, pin: LOGIN_PIN }
       });
       assert.equal(other.statusCode, 200, other.body);
-      assert.equal(other.json().ok, true);
-      assert.equal(other.json().pinChangeRequired, undefined);
-      assert.match(cookieHeader(other), /q1_session=/);
+      assert.equal(other.json().sent, true);
+      assert.equal(other.json().accountRef, undefined);
+      assert.equal(cookieHeader(other).includes('q1_session='), false);
       assert.equal(rawCookies(other).includes('q1_pin_change='), false);
     } finally {
       delete process.env.QUIK1_ID_PHONE_HOURLY_CAP;

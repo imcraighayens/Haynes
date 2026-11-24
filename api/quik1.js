@@ -16,7 +16,7 @@ import {
 import { answerBorrower, rand } from './_lib/q1-brain.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, changeBorrowerPin, pinChangePending } from './_lib/borrower.js';
-import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
+import { requestEmailSignIn, requestIdPhoneSignIn, requestPhoneSms, padSignIn } from './_lib/signin.js';
 import { biometricStatus, registerOptions, registerCredential, loginOptions, loginCredential } from './_lib/borrower-webauthn.js';
 import {
   borrowerLoans, borrowerLoan, borrowerStatements, borrowerApplications,
@@ -293,6 +293,23 @@ async function postSignInEmail(req, res) {
   json(res, 200, out.body, req);
 }
 
+async function postSignInSms(req, res) {
+  const started = Date.now();
+  let out;
+  try {
+    out = await requestPhoneSms(req, await readBody(req, PUBLIC_BODY_CAP), res);
+  } finally {
+    await padSignIn(started);
+  }
+  if (out && out.accountRef) {
+    setCookies(res, out.cookies);
+    json(res, 200, { ok: true, accountRef: out.accountRef }, req);
+    return;
+  }
+  setCookies(res, out.cookies);
+  json(res, 200, out.body, req);
+}
+
 async function postSignInId(req, res) {
   const started = Date.now();
   let out;
@@ -306,8 +323,16 @@ async function postSignInId(req, res) {
     json(res, 200, { ok: true, accountRef: out.accountRef }, req);
     return;
   }
-  setCookies(res, out.cookies);
-  json(res, 200, out.body, req);
+  if (out && out.body) {
+    setCookies(res, out.cookies);
+    json(res, 200, out.body, req);
+    return;
+  }
+  const cookies = out && out.cookies;
+  const rest = Object.assign({}, out || {});
+  delete rest.cookies;
+  setCookies(res, cookies);
+  json(res, 200, rest, req);
 }
 
 async function postWebauthn(req, res) {
@@ -418,6 +443,7 @@ export default wrap('quik1', async (req, res) => {
     if (method !== 'POST') throw new HttpError(405, 'Method not allowed');
     if (id === 'email' && !rest.length) return postSignInEmail(req, res);
     if (id === 'id' && !rest.length) return postSignInId(req, res);
+    if (id === 'sms' && !rest.length) return postSignInSms(req, res);
     throw new HttpError(404, 'Not found');
   } else if (head === 'webauthn') {
     if (id) throw new HttpError(404, 'Not found');

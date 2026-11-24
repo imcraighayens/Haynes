@@ -98,7 +98,7 @@ test('Ask Q1 send stays visible, disabled when empty, and above the inset on pho
     for (const viewport of [{ width: 390, height: 844 }, { width: 360, height: 800 }]) {
       const page = await browser.newPage({ viewport });
       await page.goto(host.origin + '/quik1/', { waitUntil: 'domcontentloaded' });
-      await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: 20000 });
+      await pageWaitFor(page, () => /We've got you/.test(document.body.innerText), null, { timeoutMs: 20000 });
       assert.equal(await page.evaluate(openAskQ1), true);
       await pageWaitFor(page, () => /Online/.test(document.body.innerText), null, { timeoutMs: 10000 });
 

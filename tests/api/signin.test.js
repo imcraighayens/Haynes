@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
+import { setSmsSender } from '../../api/_lib/sms.js';
+import { SMS_NEUTRAL, SMS_REFUSED, SMS_UNAVAILABLE } from '../../api/_lib/signin.js';
 import { idHmac, phoneHmac, luhnOk, normaliseSaId, stampClientIdentity } from '../../api/_lib/sa-id.js';
 import { pinNotAcceptedMessage, resetVerifyCalls, verifyCallCount } from '../../api/_lib/pin.js';
 import { authIpHash } from '../../api/_lib/borrower.js';
@@ -17,7 +19,7 @@ const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
 const URL = 'http://fake-postgrest.local';
 const CLIENT_A = 'c_sign_a';
-const PIN_OK = '24680';
+const PIN_OK = '2468';
 const HMAC_KEY = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
 const EMAIL = 'ada@example.com';
 const PHONE = '825550199';
@@ -150,7 +152,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     restore();
     restore = install(fake, URL);
   });
-  afterEach(() => { setEmailSender(null); restore(); restore = () => {}; });
+  afterEach(() => { setEmailSender(null); setSmsSender(null); restore(); restore = () => {}; });
 
   test('email sign-in does not say whether the address exists', async () => {
     await pinAccount();
@@ -170,13 +172,22 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(sent[0].text.includes(SA_ID), false);
   });
 
-  test('ID and cellphone never open a session until the email link is used', async () => {
+  test('ID and cellphone never open a session until the SMS code is used', async () => {
     await pinAccount();
+    const codes = [];
+    setSmsSender({
+      enabled: true,
+      async send(to, text) {
+        codes.push({ to, text });
+        return { sent: true };
+      }
+    });
     const before = fake.db.q1_sessions.length;
     const known = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE } });
     const unknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: '829990101' } });
     assert.equal(known.statusCode, 200, known.body);
     assert.deepEqual(known.json(), unknown.json());
+    assert.equal(known.json().message, SMS_NEUTRAL);
     assert.deepEqual(cookieNames(known), cookieNames(unknown));
     assert.equal(known.body.includes(SA_ID), false);
     assert.equal(known.body.includes(PHONE), false);
@@ -184,22 +195,28 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(fake.db.q1_sessions.length, before);
     assert.equal(fake.db.q1_auth_attempts.some(row => row.kind === 'id_phone'), true);
     assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
-    assert.equal(sent.length, 1);
-    const token = sent[0].text.split('verify=')[1].trim();
+    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(PHONE), false);
+    assert.equal(codes.length, 1);
+    assert.equal(known.body.includes(codes[0].text), false);
+    const code = codes[0].text.match(/\d{4}/)[0];
+    assert.equal(JSON.stringify(fake.db.q1_otp_challenges).includes(code), false);
     const opened = await call(quik1, {
-      method: 'POST', path: ['verify', 'email'],
+      method: 'POST', path: ['signin', 'sms'],
       headers: { cookie: pendingCookie(known) },
-      body: { token }
+      body: { code }
     });
     assert.equal(opened.statusCode, 200, opened.body);
     assert.match(opened.json().accountRef, /^qb_/);
     assert.match(cookieHeader(opened), /q1_session=/);
+    assert.equal(opened.body.includes(code), false);
+    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
     const again = await call(quik1, {
-      method: 'POST', path: ['verify', 'email'],
+      method: 'POST', path: ['signin', 'sms'],
       headers: { cookie: pendingCookie(known) },
-      body: { token }
+      body: { code }
     });
     assert.equal(again.statusCode, 401);
+    assert.equal(again.json().error, SMS_REFUSED);
   });
 
   test('a sign-in link is single-use, expires, and stays on the phone that asked', async () => {
@@ -323,11 +340,12 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('a slow send does not make an ID match answer later than a miss', async () => {
     await pinAccount();
-    setEmailSender({
+    const smsSent = [];
+    setSmsSender({
       enabled: true,
-      async send(to, subject, text) {
+      async send(to, text) {
         await new Promise(resolve => setTimeout(resolve, 300));
-        sent.push({ to, subject, text });
+        smsSent.push({ to, text });
         return { sent: true };
       }
     });
@@ -344,8 +362,9 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.ok(match.ms >= SIGNIN_PAD_MS - 50, String(match.ms));
     assert.ok(Math.abs(miss.ms - match.ms) < 150, miss.ms + ' vs ' + match.ms);
     assert.ok(match.ms < SIGNIN_PAD_MS + 250, String(match.ms));
-    assert.equal(sent.length, 1);
+    assert.equal(smsSent.length, 1);
     assert.equal(cookieHeader(match).includes('q1_session='), false);
+    assert.equal(match.body.includes(smsSent[0].text), false);
   });
 
   test('stampClientIdentity does nothing when an HMAC column is missing', async () => {
@@ -379,12 +398,19 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
       const missEmail = await call(quik1, { method: 'POST', path: ['signin', 'email'], body: { email: 'nobody@example.com' } });
       const knownId = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE } });
       const missId = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: '829990101' } });
-      for (const res of [knownEmail, missEmail, knownId, missId]) {
+      for (const res of [knownEmail, missEmail]) {
         assert.equal(res.statusCode, 403, res.body);
         assert.equal(res.json().error, copy);
         assert.equal(res.json().code, 'device_not_linked');
         assert.equal(res.body.includes('we sent a link'), false);
         assert.equal(cookieHeader(res).includes('q1_session='), false);
+        assert.ok(res.ms >= SIGNIN_PAD_MS - 50, String(res.ms));
+      }
+      for (const res of [knownId, missId]) {
+        assert.equal(res.statusCode, 503, res.body);
+        assert.equal(res.json().error, SMS_UNAVAILABLE);
+        assert.equal(cookieHeader(res).includes('q1_session='), false);
+        assert.equal(res.body.includes(SA_ID), false);
         assert.ok(res.ms >= SIGNIN_PAD_MS - 50, String(res.ms));
       }
       assert.deepEqual(knownEmail.json(), missEmail.json());
@@ -423,333 +449,101 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     }
   });
 
-  test('SA ID and PIN sign in against the stored client HMAC and stay generic', async () => {
-    await pinAccount();
-    const wrongPin = '13579';
-    const unknownId = '0000000000000';
-    assert.equal(luhnOk(unknownId), true);
-    assert.notEqual(unknownId, SA_ID);
-    const wrong = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
-    const unknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: unknownId, pin: PIN_OK } });
-    assert.equal(wrong.statusCode, 401, wrong.body);
-    assert.equal(unknown.statusCode, 401, unknown.body);
-    assert.equal(wrong.json().error, unknown.json().error);
-    assert.equal(wrong.json().error, pinNotAcceptedMessage());
-    assert.equal(wrong.body.includes(SA_ID), false);
-    assert.equal(unknown.body.includes(unknownId), false);
-    assert.equal(wrong.body.includes(wrongPin), false);
-    assert.equal(unknown.body.includes(PIN_OK), false);
-    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
-    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(unknownId), false);
+  test('SA ID and PIN opens a session on a recognised phone, and a phone on the body does not', async () => {
+    const created = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId: CLIENT_A }
+    });
+    const redeemed = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    const known = cookieHeader(redeemed);
+    const withPin = await call(quik1, {
+      method: 'POST', path: ['signin', 'id'], headers: { cookie: known }, body: { idNumber: SA_ID, pin: PIN_OK }
+    });
+    assert.equal(withPin.statusCode, 200, withPin.body);
+    assert.match(withPin.json().accountRef, /^qb_/);
+    assert.match(cookieHeader(withPin), /q1_session=/);
+    assert.equal(withPin.body.includes(PIN_OK), false);
+    assert.equal(withPin.body.includes(SA_ID), false);
+    const unknownPhone = await call(quik1, {
+      method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK }
+    });
+    assert.notEqual(unknownPhone.statusCode, 401, unknownPhone.body);
+    assert.equal(unknownPhone.json().accountRef, undefined);
     const legacy = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '135790' } });
-    assert.equal(legacy.statusCode, 400, legacy.body);
-    assert.equal(legacy.json().error, 'Enter a 5-digit PIN');
-    const matched = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
-    assert.notEqual(matched.statusCode, 401, matched.body);
-    assert.equal(matched.body.includes(SA_ID), false);
-    assert.equal(matched.body.includes(PIN_OK), false);
-    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString(); });
-    fake.db.q1_borrowers[0].failed_attempts = 0;
-    fake.db.q1_borrowers[0].locked_at = null;
-    for (let i = 0; i < 5; i++) {
-      const miss = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
-      assert.equal(miss.statusCode, 401, miss.body);
-    }
-    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
-    assert.equal(fake.db.q1_borrowers[0].locked_at, null);
-    const blocked = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
-    assert.equal(blocked.statusCode, 429, blocked.body);
-    assert.equal(blocked.headers['retry-after'], '900');
-    assert.equal(blocked.body.includes('Quik1 is locked'), false);
-    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString(); });
-    const again = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
-    assert.notEqual(again.statusCode, 401, again.body);
-    assert.notEqual(again.statusCode, 423, again.body);
-    assert.notEqual(again.statusCode, 429, again.body);
+    assert.equal(legacy.statusCode, 401, legacy.body);
+    assert.equal(legacy.json().error, pinNotAcceptedMessage());
+    assert.equal(cookieHeader(legacy).includes('q1_session='), false);
+    const withBoth = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE, pin: PIN_OK } });
+    assert.equal(withBoth.json().accountRef, undefined);
+    assert.equal(withBoth.json().sent, true);
+    assert.equal(cookieHeader(withBoth).includes('q1_session='), false);
+    assert.equal(withBoth.body.includes(PHONE), false);
   });
 
-  test('a bad ID still compares and a bad PIN returns 400 before any compare', async () => {
+  test('unknown ID, a mismatched phone, and a wrong code share one refusal', async () => {
     await pinAccount();
-    const attempts = fake.db.q1_borrowers[0].failed_attempts || 0;
-    resetVerifyCalls();
-    const badId = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: 'not-an-id', pin: PIN_OK } });
-    assert.equal(badId.statusCode, 401, badId.body);
-    assert.equal(badId.json().error, pinNotAcceptedMessage());
-    assert.equal(badId.body.includes('not-an-id'), false);
-    assert.equal(badId.body.includes(PIN_OK), false);
-    assert.ok(verifyCallCount() > 0);
-    resetVerifyCalls();
-    const badPin = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '12ab' } });
-    const shortPin = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '1234' } });
-    assert.equal(badPin.statusCode, 400, badPin.body);
-    assert.equal(shortPin.statusCode, 400, shortPin.body);
-    assert.equal(badPin.json().error, 'Enter a 5-digit PIN');
-    assert.equal(shortPin.json().error, badPin.json().error);
-    assert.equal(verifyCallCount(), 0);
-    assert.equal(badPin.body.includes(SA_ID), false);
-    assert.equal(badPin.body.includes('12ab'), false);
-    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, attempts);
-  });
-
-  test('an unknown ID and a wrong PIN return the same error after a compare', async () => {
-    await pinAccount();
-    const wrongPin = '13579';
+    const codes = [];
+    setSmsSender({ enabled: true, async send(to, text) { codes.push(text); return { sent: true }; } });
+    const known = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE } });
+    const mismatch = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: '829990101' } });
     const unknownId = '0000000000000';
-    resetVerifyCalls();
-    const wrong = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: wrongPin } });
-    const wrongCalls = verifyCallCount();
-    resetVerifyCalls();
-    const unknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: unknownId, pin: PIN_OK } });
-    const unknownCalls = verifyCallCount();
+    const unknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: unknownId, phone: PHONE } });
+    assert.deepEqual(known.json(), mismatch.json());
+    assert.deepEqual(known.json(), unknown.json());
+    assert.equal(known.json().sent, true);
+    assert.equal(cookieHeader(known).includes('q1_session='), false);
+    assert.equal(cookieHeader(mismatch).includes('q1_session='), false);
+    assert.equal(codes.length, 1);
+    assert.equal(known.body.includes(codes[0]), false);
+    assert.equal(JSON.stringify(fake.db.q1_otp_challenges).includes(codes[0].match(/\d{4}/)[0]), false);
+    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
+    const issued = (codes[0].match(/\d{4}/) || [''])[0];
+    const wrongCode = issued === '9090' ? '8080' : '9090';
+    const wrong = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(known) },
+      body: { code: wrongCode }
+    });
+    fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
+    const bare = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(mismatch) },
+      body: { code: '0000' }
+    });
     assert.equal(wrong.statusCode, 401, wrong.body);
-    assert.equal(unknown.statusCode, 401, unknown.body);
-    assert.deepEqual(wrong.json(), unknown.json());
-    assert.equal(wrong.json().error, pinNotAcceptedMessage());
-    assert.ok(wrongCalls > 0);
-    assert.equal(wrongCalls, unknownCalls);
+    assert.equal(bare.statusCode, 401, bare.body);
+    assert.equal(wrong.json().error, SMS_REFUSED);
+    assert.deepEqual(wrong.json(), bare.json());
     assert.equal(wrong.body.includes(SA_ID), false);
-    assert.equal(unknown.body.includes(unknownId), false);
-    assert.equal(wrong.body.includes(wrongPin), false);
-    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
-    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(unknownId), false);
+    assert.equal(wrong.body.includes(unknownId), false);
+    assert.equal(cookieHeader(wrong).includes('q1_session='), false);
+    assert.equal(fake.db.q1_auth_attempts.every(row => ['pin', 'email', 'id_phone', 'passkey'].includes(row.kind)), true);
   });
 
-  test('each ID has its own 15-minute attempt budget', async () => {
-    await pinAccount();
-    const unknownId = '8001015000086';
-    assert.equal(normaliseSaId(unknownId), unknownId);
-    assert.notEqual(unknownId, SA_ID);
-    const pin = '13579';
-    const ip = '198.51.100.77';
-    for (let i = 0; i < 5; i++) {
-      const miss = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': ip },
-        body: { idNumber: unknownId, pin }
-      });
-      assert.equal(miss.statusCode, 401, miss.body);
-      assert.equal(miss.body.includes(unknownId), false);
-    }
-    const budgetRows = fake.db.q1_auth_attempts.filter(row => row.subject_hash === idHmac(unknownId));
-    assert.equal(budgetRows.length, 5);
-    assert.equal(budgetRows.every(row => row.kind === 'id_phone'), true);
-    assert.equal(budgetRows.every(row => row.ip_hash !== authIpHash(ip)), true);
-    assert.equal(JSON.stringify(budgetRows).includes(unknownId), false);
-    resetVerifyCalls();
-    const blocked = await call(quik1, {
-      method: 'POST', path: ['signin', 'id'],
-      headers: { 'x-forwarded-for': '198.51.100.78' },
-      body: { idNumber: unknownId, pin }
-    });
-    assert.equal(blocked.statusCode, 429, blocked.body);
-    assert.equal(verifyCallCount(), 0);
-    assert.equal(blocked.body.includes(unknownId), false);
-    const other = await call(quik1, {
-      method: 'POST', path: ['signin', 'id'],
-      headers: { 'x-forwarded-for': '198.51.100.79' },
-      body: { idNumber: SA_ID, pin }
-    });
-    assert.equal(other.statusCode, 401, other.body);
-    assert.equal(other.json().error, pinNotAcceptedMessage());
-    assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
-    assert.equal(fake.db.q1_borrowers[0].locked_at, null);
-  });
-
-  test('ID PIN rows use id_phone and do not change the ID-and-phone limits', async () => {
-    await pinAccount();
-    const sql = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../supabase/migrations/20261110143000_quik1_signin.sql'), 'utf8');
-    const allowed = [...sql.matchAll(/check \(kind in \(([^)]+)\)\)/g)].map(hit => hit[1].split(',').map(part => part.trim().replace(/'/g, '')));
-    const kinds = allowed.find(list => list.includes('id_phone'));
-    assert.ok(kinds);
-    assert.equal(kinds.includes('id_pin'), false);
-    const ip = '198.51.100.60';
-    process.env.QUIK1_ID_PHONE_HOURLY_CAP = '1';
-    try {
-      const pinTry = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': ip },
-        body: { idNumber: SA_ID, pin: '13579' }
-      });
-      assert.equal(pinTry.statusCode, 401, pinTry.body);
-      const budget = fake.db.q1_auth_attempts.filter(row => row.subject_hash === idHmac(SA_ID));
-      assert.equal(budget.length, 1);
-      assert.equal(budget[0].kind, 'id_phone');
-      assert.ok(kinds.includes(budget[0].kind));
-      const emailSubject = createHash('sha256').update(`q1-id_phone|${SECRET}|${SA_ID}|27825550199`).digest('hex');
-      assert.notEqual(emailSubject, idHmac(SA_ID));
-      const link = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': ip },
-        body: { idNumber: SA_ID, phone: PHONE }
-      });
-      assert.equal(link.statusCode, 200, link.body);
-      const emailRow = fake.db.q1_auth_attempts.find(row => row.subject_hash === emailSubject);
-      assert.ok(emailRow);
-      assert.equal(emailRow.kind, 'id_phone');
-      assert.notEqual(emailRow.subject_hash, budget[0].subject_hash);
-      const again = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': ip },
-        body: { idNumber: SA_ID, phone: PHONE }
-      });
-      assert.equal(again.statusCode, 429, again.body);
-      assert.equal(again.headers['retry-after'], '3600');
-    } finally {
-      delete process.env.QUIK1_ID_PHONE_HOURLY_CAP;
-    }
-  });
-
-  test('ID PIN failures look the same for a known ID, an unknown ID, a bad ID and a lock', async () => {
-    await pinAccount();
-    const wrongPin = '13579';
-    const unknownId = '0000000000000';
-    assert.equal(luhnOk(unknownId), true);
-    const borrower = fake.db.q1_borrowers[0];
-    const before = { failed_attempts: borrower.failed_attempts || 0, locked_at: borrower.locked_at || null };
-    const cases = [
-      { name: 'known', ip: '198.51.100.21', id: SA_ID },
-      { name: 'unknown', ip: '198.51.100.22', id: unknownId },
-      { name: 'bad', ip: '198.51.100.23', id: 'not-an-id' }
-    ];
-    const seen = {};
-    for (let n = 1; n <= 7; n++) {
-      const round = [];
-      for (const item of cases) {
-        const res = await call(quik1, {
-          method: 'POST', path: ['signin', 'id'],
-          headers: { 'x-forwarded-for': item.ip },
-          body: { idNumber: item.id, pin: wrongPin }
-        });
-        const snap = { status: res.statusCode, body: res.body, headers: { ...res.headers } };
-        round.push(snap);
-        if (n === 1) assert.ok(res.ms >= SIGNIN_PAD_MS - 50, item.name + ' ' + res.ms);
-        assert.equal(res.body.includes(item.id), false, item.name);
-        assert.equal(res.body.includes('Quik1 is locked'), false, item.name);
-      }
-      for (const snap of round) assert.deepEqual(snap, round[0]);
-      seen[n] = round[0];
-      if (n <= 5) {
-        assert.equal(round[0].status, 401);
-        assert.equal(round[0].body, JSON.stringify({ error: pinNotAcceptedMessage() }));
-        assert.equal(round[0].headers['retry-after'], undefined);
-      } else {
-        assert.equal(round[0].status, 429);
-        assert.equal(round[0].body, JSON.stringify({ error: 'Too many attempts' }));
-        assert.equal(round[0].headers['retry-after'], '900');
-      }
-    }
-    assert.equal(borrower.failed_attempts || 0, before.failed_attempts);
-    assert.equal(borrower.locked_at || null, before.locked_at);
-    const lockedAt = new Date().toISOString();
-    borrower.failed_attempts = 3;
-    borrower.locked_at = lockedAt;
-    fake.db.q1_auth_attempts.forEach(row => {
-      if (row.subject_hash === idHmac(SA_ID)) row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString();
-    });
-    const locked = [];
-    for (let n = 1; n <= 7; n++) {
-      const res = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': '198.51.100.24' },
-        body: { idNumber: SA_ID, pin: wrongPin }
-      });
-      const snap = { status: res.statusCode, body: res.body, headers: { ...res.headers } };
-      assert.deepEqual(snap, seen[n]);
-      locked.push(snap);
-      assert.equal(borrower.failed_attempts, 3);
-      assert.equal(borrower.locked_at, lockedAt);
-    }
-    assert.deepEqual(
-      [seen[5], seen[6], seen[7]].map(snap => ({ status: snap.status, body: snap.body, retryAfter: snap.headers['retry-after'] || null })),
-      [locked[4], locked[5], locked[6]].map(snap => ({ status: snap.status, body: snap.body, retryAfter: snap.headers['retry-after'] || null }))
-    );
-    fake.db.q1_auth_attempts.forEach(row => {
-      if (row.subject_hash === idHmac(SA_ID)) row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString();
-    });
-    const correct = await call(quik1, {
-      method: 'POST', path: ['signin', 'id'],
-      headers: { 'x-forwarded-for': '198.51.100.25' },
-      body: { idNumber: SA_ID, pin: PIN_OK }
-    });
-    assert.equal(correct.statusCode, 401, correct.body);
-    assert.equal(correct.body, JSON.stringify({ error: pinNotAcceptedMessage() }));
-    assert.equal(correct.headers['retry-after'], undefined);
-    assert.equal(borrower.failed_attempts, 3);
-    assert.equal(borrower.locked_at, lockedAt);
-    assert.equal(correct.body.includes('Quik1 is locked'), false);
-  });
-
-  test('one bad-format ID budget does not block a different bad-format ID', async () => {
-    await pinAccount();
-    const pin = '13579';
-    const first = 'not-an-id';
-    const second = '12345';
-    assert.equal(normaliseSaId(first), '');
-    assert.equal(normaliseSaId(second), '');
-    for (let i = 0; i < 5; i++) {
-      const miss = await call(quik1, {
-        method: 'POST', path: ['signin', 'id'],
-        headers: { 'x-forwarded-for': '198.51.100.31' },
-        body: { idNumber: first, pin }
-      });
-      assert.equal(miss.statusCode, 401, miss.body);
-    }
-    const rows = fake.db.q1_auth_attempts.filter(row => row.kind === 'id_phone' && row.subject_hash && row.subject_hash !== idHmac(SA_ID));
-    assert.equal(rows.length, 5);
-    const subject = rows[0].subject_hash;
-    assert.match(subject, /^[0-9a-f]{64}$/);
-    assert.equal(rows.every(row => row.kind === 'id_phone' && row.subject_hash === subject), true);
-    assert.equal(JSON.stringify(rows).includes(first), false);
-    assert.equal(JSON.stringify(rows).includes('notanid'), false);
-    const blocked = await call(quik1, {
-      method: 'POST', path: ['signin', 'id'],
-      headers: { 'x-forwarded-for': '198.51.100.32' },
-      body: { idNumber: first, pin }
-    });
-    assert.equal(blocked.statusCode, 429, blocked.body);
-    assert.equal(blocked.headers['retry-after'], '900');
-    const other = await call(quik1, {
-      method: 'POST', path: ['signin', 'id'],
-      headers: { 'x-forwarded-for': '198.51.100.33' },
-      body: { idNumber: second, pin }
-    });
-    assert.equal(other.statusCode, 401, other.body);
-    assert.equal(other.body, JSON.stringify({ error: pinNotAcceptedMessage() }));
-    const otherRows = fake.db.q1_auth_attempts.filter(row => row.subject_hash && row.subject_hash !== subject && row.subject_hash !== idHmac(SA_ID));
-    assert.equal(otherRows.length, 1);
-    assert.match(otherRows[0].subject_hash, /^[0-9a-f]{64}$/);
-    assert.equal(otherRows[0].kind, 'id_phone');
-    assert.notEqual(otherRows[0].subject_hash, subject);
-    assert.equal(JSON.stringify(otherRows).includes(second), false);
-  });
-
-  test('email sign-in buttons follow the server flag and ID entry stays', async () => {
+  test('the login dock is the design and the email link stays off the screen', async () => {
     const page = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../quik1/index.html'), 'utf8');
-    const master = `showMethods:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode`;
-    assert.match(page, /showMethods:!!s\.emailSignIn&&s\.screen==='login'&&s\.pinPhase==='sign'&&!s\.inviteCode/);
+    assert.match(page, /showMethods:false/);
     assert.match(page, /emailSignIn:false/);
     assert.match(page, /emailSignIn:!!\(status&&status\.emailSignIn\)/);
-    const showMethods = page.match(/showMethods:([^,\n]+)/)[1];
-    const visible = new Function('s', 'return (' + showMethods + ')');
-    const login = { screen: 'login', pinPhase: 'sign', inviteCode: '' };
-    assert.equal(visible({ ...login, emailSignIn: false }), false);
-    assert.equal(visible({ ...login, emailSignIn: true }), true);
-    assert.equal(visible({ ...login, emailSignIn: true, inviteCode: 'invite' }), false);
-    assert.equal(visible({ ...login, emailSignIn: true, pinPhase: 'idpin' }), false);
-    assert.equal(visible({ ...login, emailSignIn: true, screen: 'home' }), false);
-    assert.match(page, /<button data-q-email="1" sc-camel-on-click="\{\{ onEmailSignIn \}\}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba\(255,255,255,\.22\);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">Email me a link<\/button>/);
-    assert.match(page, /<button data-q-idphone="1" sc-camel-on-click="\{\{ onIdPhoneSignIn \}\}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba\(255,255,255,\.22\);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">ID number and cellphone<\/button>/);
-    assert.equal(page.includes(master.replace('showMethods:', '')), true);
-    assert.match(page, /showUseId:s\.screen==='login'&&s\.pinPhase==='sign'&&!s\.inviteCode/);
-    assert.match(page, />Use ID number</);
-    assert.equal(/showUseId:[^\n]*emailSignIn/.test(page), false);
+    assert.equal(page.includes('>Email me a link<'), false);
+    assert.equal(page.includes('>ID number and cellphone<'), false);
+    assert.equal(page.includes('>Use ID number<'), false);
+    assert.match(page, /label:'Face ID'/);
+    assert.match(page, /label:'PIN'/);
+    assert.match(page, /label:'Sign in'/);
+    assert.match(page, /label:'Sign up'/);
+    assert.equal(page.includes("label:'New user'"), false);
+    assert.match(page, /const onAuth=!!s\.splashDone&&\(s\.screen==='login'\|\|s\.screen==='signup'\)/);
     assert.match(page, /grid-template-columns:repeat\(3,1fr\);gap:8px/);
     assert.match(page, /height:52px;border-radius:14px;[^"]*font-size:19px/);
     assert.match(page, /Enter that PIN again\. It is not taken from an ID number\./);
     assert.equal(page.includes('Same PIN again'), false);
-    assert.match(page, /const onAuth=false;/);
-    assert.equal(page.includes("label:'New user'"), false);
     assert.equal(page.includes('data-q-authdock'), false);
+    assert.match(page, /Are you short before payday/);
+    assert.match(page, /Face ID is not set up on this phone yet/);
+    assert.equal(page.includes('demo bypass'), false);
+    assert.equal(page.includes('quik1_faceid_cred'), false);
     delete process.env.QUIK1_BORROWER_PIN;
     try {
       const preview = await call(quik1, { method: 'GET', path: ['webauthn'] });
@@ -765,6 +559,55 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
       process.env.QUIK1_BORROWER_PIN = '1';
       delete process.env.VERCEL_ENV;
     }
+  });
+
+  test('phone SMS login and an uninvited sign-up do not open a session', async () => {
+    await pinAccount();
+    const logs = [];
+    const orig = console.info;
+    console.info = (...args) => { logs.push(args.map(a => String(a)).join(' ')); };
+    try {
+      process.env.VERCEL_ENV = 'production';
+      process.env.QUIK1_ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      delete process.env.QUIK1_SMS_PROVIDER;
+      const closed = await call(quik1, { method: 'POST', path: ['signin', 'sms'], body: { phone: PHONE } });
+      assert.equal(closed.statusCode, 503, closed.body);
+      assert.equal(closed.json().error, SMS_UNAVAILABLE);
+      assert.equal(cookieHeader(closed).includes('q1_session='), false);
+      delete process.env.VERCEL_ENV;
+      const preview = await call(quik1, { method: 'POST', path: ['signin', 'sms'], body: { phone: PHONE } });
+      assert.equal(preview.statusCode, 200, preview.body);
+      assert.equal(preview.json().sent, true);
+      assert.equal(cookieHeader(preview).includes('q1_session='), false);
+      assert.equal(preview.body.includes(PHONE), false);
+      assert.equal(logs.some(line => line.includes(PHONE)), false);
+      assert.equal(logs.some(line => /\d{4}/.test(line)), false);
+      assert.equal(logs.some(line => line.includes('quik1 sms preview stub accepted')), true);
+    } finally {
+      console.info = orig;
+      delete process.env.VERCEL_ENV;
+      delete process.env.QUIK1_ID_KEY;
+      delete process.env.QUIK1_SMS_PROVIDER;
+    }
+    const stranger = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      body: { idNumber: '0000000000000', phone: '829990101', pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(stranger.statusCode, 400, stranger.body);
+    assert.equal(stranger.body.includes('0000000000000'), false);
+    assert.equal(cookieHeader(stranger).includes('q1_session='), false);
+    const invited = await call(ledger, {
+      method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId: CLIENT_A }
+    });
+    assert.equal(invited.statusCode, 201, invited.body);
+    const joined = await call(quik1, {
+      method: 'POST', path: ['invites', 'redeem'],
+      body: { idNumber: SA_ID, phone: PHONE, pin: PIN_OK, pinConfirm: PIN_OK }
+    });
+    assert.equal(joined.statusCode, 200, joined.body);
+    assert.match(joined.json().accountRef, /^qb_/);
+    assert.equal(joined.body.includes(SA_ID), false);
+    assert.equal(joined.body.includes(PHONE), false);
   });
 
   test('the clients HMAC migration owns both columns and can be re-run', () => {

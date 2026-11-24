@@ -1495,8 +1495,8 @@ input,button,textarea{font-family:inherit}
         <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
-      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))">
+      <div class="q-login" style="flex:1;min-height:0;overflow:hidden;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <div style="position:relative;z-index:1;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:hidden">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
@@ -1565,12 +1565,20 @@ input,button,textarea{font-family:inherit}
                 <span style="display:block;font-size:17px;font-weight:500;letter-spacing:.02em">{{ maskedPhone }}</span>
               </span>
             </div>
-            <button sc-camel-on-click="{{ onBiometric }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 6px 6px 24px;border-radius:999px;border:0;background:#FDD10D;cursor:pointer;font-size:17px;font-weight:700;color:#0B0620">
-              {{ biometricLabel }}
-              <span style="width:48px;height:48px;border-radius:50%;background:#0B0620;display:grid;place-items:center">
-                {{ faceIdIcon }}
-              </span>
-            </button>
+            <sc-if value="{{ faceSetup }}">
+              <p style="margin:0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.72)">Face ID is not set up on this phone yet. Sign in with your PIN, then turn it on.</p>
+            </sc-if>
+            <sc-if value="{{ faceReady }}">
+              <button data-q-face="1" sc-camel-on-click="{{ onBiometric }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:6px 6px 6px 24px;border-radius:999px;border:0;background:#FDD10D;cursor:pointer;font-size:17px;font-weight:700;color:#0B0620">
+                {{ biometricLabel }}
+                <span style="width:48px;height:48px;border-radius:50%;background:#0B0620;display:grid;place-items:center">
+                  {{ faceIdIcon }}
+                </span>
+              </button>
+            </sc-if>
+            <sc-if value="{{ pinNoteOn }}">
+              <p style="margin:0;font-size:13px;line-height:1.4;color:#FF8A7A">{{ pinNote }}</p>
+            </sc-if>
             <button sc-camel-on-click="{{ onOtherNumber }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:500;color:rgba(255,255,255,.6);align-self:center">Not you? <span style="color:#FDD10D">Use another number</span></button>
           </div>
         </sc-if>
@@ -1631,19 +1639,12 @@ input,button,textarea{font-family:inherit}
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
-            <sc-if value="{{ showUseId }}">
-              <button sc-camel-on-click="{{ onUseId }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Use ID number</button>
-            </sc-if>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-              <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
+              <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Sign up</span></button>
               <sc-if value="{{ showBrowse }}" hint-placeholder-val="{{ true }}">
                 <button data-q-browse="1" sc-camel-on-click="{{ onBrowse }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:500;color:#FDD10D">Browse the app</button>
               </sc-if>
             </div>
-            <sc-if value="{{ showMethods }}">
-              <button data-q-email="1" sc-camel-on-click="{{ onEmailSignIn }}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">Email me a link</button>
-              <button data-q-idphone="1" sc-camel-on-click="{{ onIdPhoneSignIn }}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">ID number and cellphone</button>
-            </sc-if>
             <sc-if value="{{ showBioSetup }}">
               <p style="margin:0;font-size:13px;line-height:1.45;color:rgba(255,255,255,.72)">Biometric sign-in is not set up yet. Your PIN still works.</p>
             </sc-if>
@@ -1653,32 +1654,6 @@ input,button,textarea{font-family:inherit}
                 <span style="display:block;white-space:nowrap;line-height:1">{{ biometricCta }}</span>
               </button>
             </sc-if>
-          </div>
-        </sc-if>
-        <sc-if value="{{ loginEmailStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:14px">
-            <label style="display:flex;flex-direction:column;gap:7px">
-              <span style="font-size:13px;color:rgba(255,255,255,.6)">Email</span>
-              <input value="{{ signEmail }}" sc-camel-on-change="{{ onSignEmail }}" type="email" autocomplete="email" placeholder="you@example.com" style="height:56px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:16px">
-            </label>
-            <sc-if value="{{ pinNote }}"><p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p></sc-if>
-            <button sc-camel-on-click="{{ onSendEmailLink }}" style="width:100%;height:56px;border-radius:999px;border:0;background:#FDD10D;color:#0B0620;font-size:16px;font-weight:700;cursor:pointer">Send a link</button>
-            <button sc-camel-on-click="{{ onSignInBack }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.65)">Use your PIN</button>
-          </div>
-        </sc-if>
-        <sc-if value="{{ loginIdSignStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:14px">
-            <label style="display:flex;flex-direction:column;gap:7px">
-              <span style="font-size:13px;color:rgba(255,255,255,.6)">Cellphone</span>
-              <input value="{{ liPhone }}" sc-camel-on-change="{{ onLiPhone }}" inputmode="numeric" autocomplete="tel" placeholder="82 000 0000" style="height:56px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:16px">
-            </label>
-            <label style="display:flex;flex-direction:column;gap:7px">
-              <span style="font-size:13px;color:rgba(255,255,255,.6)">SA ID number</span>
-              <input value="{{ liId }}" sc-camel-on-change="{{ onLiId }}" inputmode="numeric" autocomplete="off" placeholder="13 digits" style="height:56px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:16px;letter-spacing:.04em">
-            </label>
-            <sc-if value="{{ pinNote }}"><p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p></sc-if>
-            <button sc-camel-on-click="{{ onSendIdPhone }}" style="width:100%;height:56px;border-radius:999px;border:0;background:#FDD10D;color:#0B0620;font-size:16px;font-weight:700;cursor:pointer">Email me a link</button>
-            <button sc-camel-on-click="{{ onSignInBack }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.65)">Use your PIN</button>
           </div>
         </sc-if>
       </div>
@@ -2805,10 +2780,10 @@ input,button,textarea{font-family:inherit}
   class Component extends DCLogic {
     state={infoKey:'',loanSheet:false,
       splashMs:0, splashDone:false, amountInput:null, toastSeen:false,
-      screen:'login', loginMode:'pin', authing:false, customer:false, activeLoan:null,
+      screen:'login', loginMode:'new', authing:false, customer:false, activeLoan:null,
       pageOut:false, closing:'', panelPhase:'', menuIcon:0, payoutAt:0,
     employment:'', estIncome:'', estExpenses:'', payMethod:'', hideAmounts:false, cardIdx:0, alertsOpen:false, mandateSigned:false, desktopView:false, agTicked:false, closedLoans:[], letter:null, sentNote:'', agreement:null, agreementLast:null,
-      baseAmount:0, interestPaid:0, graduated:false, approvedAmount:null, upgradeTo:null, amountError:'', otpMode:true, loginIntro:false, phone:'', phoneError:'', otp:'', menuOpen:false,
+      baseAmount:0, interestPaid:0, graduated:false, approvedAmount:null, upgradeTo:null, amountError:'', otpMode:false, loginIntro:true, phone:'', phoneError:'', otp:'', smsChallenge:false, faceFail:false, menuOpen:false,
       linkId:null, linkDecision:null,
       borrower:'', amount:2500, term:3, purpose:'', purposeError:'',
       income:'', incomeError:'', tenure:'', consent:[], consentError:'',
@@ -2974,14 +2949,12 @@ input,button,textarea{font-family:inherit}
         suPay:['15th','25th','Last day','Weekly'].map(v=>chip('payday',v)),
         suConsents:[tog('credit','I agree that Quik1 can check my credit record and whether I can afford this loan.'),tog('terms','I accept the Terms and Privacy Policy (POPIA).')],
         suCta:step<3?'Continue':'Submit for approval',
-        onSuBack:()=>step>1?this.setState(st=>({su:{...st.su,step:step-1},suTried:false,suError:''})):this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false,suTried:false}),
+        onSuBack:()=>step>1?this.setState(st=>({su:{...st.su,step:step-1},suTried:false,suError:''})):this.setState({screen:'login',loginMode:'new',otpMode:false,otp:'',loginIntro:true,smsChallenge:false,suTried:false}),
         onSuNext:()=>{
           if(stepKeys.some(k=>errs[k])) return this.setState({suTried:true,suError:''});
           if(step<3) return this.setState(st=>({su:{...st.su,step:step+1},suTried:false}));
           if(!u.credit||!u.terms) return this.setState({suError:'Tick both boxes to continue.'});
-          const rec={name:u.name.trim(),idnum:u.idnum,phone:'+27 '+u.phone,email:u.email.trim(),employment:u.employment,employer:(u.employer||'').trim()||'—',income:u.income,payday:u.payday};
-          const id=window.Quik1Link?window.Quik1Link.submitSignup(rec):'SU-'+(2041+Math.floor(Math.random()*900));
-          this.setState(st=>({screen:'docs',suRef:id,suStatus:'Pending review',suTried:false,phone:u.phone,applyName:rec.name,applyPhone:'0'+u.phone,profile:{...st.profile,name:rec.name,email:rec.email,mobile:'0'+u.phone}}));
+          this.submitInviteSignup(u);
         },
         suRef:s.suRef||'',
         suStatusBg:ok?'#FDD10D':no?'rgba(255,138,122,.16)':'rgba(255,255,255,.08)',
@@ -2990,7 +2963,7 @@ input,button,textarea{font-family:inherit}
         suDoneTitle:ok?'You are approved':no?'We could not approve this account':'Thanks, we are reviewing your account',
         suDoneBody:ok?'Your account is active. Sign in with your number and PIN to apply for your first loan.'
           :no?'Our team could not verify the details supplied. Email applications@ecoloans.co.za and we will help.'
-          :'Your details are with our team at applications@ecoloans.co.za. We will be in touch as soon as your account is approved.',
+          :'Your details are with our team at applications@ecoloans.co.za. We will be in touch as soon as your account is approved. An account is only opened for someone Ledger has already invited.',
         suTimeline:tl.map((t,i)=>({...t,bg:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):'transparent',bd:t.done?(no&&i===1?'#FF8A7A':'#FDD10D'):t.cur?'#FDD10D':'rgba(255,255,255,.25)',tick:t.done?1:0,ink:t.done||t.cur?'#FFFFFF':'rgba(255,255,255,.55)',line:i<2?'rgba(255,255,255,.07)':'transparent'})),
         suDoneCta:ok?'Sign in':no?'Back to start':'Back to start',
         suDoneBg:ok?'#FDD10D':'transparent', suDoneInk:ok?'#0B0620':'#FFFFFF', suDoneBorder:ok?'0':'1.5px solid rgba(255,255,255,.22)',
@@ -3066,7 +3039,7 @@ input,button,textarea{font-family:inherit}
         const m=/^#invite=([0-9a-f]{64})$/.exec(String(location.hash||''));
         if(m) code=m[1];
       }catch(e){}
-      if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
+      if(code) this.setState({inviteCode:code, screen:'signup', loginMode:'new', pinPhase:'sign', deviceRef:ref, otp:'', otpMode:false, loginIntro:false, smsChallenge:false});
       else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
       try{
         const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
@@ -3272,9 +3245,77 @@ input,button,textarea{font-family:inherit}
         this.openLedgerHome();
       }).catch(err=>{
         const text=String((err&&err.message)||'');
-        const note=text.indexOf('not set up')>=0?'Biometric sign-in is not set up yet. Your PIN still works.':'Face ID did not unlock this phone. Enter your PIN.';
-        this.setState({pinBusy:false, otp:'', pinNote:note});
+        const note=text.indexOf('not set up')>=0?'Face ID is not set up on this phone yet. Sign in with your PIN, then turn it on.':'Face not recognised. Try again';
+        this.setState({pinBusy:false, otp:'', pinNote:note, faceFail:true, screen:'login', customer:false});
       });
+    }
+    startSms(path, body){
+      this.setState({pinBusy:true, liError:'', phoneError:'', pinNote:''});
+      this.apiFetch(path,{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify(body||{})})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          const msg=String((j&&j.error)||'').slice(0,160);
+          if(r.status===503){
+            this.setState({pinBusy:false, smsChallenge:false, liError:msg||"SMS sign-in isn't available yet", phoneError:msg||"SMS sign-in isn't available yet", pinNote:msg||"SMS sign-in isn't available yet"});
+            return;
+          }
+          if(r.status===429){
+            this.setState({pinBusy:false, liError:'Too many attempts. Wait and try again.', phoneError:'Too many attempts. Wait and try again.', pinNote:'Too many attempts. Wait and try again.'});
+            return;
+          }
+          if(!r.ok){
+            this.setState({pinBusy:false, pinNote:msg||'Those details were not accepted.', liError:msg||'Those details were not accepted.'});
+            return;
+          }
+          if(j&&j.accountRef){
+            this.setState({pinBusy:false, smsChallenge:false, pinNote:'Those details were not accepted.'});
+            return;
+          }
+          this.setState({pinBusy:false, smsChallenge:true, otpMode:true, otp:'', loginIntro:false, pinNote:'', liError:'', phoneError:''});
+        })
+        .catch(()=>this.setState({pinBusy:false, pinNote:'Could not reach Quik1. Try again.'}));
+    }
+    submitSmsCode(code){
+      if(this.state.pinBusy) return;
+      if(!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(code||'')) return;
+      this.setState({pinBusy:true, pinNote:''});
+      this.apiFetch('/signin/sms',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({code:code})})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          if(r.ok&&j&&typeof j.accountRef==='string'&&/^qb_[0-9a-f]{32}$/.test(j.accountRef)){
+            try{ localStorage.setItem('quik1.device.v1', JSON.stringify({accountRef:j.accountRef})); }catch(e){}
+            const saved=this.readWebauthn();
+            const offer=!!this.state.platformAuth&&!!this.state.biometricLive&&!(saved&&saved.accountRef===j.accountRef);
+            this.setState({deviceRef:j.accountRef, smsChallenge:false, inviteCode:'', pinPhase:'sign', otp:'', pinNote:'', biometricOffer:offer, guest:false, pinBusy:false});
+            this.openLedgerHome();
+            return;
+          }
+          this.setState({pinBusy:false, otp:'', pinNote:String((j&&j.error)||'Those details were not accepted.').slice(0,160)});
+        })
+        .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
+    }
+    submitInviteSignup(u){
+      const body={
+        idNumber:String(u.idnum||''),
+        phone:String(u.phone||''),
+        pin:String(u.pin||''),
+        pinConfirm:String(u.pin2||'')
+      };
+      if(/^[0-9a-f]{64}$/.test(this.state.inviteCode||'')) body.code=this.state.inviteCode;
+      this.setState({pinBusy:true, suError:''});
+      this.apiFetch('/invites/redeem',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify(body)})
+        .then(async r=>{
+          let j=null; try{ j=await r.json(); }catch(e){ j=null; }
+          if(!r.ok||!j||typeof j.accountRef!=='string'){
+            this.setState({pinBusy:false, suError:String((j&&j.error)||'We could not match these details to an invite.').slice(0,160), screen:'signup'});
+            return;
+          }
+          try{ localStorage.setItem('quik1.device.v1', JSON.stringify({accountRef:j.accountRef})); }catch(e){}
+          try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
+          this.setState({pinBusy:false, deviceRef:j.accountRef, inviteCode:'', suError:'', guest:false});
+          this.openLedgerHome();
+        })
+        .catch(()=>this.setState({pinBusy:false, suError:'Could not reach Quik1. Try again.', screen:'signup'}));
     }
     sendNeutralSignIn(path, body){
       this.setState({pinBusy:true, pinNote:''});
@@ -4202,15 +4243,15 @@ input,button,textarea{font-family:inherit}
         Object.assign(v,{menuIsGrid:view==='grid',menuIsList:view==='list',menuViewX:view==='list'?'34px':'0px',
           menuGridInk:view==='grid'?'#0B0620':'rgba(var(--q-fg),.6)',menuListInk:view==='list'?'#0B0620':'rgba(var(--q-fg),.6)',
           onMenuGrid:()=>setV('grid'),onMenuList:()=>setV('list'),gridIconInk:'var(--q-accent)'}); }
-      { const onAuth=false;
+        { const onAuth=!!s.splashDone&&(s.screen==='login'||s.screen==='signup');
         v.showAuthDock=onAuth;
         if(onAuth){
           const cur=s.screen==='signup'?'signup':s.loginMode==='return'?'face':s.loginMode==='pin'?'pin':s.loginMode==='id'?'id':'signup';
           const act0=s.authTap||cur;
           v.authDockItems=[
-            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,loginIntro:false})},
-            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false})},
-            {k:'id',label:'Sign in',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',otpMode:false,loginIntro:false,liError:''})},
+            {k:'face',label:'Face ID',path:'M4 8V6.5A2.5 2.5 0 0 1 6.5 4H8M16 4h1.5A2.5 2.5 0 0 1 20 6.5V8M20 16v1.5a2.5 2.5 0 0 1-2.5 2.5H16M8 20H6.5A2.5 2.5 0 0 1 4 17.5V16M9 9.4v1.4M15 9.4v1.4M12 9.4v3.4l-1 .6M9.4 15.4a3.8 3.8 0 0 0 5.2 0',go:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,loginIntro:false,smsChallenge:false,pinPhase:'sign',faceFail:false,pinNote:''})},
+            {k:'pin',label:'PIN',path:'M6 10.5V8a6 6 0 0 1 12 0v2.5M5 10.5h14v9.5H5zM9 15.2h.01M12 15.2h.01M15 15.2h.01',go:()=>{ const known=/^qb_[0-9a-f]{32}$/.test(this.state.deviceRef||''); this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false,smsChallenge:false,pinPhase:known?'sign':'idpin',pinNote:''}); }},
+            {k:'id',label:'Sign in',path:'M4.6 6.4h14.8v11.2H4.6zM8.4 11.2a1.6 1.6 0 1 0 0-.01M6.6 15.2a2.2 2.2 0 0 1 3.6 0M13 10h3.6M13 13.2h2.6',go:()=>this.setState({screen:'login',loginMode:'id',otpMode:false,loginIntro:false,liError:'',smsChallenge:false,pinPhase:'sign'})},
             {k:'signup',label:'Sign up',path:'M10 11a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2ZM3.4 20a6.6 6.6 0 0 1 13.2 0M19 8v6M16 11h6',go:()=>v.onIntroSignup&&v.onIntroSignup()}
           ].map(d=>{ const act=act0===d.k; const g0=d.go; return {...d,go:()=>{ clearTimeout(this._authT); this.setState({authTap:d.k}); this._authT=setTimeout(()=>this.setState({authTap:null}),1400); if(!act||(d.k==='signup'&&s.screen!=='signup')) g0(); },
             gap:act?'8px':'0px',labelW:act?'90px':'0px',labelO:act?1:0,pad:act?'18px':'13px',
@@ -4331,10 +4372,11 @@ input,button,textarea{font-family:inherit}
         || (s.customer&&['amount','purpose'].includes(s.screen));
       const hdrOn=onTabScreen||pOpen;
       const nav={
-        sendCode:()=>this.setState(st=>{
-          if(st.phone.replace(/\D/g,'').length<9) return {phoneError:'Enter a 9-digit mobile number, e.g. 82 000 0000'};
-          return {phoneError:'',otpMode:true,otp:''};
-        }),
+        sendCode:()=>{
+          const phone=String(this.state.phone||'').replace(/\D/g,'');
+          if(phone.length!==9){ this.setState({phoneError:'Enter a 9-digit mobile number, e.g. 82 000 0000'}); return; }
+          this.startSms('/signin/sms', {phone:phone});
+        },
         back:()=>this.setState(st=>{
           const fl=st.customer?RE_FLOW:NEW_FLOW, i=fl.indexOf(st.screen);
           if(i>0) return {screen:fl[i-1]};
@@ -4446,7 +4488,7 @@ input,button,textarea{font-family:inherit}
           const [h,sub]=['Enter your PIN','The '+PIN_LENGTH+' digits you chose. It is not an ID number.'];
           return {loginStepHeadOn:!!h, loginHead:h||'', loginSub:sub||''}; })(),
         loginCardsOn:(s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?1:0,
-        onIntroSignup:()=>this.setState({screen:'signup',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onIntroSignup:()=>this.setState(st=>({screen:'signup',loginMode:'new',otpMode:false,otp:'',loginIntro:false,smsChallenge:false,suTried:false,suError:'',su:Object.assign({step:1,employment:'Permanent',payday:'25th'}, st.su||{}, {step:1})})),
         onIntroLogin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
         loginIdStep:s.screen==='login'&&s.loginMode==='id',
         liPhone:s.liPhone||'', liId:s.liId||'', liError:s.liError||'',
@@ -4464,7 +4506,7 @@ input,button,textarea{font-family:inherit}
           if(s.authing||s.pinBusy) return;
           if((s.liPhone||'').replace(/\D/g,'').length<9){ this.setState({liError:'Enter the 9 digits after +27.'}); return; }
           if(!/^\d{13}$/.test(s.liId||'')){ this.setState({liError:'Your SA ID number has 13 digits.'}); return; }
-          this.sendNeutralSignIn('/signin/id', {phone:s.liPhone, idNumber:s.liId});
+          this.startSms('/signin/id', {phone:s.liPhone, idNumber:s.liId});
         },
         loginHeadJustify:(s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false)?'center':'flex-end',
         loginOtpStep:s.screen==='login'&&(s.loginMode==='new'||s.loginMode==='pin')&&s.otpMode,
@@ -4525,7 +4567,7 @@ input,button,textarea{font-family:inherit}
           };
         })(),
         onStartEstimate:()=>this.setState({screen:'estimate',employment:'',estIncome:'',estExpenses:''}),
-        onLeaveEstimate:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onLeaveEstimate:()=>this.setState({screen:'login',loginMode:'new',otpMode:false,otp:'',loginIntro:false,smsChallenge:false,pinPhase:'sign'}),
         onEstimateCta:()=>{
           const e=this.estimate();
           const amt=e.eligible?Math.max(500,e.amount):1000;
@@ -4673,10 +4715,9 @@ input,button,textarea{font-family:inherit}
             onLockTipRepay:()=>{ this.setState({lockTipOff:true}); nav.schedule(); }}; })(), stepPct:((stepIdx+1)/flow.length)*100,
         nav,
   
-        loginReturnStep:false,
-        onReturning:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
-        onOtherNumber:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
-        onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false}),
+        onReturning:()=>this.setState({screen:'login',loginMode:'return',otpMode:false,otp:'',loginIntro:false,smsChallenge:false,pinPhase:'sign'}),
+        onOtherNumber:()=>this.setState({screen:'login',loginMode:'new',otpMode:false,otp:'',loginIntro:false,smsChallenge:false,pinPhase:'sign',phoneError:''}),
+        onUsePin:()=>this.setState({screen:'login',loginMode:'pin',otpMode:true,otp:'',loginIntro:false,smsChallenge:false,pinPhase:'sign'}),
         otpTitle:'Enter your '+PIN_LENGTH+'-digit PIN',
         otpSub:'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         faceIdIcon:(()=>{ const E=React.createElement, Y='#FDD10D', on=!!s.authing;
@@ -4795,7 +4836,7 @@ input,button,textarea{font-family:inherit}
           this.verifyAll();
         },
         phoneDisplay:s.phone||'82 000 0000',
-        maskedPhone:'+27 •• ••• 9077',
+        maskedPhone:'This phone',
         onEditProfile:()=>this.switchPanel('profile',true),
         fileRef:this._file,
         splashVideoRef:this._splashVid, loginVideoRef:this._loginVid,
@@ -4949,7 +4990,7 @@ input,button,textarea{font-family:inherit}
             if(k==='⌫') return this.setState(st=>({otp:st.otp.slice(0,-1)}));
             this.setState(st=>{
               const next=(st.otp+k).slice(0,PIN_LENGTH);
-              if(next.length===PIN_LENGTH) setTimeout(()=>this.submitBorrowerPin(next), 320);
+              if(next.length===PIN_LENGTH) setTimeout(()=>{ if(this.state.smsChallenge) this.submitSmsCode(next); else this.submitBorrowerPin(next); }, 320);
               return {otp:next};
             });
           }
@@ -5843,46 +5884,77 @@ input,button,textarea{font-family:inherit}
         isLogin:s.screen==='login',
         isSignup:s.screen==='signup',
         isSignupPending:s.screen==='signupPending',
-        loginPhoneStep:false,
-        loginIntroStep:false,
-        loginIdStep:false,
-        loginReturnStep:false,
-        loginOtpStep:s.screen==='login'&&s.pinPhase!=='emailin'&&s.pinPhase!=='idphone',
-        loginEmailStep:s.screen==='login'&&s.pinPhase==='emailin',
-        loginIdSignStep:s.screen==='login'&&s.pinPhase==='idphone',
-        loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idpin'?'Use ID number':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
-        loginSub:s.pinPhase==='current'
-          ?'Enter the '+PIN_LENGTH+'-digit PIN you use now. Then choose a new one.'
-          :s.pinPhase==='unlinked'
-          ?"Please contact EcoLoans and we'll reset your access."
-          :s.pinPhase==='change'
-          ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again.'
-          :s.pinPhase==='change2'
-          ?'Enter that PIN again.'
-          :s.pinPhase==='choose'
-          ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again. It is not taken from an ID number.'
-          :s.pinPhase==='confirm'
-          ?'Enter that PIN again. It is not taken from an ID number.'
-          :s.pinPhase==='email'
-          ?'Open the link on this phone. It works once, then this device is remembered.'
-          :s.pinPhase==='emailin'
-          ?'If this email is on your account, we send one link to this phone. It expires and works once.'
-          :s.pinPhase==='idpin'
-          ?'Your SA ID, then your PIN.'
-          :s.pinPhase==='idphone'
-          ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
-          :s.pinPhase==='staff'
-          ?'Staff can reset this device in Ledger. Your PIN stays the same.'
-          :'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
+        ...(()=>{
+          const accountPhase=['current','change','change2','choose','confirm','staff','unlinked','email','emailin','idpin','idphone'].includes(s.pinPhase);
+          const design=s.screen==='login'&&!accountPhase;
+          const sms=!!s.smsChallenge&&design;
+          const intro=design&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false&&!sms;
+          const phoneStep=design&&s.loginMode==='new'&&s.loginIntro===false&&!sms&&!s.otpMode;
+          const phaseHead=s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idpin'?'Use ID number':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN';
+          const phaseSub=s.pinPhase==='current'
+            ?'Enter the '+PIN_LENGTH+'-digit PIN you use now. Then choose a new one.'
+            :s.pinPhase==='unlinked'
+            ?"Please contact EcoLoans and we'll reset your access."
+            :s.pinPhase==='change'
+            ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again.'
+            :s.pinPhase==='change2'
+            ?'Enter that PIN again.'
+            :s.pinPhase==='choose'
+            ?'Choose a '+PIN_LENGTH+'-digit PIN, then enter it again. It is not taken from an ID number.'
+            :s.pinPhase==='confirm'
+            ?'Enter that PIN again. It is not taken from an ID number.'
+            :s.pinPhase==='email'
+            ?'Open the link on this phone. It works once, then this device is remembered.'
+            :s.pinPhase==='emailin'
+            ?'If this email is on your account, we send one link to this phone. It expires and works once.'
+            :s.pinPhase==='idpin'
+            ?'Your SA ID, then your '+PIN_LENGTH+'-digit PIN.'
+            :s.pinPhase==='idphone'
+            ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
+            :s.pinPhase==='staff'
+            ?'Staff can reset this device in Ledger. Your PIN stays the same.'
+            :'The '+PIN_LENGTH+' digits you chose when you signed up.';
+          const savedFace=this.readWebauthn();
+          let head=phaseHead, sub=phaseSub;
+          if(design){
+            if(sms){ head='Check your SMS'; sub='We sent a 4-digit code to the mobile number on file.'; }
+            else if(s.loginMode==='pin'){ head='Enter your PIN'; sub='The '+PIN_LENGTH+' digits you chose when you signed up.'; }
+            else if(s.loginMode==='return'){ head='Good to see you again'; sub='Look at your phone to log in, or use your PIN.'; }
+            else if(s.loginMode==='id'){ head='Welcome back'; sub='Log in with your mobile number and SA ID.'; }
+            else if(phoneStep){ head="Let's get you started"; sub="Enter your number and we'll SMS you a code."; }
+          }
+          return {
+            loginPhoneStep:phoneStep,
+            loginIntroStep:intro,
+            loginIdStep:design&&s.loginMode==='id'&&!sms,
+            loginReturnStep:design&&s.loginMode==='return'&&!sms,
+            loginOtpStep:(design&&(s.loginMode==='pin'||sms))||(s.screen==='login'&&accountPhase&&s.pinPhase!=='emailin'&&s.pinPhase!=='idphone'),
+            loginEmailStep:false,
+            loginIdSignStep:false,
+            loginStepHeadOn:s.screen==='login'&&!intro,
+            loginHead:head,
+            loginSub:sub,
+            faceReady:!!savedFace,
+            faceSetup:!savedFace,
+            biometricLabel:s.pinBusy?'Scanning your face…':(s.faceFail?'Face not recognised. Try again':'Sign in with Face ID'),
+            onBiometric:()=>{
+              if(!this.readWebauthn()){
+                this.setState({pinNote:'Face ID is not set up on this phone yet. Sign in with your PIN, then turn it on.', faceFail:false, screen:'login', customer:false});
+                return;
+              }
+              this.unlockBiometric();
+            }
+          };
+        })(),
         pinNote:s.pinNote||'',
-        showPinBack:s.screen==='login'&&s.pinPhase==='idpin',
-        showUseId:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        pinNoteOn:!!s.pinNote&&s.pinPhase!=='email'&&s.pinPhase!=='staff',
+        showPinBack:s.screen==='login'&&(s.pinPhase==='staff'||s.pinPhase==='unlinked'||s.pinPhase==='idpin'),
+        showUseId:false,
         showIdEntry:s.screen==='login'&&s.pinPhase==='idpin',
         onUseId:()=>this.setState({screen:'login',pinPhase:'idpin',otp:'',pinNote:'',liId:'',loginIntro:false}),
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
-        showMethods:!!s.emailSignIn&&s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showMethods:false,
         onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinNote:'', signEmail:s.signEmail||''}),
         onIdPhoneSignIn:()=>this.setState({pinPhase:'idphone', pinNote:'', liError:''}),
         onSendEmailLink:()=>this.sendNeutralSignIn('/signin/email', {email:s.signEmail||''}),
@@ -5892,7 +5964,7 @@ input,button,textarea{font-family:inherit}
         biometricCta:/iPhone|iPad/.test((typeof navigator!=='undefined'&&navigator.userAgent)||'')?'Sign in with Face ID':'Sign in with fingerprint',
         onFaceId:()=>this.unlockBiometric(),
         showBioSetup:!!s.platformAuth&&!!s.biometricEnabled&&s.biometricReady===false&&s.pinPhase==='sign'&&!s.inviteCode,
-        showBrowse:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showBrowse:false,
         onBrowse:()=>this.enterGuest(),
         guestOn:!!s.guest,
         guestGate:s.guestGate||'',
@@ -5901,10 +5973,10 @@ input,button,textarea{font-family:inherit}
         showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2'&&s.pinPhase!=='idpin',
+        showAccountRef:false,
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
-        loginHeadJustify:'flex-end',
+        loginHeadJustify:(s.screen==='login'&&s.loginMode==='new'&&!s.otpMode&&s.loginIntro!==false&&!s.smsChallenge&&s.pinPhase==='sign')?'center':'flex-end',
 
         jumpList:jump.map(([k,label])=>{
           const on=s.screen===k;
