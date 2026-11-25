@@ -1495,9 +1495,9 @@ input,button,textarea{font-family:inherit}
         <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
-      <div class="q-login" style="flex:1;min-height:0;overflow:hidden;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;background:transparent;color:#FFFFFF;padding:0 calc(22px + env(safe-area-inset-right)) calc(108px + env(safe-area-inset-bottom)) calc(22px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;text-align:left;padding-top:calc(12px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:hidden">
-          <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:72px;height:auto;display:block;margin-bottom:8px">
+      <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)))">
+          <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
             <h1 style="margin:0;font-size:46px;font-weight:500;line-height:1.05;letter-spacing:-.04em;text-wrap:balance">Are you short before payday<span style="color:#FDD10D">?</span> We've got you<span style="color:#FDD10D">.</span></h1>
@@ -1505,8 +1505,8 @@ input,button,textarea{font-family:inherit}
             <p style="margin:22px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.7);max-width:32ch;text-wrap:pretty">Borrow from R500 and pay it back on payday. One flat fee of {{ ratePct }}, and you'll know in minutes.</p>
           </sc-if>
           <sc-if value="{{ loginStepHeadOn }}">
-            <h1 style="margin:0;font-size:28px;font-weight:500;line-height:1.08;letter-spacing:-.035em;text-wrap:balance">{{ loginHead }}<span style="color:#FDD10D">.</span></h1>
-            <p style="margin:4px 0 0;font-size:14px;line-height:1.35;color:rgba(255,255,255,.65);max-width:34ch;text-wrap:pretty">{{ loginSub }}</p>
+            <h1 style="margin:0;font-size:36px;font-weight:500;line-height:1.08;letter-spacing:-.035em;text-wrap:balance">{{ loginHead }}<span style="color:#FDD10D">.</span></h1>
+            <p style="margin:8px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.65);max-width:32ch;text-wrap:pretty">{{ loginSub }}</p>
           </sc-if>
         </div>
 
@@ -1530,7 +1530,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginIdStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <label style="display:flex;flex-direction:column;gap:7px">
               <span style="font-size:13px;color:rgba(255,255,255,.6)">Mobile number</span>
               <span style="display:flex;align-items:center;gap:12px;height:60px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid {{ liPhoneBd }}">
@@ -1555,7 +1555,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginReturnStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <div style="display:flex;align-items:center;gap:12px">
               <span style="flex:0 0 auto;width:46px;height:46px;border-radius:50%;border:1.5px solid rgba(255,255,255,.24);display:grid;place-items:center">
                 <svg sc-camel-view-box="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#FDD10D;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M7 10.5V8a5 5 0 0 1 10 0v2.5M5.8 10.5h12.4a1.6 1.6 0 0 1 1.6 1.6v6.3a1.6 1.6 0 0 1-1.6 1.6H5.8a1.6 1.6 0 0 1-1.6-1.6v-6.3a1.6 1.6 0 0 1 1.6-1.6Z"></path></svg>
@@ -1576,7 +1576,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginPhoneStep }}" hint-placeholder-val="{{ true }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:0;gap:10px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <div style="display:flex;flex-direction:column;gap:7px">
               <label style="font-size:13px;color:rgba(255,255,255,.6)">Mobile number</label>
               <div style="display:flex;align-items:center;gap:12px;height:60px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)">
@@ -1602,9 +1602,9 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
                 <sc-if value="{{ loginOtpStep }}">
-          <div style="position:relative;z-index:1;flex:0 0 auto;display:flex;flex-direction:column;padding-bottom:0;gap:8px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
-            <sc-if value="{{ pinNoteOn }}">
-              <p style="margin:0;font-size:13px;line-height:1.35;color:#FF8A7A">{{ pinNote }}</p>
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+            <sc-if value="{{ pinNote }}">
+              <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
             </sc-if>
             <sc-if value="{{ showPinBack }}">
               <button sc-camel-on-click="{{ onSignInBack }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Back</button>
@@ -5867,17 +5867,16 @@ input,button,textarea{font-family:inherit}
           :s.pinPhase==='email'
           ?'Open the link on this phone. It works once, then this device is remembered.'
           :s.pinPhase==='emailin'
-          ?'If this email is on file, we send one link. It works once.'
+          ?'If this email is on your account, we send one link to this phone. It expires and works once.'
           :s.pinPhase==='idpin'
           ?'Your SA ID, then your PIN.'
           :s.pinPhase==='idphone'
-          ?'We email a link. ID and cellphone alone do not sign you in.'
+          ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
           ?'Staff can reset this device in Ledger. Your PIN stays the same.'
           :'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
-        pinNoteOn:!!s.pinNote&&s.pinPhase!=='email'&&s.pinPhase!=='staff',
-        showPinBack:s.screen==='login'&&(s.pinPhase==='email'||s.pinPhase==='staff'||s.pinPhase==='unlinked'||s.pinPhase==='idpin'),
+        showPinBack:s.screen==='login'&&s.pinPhase==='idpin',
         showUseId:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
         showIdEntry:s.screen==='login'&&s.pinPhase==='idpin',
         onUseId:()=>this.setState({screen:'login',pinPhase:'idpin',otp:'',pinNote:'',liId:'',loginIntro:false}),
