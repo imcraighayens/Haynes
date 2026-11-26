@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07080c">
+<title>Ledger offline</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07080c; color: #f5f4ee; font-family: system-ui, sans-serif; }
+  main { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+  .card { width: min(420px, 100%); text-align: center; }
+  .mark { width: 54px; height: 54px; margin: 0 auto; border-radius: 16px; background: #c3f53c; display: grid; place-items: center; }
+  h1 { margin: 18px 0 0; font-size: 28px; letter-spacing: -.04em; font-weight: 800; line-height: 1; }
+  p { margin: 12px 0 0; color: #b3b0a4; font-size: 14px; line-height: 1.5; }
+  button { margin-top: 22px; border: 0; border-radius: 12px; padding: 13px 18px; background: #c3f53c; color: #101408; font: 800 13px system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="mark" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div>
+    <h1>LEDGER</h1>
+    <p>You're offline. EcoLoans Ledger needs a connection to show live books, clients, and loans. Nothing from the book is stored on this device.</p>
+    <button type="button" onclick="location.reload()">TRY AGAIN</button>
+  </div>
+</main>
+</body>
+</html>
