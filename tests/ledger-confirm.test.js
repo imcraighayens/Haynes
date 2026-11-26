@@ -51,7 +51,7 @@ async function markGrantable(page) {
         const inst = f.stateNode;
         const logic = inst && (inst.logic || inst);
         if (logic && logic.state && Array.isArray(logic.state.clients) && typeof logic.setState === 'function' && typeof logic.q1IdBlock === 'function') {
-          logic.setState({ clients: logic.state.clients.map(c => Object.assign({}, c, { idFull: id })) });
+          logic.setState({ clients: logic.state.clients.map(c => Object.assign({}, c, { idFull: id, idHmac: 'ab'.repeat(32) })) });
           return logic.state.clients.length;
         }
         f = f.return;
@@ -438,6 +438,92 @@ test('a login PIN left in the dialog is gone after close, Esc, and a successful 
       await pageWaitFor(page, (hint) => !document.querySelector('input[placeholder="' + hint + '"]'), PIN_HINT, { timeoutMs: 8000 });
       await openDialog();
       assert.deepEqual(await fields(), { pin: '', confirm: '' });
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+test('grant stays inside the access table from 768 to 1440', { skip: pw ? false : 'playwright not resolvable', timeout: 180000 }, async () => {
+  await withMockApi(async api => {
+    const browser = await pw.chromium.launch();
+    try {
+      for (const width of [768, 1024, 1280, 1440]) {
+        const page = await browser.newPage({ viewport: { width, height: 900 } });
+        await page.route('**/api/ledger/features', route => route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ demoReset: false, borrowerPinLive: true })
+        }));
+        await page.route('**/api/ledger/quik1-invites/**', route => {
+          if (route.request().method() !== 'GET') return route.fallback();
+          return route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify({ ready: true, access: 'none', hasPin: false, accessLabel: 'No access', pinStatus: 'None', invites: [] })
+          });
+        });
+        try {
+          await boot(page, api.origin);
+          if (width <= 820) {
+            const menu = page.locator('[aria-label="Open menu"]');
+            if (await menu.count()) await menu.first().click();
+          }
+          await page.locator('[title="Clients"]').first().click();
+          await page.locator('[title="Quik1 access"]').first().click();
+          await pageWaitFor(page, () => /Grant Quik1 access/.test(document.body.innerText), null, { timeoutMs: 8000 });
+          const armed = await page.evaluate((id) => {
+            const nodes = document.querySelectorAll('*');
+            for (const el of nodes) {
+              const key = Object.keys(el).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+              if (!key) continue;
+              let f = el[key];
+              for (let i = 0; i < 80 && f; i++) {
+                const inst = f.stateNode;
+                const logic = inst && (inst.logic || inst);
+                if (logic && logic.state && Array.isArray(logic.state.clients) && typeof logic.setState === 'function' && typeof logic.q1IdBlock === 'function') {
+                  logic.setState({ clients: logic.state.clients.map((c, n) => n === 0 ? Object.assign({}, c, { idFull: id, idHmac: 'ab'.repeat(32) }) : c) });
+                  return true;
+                }
+                f = f.return;
+              }
+            }
+            return false;
+          }, '9912314800084');
+          assert.equal(armed, true);
+          await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Grant Quik1 access' && !b.disabled), null, { timeoutMs: 8000 });
+          const fit = await page.evaluate(() => {
+            const table = document.querySelector('[aria-label="Client access"]');
+            const tr = table.getBoundingClientRect();
+            const vw = window.innerWidth;
+            const buttons = [...table.querySelectorAll('button')].filter(b => /Grant Quik1 access|Set login PIN|Revoke/.test(b.textContent));
+            const notes = [...table.querySelectorAll('.q1-id-note')];
+            const cells = buttons.map(b => {
+              const r = b.getBoundingClientRect();
+              const cell = b.closest('.q1-act') || b.parentElement;
+              const cr = cell.getBoundingClientRect();
+              return {
+                t: b.textContent.trim(),
+                insideTable: r.left >= tr.left - 1 && r.right <= tr.right + 1,
+                insideView: r.left >= -1 && r.right <= vw + 1 && r.top >= -1 && r.bottom <= window.innerHeight + 1 && r.width > 8 && r.height > 8,
+                cellWide: cr.width > 220
+              };
+            });
+            const noteFit = notes.map(n => {
+              const r = n.getBoundingClientRect();
+              const cell = n.closest('.q1-act');
+              const cr = cell.getBoundingClientRect();
+              return r.left >= cr.left - 1 && r.right <= cr.right + 1 && cr.width <= 220;
+            });
+            return { cells, noteFit, notes: notes.length };
+          });
+          assert.ok(fit.notes > 0, 'width ' + width + ' has an ID note');
+          assert.ok(fit.noteFit.every(Boolean), 'width ' + width + ' note stays in the action cell');
+          assert.ok(fit.cells.length > 0 && fit.cells.every(c => c.insideTable && c.insideView && !c.cellWide), JSON.stringify({ width, fit }));
+          await page.locator('button:not([disabled])').filter({ hasText: 'Grant Quik1 access' }).first().click();
+          await pageWaitFor(page, () => /signs the borrower out of every phone/.test(document.body.innerText), null, { timeoutMs: 8000 });
+        } finally {
+          await page.close();
+        }
+      }
     } finally {
       await browser.close();
     }

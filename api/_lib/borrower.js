@@ -326,6 +326,8 @@ async function revokePasskeys(borrowerId, nowIso) {
   }
 }
 
+// The staff POST no longer calls this. It stays so an existing invite row can
+// be built for list, revoke, and borrower redeem. Redeem is unchanged.
 export async function createInvite(req, clientId, now = Date.now()) {
   const client = await liveClient(clientId);
   const nowIso = new Date(now).toISOString();
@@ -434,13 +436,13 @@ export async function revokeAccess(req, clientId) {
       client_id: eq(client.id)
     });
     if (borrower && borrower.id) borrowerId = String(borrower.id);
-    await revokeOpenInvites(client.id, nowIso);
-    await lockUntilRedeem(client.id, nowIso);
   } catch (err) {
     if (missingTable(err)) throw notSetUp();
     throw err;
   }
   const comment = borrowerId ? ('q1_borrower=' + borrowerId) : 'no_borrower';
+  // Audit first. A failed insert aborts before any lock, so a 502 is not a
+  // revoke that already happened, and a revoke is never left unaudited.
   try {
     await insert('audit_log', [{
       id: 'aud_q1_' + randomBytes(6).toString('hex'),
@@ -453,7 +455,15 @@ export async function revokeAccess(req, clientId) {
       comment
     }], { returning: false });
   } catch (err) {
-    if (!missingTable(err)) throw err;
+    if (missingTable(err)) throw notSetUp();
+    throw err;
+  }
+  try {
+    await revokeOpenInvites(client.id, nowIso);
+    await lockUntilRedeem(client.id, nowIso);
+  } catch (err) {
+    if (missingTable(err)) throw notSetUp();
+    throw err;
   }
   return listInvites(client.id);
 }

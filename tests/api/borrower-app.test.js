@@ -8,6 +8,7 @@ import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken } from '../../api/_lib/quik1-session.js';
 import { pinNotAcceptedMessage } from '../../api/_lib/pin.js';
+import { createInvite } from '../../api/_lib/borrower.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -91,12 +92,11 @@ function cookieHeader(res) {
 }
 
 async function signIn(clientId, pin) {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId }
-  });
-  assert.equal(created.statusCode, 201);
+  const created = await createInvite({
+    headers: { host: 'localhost', 'x-forwarded-proto': 'https', authorization: 'Bearer ' + STAFF }
+  }, clientId);
   const redeemed = await call(quik1, {
-    method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin, pinConfirm: pin }
+    method: 'POST', path: ['invites', 'redeem'], body: { code: created.code, pin, pinConfirm: pin }
   });
   assert.equal(redeemed.statusCode, 200);
   return cookieHeader(redeemed);

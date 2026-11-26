@@ -9,7 +9,7 @@ import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setLoginPin } from './_lib/borrower.js';
+import { revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setLoginPin } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
@@ -582,9 +582,9 @@ export default wrap('ledger', async (req, res) => {
       return json(res, 200, await listInvites(searchParams(req).get('clientId') || ''), req);
     }
     if (req.method === 'POST') {
-      const body = await readBody(req, 4096);
-      const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
-      return json(res, 201, await createInvite(req, clientId), req);
+      // Issuance and resend were this same POST. Craig chose staff-only access.
+      // Existing invite rows stay. List and revoke are the routes below.
+      throw new HttpError(410, 'Invites retired: use Grant Quik1 access');
     }
     throw new HttpError(405, 'Method not allowed');
   }

@@ -10,6 +10,7 @@ import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
 import { idHmac, phoneHmac, luhnOk, stampClientIdentity } from '../../api/_lib/sa-id.js';
 import { SIGNIN_PAD_MS } from '../../api/_lib/signin.js';
+import { createInvite } from '../../api/_lib/borrower.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -110,12 +111,11 @@ function pendingCookie(res) {
 }
 
 async function pinAccount() {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: { authorization: 'Bearer ' + STAFF }, body: { clientId: CLIENT_A }
-  });
-  assert.equal(created.statusCode, 201, created.body);
+  const created = await createInvite({
+    headers: { host: 'localhost', 'x-forwarded-proto': 'https', authorization: 'Bearer ' + STAFF }
+  }, CLIENT_A);
   const redeemed = await call(quik1, {
-    method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_OK, pinConfirm: PIN_OK }
+    method: 'POST', path: ['invites', 'redeem'], body: { code: created.code, pin: PIN_OK, pinConfirm: PIN_OK }
   });
   assert.equal(redeemed.statusCode, 200, redeemed.body);
   return redeemed.json().accountRef;

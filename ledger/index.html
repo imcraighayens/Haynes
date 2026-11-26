@@ -377,7 +377,7 @@ button.act-tile.is-quiet{background:var(--panel2);border-color:var(--line)}
 .icon-btn{position:relative}
 .icon-btn:hover::after,.icon-btn:focus-visible::after{content:attr(data-tip);position:absolute;z-index:30;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;background:#f7f4ee;color:#14120e;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:4px 8px;border-radius:6px;pointer-events:none}
 .act-table{display:grid;grid-template-columns:minmax(8rem,1.4fr) minmax(6rem,.8fr) minmax(5.5rem,.7fr) minmax(5rem,.7fr) minmax(6.5rem,.85fr) minmax(6.2rem,.7fr) 5.5rem;min-width:760px}
-.sheet-5{display:grid;grid-template-columns:minmax(8rem,1.4fr) minmax(6rem,.8fr) minmax(6rem,.7fr) minmax(6rem,.7fr) max-content;min-width:560px}
+.sheet-5{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,.7fr) minmax(0,.7fr) minmax(9.5rem,11rem);min-width:0;width:100%}
 .act-row{display:grid;grid-template-columns:subgrid;grid-column:1 / -1;align-items:center;min-height:44px;padding:0 12px;column-gap:12px;border-bottom:1px solid var(--line);font-size:14px;color:var(--ink)}
 .act-head{position:sticky;top:0;background:var(--panel2);font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut);z-index:1}
 .num{text-align:right;font-variant-numeric:tabular-nums}
@@ -393,6 +393,10 @@ button.act-tile.is-quiet{background:var(--panel2);border-color:var(--line)}
 .due-v{font:600 14px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums}
 .page-date-short{display:none}
 .gate-note{margin:0 0 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:#f7f4ee}
+.q1-act{min-width:0;max-width:100%;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.q1-id-note{margin:0;max-width:100%;min-width:0;overflow-wrap:anywhere;font:500 11px/1.35 'Plus Jakarta Sans',sans-serif;color:#f7f4ee}
+.q1-act .row-act,.q1-act button{max-width:100%;box-sizing:border-box}
+[data-screen-label="Clients"] .clip-row:has(.q1-id-note){height:auto !important;max-height:none !important;padding-top:8px !important;padding-bottom:8px !important}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 button.act-tile:disabled,.row-act.is-disabled,.row-act:disabled{opacity:1;cursor:not-allowed;color:#f7f4ee;background:#2a2a2a;border:1px dashed #c8c2b4}
 button.act-tile:disabled .act-chev{display:none}
@@ -826,17 +830,19 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       </div>
         <input value="{{ clientQ }}" sc-camel-on-change="{{ clientQChange }}" placeholder="Search client or ref" aria-label="Search clients" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:12px;flex:none">
         <div style="border:1px solid var(--line);border-radius:10px;background:var(--panel);flex:1;min-height:0;overflow:auto">
-          <div class="clip-row" role="row" style="display:grid;grid-template-columns:minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) max-content;column-gap:12px;min-width:760px;padding:8px 12px;font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut);background:var(--panel2);position:sticky;top:0;z-index:1"><div>Ref</div><div>Customer</div><div>ID number</div><div>Added</div><div>Officer</div><div>Action</div></div>
+          <div class="clip-row" role="row" style="display:grid;grid-template-columns:minmax(4.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) minmax(9.5rem,11rem);column-gap:12px;min-width:0;padding:8px 12px;font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut);background:var(--panel2);position:sticky;top:0;z-index:1"><div>Ref</div><div>Customer</div><div>ID number</div><div>Added</div><div>Officer</div><div>Action</div></div>
           <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="5">
-            <div class="clip-row" role="row" sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) max-content;column-gap:12px;min-width:760px;padding:8px 12px;min-height:44px;font-size:14px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
+            <div class="clip-row" role="row" sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:minmax(4.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) minmax(9.5rem,11rem);column-gap:12px;min-width:0;padding:8px 12px;min-height:44px;font-size:14px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
               <div class="cell-clip" title="{{ c.ref }}" style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">{{ c.ref }}</div>
               <div class="cell-clip" title="{{ c.name }}" style="font-weight:600">{{ c.name }}</div>
               <div style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.idMasked }}</div>
               <div style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.added }}</div>
               <div class="cell-clip" style="font-size:14px;color:var(--mut)">{{ c.employee }}</div>
+              <div class="q1-act">
               <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
-              <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="gate-note">{{ c.idMsg }}</p></sc-if>
+              <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" title="{{ c.idMsg }}" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="q1-id-note">{{ c.idMsg }}</p></sc-if>
               <sc-if value="{{ c.grant }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Grant Quik1 access</button></sc-if>
+              </div>
           </div>
           </sc-for>
           <sc-if value="{{ clientEmpty }}" hint-placeholder-val="{{ false }}"><div class="empty">{{ clientEmptyText }}</div></sc-if>
@@ -1349,9 +1355,9 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div role="cell" class="cell-clip" title="{{ c.ref }}">{{ c.ref }}</div>
                 <div role="cell" class="cell-clip">{{ c.employee }}</div>
                 <div role="cell"><div>{{ c.invStatus }}</div><div class="due-k">{{ c.invDetail }}</div><div class="due-k">PIN {{ c.invPin }}</div></div>
-                <div role="cell" style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
+                <div role="cell" class="q1-act">
                   <sc-if value="{{ c.grantOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Grant Quik1 access</button></sc-if>
-                  <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="gate-note">{{ c.idMsg }}</p></sc-if>
+                  <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" title="{{ c.idMsg }}" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="q1-id-note">{{ c.idMsg }}</p></sc-if>
                   <sc-if value="{{ c.grant }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Grant Quik1 access</button></sc-if>
                   <sc-if value="{{ c.invRevoke }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ c.revokeInvite }}">Revoke invite</button></sc-if>
                   <sc-if value="{{ c.invRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ c.revokeInvite }}">Revoke access</button></sc-if>
@@ -3166,9 +3172,8 @@ class Component extends DCLogic {
     const month=Number(digits.slice(2,4)), day=Number(digits.slice(4,6));
     const placeholder='0'.repeat(13);
     const shape=digits!==placeholder && this.q1LuhnOk(digits) && month>=1 && month<=12 && day>=1 && day<=31;
-    const hmacBlank=Object.prototype.hasOwnProperty.call(c,'idHmac') && !String(c.idHmac||'').trim();
-    const hmacSnake=Object.prototype.hasOwnProperty.call(c,'id_hmac') && !String(c.id_hmac||'').trim();
-    if(!shape || hmacBlank || hmacSnake) return this.q1IdNeed();
+    const hmac=String((c.idHmac!=null?c.idHmac:c.id_hmac)||'').trim();
+    if(!shape || !hmac) return this.q1IdNeed();
     return '';
   }
   openQuik1Invite(clientId, ev){
