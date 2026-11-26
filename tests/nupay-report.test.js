@@ -782,3 +782,113 @@ test('the page mounts the report without a write path', () => {
   assert.match(src, /Nothing is uploaded/);
   assert.equal(/apply to the book/i.test(src), false);
 });
+
+function readFixture(name) {
+  return fs.readFileSync(new URL('./fixtures/nupay/' + name, import.meta.url), 'utf8');
+}
+
+test('Action Date is parsed onto each transaction in the report date formats', () => {
+  const csv = readFixture('fake_action_dates.csv');
+  assert.equal(detectHeaders(parseCsv(csv)[0]).fields.actionDate, 1);
+  assert.equal(parseDate('25-Feb-2026'), '2026-02-25');
+  assert.equal(parseDate('25-Feb-2026 08:15:30'), '2026-02-25');
+  assert.equal(parseDate('17-Nov-2026'), '2026-11-17');
+  assert.equal(parseDate('20260225'), '2026-02-25');
+  assert.equal(parseDate('2026-02-25T08:15:30.000Z'), '2026-02-25');
+  assert.equal(parseDate('25-02-26'), '2026-02-25');
+  assert.equal(parseDate('25/02/26'), '2026-02-25');
+  const report = analyseText(csv, book);
+  assert.equal(report.rows.length, 6);
+  for (const row of report.rows) {
+    assert.equal(row.actionDate, '2026-02-25');
+    assert.equal(row.dateOk, true);
+    assert.notEqual(row.note, 'date unreadable');
+  }
+});
+
+test('Debit Value text Usage is not an amount', () => {
+  const report = analyseText(readFixture('fake_debit_value_usage.csv'), book);
+  assert.equal(parseMoney('Usage'), null);
+  assert.equal(report.rows.length, 2);
+  const bad = report.rows[0];
+  const good = report.rows[1];
+  assert.equal(bad.contractReference, 'FAKE-CR-0001');
+  assert.equal(bad.debitAmount, null);
+  assert.equal(bad.debitUnparsed, true);
+  assert.equal(bad.unparsed, true);
+  assert.equal(Number.isNaN(bad.debitAmount), false);
+  assert.notEqual(bad.debitAmount, 0);
+  assert.equal(bad.nupayAmount, null);
+  assert.equal(bad.note, 'debit value not numeric');
+  assert.notEqual(matchBadge(bad).label, 'Matched');
+  assert.equal(good.debitAmount, 1380.16);
+  assert.equal(good.debitUnparsed, false);
+  assert.equal(report.rows.some(row => row.contractReference === 'Usage'), false);
+  assert.equal(report.rows.some(row => row.contractReference === 'Contract Reference'), false);
+  const successBucket = report.summary.byStatus.find(bucket => bucket.status === 'Success');
+  assert.equal(successBucket.count, 2);
+  assert.equal(successBucket.amount, 1380.16);
+});
+
+test('the totals footer is not a transaction and stays on the report totals', () => {
+  const report = analyseText(readFixture('fake_totals_footer.csv'), book);
+  assert.equal(report.rows.length, 2);
+  assert.equal(report.rows.some(row => /total/i.test(row.contractReference + row.statusText)), false);
+  assert.deepEqual(report.totals, { label: 'Total', debitAmount: 2760.32, excluded: true });
+  assert.equal(report.summary.matched + report.summary.loanFound + report.summary.mismatched + report.summary.unknown, 2);
+  assert.equal(report.rows[0].debitAmount, 1380.16);
+  assert.equal(report.rows[1].debitAmount, 1380.16);
+});
+
+test('mandate status codes and labels map explicitly, and unknown stays unknown', () => {
+  assert.equal(classifyStatus('Active'), 'active');
+  assert.equal(classifyStatus('A'), 'active');
+  assert.equal(classifyStatus('INACTIVE'), 'inactive');
+  assert.equal(classifyStatus('In_Active'), 'inactive');
+  assert.equal(classifyStatus('Suspended'), 'suspended');
+  assert.equal(classifyStatus('Pending Authorisation'), 'pending');
+  assert.equal(classifyStatus('Rejected'), 'rejected');
+  assert.equal(classifyStatus('00'), 'success');
+  assert.equal(classifyStatus('0'), 'success');
+  assert.equal(classifyStatus('02'), 'failed');
+  assert.equal(classifyStatus('2'), 'failed');
+  assert.equal(classifyStatus(''), '');
+  for (const value of ['ZZ-UNKNOWN', '77', '1', 'Usage']) {
+    assert.equal(classifyStatus(value), 'unknown', value);
+    assert.notEqual(classifyStatus(value), 'active', value);
+    assert.notEqual(classifyStatus(value), 'success', value);
+  }
+  const report = analyseText(readFixture('fake_mandate_status.csv'), book);
+  const kinds = report.rows.map(row => row.statusKind);
+  assert.deepEqual(kinds, ['active', 'inactive', 'inactive', 'suspended', 'success', 'failed', 'unknown', 'unknown']);
+  const unknown = report.rows.filter(row => row.statusUnknown);
+  assert.equal(unknown.length, 2);
+  assert.equal(unknown[0].statusLabel, 'Unknown (ZZ-UNKNOWN)');
+  assert.equal(unknown[1].statusLabel, 'Unknown (77)');
+  assert.equal(report.summary.byStatus.some(bucket => bucket.status === 'Unknown (ZZ-UNKNOWN)'), true);
+  for (const row of report.rows) {
+    if (row.statusKind !== 'success') assert.notEqual(matchBadge(row).label, 'Matched', row.statusText);
+  }
+});
+
+test('a synthetic Altron transaction report keeps dates, amounts, totals, and statuses apart', () => {
+  const csv = readFixture('fake_altron_transaction_report.csv');
+  assert.equal(csv.includes('@'), false);
+  const report = analyseText(csv, book);
+  assert.equal(report.rows.length, 6);
+  assert.deepEqual(report.rows.map(row => row.actionDate), [
+    '2026-02-25', '2026-01-25', '2026-02-25', '2026-05-25', '2026-03-25', '2026-11-17'
+  ]);
+  assert.deepEqual(report.rows.map(row => row.debitAmount), [1380.16, 1380.16, 100, 410.93, null, 50]);
+  assert.equal(report.rows[4].unparsed, true);
+  assert.equal(report.rows[4].debitUnparsed, true);
+  assert.equal(Number.isNaN(report.rows[4].debitAmount), false);
+  assert.deepEqual(report.rows.map(row => row.statusKind), ['success', 'failed', 'active', 'suspended', 'success', 'unknown']);
+  assert.equal(report.rows[5].statusLabel, 'Unknown (ZZ-UNKNOWN)');
+  assert.equal(report.rows[5].statusUnknown, true);
+  assert.notEqual(report.rows[2].statusKind, 'success');
+  assert.equal(report.rows.some(row => row.contractReference === 'Usage' || row.contractReference === 'Total'), false);
+  assert.deepEqual(report.totals, { label: 'Total', debitAmount: 3321.25, excluded: true });
+  assert.equal(report.summary.matched + report.summary.loanFound + report.summary.mismatched + report.summary.unknown, report.rows.length);
+  assert.equal(JSON.stringify(report).includes('NaN'), false);
+});

@@ -86,19 +86,31 @@ function iso(y, mo, d) {
   return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 }
 
+function expandYear(year) {
+  if (year >= 100) return year;
+  return year >= 70 ? 1900 + year : 2000 + year;
+}
+
 export function parseDate(value) {
   const s = String(value == null ? '' : value).trim();
   if (!s) return '';
-  const time = '(?:[T\\s]\\d{1,2}:\\d{2}(?::\\d{2})?)?';
+  // NuPay / Altron exports use ISO, SA day-first numbers, "25-Feb-2026",
+  // compact CCYYMMDD, and Excel serials, with an optional time.
+  const time = '(?:[T\\s]\\d{1,2}:\\d{2}(?::\\d{2})?(?:\\.\\d+)?Z?)?';
+  const monthSep = '(?:\\s+|[/\\-])';
   let m = s.match(new RegExp('^(\\d{4})[/\\-.](\\d{2})[/\\-.](\\d{2})' + time + '$'));
   if (m) return iso(+m[1], +m[2], +m[3]);
   m = s.match(new RegExp('^(\\d{1,2})[/\\-.](\\d{1,2})[/\\-.](\\d{4})' + time + '$'));
   if (m) return iso(+m[3], +m[2], +m[1]);
-  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+  m = s.match(new RegExp('^(\\d{1,2})[/\\-.](\\d{1,2})[/\\-.](\\d{2})' + time + '$'));
+  if (m) return iso(expandYear(+m[3]), +m[2], +m[1]);
+  m = s.match(new RegExp('^(\\d{1,2})' + monthSep + '([A-Za-z]{3,9})' + monthSep + '(\\d{2,4})' + time + '$'));
   if (m) {
     const mo = MONTHS[m[2].slice(0, 3).toLowerCase()];
-    return mo ? iso(+m[3], mo, +m[1]) : '';
+    return mo ? iso(expandYear(+m[3]), mo, +m[1]) : '';
   }
+  m = s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (m) return iso(+m[1], +m[2], +m[3]);
   if (/^\d{5}(\.\d+)?$/.test(s)) {
     const n = Math.round(Number(s));
     if (n > 20000 && n < 80000) {
@@ -113,26 +125,73 @@ function hasWord(text, word) {
   return text === word || text.startsWith(word + ' ') || text.endsWith(' ' + word) || text.includes(' ' + word + ' ');
 }
 
+// NuPay prints mandate lifecycle as words and as single-letter codes. These are
+// explicit: an unlisted value stays "unknown" and is never treated as active
+// or as a successful collection.
+const MANDATE_STATUS = {
+  active: 'active',
+  a: 'active',
+  inactive: 'inactive',
+  'in active': 'inactive',
+  i: 'inactive',
+  suspended: 'suspended',
+  s: 'suspended',
+  pending: 'pending',
+  'pending authorisation': 'pending',
+  'pending authorization': 'pending',
+  p: 'pending',
+  rejected: 'rejected',
+  'rejected authorisation': 'rejected',
+  'rejected authorization': 'rejected',
+  r: 'rejected',
+  cancelled: 'cancelled',
+  canceled: 'cancelled',
+  c: 'cancelled',
+  expired: 'expired',
+  e: 'expired',
+  hold: 'hold',
+  'on hold': 'hold',
+  h: 'hold'
+};
+
+// Bankserv / NuPay instalment response codes. 0 is the only success code.
+// Codes that are not in this set stay unknown.
+const RESPONSE_SUCCESS = new Set(['0']);
+const RESPONSE_FAILED = new Set(['2', '3', '4', '6', '8', '10', '12', '18', '22', '26', '30', '32', '34', '36']);
+
+function statusToken(value) {
+  const s = normHeader(value);
+  if (/^\d+$/.test(s)) return String(Number(s));
+  return s;
+}
+
 export function classifyStatus(value) {
   const s = normHeader(value);
   if (!s) return '';
   if (s.includes('disput')) return 'disputed';
   if (s.includes('revers')) return 'reversed';
   if (s.includes('tracking')) return 'tracking';
+  const token = statusToken(value);
+  if (RESPONSE_SUCCESS.has(token)) return 'success';
+  if (RESPONSE_FAILED.has(token)) return 'failed';
+  if (Object.prototype.hasOwnProperty.call(MANDATE_STATUS, s)) return MANDATE_STATUS[s];
   if (s.includes('cancel')) return 'cancelled';
   if (s === 'future' || hasWord(s, 'future')) return 'future';
   if (s === 'pending' || hasWord(s, 'pending')) return 'pending';
   if (['not successful', 'unsuccessful', 'non successful'].some(phrase => s === phrase || s.includes(phrase))) return 'failed';
-  if (s.includes('unsuccess') || s.includes('fail') || s.includes('unpaid') || s.includes('reject')) return 'failed';
+  if (s.includes('unsuccess') || s.includes('fail') || s.includes('unpaid') || s.includes('reject') || s.includes('insufficient')) return 'failed';
+  if (s === 'accepted' || s === 'accp' || s === 'transaction successful') return 'success';
   if (s === 'success' || s === 'successful' || hasWord(s, 'success') || hasWord(s, 'successful') || s === 'paid' || hasWord(s, 'paid') || s.includes('honour') || s.includes('honor')) return 'success';
-  return 'other';
+  return 'unknown';
 }
 
 export function statusLabel(kind) {
   return {
     success: 'Success', failed: 'Failed', tracking: 'In tracking', reversed: 'Reversed',
-    disputed: 'Disputed', cancelled: 'Cancelled', future: 'Future', pending: 'Pending', other: 'Other'
-  }[kind] || (kind ? 'Other' : 'Blank');
+    disputed: 'Disputed', cancelled: 'Cancelled', future: 'Future', pending: 'Pending',
+    active: 'Active', inactive: 'Inactive', suspended: 'Suspended', rejected: 'Rejected',
+    expired: 'Expired', hold: 'On hold', unknown: 'Unknown', other: 'Other'
+  }[kind] || (kind ? 'Unknown' : 'Blank');
 }
 
 function effectOf(kind) {
@@ -550,30 +609,131 @@ function blankData(row) {
   return [row.debitAmount, row.originalAmount, row.instalmentAmount, row.totalAmount, row.pifValue].every(v => v == null || v === 0);
 }
 
+const NON_AMOUNT_LABELS = new Set([
+  'usage', 'fixed', 'variable', 'debit value', 'debit amount', 'amount',
+  'action date', 'status', 'mandate id', 'contract reference', 'client reference',
+  'header', 'label', 'total', 'totals', 'grand total', 'report total', 'footer'
+]);
+
+function finiteMoney(raw) {
+  const n = parseMoney(raw);
+  return n != null && Number.isFinite(n) ? n : null;
+}
+
+function isTotalWord(value) {
+  return value === 'total' || value === 'totals' || value === 'grand total' || value === 'report total' || value === 'footer';
+}
+
+function isTotalsRow(cells, fields) {
+  const norms = (cells || []).map(c => normHeader(c));
+  const marked = (idx) => idx != null && idx >= 0 && isTotalWord(norms[idx] || '');
+  const identity = [fields.contractReference, fields.mandateId, fields.clientReference, fields.status];
+  const hit = identity.some(marked) || isTotalWord(norms.find(Boolean) || '');
+  if (!hit) return false;
+  const dateRaw = cell(cells, fields.actionDate);
+  if (dateRaw && parseDate(dateRaw)) return false;
+  return true;
+}
+
+function totalsLabel(cells, fields) {
+  const idxs = [fields.contractReference, fields.mandateId, fields.clientReference, fields.status, 0];
+  for (const idx of idxs) {
+    if (idx == null || idx < 0) continue;
+    const raw = cell(cells, idx);
+    if (isTotalWord(normHeader(raw))) return raw || 'Total';
+  }
+  return 'Total';
+}
+
+function footerAmount(cells, fields) {
+  const order = [fields.debitAmount, fields.totalAmount, fields.instalmentAmount, fields.originalAmount, fields.pifValue];
+  for (const idx of order) {
+    if (idx == null) continue;
+    const n = finiteMoney(cells[idx]);
+    if (n != null) return n;
+  }
+  for (let i = (cells || []).length - 1; i >= 0; i--) {
+    const n = finiteMoney(cells[i]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function hasJoinKey(cells, fields) {
+  return [fields.contractReference, fields.mandateId, fields.clientReference].some(idx => {
+    const value = cell(cells, idx);
+    return value && !NON_AMOUNT_LABELS.has(normHeader(value));
+  });
+}
+
+function hasNumericAmount(cells, fields) {
+  return [fields.debitAmount, fields.originalAmount, fields.instalmentAmount, fields.totalAmount, fields.pifValue].some(idx => {
+    return idx != null && finiteMoney(cells[idx]) != null;
+  });
+}
+
+function isLabelRow(cells, header, fields) {
+  const norms = (cells || []).map(c => normHeader(c));
+  const filled = norms.filter(Boolean);
+  if (!filled.length) return true;
+  if (filled.every(v => NON_AMOUNT_LABELS.has(v))) return true;
+  const headerNorms = new Set((header || []).map(normHeader).filter(Boolean));
+  if (filled.length >= 2 && filled.every(v => headerNorms.has(v))) return true;
+  if (!hasJoinKey(cells, fields) && !hasNumericAmount(cells, fields)) return true;
+  return false;
+}
+
 function buildRows(grid, headerIndex, fields, meta) {
+  const header = grid[headerIndex] || [];
   const out = [];
+  let totals = null;
   for (let i = headerIndex + 1; i < grid.length; i++) {
     const src = grid[i] || [];
+    if (isTotalsRow(src, fields)) {
+      totals = {
+        label: totalsLabel(src, fields),
+        debitAmount: footerAmount(src, fields),
+        excluded: true
+      };
+      continue;
+    }
+    if (isLabelRow(src, header, fields)) continue;
     const statusText = cell(src, fields.status);
     const reason = cell(src, fields.reason);
     let statusKind = classifyStatus(statusText);
-    if ((!statusKind || statusKind === 'other') && reason) {
+    if (!statusKind && reason) {
       const fromReason = classifyStatus(reason);
-      if (fromReason && fromReason !== 'other') statusKind = fromReason;
+      if (fromReason && fromReason !== 'unknown') statusKind = fromReason;
+    } else if (statusKind === 'unknown' && reason) {
+      const fromReason = classifyStatus(reason);
+      // A code we do not know stays unknown. A reason may name a failure, but
+      // it must not turn that row into active or success.
+      if (fromReason && fromReason !== 'unknown' && fromReason !== 'success' && fromReason !== 'active') statusKind = fromReason;
     }
     const instalmentNumber = fields.instalmentNumber == null ? null : intOf(cell(src, fields.instalmentNumber)) || null;
+    const actionRaw = cell(src, fields.actionDate);
+    const actionDate = parseDate(actionRaw);
+    const debitRaw = cell(src, fields.debitAmount);
+    const debitAmount = finiteMoney(debitRaw);
+    const debitUnparsed = debitRaw !== '' && debitAmount == null;
+    const originalAmount = finiteMoney(cell(src, fields.originalAmount));
+    const pifValue = finiteMoney(cell(src, fields.pifValue));
+    const instalmentAmount = finiteMoney(cell(src, fields.instalmentAmount));
+    const totalAmount = finiteMoney(cell(src, fields.totalAmount));
     const row = {
       line: i + 1,
       contractReference: cell(src, fields.contractReference),
       mandateId: cell(src, fields.mandateId),
       clientReference: cell(src, fields.clientReference),
-      actionDate: parseDate(cell(src, fields.actionDate)),
-      dateUnreadable: !parseDate(cell(src, fields.actionDate)),
-      originalAmount: parseMoney(cell(src, fields.originalAmount)),
-      pifValue: parseMoney(cell(src, fields.pifValue)),
-      instalmentAmount: parseMoney(cell(src, fields.instalmentAmount)),
-      totalAmount: parseMoney(cell(src, fields.totalAmount)),
-      debitAmount: parseMoney(cell(src, fields.debitAmount)),
+      actionDate,
+      dateUnreadable: !actionDate,
+      originalAmount,
+      pifValue,
+      instalmentAmount,
+      totalAmount,
+      debitAmount,
+      debitUnparsed,
+      unparsed: debitUnparsed && originalAmount == null && pifValue == null && instalmentAmount == null && totalAmount == null,
       statusText,
       statusKind,
       reason,
@@ -582,13 +742,13 @@ function buildRows(grid, headerIndex, fields, meta) {
       sourceFile: meta.sourceName || '',
       sourceRole: meta.sourceRole || ''
     };
-    if (row.debitAmount == null && row.actionDate && row.originalAmount == null && row.instalmentAmount != null) {
+    if (!row.debitUnparsed && row.debitAmount == null && row.actionDate && row.originalAmount == null && row.instalmentAmount != null) {
       row.debitAmount = row.instalmentAmount;
     }
     if (blankData(row)) continue;
     out.push(row);
   }
-  return out;
+  return { rows: out, totals };
 }
 
 export function amountsAndDate(row, loan) {
@@ -651,6 +811,7 @@ function emptyReport(extra) {
     rows: [],
     groups: [],
     summary: { matched: 0, loanFound: 0, mismatched: 0, unknown: 0, tiles: { Matched: 0, 'Loan found': 0, Mismatched: 0, Unknown: 0 }, byStatus: [] },
+    totals: null,
     sources: []
   }, extra || {});
 }
@@ -666,11 +827,11 @@ function summarise(rows) {
   const byStatus = [];
   const totals = new Map();
   for (const row of rows) {
-    const label = statusLabel(row.statusKind);
-    const money = row.debitAmount != null ? row.debitAmount : row.instalmentAmount != null ? row.instalmentAmount : row.originalAmount != null ? row.originalAmount : 0;
-    const bucket = totals.get(label) || { status: label, count: 0, amount: 0 };
+    const label = row.statusLabel || statusLabel(row.statusKind);
+    const picked = [row.debitAmount, row.instalmentAmount, row.originalAmount].find(n => n != null && Number.isFinite(n));
+    const bucket = totals.get(label) || { status: label, count: 0, amount: null };
     bucket.count += 1;
-    bucket.amount = round2(bucket.amount + (money || 0));
+    if (picked != null) bucket.amount = round2((bucket.amount || 0) + picked);
     totals.set(label, bucket);
   }
   totals.forEach(bucket => byStatus.push(bucket));
@@ -705,11 +866,14 @@ function finish(rows, book, meta) {
     if (found.loan) {
       if (clientMismatch) { outcome = 'mismatched'; note = CLIENT_MISMATCH_NOTE; }
       else if (dateUnreadable) { outcome = 'mismatched'; note = 'date unreadable'; }
+      else if (row.unparsed) { outcome = 'mismatched'; note = 'debit value not numeric'; }
       else if (amount.checked && amount.ok && date.ok) outcome = 'matched';
       else {
         outcome = 'mismatched';
         if (!amount.checked) note = 'amount unchecked';
       }
+    } else if (row.unparsed) {
+      note = 'debit value not numeric';
     }
     const client = found.loan ? index.clientById.get(found.loan.clientId) : null;
     const item = {
@@ -728,7 +892,10 @@ function finish(rows, book, meta) {
       debitAmount: row.debitAmount,
       statusText: row.statusText,
       statusKind: row.statusKind,
-      statusLabel: statusLabel(row.statusKind),
+      statusLabel: row.statusKind === 'unknown' && row.statusText ? 'Unknown (' + row.statusText.trim().slice(0, 40) + ')' : statusLabel(row.statusKind),
+      statusUnknown: row.statusKind === 'unknown',
+      debitUnparsed: !!row.debitUnparsed,
+      unparsed: !!row.unparsed,
       reason: row.reason,
       instalmentNumber: row.instalmentNumber,
       effect: effectOf(row.statusKind),
@@ -791,6 +958,7 @@ function finish(rows, book, meta) {
     rows: publicRows,
     groups,
     summary: summarise(publicRows),
+    totals: meta.totals || null,
     sources: meta.sources || []
   };
 }
@@ -811,9 +979,10 @@ export function analyseGrid(grid, book, options) {
     });
   }
   const built = buildRows(rowsIn, headerIndex, mapped.fields, opts);
-  return finish(built, book || { loans: [], clients: [], mandates: [] }, {
+  return finish(built.rows, book || { loans: [], clients: [], mandates: [] }, {
     headers: header.map(cell => String(cell == null ? '' : cell)),
     headerFields: mapped.fields,
+    totals: built.totals,
     sources: opts.sources || []
   });
 }
@@ -894,6 +1063,7 @@ export async function analyseBuffer(buffer, fileName, book) {
   }
   const unknown = rows.filter(r => r.outcome === 'unknown');
   if (unknown.length) groups.push({ loanId: '', ref: '', clientName: '', unknown: true, rows: unknown, preview: null });
+  const totals = combined.reduce((acc, report) => report.totals || acc, null);
   return {
     empty: rows.length === 0,
     needsMapping: false,
@@ -902,6 +1072,7 @@ export async function analyseBuffer(buffer, fileName, book) {
     rows,
     groups,
     summary: summarise(rows),
+    totals,
     sources
   };
 }
@@ -1032,7 +1203,7 @@ export function matchBadge(row) {
   const how = row && row.how || '';
   const note = row && row.note || '';
   if (outcome === 'unknown' || /-ambiguous$/.test(how)) return { label: 'Unknown', tone: 'neutral' };
-  if (how === 'client-mismatch' || note === CLIENT_MISMATCH_NOTE || note === 'client mismatch' || note === 'date unreadable' || note === 'amount unchecked') return { label: 'Loan found', tone: 'neutral' };
+  if (how === 'client-mismatch' || note === CLIENT_MISMATCH_NOTE || note === 'client mismatch' || note === 'date unreadable' || note === 'amount unchecked' || note === 'debit value not numeric') return { label: 'Loan found', tone: 'neutral' };
   if (outcome === 'mismatched') return { label: 'Mismatched', tone: 'warn' };
   if (outcome === 'matched' && kind === 'success') return { label: 'Matched', tone: 'ok' };
   return { label: 'Loan found', tone: 'neutral' };
@@ -1060,6 +1231,7 @@ export function visibleNote(row) {
   if (!row) return '';
   if (row.how === 'client-mismatch' || row.note === CLIENT_MISMATCH_NOTE || row.note === 'client mismatch') return CLIENT_MISMATCH_NOTE;
   if (row.note === 'date unreadable') return 'Date unreadable';
+  if (row.note === 'debit value not numeric') return 'Debit value is not a number';
   if (row.note === 'amount unchecked') return 'Amount not checked';
   return '';
 }

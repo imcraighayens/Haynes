@@ -1,0 +1,11 @@
+NuPay transaction report (synthetic)
+Period,2026-02-01,to,2026-02-28
+Contract Reference,Mandate ID,Client Reference,Action Date,Debit Value,Status
+FAKE-CR-0001,FAKE-M-0001,FAKE-CL-01,25-Feb-2026,1380.16,Success
+FAKE-CR-0001,FAKE-M-0001,FAKE-CL-01,2026/01/25,1380.16,02
+FAKE-CR-0002,FAKE-M-0002,FAKE-CL-02,25 Feb 2026,100.00,Active
+FAKE-CR-0003,FAKE-M-0003,FAKE-CL-03,20260525,410.93,Suspended
+FAKE-CR-0001,FAKE-M-0001,FAKE-CL-01,2026-03-25,Usage,Success
+Usage,Usage,Usage,Usage,Usage,Usage
+FAKE-CR-4040,FAKE-M-4040,FAKE-CL-99,17-Nov-2026,50.00,ZZ-UNKNOWN
+Total,,,,3321.25,
