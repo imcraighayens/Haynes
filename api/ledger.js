@@ -9,7 +9,7 @@ import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
 import { COLUMNS, pick, requireId } from './_lib/validate.js';
 import { aiStatus, completeAi, twilioStatus, sendTwilio } from './_lib/providers.js';
-import { createInvite, revokeInvite, listInvites, revokeAccess, resetBorrowerDevices, setLoginPin } from './_lib/borrower.js';
+import { resetBorrowerDevices, setLoginPin, borrowerAccessStatus, revokeAccess } from './_lib/borrower.js';
 import { staffFeed, decideApplication, postStaffReply, signStaffDocument } from './_lib/borrower-book.js';
 import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
@@ -557,16 +557,14 @@ export default wrap('ledger', async (req, res) => {
     if (req.method === 'POST') return postTwilio(req, res);
     throw new HttpError(405, 'Method not allowed');
   }
-  if (head === 'quik1-temp-pin' && rest.length === 0) {
+  if ((head === 'quik1-login-pin' || head === 'quik1-temp-pin') && rest.length === 0) {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     const body = await readBody(req, 4096);
     return json(res, 200, await setLoginPin(req, res, body), req);
   }
-  if (head === 'quik1-devices' && rest.length === 1 && rest[0] === 'reset') {
-    if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    const body = await readBody(req, 4096);
-    const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
-    return json(res, 200, await resetBorrowerDevices(req, clientId), req);
+  if (head === 'quik1-access' && rest.length === 1) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
+    return json(res, 200, await borrowerAccessStatus(rest[0]), req);
   }
   if (head === 'quik1-invites' && rest.length === 1 && rest[0] === 'revoke-access') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
@@ -574,23 +572,11 @@ export default wrap('ledger', async (req, res) => {
     const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
     return json(res, 200, await revokeAccess(clientId), req);
   }
-  if (head === 'quik1-invites' && rest.length === 1 && (req.method === 'GET' || req.method === 'HEAD')) {
-    return json(res, 200, await listInvites(rest[0]), req);
-  }
-  if (head === 'quik1-invites' && rest.length === 0) {
-    if (req.method === 'GET' || req.method === 'HEAD') {
-      return json(res, 200, await listInvites(searchParams(req).get('clientId') || ''), req);
-    }
-    if (req.method === 'POST') {
-      const body = await readBody(req, 4096);
-      const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
-      return json(res, 201, await createInvite(req, clientId), req);
-    }
-    throw new HttpError(405, 'Method not allowed');
-  }
-  if (head === 'quik1-invites' && rest.length === 2 && rest[1] === 'revoke') {
+  if (head === 'quik1-devices' && rest.length === 1 && rest[0] === 'reset') {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
-    return json(res, 200, await revokeInvite(rest[0]), req);
+    const body = await readBody(req, 4096);
+    const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
+    return json(res, 200, await resetBorrowerDevices(req, clientId), req);
   }
   if (head === 'quik1-feed' && rest.length === 0) {
     if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');

@@ -57,9 +57,8 @@ browser, in git, or in the staff UI.
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM` | Voice and SMS. If any is missing, staff see "Not configured" and nothing is sent. |
 | `Q1_WEBHOOK_URL` | Optional. Scrubbed Q1 chat summaries. Chat still answers when this is empty. |
 | `QUIK1_SESSION_SECRET` | Required with `QUIK1_BORROWER_PIN=1` for Quik1 borrower sign-in. At least 32 characters (`openssl rand -hex 32`). Signs the httpOnly session cookie. Server-only. Sign-in stays off when this is missing or shorter. |
-| `QUIK1_INVITE_TTL_HOURS` | Optional. Invite lifetime in hours. Default 72. |
 | `QUIK1_PIN_MAX_ATTEMPTS` | Optional. Failed PIN attempts before lockout. Default 5. |
-| `QUIK1_LOCKOUT_MINUTES` | Optional. How long that lock lasts before the counter resets. Default 15. A new invite still clears it immediately. |
+| `QUIK1_LOCKOUT_MINUTES` | Optional. How long that lock lasts before the counter resets. Default 15. Staff set a new login PIN in Ledger (Quik1 access, Set login PIN, `POST /api/ledger/quik1-login-pin`, with `quik1-temp-pin` kept as an alias). |
 | `QUIK1_SESSION_TTL_HOURS` | Optional. Borrower session lifetime in hours. Default 12. |
 | `QUIK1_OTP_TTL_MINUTES` | Optional. Email device-link lifetime in minutes. Default 15. |
 | `QUIK1_AUTH_RATE_LIMIT` | Optional. Login, redeem, email link, and ID posts per IP per 15 minutes. Default 30. |

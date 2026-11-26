@@ -207,17 +207,18 @@ copy is the source of truth and wins on the next load.
   (`localStorage['ledjaa.supabase'].key`). Every `/api/ledger/*` and `/api/q1/*` call sends it
   as `Authorization: Bearer …`; the server compares it in constant time. Rotate it by changing
   the Vercel env var and pasting the new value in Settings.
-* **Quik1 borrowers sign in with a PIN they choose.** Staff create a single-use invite
-  from a client row (`POST /api/ledger/quik1-invites`). The client opens the link, enters a
+* **Quik1 borrowers sign in with a PIN they choose.** Staff set that login PIN in Ledger
+  (Quik1 access, Set login PIN, `POST /api/ledger/quik1-login-pin`, with
+  `POST /api/ledger/quik1-temp-pin` kept as an alias). The client enters a
   PIN of `QUIK1_PIN_LENGTH` digits twice (`shared/pin-length.js`), and the server stores only a salted scrypt hash. Weak patterns
   (one repeated digit, or a straight run) are refused. Returning visits
   on a recognised device send the account reference plus that PIN. A new device needs
   a single-use email link when `QUIK1_EMAIL_FROM`, `QUIK1_EMAIL_API_URL`, and
   `QUIK1_EMAIL_API_KEY` are set, and never on a production host. Leave them unset:
-  no link is issued, and the phone says "This phone isn't linked yet. Please contact
+  no email is issued, and the phone says "This phone isn't linked yet. Please contact
   EcoLoans and we'll reset your access." Five failed PIN attempts lock
-  the account for 15 minutes (`QUIK1_LOCKOUT_MINUTES`); a new staff invite clears the
-  lock immediately. A PIN stored at an older length does not sign in. Staff set a new login PIN, or the client opens a new invite.
+  the account for 15 minutes (`QUIK1_LOCKOUT_MINUTES`); staff set a new login PIN in Ledger
+  (Quik1 access, Set login PIN) to clear it. A PIN stored at an older length does not sign in. Staff set a new login PIN in Ledger.
   Borrower book routes, including `GET /api/quik1/me` and available credit, answer 401
   with no session. A signed-in borrower can submit an SA ID (`POST /api/quik1/identity`).
   It is stored as AES-256-GCM ciphertext under `QUIK1_ID_KEY` and the client receives

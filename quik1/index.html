@@ -507,21 +507,6 @@ input,button,textarea{font-family:inherit}
 
   <div class="q-pad" style="flex:1;min-width:0;display:flex;justify-content:center;padding:{{ shellPad }}">
   <div class="q-frame" style="--q-fg:{{ thFg }};--q-ink:{{ thInk }};--q-panel:{{ thPanel }};--q-btn:{{ thBtn }};--q-chat:{{ thChat }};--q-dock:{{ thDock }};--q-dock2:{{ thDock2 }};--q-surface:{{ thSurface }};--q-tile:{{ thTile }};--q-accent:{{ thAccent }};--q-card:{{ thCard }};--q-page:{{ thPage }};width:100%;max-width:{{ appMaxW }};aspect-ratio:{{ appAspect }};zoom:{{ appZoom }};height:{{ appMinH }};max-height:{{ appMaxH }};background:{{ frameBg }};border-radius:{{ appRadius }}px;overflow:hidden;position:relative;box-shadow:{{ appShadow }};display:flex;flex-direction:column">
-    <sc-if value="{{ guestOn }}">
-      <div data-q-guest-banner="1" style="flex:0 0 auto;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;background:#FDD10D;color:#0B0620;font-size:14px;font-weight:600">
-        <span>Browsing as guest. <button sc-camel-on-click="{{ onGuestSignIn }}" style="border:0;background:transparent;padding:0;font:inherit;font-weight:700;color:#0B0620;cursor:pointer;text-decoration:underline">Sign in</button></span>
-      </div>
-    </sc-if>
-    <sc-if value="{{ guestGate }}">
-      <div style="position:absolute;inset:0;z-index:70;background:rgba(0,0,0,.62);display:flex;align-items:flex-end;padding:18px">
-        <div style="width:100%;border-radius:24px;background:#141820;color:#FFFFFF;padding:22px;display:flex;flex-direction:column;gap:14px">
-          <p style="margin:0;font-size:18px;font-weight:600">{{ guestGate }}</p>
-          <p style="margin:0;font-size:14px;line-height:1.45;color:rgba(255,255,255,.7)">This tour uses sample data only. Your PIN opens the real account.</p>
-          <button sc-camel-on-click="{{ onGuestSignIn }}" style="height:52px;border-radius:999px;border:0;background:#FDD10D;color:#0B0620;font-size:16px;font-weight:700;cursor:pointer">Sign in</button>
-          <button sc-camel-on-click="{{ onGuestDismiss }}" style="height:44px;border:0;background:transparent;color:rgba(255,255,255,.7);font-size:14px;cursor:pointer">Keep browsing</button>
-        </div>
-      </div>
-    </sc-if>
 
 
     <!-- ── Splash ────────────────────────────────────────────── -->
@@ -1609,7 +1594,7 @@ input,button,textarea{font-family:inherit}
             <sc-if value="{{ showAccountRef }}">
               <label style="display:flex;flex-direction:column;gap:7px">
                 <span style="font-size:13px;color:rgba(255,255,255,.6)">Account reference</span>
-                <input value="{{ accountRefInput }}" sc-camel-on-change="{{ onAccountRef }}" autocomplete="off" spellcheck="false" placeholder="From your invite" style="height:52px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:15px">
+                <input value="{{ accountRefInput }}" sc-camel-on-change="{{ onAccountRef }}" autocomplete="off" spellcheck="false" placeholder="Account reference" style="height:52px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:15px">
               </label>
             </sc-if>
             <div style="display:flex;gap:10px">
@@ -1624,12 +1609,12 @@ input,button,textarea{font-family:inherit}
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
               <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
-              <sc-if value="{{ showBrowse }}" hint-placeholder-val="{{ true }}">
-                <button data-q-browse="1" sc-camel-on-click="{{ onBrowse }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:500;color:#FDD10D">Browse the app</button>
-              </sc-if>
             </div>
             <sc-if value="{{ showMethods }}">
               <button data-q-email="1" sc-camel-on-click="{{ onEmailSignIn }}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">Email me a link</button>
+              <sc-if value="{{ showForgotPin }}" hint-placeholder-val="{{ false }}">
+                <button data-q-forgot="1" sc-camel-on-click="{{ onForgotPin }}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">Forgot PIN</button>
+              </sc-if>
               <button data-q-idphone="1" sc-camel-on-click="{{ onIdPhoneSignIn }}" style="width:100%;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:transparent;cursor:pointer;font-size:16px;font-weight:600;color:#FFFFFF">ID number and cellphone</button>
             </sc-if>
             <sc-if value="{{ showBioSetup }}">
@@ -2770,7 +2755,7 @@ input,button,textarea{font-family:inherit}
   }
 })();
 </script>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:940},&quot;brand&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Quik1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;interestRate&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:35,&quot;min&quot;:10,&quot;max&quot;:60,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;},&quot;adminApprovedAmount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1000,&quot;min&quot;:0,&quot;max&quot;:8000,&quot;step&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;longerTermsUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;demoWithdrawUnlocked&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Lending rules&quot;},&quot;whiteBackground&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;lightNavBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
   const SALARY_DAY=25;
   const PIN_LENGTH=globalThis.QUIK1_PIN_LENGTH;
   const DUE_DATE=(()=>{
@@ -2805,7 +2790,7 @@ input,button,textarea{font-family:inherit}
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
       profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
       bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false, challengeId:'',
-      guest:false, guestGate:'', platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, signEmail:'',
+      emailLive:false, pinReset:false, pinResetAsk:false, platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, signEmail:'',
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
       aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
@@ -2940,7 +2925,7 @@ input,button,textarea{font-family:inherit}
         isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
         suStep:step, suStep2:step===2, suStep3:step===3,
         suStepName:{1:'About you',2:'Work and pay',3:'Pick a PIN'}[step],
-        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 6 numbers you will remember. You use them to open the app.'}[step],
+        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose '+PIN_LENGTH+' numbers you will remember. You use them to open the app.'}[step],
         suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
         suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
         suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these '+PIN_LENGTH+' digits to log in. Keep them to yourself.'}[step],
@@ -3036,24 +3021,25 @@ input,button,textarea{font-family:inherit}
         const a=raw?JSON.parse(raw):null;
         if(a&&typeof a.accountRef==='string'&&/^qb_[0-9a-f]{32}$/.test(a.accountRef)) ref=a.accountRef;
       }catch(e){}
-      let code='';
+      if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
       try{
-        const m=/^#invite=([0-9a-f]{64})$/.exec(String(location.hash||''));
-        if(m) code=m[1];
-      }catch(e){}
-      if(code) this.setState({inviteCode:code, pinPhase:'choose', deviceRef:ref, otp:''});
-      else if(ref) this.setState({deviceRef:ref, pinPhase:'sign'});
-      try{
-        const link=/^#verify=([0-9a-f]{64})$/.exec(String(location.hash||''));
-        if(link){
-          const token=link[1];
+        const hash=String(location.hash||'');
+        const reset=/^#reset=([0-9a-f]{64})$/.exec(hash);
+        const link=/^#verify=([0-9a-f]{64})$/.exec(hash);
+        if(reset||link){
+          const token=(reset||link)[1];
           try{ history.replaceState(null,'', location.pathname+location.search); }catch(e2){}
-          this.consumeEmailLink(token);
+          if(reset) this.consumeResetLink(token);
+          else this.consumeEmailLink(token);
         }
       }catch(e){}
+      this.apiFetch('/pin',{credentials:'same-origin',headers:{accept:'application/json'}})
+        .then(r=>r.ok?r.json():null)
+        .then(j=>{ if(j&&j.emailLive===true) this.setState({emailLive:true}); })
+        .catch(()=>{});
       this.apiFetch('/me',{credentials:'same-origin',headers:{accept:'application/json'}})
         .then(r=>r.ok?r.json():null)
-        .then(j=>{ if(this.state.guest) return; if(j&&j.identified===true&&!this.state.inviteCode){ this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); this.startBookPoll(); } })
+        .then(j=>{ if(j&&j.identified===true&&!this.state.pinReset){ this.setState(Object.assign({screen:'home',customer:true,otp:''}, this.homeFromBook(j))); this.startBookPoll(); } })
         .catch(()=>{});
     }
     borrowerApi(path){
@@ -3061,45 +3047,7 @@ input,button,textarea{font-family:inherit}
       return String(base).replace(/\/+$/,'')+path;
     }
     apiFetch(path, opts){
-      if(this.state.guest){
-        const p=String(path||'');
-        const msg=p.indexOf('/documents')===0?'Sign in to upload.'
-          :(p.indexOf('/messages')===0?'Sign in to message the team.'
-          :(p.indexOf('/withdrawals')===0||p.indexOf('/applications')===0?'Sign in to borrow.':'Sign in to use your account.'));
-        this.setState({guestGate:msg});
-        return Promise.resolve({ok:false,status:401,json:async()=>({error:'Sign in required'})});
-      }
       return fetch(this.borrowerApi(path), opts);
-    }
-    guestSample(){
-      return {
-        identified:true,
-        profile:{name:'Sample Borrower',bank:'Sample Bank',ref:'SAMPLE'},
-        account:{
-          credit_limit:8000, outstanding_principal:2400, available:5600,
-          next_due:'2026-12-15', next_debit:800,
-          loans:[{
-            ref:'SAMPLE-LOAN', principal:2400, outstanding_principal:2400, status:'open',
-            purpose:'Sample data', instalment:800, schedule:['2026-12-15','2027-01-15'], taken_at:'2026-11-01'
-          }]
-        },
-        statements:[], applications:[], messages:[]
-      };
-    }
-    enterGuest(){
-      clearInterval(this._bookPoll); clearInterval(this._appPoll);
-      this.setState(Object.assign({
-        guest:true, guestGate:'', screen:'home', splashDone:true, customer:true,
-        otp:'', pinNote:'', menuOpen:false, gridOpen:false, aiOpen:false, previewClientId:'', biometricOffer:false
-      }, this.homeFromBook(this.guestSample())));
-    }
-    leaveGuest(){
-      clearInterval(this._bookPoll); clearInterval(this._appPoll);
-      this.setState({
-        guest:false, guestGate:'', screen:'login', customer:false, bookMode:false, ledgerAccount:null,
-        activeLoan:null, pinPhase:'sign', pinNote:'', otp:'', menuOpen:false, gridOpen:false,
-        profile:{name:'',idnum:'',email:'',mobile:'',bank:'',ref:''}
-      });
     }
     b64url(buf){
       const bytes=buf instanceof Uint8Array?buf:new Uint8Array(buf);
@@ -3711,7 +3659,7 @@ input,button,textarea{font-family:inherit}
         this.finishBorrower('/pin', {currentPin:st.pinCurrent||'', pin:pin, pinConfirm:st.pinFirst});
         return;
       }
-      if(st.inviteCode){
+      if(st.pinReset){
         if(st.pinPhase!=='confirm'){
           this.setState({pinFirst:pin, pinPhase:'confirm', otp:'', pinNote:''});
           return;
@@ -3720,12 +3668,12 @@ input,button,textarea{font-family:inherit}
           this.setState({pinFirst:'', pinPhase:'choose', otp:'', pinNote:'Those did not match. Choose the PIN again.'});
           return;
         }
-        this.finishBorrower('/invites/redeem', {code:st.inviteCode, pin:pin, pinConfirm:st.pinFirst});
+        this.finishBorrower('/pin', {pin:pin, pinConfirm:st.pinFirst});
         return;
       }
       const ref=st.deviceRef||String(st.accountRefInput||'').trim();
       if(!/^qb_[0-9a-f]{32}$/.test(ref)){
-        this.setState({otp:'', pinNote:'This phone is not linked yet. Open the invite from your loan officer, or enter the account reference.'});
+        this.setState({otp:'', pinNote:'This phone is not linked yet. Enter the account reference.'});
         return;
       }
       this.finishBorrower('/login', {accountRef:ref, pin:pin});
@@ -3752,6 +3700,10 @@ input,button,textarea{font-family:inherit}
             this.requestEmailLink(j.verifyToken);
             return;
           }
+          if(r.ok&&j&&j.pinChange===true){
+            this.setState({pinBusy:false, screen:'login', pinPhase:'choose', pinReset:true, pinFirst:'', otp:'', pinNote:'Choose a new PIN, then enter it again.'});
+            return;
+          }
           if(r.ok&&j&&j.sent===true){
             this.setState({pinBusy:false, pinPhase:'email', pinNote:'Open the email link on this phone. It confirms this device and then stops working.'});
             return;
@@ -3759,8 +3711,9 @@ input,button,textarea{font-family:inherit}
           if(!r.ok){
             const msg=String((j&&j.error)||'PIN not accepted').slice(0,160);
             const phase=this.state.pinPhase;
-            let back=this.state.inviteCode?'choose':'sign';
+            let back=this.state.pinReset?'choose':'sign';
             let pinCurrent=this.state.pinCurrent||'';
+            if(phase==='choose'||phase==='confirm') back='choose';
             if(phase==='current'||phase==='change'||phase==='change2'){
               if(r.status===400 && pinCurrent) back='change';
               else { back=r.status===423?'sign':'current'; pinCurrent=''; }
@@ -3776,7 +3729,7 @@ input,button,textarea{font-family:inherit}
           try{ if(location.hash) history.replaceState(null,'', location.pathname+location.search); }catch(e){}
           const saved=this.readWebauthn();
           const offer=!!this.state.platformAuth&&!!this.state.biometricLive&&!(saved&&saved.accountRef===accountRef);
-          this.setState({inviteCode:'', pinPhase:'sign', pinFirst:'', pinCurrent:'', otp:'', challengeId:'', biometricOffer:offer, guest:false});
+          this.setState({inviteCode:'', pinReset:false, pinResetAsk:false, pinPhase:'sign', pinFirst:'', pinCurrent:'', otp:'', challengeId:'', biometricOffer:offer});
           this.openLedgerHome();
         })
         .catch(()=>this.setState({pinBusy:false, otp:'', pinNote:'Could not reach Quik1. Try again.'}));
@@ -3793,6 +3746,12 @@ input,button,textarea{font-family:inherit}
     consumeEmailLink(token){
       if(!/^[0-9a-f]{64}$/.test(token||'')) return;
       this.finishBorrower('/verify/email', {token:token});
+    }
+    consumeResetLink(token){
+      if(!/^[0-9a-f]{64}$/.test(token||'')) return;
+      this.setState({screen:'login', pinReset:true, pinPhase:'choose', splashDone:true}, ()=>{
+        this.finishBorrower('/pin/reset/consume', {token:token});
+      });
     }
     bookDueDate(){
       const iso=this.state.ledgerAccount&&this.state.ledgerAccount.account&&this.state.ledgerAccount.account.next_due;
@@ -3870,14 +3829,12 @@ input,button,textarea{font-family:inherit}
         return Number.isFinite(n)&&n>0?n:0;
       }
       if(!s.customer) return LIMIT;
-      if(s.withdrawMode&&((this.props.demoWithdrawUnlocked ?? true)||s.repayOk)) return Math.max(0,Math.floor((LIMIT-((s.activeLoan&&s.activeLoan.total)||0))/100)*100);
+      if(s.withdrawMode&&((this.props.demoWithdrawUnlocked ?? false)||s.repayOk)) return Math.max(0,Math.floor((LIMIT-((s.activeLoan&&s.activeLoan.total)||0))/100)*100);
       const base=Math.min(LIMIT,Math.max(500,s.baseAmount||500));
       if(!s.activeLoan) return base;
       if(!this.grown(s)) return 0;
       return Math.max(0,Math.floor((base-s.activeLoan.a)/100)*100);
     }
-    seedLoan(){ const a=1000, t=a*(1+this.rate()); return {a,total:t,term:1,monthly:t,draws:[{a,total:t,date:'2 August',ref:'QK-84210',term:1,rate:this.rate()}]}; }
-    seedGrowth(){ const a=1000; return {baseAmount:a, interestPaid:a*this.rate()}; }
     loan(){
       const L=this.state.activeLoan;
       if(L) return L;
@@ -4276,7 +4233,7 @@ input,button,textarea{font-family:inherit}
       const navLight=this.props.lightNavBar ?? false;
       const topUp=s.customer&&!!s.activeLoan;
       const hasLoan=!!s.activeLoan;
-      const wLocked=s.bookMode?(this.headroom(Object.assign({},s,{withdrawMode:true}))<1):(hasLoan&&!((this.props.demoWithdrawUnlocked ?? true)||!!s.repayOk));
+      const wLocked=s.bookMode?(this.headroom(Object.assign({},s,{withdrawMode:true}))<1):(hasLoan&&!((this.props.demoWithdrawUnlocked ?? false)||!!s.repayOk));
       const lockedByGrowth=s.customer&&hasLoan&&!this.grown(s);
       const blockLabel=lockedByGrowth?'Locked':'Maxed';
       const blockLong=lockedByGrowth?'Unlocks as you grow':'Limit fully drawn';
@@ -5831,7 +5788,7 @@ input,button,textarea{font-family:inherit}
           :s.pinPhase==='email'
           ?'Open the link on this phone. It works once, then this device is remembered.'
           :s.pinPhase==='emailin'
-          ?'If this email is on your account, we send one link to this phone. It expires and works once.'
+          ?(s.pinResetAsk?'If this email is on your account, we send one link to this phone so you can choose a new PIN. It expires and works once.':'If this email is on your account, we send one link to this phone. It expires and works once.')
           :s.pinPhase==='idphone'
           ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
@@ -5840,26 +5797,22 @@ input,button,textarea{font-family:inherit}
         pinNote:s.pinNote||'',
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
-        showMethods:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
-        onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinNote:'', signEmail:s.signEmail||''}),
+        showMethods:s.screen==='login'&&s.pinPhase==='sign'&&!s.pinReset,
+        showForgotPin:!!s.emailLive&&s.screen==='login'&&s.pinPhase==='sign'&&!s.pinReset,
+        onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinResetAsk:false, pinNote:'', signEmail:s.signEmail||''}),
+        onForgotPin:()=>this.setState({pinPhase:'emailin', pinResetAsk:true, pinNote:'', signEmail:s.signEmail||''}),
         onIdPhoneSignIn:()=>this.setState({pinPhase:'idphone', pinNote:'', liError:''}),
-        onSendEmailLink:()=>this.sendNeutralSignIn('/signin/email', {email:s.signEmail||''}),
+        onSendEmailLink:()=>this.sendNeutralSignIn(s.pinResetAsk?'/pin/reset':'/signin/email', {email:s.signEmail||''}),
         onSendIdPhone:()=>this.sendNeutralSignIn('/signin/id', {phone:s.liPhone||'', idNumber:s.liId||''}),
-        onSignInBack:()=>this.setState({pinPhase:'sign', pinNote:''}),
+        onSignInBack:()=>this.setState({pinPhase:'sign', pinResetAsk:false, pinNote:''}),
         showFaceId:!!s.platformAuth&&!!s.biometricLive&&s.pinPhase==='sign'&&!s.inviteCode,
         biometricCta:/iPhone|iPad/.test((typeof navigator!=='undefined'&&navigator.userAgent)||'')?'Sign in with Face ID':'Sign in with fingerprint',
         onFaceId:()=>this.unlockBiometric(),
         showBioSetup:!!s.platformAuth&&!!s.biometricEnabled&&s.biometricReady===false&&s.pinPhase==='sign'&&!s.inviteCode,
-        showBrowse:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
-        onBrowse:()=>this.enterGuest(),
-        guestOn:!!s.guest,
-        guestGate:s.guestGate||'',
-        onGuestSignIn:()=>this.leaveGuest(),
-        onGuestDismiss:()=>this.setState({guestGate:''}),
-        showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
+        showFaceOffer:!!s.biometricOffer&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
+        showAccountRef:!s.pinReset&&!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2'&&s.pinPhase!=='choose'&&s.pinPhase!=='confirm',
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',

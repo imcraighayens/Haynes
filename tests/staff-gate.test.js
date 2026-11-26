@@ -29,7 +29,8 @@ test('an unsigned visitor gets a splash and then the staff login, outside the bo
   assert.match(sync, /revealLogin/);
   assert.match(sync, /return injectRuntime\(\)/);
   assert.match(ledger, /sync\.lock\(\)/);
-  assert.match(ledger, /Give Quik1 access/);
+  assert.match(ledger, /Set login PIN/);
+  assert.doesNotMatch(ledger, /Give Quik1 access/);
   assert.match(ledger, /NuPay ref: \{\{ q1Ref \}\}/);
   assert.doesNotMatch(ledger, /\[q\.name, q\.ref\]\.filter\(Boolean\)\.join\(' · '\)/);
   const q1Label = (name, ref) => [name, ref ? 'NuPay ref: ' + ref : ''].filter(Boolean).join('\n');
@@ -37,13 +38,15 @@ test('an unsigned visitor gets a splash and then the staff login, outside the bo
   assert.equal(q1Label('Synthetic Borrower', ''), 'Synthetic Borrower');
   assert.match(q1Label('Synthetic Client', 'SYNREF00028'), /NuPay ref: SYNREF00028/);
   assert.match(ledger, /REVOKE ACCESS/);
+  assert.match(ledger, /Revoke access/);
   assert.match(ledger, /Quik1 access not set up yet/);
   assert.match(ledger, /\/quik1-invites\/revoke-access/);
+  assert.doesNotMatch(ledger, /Revoke invite/);
 });
 
 test('the NuPay page does not render the importer without a staff session', () => {
   assert.match(nupay, /<main hidden>/);
   assert.match(nupay, /\/api\/ledger\/session/);
   assert.match(nupay, /location\.replace\('\/ledger\/'\)/);
-  assert.match(nupay, /Give Quik1 access/);
+  assert.match(nupay, /set the client's login PIN/);
 });
