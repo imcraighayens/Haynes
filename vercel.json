@@ -1,7 +1,55 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "proxy": {
+    "entrypoint": "middleware.js",
+    "matcher": ["/"]
+  },
   "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.quik1ledger.com"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ecoloans-six.vercel.app"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "ledger.ecoloan.co.za"
+        }
+      ],
+      "destination": "/ledger/",
+      "permanent": false
+    },
     {
       "source": "/ledger",
       "missing": [
@@ -293,50 +341,6 @@
         }
       ],
       "destination": "/api/denied",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "quik1ledger.com"
-        }
-      ],
-      "destination": "/ledger/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.quik1ledger.com"
-        }
-      ],
-      "destination": "/ledger/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "ecoloans-six.vercel.app"
-        }
-      ],
-      "destination": "/ledger/",
-      "permanent": false
-    },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "host",
-          "value": "ledger.ecoloan.co.za"
-        }
-      ],
-      "destination": "/ledger/",
       "permanent": false
     },
     {
@@ -1236,6 +1240,15 @@
     }
   ],
   "headers": [
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

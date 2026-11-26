@@ -1,5 +1,20 @@
 <!DOCTYPE html>
 <html lang="en-ZA"><head>
+<script>
+/* vercel.json 307s a staff host's "/" to /ledger/. A published project route can
+   still rewrite "/" onto this file, so the document URL stays "/" and relative
+   scripts 404. Leave only from exactly "/" or "" on a staff host, before those
+   scripts are requested. /ledger/, /ledger, and /ledger/index.html must not match. */
+(function () {
+  var staffHosts = ["quik1ledger.com", "www.quik1ledger.com", "ecoloans-six.vercel.app", "ledger.ecoloan.co.za"];
+  var path = location.pathname;
+  var host = String(location.hostname || "").toLowerCase();
+  if ((path === "/" || path === "") && staffHosts.indexOf(host) !== -1) {
+    location.replace("/ledger/" + (location.search || "") + (location.hash || ""));
+  }
+})();
+</script>
+<base href="/ledger/">
 <script>window.__resources={"ldbStandalone": "./ledjaa-db.js", "./Q1%20Assistant%20Button.dc.html": "./Q1 Assistant Button.dc.html", "https://unpkg.com/react@18.3.1/umd/react.production.min.js": "./react.production.min.js", "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js": "./react-dom.production.min.js"};</script>
 
 <meta charset="utf-8">
