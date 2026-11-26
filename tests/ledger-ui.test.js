@@ -92,4 +92,8 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /held:\['Held'/);
   assert.match(html, /'release-held':\['Held'/);
   assert.match(html, /:focus-visible/);
+  assert.match(html, /class="bento"/);
+  assert.match(html, /showLegacyDash: false/);
+  assert.match(html, /MARKET NEWS/);
+  assert.equal(html.includes('.book-scroll{overflow:visible}'), false);
 });

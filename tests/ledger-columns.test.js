@@ -56,7 +56,7 @@ test('a long reference stays in its column at desktop and phone widths', { skip:
         await pageWaitFor(page, () => {
           const cell = document.querySelector('[data-col="ref"][title="' + 'SYNREF00028W9SXXXXLONG' + '"]');
           if (!cell) return false;
-          return window.innerWidth < 700 || /Ref number/.test(document.body.innerText);
+          return window.innerWidth < 700 || /ref number/i.test(document.body.innerText);
         }, null, { timeoutMs: 8000 });
         const geom = await page.evaluate((ref) => {
           const cell = document.querySelector('[data-col="ref"][title="' + ref + '"]');
