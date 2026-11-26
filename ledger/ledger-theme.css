@@ -128,6 +128,15 @@ html[data-theme] body,
   min-height: 44px !important;
   margin: 8px 12px 0 !important;
 }
+/* #66 badge stays #22E07A / #FFB020 on the dark Q1 header.
+   The browser-data caption sits on the panel. In light theme that amber
+   is too faint, so it darkens, and the header copy is put back. */
+html[data-theme="light"] [style*="color:#FFB020"],
+html[data-theme="light"] [style*="color: rgb(255, 176, 32)"] { color: #8a4b08 !important; }
+html[data-theme="light"] [style*="background:#0B0620"] [style*="color:#FFB020"],
+html[data-theme="light"] [style*="background: rgb(11, 6, 32)"] [style*="color:#FFB020"],
+html[data-theme="light"] [style*="background:#0B0620"] [style*="color: rgb(255, 176, 32)"],
+html[data-theme="light"] [style*="background: rgb(11, 6, 32)"] [style*="color: rgb(255, 176, 32)"] { color: #FFB020 !important; }
 html[data-theme="light"] .ledger-side .icon-btn,
 html[data-theme="light"] .ledger-side [aria-label="Sign out"],
 html[data-theme="light"] .ledger-side [style*="color:#e7e2d6"] {
