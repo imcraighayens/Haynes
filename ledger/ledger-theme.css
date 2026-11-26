@@ -69,13 +69,22 @@ html[data-ledger-theme="dark"] {
 html[data-ledger-theme="light"] body { background: #09090b !important; }
 html[data-ledger-theme="dark"] body { background: #000000 !important; }
 
-/* Sign-in. The splash keeps the existing dark gate. */
+/* Sign-in. The splash keeps the existing dark gate.
+   The gate scrolls at every width. Auto margins centre the card when it
+   fits, and drop to zero when it is taller than the screen, so a short
+   wide viewport (a phone in landscape) can still reach Sign in. */
 #ledger-gate[data-gate="login"] {
   background: #e4e4e7;
   color: #18181b;
+  overflow: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 #ledger-gate[data-gate="login"] #ledger-login {
   width: min(64rem, 100%);
+  flex: none;
+  margin: auto;
 }
 #ledger-login .lg-panel {
   width: 100%;
@@ -237,11 +246,13 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   color: #3f3f46;
 }
 
+@media (max-height: 720px) {
+  .lg-split { min-height: 0; }
+  .lg-form { padding-top: 28px; padding-bottom: 28px; }
+}
 @media (max-width: 800px) {
   #ledger-gate[data-gate="login"] {
-    align-items: flex-start;
-    overflow: auto;
-    padding: 16px 12px;
+    padding: 16px 12px max(16px, env(safe-area-inset-bottom));
   }
   #ledger-login .lg-panel { border-radius: 16px; }
   .lg-split { flex-direction: column; min-height: 0; }
