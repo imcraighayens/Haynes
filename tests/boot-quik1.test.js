@@ -10,8 +10,8 @@ import path from 'node:path';
 import { LEDGER_KEY, BOOT_TIMEOUT_MS, loadPlaywright, launchBrowser, withMockApi, pageWaitFor, isKnownPageError } from './_boot-helpers.js';
 import { QUIK1_PIN_LENGTH } from '../shared/pin-length.js';
 
-const PIN_COPY = new RegExp('Enter the ' + QUIK1_PIN_LENGTH + '-digit PIN you chose');
-const SAMPLE_PIN = '24680';
+const INTRO_COPY = /Are you short before payday/;
+const SAMPLE_PIN = '2468';
 
 const pw = loadPlaywright();
 
@@ -20,7 +20,7 @@ test('Quik1 boots, submits an application LEDGER can see, and receives the decis
     const { browser, page, pageErrors } = await launchBrowser(pw.chromium, { width: 440, height: 940 });
     try {
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), INTRO_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
       const boot = await page.evaluate(() => ({
         bundlerErr: !!document.getElementById('__bundler_err'),
         link: window.Quik1Link && ['getState', 'subscribe', 'submitApplication', 'submitRequest', 'submitSignup', 'decide', 'decideSignup', 'confirmRepayment', 'repaymentFor', 'decisionFor', 'reset'].every(k => typeof window.Quik1Link[k] === 'function')
@@ -138,7 +138,26 @@ test('a new device with email off renders the unlinked copy', { skip: pw ? false
         body: JSON.stringify({ error: copy, code: 'device_not_linked', deviceNotLinked: true })
       }));
       await page.goto(api.origin + '/quik1/', { waitUntil: 'load' });
-      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
+      await pageWaitFor(page, (copy) => copy.test(document.body.innerText), INTRO_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
+      await page.evaluate(() => {
+        const root = document.getElementById('dc-root');
+        const key = Object.keys(root).find((k) => k.startsWith('__reactContainer'));
+        const stack = [root[key]];
+        const seen = new Set();
+        while (stack.length) {
+          const node = stack.pop();
+          if (!node || seen.has(node)) continue;
+          seen.add(node);
+          const sn = node.stateNode;
+          if (sn && sn.logic && sn.logic.state && 'screen' in sn.logic.state) {
+            sn.logic.setState({ screen: 'login', loginMode: 'pin', otpMode: true, loginIntro: false, splashDone: true, pinPhase: 'sign', smsChallenge: false });
+            return;
+          }
+          if (node.child) stack.push(node.child);
+          if (node.sibling) stack.push(node.sibling);
+        }
+      });
+      await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
       for (const digit of SAMPLE_PIN) {
         await page.evaluate(label => {
           const button = [...document.querySelectorAll('button')].find(el => (el.textContent || '').trim() === label);
@@ -165,7 +184,7 @@ test('Quik1 compiles when the host serves the HTML at /', { skip: pw ? false : '
   page.on('request', r => requested.push(r.url()));
   try {
     await page.goto(host.origin + '/', { waitUntil: 'load' });
-    await pageWaitFor(page, (copy) => /Enter your PIN/.test(document.body.innerText) && copy.test(document.body.innerText), PIN_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
+    await pageWaitFor(page, (copy) => /We've got you/.test(document.body.innerText) && copy.test(document.body.innerText), INTRO_COPY, { timeoutMs: BOOT_TIMEOUT_MS });
     const text = await page.evaluate(() => document.body.innerText);
     assert.equal(/\{\{/.test(text), false, 'no raw template markers');
     assert.equal(/Thandi Mokoena/.test(text), false, 'sample profile is not the signed-out screen');

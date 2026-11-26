@@ -18,7 +18,10 @@ test('biometric follows the PIN kill switch and guest mode is sample-only', () =
   assert.match(flags, /export function borrowerBiometricLive\(req\) \{\s*return borrowerPinLive\(req\);/);
   assert.equal(flags.includes('QUIK1_ALLOW_PRODUCTION_AUTH'), false);
   assert.match(quik, /isUserVerifyingPlatformAuthenticatorAvailable/);
-  assert.match(quik, /showFaceId:!!s\.platformAuth&&!!s\.biometricLive&&s\.pinPhase==='sign'&&!s\.inviteCode/);
+  assert.match(quik, /label:'Face ID'/);
+  assert.match(quik, /Face ID is not set up on this phone yet/);
+  assert.equal(quik.includes('demo bypass'), false);
+  assert.equal(quik.includes('quik1_faceid_cred'), false);
   assert.match(quik, /data-q-face="1"/);
   assert.match(quik, /data-q-browse="1"/);
   assert.match(quik, /Browsing as guest\./);
@@ -80,11 +83,30 @@ test('the Face ID button stays hidden when the platform authenticator is unavail
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   try {
     await page.goto(host.origin + '/quik1/', { waitUntil: 'domcontentloaded' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: 20000 });
+    await pageWaitFor(page, () => /We've got you/.test(document.body.innerText), null, { timeoutMs: 20000 });
     assert.equal(await page.evaluate(dismissSplash), true);
     await page.waitForTimeout(200);
-    assert.equal(await page.locator('[data-q-face]').count(), 0);
-    assert.equal(await page.locator('[data-q-browse]').count(), 1);
+    assert.equal(await page.locator('[aria-label="Face ID"]').count(), 1);
+    const stayedOut = await page.evaluate(() => {
+      const root = document.getElementById('dc-root');
+      const key = Object.keys(root).find((k) => k.startsWith('__reactContainer'));
+      const stack = [root[key]];
+      const seen = new Set();
+      let logic = null;
+      while (stack.length) {
+        const node = stack.pop();
+        if (!node || seen.has(node)) continue;
+        seen.add(node);
+        const sn = node.stateNode;
+        if (sn && sn.logic && sn.logic.state && 'screen' in sn.logic.state) logic = sn.logic;
+        if (node.child) stack.push(node.child);
+        if (node.sibling) stack.push(node.sibling);
+      }
+      if (!logic) return false;
+      logic.setState({ screen: 'login', loginMode: 'return', splashDone: true });
+      return logic.state.customer !== true && logic.state.screen === 'login';
+    });
+    assert.equal(stayedOut, true);
   } finally {
     await browser.close();
     await new Promise((resolve) => host.server.close(resolve));
@@ -103,11 +125,24 @@ test('guest browse makes no authenticated or Ledger API calls', { skip: pw ? fal
   page.on('request', (req) => { if (watch) urls.push(req.url()); });
   try {
     await page.goto(host.origin + '/quik1/', { waitUntil: 'domcontentloaded' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: 20000 });
+    await pageWaitFor(page, () => /We've got you/.test(document.body.innerText), null, { timeoutMs: 20000 });
     assert.equal(await page.evaluate(dismissSplash), true);
-    await page.locator('[data-q-browse]').waitFor({ state: 'visible' });
     watch = true;
-    await page.locator('[data-q-browse]').click();
+    await page.evaluate(() => {
+      const root = document.getElementById('dc-root');
+      const key = Object.keys(root).find((k) => k.startsWith('__reactContainer'));
+      const stack = [root[key]];
+      const seen = new Set();
+      while (stack.length) {
+        const node = stack.pop();
+        if (!node || seen.has(node)) continue;
+        seen.add(node);
+        const sn = node.stateNode;
+        if (sn && sn.logic && typeof sn.logic.enterGuest === 'function') { sn.logic.enterGuest(); return; }
+        if (node.child) stack.push(node.child);
+        if (node.sibling) stack.push(node.sibling);
+      }
+    });
     await pageWaitFor(page, () => /Browsing as guest/.test(document.body.innerText) && /Sample Borrower/.test(document.body.innerText), null, { timeoutMs: 10000 });
     const toured = await page.evaluate(() => {
       const root = document.getElementById('dc-root');

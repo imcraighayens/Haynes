@@ -37,13 +37,17 @@ export function isWrongLengthPin(v) {
   return allDigits(v) && !isPin(v);
 }
 
+// A 5- or 6-digit PIN already on file. Sign-in does not accept it. The holder
+// gets the staff-reset message and chooses a new PIN of QUIK1_PIN_LENGTH.
+export function isLegacyPin(v) {
+  return digitPin(v, QUIK1_PIN_LENGTH + 1) || digitPin(v, QUIK1_PIN_LENGTH + 2);
+}
+
 // Lengths that may already be stored. Sign-in and a new PIN do not accept these
-// unless they are exactly QUIK1_PIN_LENGTH. verifyPin uses this so a shorter or
-// longer stored secret compares instead of throwing.
+// unless they are exactly QUIK1_PIN_LENGTH. verifyPin uses this so a stored
+// secret of the previous length compares instead of throwing.
 export function isVerifiablePin(v) {
-  return digitPin(v, QUIK1_PIN_LENGTH)
-    || digitPin(v, QUIK1_PIN_LENGTH - 1)
-    || digitPin(v, QUIK1_PIN_LENGTH + 1);
+  return isPin(v) || isLegacyPin(v);
 }
 
 export function isWeakPin(pin) {
@@ -72,11 +76,16 @@ export function enterPinMessage() {
   return 'Enter a ' + QUIK1_PIN_LENGTH + '-digit PIN';
 }
 
+// A 5- or 6-digit PIN from before the switch. Same sentence for every account,
+// thrown before a lookup, so it does not say who still has the old length.
+export function legacyPinMessage() {
+  return 'Your PIN has changed to 4 numbers. Please contact us to reset it.';
+}
+
 // Same sentence for an unknown account and a wrong PIN. The previous length is
 // derived so a legacy holder is not told apart from anyone else.
 export function pinNotAcceptedMessage() {
-  return 'PIN not accepted. Forgot your PIN or still using an old '
-    + (QUIK1_PIN_LENGTH + 1) + '-digit PIN? Contact us for a staff reset.';
+  return 'PIN not accepted. Forgot your PIN or still using an old PIN? Contact us for a staff reset.';
 }
 
 function paramsOk(cost, block, parallel) {

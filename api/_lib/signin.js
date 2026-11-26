@@ -1,8 +1,8 @@
-// Email sign-in, and ID plus cellphone that always continues by email.
+// Email sign-in, and ID plus cellphone that continues by a one-time SMS code.
 // The HTTP body is the same whether or not an account matches. ID and phone
-// are compared as keyed HMACs. A session is created only after the email link
-// is opened on the same phone. ID and phone alone never sign anyone in.
-import { createHash, randomBytes } from 'node:crypto';
+// are compared as keyed HMACs. ID and phone alone never sign anyone in.
+// A session is created only after the SMS code is entered on the same phone.
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { cleanEmail } from './validate.js';
@@ -10,15 +10,19 @@ import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
 import { clientIp } from './ratelimit.js';
 import { borrowerEmailLive, emailSender } from './email.js';
-import { sessionSecret, pendingDeviceCookie, requestIsSecure } from './quik1-session.js';
-import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, signInWithPin } from './borrower.js';
+import { sessionSecret, pendingDeviceCookie, readPendingDevice, requestIsSecure, clearPendingCookie } from './quik1-session.js';
+import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, deviceMatches, startBorrowerSession, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
-import { isPin, enterPinMessage } from './pin.js';
+import { isPin, isLegacyPin, enterPinMessage, legacyPinMessage } from './pin.js';
+import { smsTransport, smsTtlMs, newSmsCode, SMS_CODE_LENGTH, SMS_UNAVAILABLE } from './sms.js';
 
 const LOCKED_PLACEHOLDER = 'locked';
 const SIGNIN_CLOSED = 'Sign in with your email for now';
 const EMAIL_OFF = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
 export const SIGNIN_PAD_MS = 800;
+export const SMS_NEUTRAL = 'If we have this account, we sent a code by SMS. It works once.';
+export const SMS_REFUSED = 'Those details were not accepted.';
+export { SMS_UNAVAILABLE };
 
 export function neutralSignIn() {
   return {
@@ -234,24 +238,86 @@ export async function requestEmailSignIn(req, body, res) {
   return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
 }
 
-// A submitted PIN uses the same order as loginBorrower: lock (423), the real PIN, device_not_linked.
-// The email-link path below is unchanged and does not check a PIN.
-async function signInByIdPhone(req, body, res) {
-  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
-  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
-  if (!hmacKey()) throw signInClosed();
-  await guardAuth(req, res);
-  await assertIdPhoneIp(req, res);
-  await assertClientHmacColumns();
-  const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
-  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
-  const digits = normaliseSaId(rawId);
-  const cell = normaliseCell(rawPhone);
-  const borrower = await borrowerForPin(digits ? idHmac(digits) : null, cell ? phoneHmac(rawPhone) : null);
-  return signInWithPin(req, borrower, body.pin);
+function hashSmsCode(code) {
+  return createHmac('sha256', sessionSecret() || 'unset').update('q1-sms-code|' + String(code), 'utf8').digest('hex');
 }
 
-async function borrowerForPin(idMac, phoneMac) {
+function smsVerifySubject(req) {
+  const pending = readPendingDevice(req);
+  const who = pending || ('ip|' + authIpHash(clientIp(req) || 'unknown'));
+  return subjectHash('id_phone', 'sms-verify|' + who);
+}
+
+function neutralSmsBody() {
+  return { sent: true, message: SMS_NEUTRAL };
+}
+
+function smsMinutes() {
+  return Math.max(5, Math.round(smsTtlMs() / 60000));
+}
+
+function smsText(code) {
+  return 'Your Quik1 code is ' + code + '. It expires in ' + smsMinutes() + ' minutes and works once.';
+}
+
+async function issueSms(req, borrower, destination, pending) {
+  const transport = smsTransport(req);
+  if (!transport.enabled || !destination) return false;
+  const nowIso = new Date().toISOString();
+  await patchWhere('q1_otp_challenges', {
+    borrower_id: eq(borrower.id),
+    consumed_at: 'is.null'
+  }, { consumed_at: nowIso });
+  const code = newSmsCode();
+  const id = 'qo_' + randomBytes(8).toString('hex');
+  await insert('q1_otp_challenges', [{
+    id,
+    borrower_id: borrower.id,
+    channel: 'email',
+    purpose: 'signin',
+    token_hash: hashSmsCode(code),
+    device_hash: hashToken(pending),
+    expires_at: new Date(Date.now() + smsTtlMs()).toISOString(),
+    consumed_at: null
+  }]);
+  const text = smsText(code);
+  Promise.resolve()
+    .then(() => transport.send(destination, text))
+    .then(sent => {
+      if (!sent || !sent.sent) return update('q1_otp_challenges', { id }, { consumed_at: new Date().toISOString() });
+    })
+    .catch(() => update('q1_otp_challenges', { id }, { consumed_at: new Date().toISOString() }).catch(() => {}));
+  return true;
+}
+
+function missingRelation(err) {
+  const code = err && err.code ? String(err.code) : '';
+  const msg = String((err && err.message) || '');
+  return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
+}
+
+function usableBorrower(borrower, clientId) {
+  if (!borrower || borrower.client_id !== clientId) return null;
+  if (typeof borrower.pin_hash !== 'string' || !borrower.pin_hash.startsWith('scrypt$')) return null;
+  if (isLocked(borrower)) return null;
+  return borrower;
+}
+
+async function borrowerOnClient(clientId) {
+  try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+      client_id: eq(clientId)
+    });
+    return usableBorrower(borrower, clientId);
+  } catch (err) {
+    if (missingColumn(err)) throw signInClosed();
+    if (missingRelation(err)) return null;
+    throw err;
+  }
+}
+
+async function borrowerForSms(idMac, phoneMac) {
   if (!idMac || !phoneMac) return null;
   let rows;
   try {
@@ -268,29 +334,121 @@ async function borrowerForPin(idMac, phoneMac) {
     throw err;
   }
   if (!rows || rows.length !== 1 || rows[0].deleted_at) return null;
+  return borrowerOnClient(rows[0].id);
+}
+
+async function borrowerByPhone(phoneMac) {
+  if (!phoneMac) return null;
+  let rows;
   try {
-    const borrower = await selectOne('q1_borrowers', {
-      select: 'id,client_id,pin_hash,failed_attempts,locked_at,device_reset_until',
-      client_id: eq(rows[0].id)
+    rows = await select('clients', {
+      select: 'id,deleted_at',
+      phone_hmac: eq(phoneMac),
+      deleted_at: 'is.null',
+      limit: 2
     });
-    if (!borrower || borrower.client_id !== rows[0].id) return null;
-    return borrower;
   } catch (err) {
     if (missingColumn(err)) throw signInClosed();
     if (missingRelation(err)) return null;
     throw err;
   }
+  if (!rows || rows.length !== 1 || rows[0].deleted_at) return null;
+  return borrowerOnClient(rows[0].id);
 }
 
-function missingRelation(err) {
-  const code = err && err.code ? String(err.code) : '';
-  const msg = String((err && err.message) || '');
-  return code === '42P01' || code === 'PGRST205' || /42P01|PGRST205/.test(msg);
+function assertSmsTransport(req) {
+  if (!smsTransport(req).enabled) throw new HttpError(503, SMS_UNAVAILABLE);
 }
 
-// ID number plus PIN. The ID is matched as the HMAC already stored on the
-// Ledger client. A known ID, an unknown ID, a bad-format ID and a locked
-// account are the same refusal. Failures do not lock the account.
+async function beginSms(req, res, subject, borrower, destination) {
+  assertSmsTransport(req);
+  await assertSubjectBudget('id_phone', subject, res);
+  await logAuthAttempt(borrower ? borrower.id : null, 'id_phone', req, subject);
+  const pending = randomBytes(32).toString('hex');
+  const to = destination && String(destination).startsWith('27') ? '+' + destination : destination;
+  if (borrower && to) await issueSms(req, borrower, to, pending);
+  return { body: neutralSmsBody(), cookies: pendingCookies(req, pending) };
+}
+
+// q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
+// SMS rows use id_phone. The code and the phone number are not stored on the row.
+export async function verifySmsSignIn(req, body, res) {
+  assertSmsTransport(req);
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
+  await guardAuth(req, res);
+  await assertIdPhoneIp(req, res);
+  const code = body && typeof body.code === 'string' ? body.code.trim() : '';
+  const subject = smsVerifySubject(req);
+  await assertSubjectBudget('id_phone', subject, res);
+  const shape = new RegExp('^\\d{' + SMS_CODE_LENGTH + '}$').test(code);
+  let challenge = null;
+  if (shape) {
+    let rows = [];
+    try {
+      rows = await select('q1_otp_challenges', {
+        select: 'id,borrower_id,token_hash,device_hash,expires_at,consumed_at,channel',
+        token_hash: eq(hashSmsCode(code)),
+        consumed_at: 'is.null',
+        limit: 5
+      }) || [];
+    } catch (err) {
+      if (!missingRelation(err)) throw err;
+      rows = [];
+    }
+    challenge = rows.find(row => row && row.channel === 'email' && !row.consumed_at && deviceMatches(req, row) && new Date(row.expires_at).getTime() > Date.now()) || null;
+  }
+  await logAuthAttempt(challenge ? challenge.borrower_id : null, 'id_phone', req, subject);
+  if (!challenge) throw new HttpError(401, SMS_REFUSED);
+  const borrower = await selectOne('q1_borrowers', {
+    select: 'id,client_id,pin_hash,failed_attempts,locked_at',
+    id: eq(challenge.borrower_id)
+  });
+  if (!usableBorrower(borrower, borrower && borrower.client_id)) throw new HttpError(401, SMS_REFUSED);
+  const consumed = await patchWhere('q1_otp_challenges', {
+    id: eq(challenge.id),
+    consumed_at: 'is.null'
+  }, { consumed_at: new Date().toISOString() });
+  if (!consumed.length) throw new HttpError(401, SMS_REFUSED);
+  const session = await startBorrowerSession(borrower, req);
+  return {
+    accountRef: session.accountRef,
+    cookies: [...session.cookies, clearPendingCookie(requestIsSecure(req))]
+  };
+}
+
+const ID_PIN_BUDGET = 5;
+const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
+
+function idPinSubject(mac, rawId) {
+  if (mac) return mac;
+  const normalised = String(rawId == null ? '' : rawId).trim().toLowerCase().replace(/[\s-]/g, '');
+  return subjectHash('id_phone', 'bad|' + normalised);
+}
+
+function budgetIpHash(req) {
+  const ip = clientIp(req) || 'unknown';
+  return createHash('sha256').update(`q1-id-pin-budget|${sessionSecret() || 'unset'}|${ip}`).digest('hex');
+}
+
+async function assertIdPinBudget(subject, res) {
+  const since = new Date(Date.now() - ID_PIN_WINDOW_MS).toISOString();
+  let n = 0;
+  try {
+    n = await count('q1_auth_attempts', {
+      subject_hash: eq(subject),
+      kind: eq('id_phone'),
+      created_at: 'gte.' + since
+    });
+  } catch {
+    throw new HttpError(503, 'Server not configured');
+  }
+  if (n >= ID_PIN_BUDGET) {
+    if (res) res.setHeader('Retry-After', '900');
+    throw new HttpError(429, 'Too many attempts');
+  }
+}
+
 async function borrowerForId(idMac) {
   if (!idMac) return null;
   let rows;
@@ -321,50 +479,15 @@ async function borrowerForId(idMac) {
   }
 }
 
-const ID_PIN_BUDGET = 5;
-const ID_PIN_WINDOW_MS = 15 * 60 * 1000;
-
-// q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
-// The per-ID rows use id_phone so that insert succeeds. A real ID uses its
-// id_hmac. A bad-format ID uses a keyed hash of the normalised input, so
-// each distinct value has its own budget. The raw input is not stored.
-function idPinSubject(mac, rawId) {
-  if (mac) return mac;
-  const normalised = String(rawId == null ? '' : rawId).trim().toLowerCase().replace(/[\s-]/g, '');
-  return subjectHash('id_phone', 'bad|' + normalised);
-}
-
-// Same address as the other attempt rows, under a prefix the ID-and-phone
-// counters do not query. Those counters keep counting only their own rows.
-function budgetIpHash(req) {
-  const ip = clientIp(req) || 'unknown';
-  return createHash('sha256').update(`q1-id-pin-budget|${sessionSecret() || 'unset'}|${ip}`).digest('hex');
-}
-
-async function assertIdPinBudget(subject, res) {
-  const since = new Date(Date.now() - ID_PIN_WINDOW_MS).toISOString();
-  let n = 0;
-  try {
-    n = await count('q1_auth_attempts', {
-      subject_hash: eq(subject),
-      kind: eq('id_phone'),
-      created_at: 'gte.' + since
-    });
-  } catch {
-    throw new HttpError(503, 'Server not configured');
-  }
-  if (n >= ID_PIN_BUDGET) {
-    if (res) res.setHeader('Retry-After', '900');
-    throw new HttpError(429, 'Too many attempts');
-  }
-}
-
+// SA ID plus the live PIN. A phone number on the same body is the SMS path and
+// must not reach here. A 5- or 6-digit PIN is the staff-reset refusal.
 async function signInByIdPin(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
   if (!hmacKey()) throw signInClosed();
   const pin = body && typeof body.pin === 'string' ? body.pin : '';
   await guardAuth(req, res);
+  if (isLegacyPin(pin)) throw new HttpError(401, legacyPinMessage());
   if (!isPin(pin)) throw new HttpError(400, enterPinMessage());
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
@@ -373,7 +496,6 @@ async function signInByIdPin(req, body, res) {
   const subject = idPinSubject(mac, rawId);
   const borrower = mac ? await borrowerForId(mac) : null;
   await assertIdPinBudget(subject, res);
-  // ip_hash is namespaced ('q1-id-pin-budget|…') on purpose so these rows don't count toward the id_phone email-link IP cap, and it must not be changed back.
   const ipHash = budgetIpHash(req);
   try {
     const out = await signInWithPin(req, borrower, pin, { accountLock: false });
@@ -388,25 +510,39 @@ async function signInByIdPin(req, body, res) {
 }
 
 export async function requestIdPhoneSignIn(req, body, res) {
-  if (body && typeof body.pin === 'string' && body.pin) {
-    const rawPhone = body.phone || body.cellphone ? String(body.phone || body.cellphone).trim() : '';
-    if (rawPhone) return signInByIdPhone(req, body, res);
-    return signInByIdPin(req, body, res);
-  }
-  ready(req);
+  const pin = body && typeof body.pin === 'string' ? body.pin : '';
+  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone).trim() : '';
+  if (pin && !rawPhone) return signInByIdPin(req, body, res);
+  assertSmsTransport(req);
+  if (body && typeof body.code === 'string' && body.code.trim()) return verifySmsSignIn(req, body, res);
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
   await assertIdPhoneIp(req, res);
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
-  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
   const digits = normaliseSaId(rawId);
   const cell = normaliseCell(rawPhone);
   const subject = subjectHash('id_phone', (digits || 'x') + '|' + (cell || 'x'));
-  await assertSubjectBudget('id_phone', subject, res);
-  const found = await findByIdPhone(digits ? idHmac(digits) : null, cell ? phoneHmac(rawPhone) : null);
-  await logAuthAttempt(found ? found.borrower.id : null, 'id_phone', req, subject);
-  const pending = randomBytes(32).toString('hex');
-  if (found) await issueLink(req, found.borrower, found.email, pending);
-  return { body: neutralSignIn(), cookies: pendingCookies(req, pending) };
+  const borrower = await borrowerForSms(digits ? idHmac(digits) : null, cell ? phoneHmac(rawPhone) : null);
+  return beginSms(req, res, subject, borrower, cell);
+}
+
+export async function requestPhoneSms(req, body, res) {
+  assertSmsTransport(req);
+  if (body && typeof body.code === 'string' && body.code.trim() && !(body.phone || body.cellphone)) {
+    return verifySmsSignIn(req, body, res);
+  }
+  if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
+  if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
+  if (!hmacKey()) throw signInClosed();
+  await guardAuth(req, res);
+  await assertIdPhoneIp(req, res);
+  await assertClientHmacColumns();
+  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
+  const cell = normaliseCell(rawPhone);
+  const subject = subjectHash('id_phone', 'phone|' + (cell || 'x'));
+  const borrower = await borrowerByPhone(cell ? phoneHmac(rawPhone) : null);
+  return beginSms(req, res, subject, borrower, cell);
 }

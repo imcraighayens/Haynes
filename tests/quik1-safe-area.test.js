@@ -83,13 +83,27 @@ test('register and home headers sit at or below a 59px top inset at 390x844', { 
   const page = await browser.newPage({ viewport: VIEW, deviceScaleFactor: 2 });
   try {
     await page.goto(host.origin + '/quik1/', { waitUntil: 'domcontentloaded' });
-    await pageWaitFor(page, () => /Enter your PIN/.test(document.body.innerText), null, { timeoutMs: 20000 });
+    await pageWaitFor(page, () => /We've got you/.test(document.body.innerText), null, { timeoutMs: 20000 });
     // Applied after mount: the design runtime replaces the document, which drops an init-script style.
     await page.evaluate((px) => { document.documentElement.style.setProperty('--q-safe-top', px + 'px'); }, INSET);
 
     await page.evaluate(() => {
-      const hit = [...document.querySelectorAll('button')].find((b) => /Register/.test(b.innerText) && b.getClientRects().length);
-      if (hit) hit.click();
+      const root = document.getElementById('dc-root');
+      const key = Object.keys(root).find((k) => k.startsWith('__reactContainer'));
+      const stack = [root[key]];
+      const seen = new Set();
+      while (stack.length) {
+        const node = stack.pop();
+        if (!node || seen.has(node)) continue;
+        seen.add(node);
+        const sn = node.stateNode;
+        if (sn && sn.logic && sn.logic.state && 'screen' in sn.logic.state) {
+          sn.logic.setState({ screen: 'signup', splashDone: true, su: { step: 1, employment: 'Permanent', payday: '25th' } });
+          return;
+        }
+        if (node.child) stack.push(node.child);
+        if (node.sibling) stack.push(node.sibling);
+      }
     });
     await pageWaitFor(page, () => /Tell us about you/.test(document.body.innerText), null, { timeoutMs: 10000 });
 

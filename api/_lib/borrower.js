@@ -7,7 +7,8 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isPin, isWrongLengthPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { hashPin, verifyPin, isPin, isWrongLengthPin, isLegacyPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, legacyPinMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
 import { borrowerBook, requireBorrower } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
 import { borrowerPinLive } from './quik1-flags.js';
@@ -447,8 +448,19 @@ function rejectPin() {
   throw new HttpError(401, pinNotAcceptedMessage());
 }
 
+function rejectLegacyPin() {
+  throw new HttpError(401, legacyPinMessage());
+}
+
 function rejectPinShape() {
   throw new HttpError(400, enterPinMessage());
+}
+
+// A previous length is not a second accepted PIN. It gets the same staff-reset
+// sentence as a wrong PIN, and it does not count toward lockout.
+function rejectLegacyOrShape(pin) {
+  if (isLegacyPin(pin)) rejectLegacyPin();
+  if (isWrongLengthPin(pin)) rejectPinShape();
 }
 
 const DEVICE_NOT_LINKED = "This phone isn't linked yet. Please contact EcoLoans and we'll reset your access.";
@@ -616,6 +628,39 @@ export function authCookies(minted, accountRef, req, deviceToken) {
   return out;
 }
 
+const INVITE_MISS = 'We could not match these details to an invite.';
+
+async function clientByIdentity(rawId, rawPhone) {
+  const digits = normaliseSaId(rawId);
+  const cell = normaliseCell(rawPhone);
+  if (!digits || !cell || !hmacKey()) return null;
+  let rows;
+  try {
+    rows = await select('clients', {
+      select: 'id,deleted_at',
+      id_hmac: eq(idHmac(digits)),
+      phone_hmac: eq(phoneHmac(rawPhone)),
+      deleted_at: 'is.null',
+      limit: 2
+    });
+  } catch (err) {
+    if (missingTable(err)) return null;
+    throw err;
+  }
+  if (!rows || rows.length !== 1 || rows[0].deleted_at) return null;
+  return rows[0];
+}
+
+async function openInviteForClient(clientId) {
+  const rows = await select('q1_invites', {
+    select: 'id,client_id,expires_at,revoked_at,redeemed_at',
+    client_id: eq(clientId),
+    order: 'created_at.desc',
+    limit: 10
+  });
+  return (rows || []).find(row => inviteState(row) === 'open') || null;
+}
+
 export async function redeemInvite(req, body, res) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   requireSessionSecret();
@@ -625,7 +670,13 @@ export async function redeemInvite(req, body, res) {
   const pinConfirm = typeof body.pinConfirm === 'string' ? body.pinConfirm : '';
   if (!isChosenPin(pin) || !isChosenPin(pinConfirm)) throw new HttpError(400, chosenPinMessage());
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
-  if (!INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
+  const rawIdEarly = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
+  const rawPhoneEarly = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
+  // ID and cellphone are not a second factor. The invite code (the staff-issued
+  // token) is required. Identity alone must not claim, set a PIN, or end a session.
+  if (!INVITE_CODE.test(code)) {
+    throw new HttpError(rawIdEarly || rawPhoneEarly ? 400 : 410, rawIdEarly || rawPhoneEarly ? INVITE_MISS : 'This invite is no longer valid');
+  }
 
   try {
     await assertAttemptBudget(req, res);
@@ -635,12 +686,29 @@ export async function redeemInvite(req, body, res) {
   }
 
   try {
+  const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
+  const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
+  const withIdentity = !!(rawId || rawPhone);
   const row = await selectOne('q1_invites', {
     select: 'id,client_id,expires_at,revoked_at,redeemed_at',
     code_hash: eq(hashInviteCode(code))
   });
-  if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
+  if (!row || inviteState(row) !== 'open') {
+    throw new HttpError(withIdentity ? 400 : 410, withIdentity ? INVITE_MISS : 'This invite is no longer valid');
+  }
+  if (withIdentity) {
+    if (!hmacKey()) throw new HttpError(503, 'Sign-in is not available');
+    const client = await clientByIdentity(rawId, rawPhone);
+    if (!client || client.id !== row.client_id) throw new HttpError(400, INVITE_MISS);
+  }
   await liveClient(row.client_id);
+  const already = await selectOne('q1_borrowers', {
+    select: 'id,client_id,pin_hash',
+    client_id: eq(row.client_id)
+  });
+  if (already && typeof already.pin_hash === 'string' && already.pin_hash.startsWith('scrypt$')) {
+    throw new HttpError(400, 'This account already has a PIN. Contact us to reset it.');
+  }
 
   const pinHash = await hashPin(pin);
   const nowIso = new Date().toISOString();
@@ -1092,6 +1160,7 @@ export async function changeBorrowerPin(req, body, res) {
   // toward lockout. A current PIN of the live length that does not match the hash
   // is the normal wrong-PIN 401, including when the hash was made from an older PIN.
   // Those holders get a new PIN from staff.
+  rejectLegacyOrShape(current);
   if (!isPin(current)) rejectPinShape();
   const checks = await comparePins(current, row.pin_hash);
   if (!checks.realOk) await noteFailure(row, 'pin', req);
@@ -1120,7 +1189,7 @@ export function pinChangePending() {
 // failed_attempts or set locked_at, and an existing lock is the same 401.
 export async function signInWithPin(req, borrower, pin, opts) {
   const accountLock = !opts || opts.accountLock !== false;
-  if (isWrongLengthPin(pin)) rejectPinShape();
+  rejectLegacyOrShape(pin);
   if (!borrower) {
     await comparePins(pin, null);
     if (accountLock) await noteAttempt(null, 'pin', req);
@@ -1194,7 +1263,7 @@ export async function loginBorrower(req, body, res) {
   }
   const fromBody = typeof body.accountRef === 'string' ? body.accountRef.trim() : '';
   const accountRef = ACCOUNT_REF.test(fromBody) ? fromBody : readDeviceRef(req);
-  if (isWrongLengthPin(pin)) rejectPinShape();
+  rejectLegacyOrShape(pin);
   if (!isPin(pin) || !ACCOUNT_REF.test(accountRef)) {
     await burnPinTime(pin);
     await noteAttempt(null, 'pin', req);
