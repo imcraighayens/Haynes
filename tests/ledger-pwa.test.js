@@ -78,7 +78,8 @@ test('service worker caches only the offline page and never api, auth, or book d
   assert.doesNotMatch(sw, /caches\.delete\(k\)/);
   assert.match(sw, /key\.startsWith\('ledger-offline-'\)/);
   assert.match(offline, /You're offline/);
-  assert.match(offline, /Nothing from the book is stored on this device/);
+  assert.match(offline, /The app cache stores only this page/);
+  assert.doesNotMatch(offline, /Nothing from the book is stored/);
   assert.doesNotMatch(offline, /\/api\//);
   assert.doesNotMatch(offline, /serviceWorker/);
   assert.doesNotMatch(offline, /localStorage/);
