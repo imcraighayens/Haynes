@@ -234,10 +234,11 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   color: #3f3f46;
 }
 
-@media (max-height: 760px) {
+@media (max-height: 760px) and (min-width: 801px) {
   .lg-dark { padding: 24px 28px; }
   .lg-form { padding: 20px 28px; }
-  .lg-headline { margin: 0; font-size: 26px; }
+  .lg-headline { margin: 0; font-size: 40px; }
+  #ledger-login .lg-title { font-size: 30px; }
 }
 @media (max-width: 800px) {
   #ledger-gate[data-gate="login"] { padding: 12px; }
@@ -249,9 +250,9 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
     padding: 22px 20px;
     border-bottom-left-radius: 0;
   }
-  .lg-headline { margin: 0; max-width: 16em; font-size: 26px; }
-  .lg-form { flex: none; padding: 18px 16px 16px; }
-  #ledger-login .lg-title { font-size: 1.5rem; }
+  .lg-headline { margin: 0; max-width: 12em; font-size: 40px; line-height: 1.05; }
+  .lg-form { flex: none; padding: 20px 18px 16px; }
+  #ledger-login .lg-title { font-size: 30px; }
 }
 
 /* Dashboard chrome. Width, order and the Q1 control stay as they are. */
@@ -282,7 +283,20 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
 .ledger-side .ledger-profile { color: #fafafa !important; }
 .ledger-side .ledger-profile > div:last-child > div:first-child { color: #fafafa !important; }
 .ledger-side .ledger-profile > div:last-child > div:last-child { color: #d6d3d1 !important; }
-.ledger-side [aria-label="Ask Q1"] { color: #fafafa !important; }
+.ledger-side [aria-label="Ask Q1"] {
+  position: static;
+  flex: none;
+  margin-top: 0;
+  background: #000;
+}
+.ledger-side > div:last-child {
+  box-shadow: 0 -18px 16px -6px #000;
+}
+.ledger-side [title="Collapse menu"],
+.ledger-side [title="Expand menu"] {
+  color: #f5f5f4 !important;
+  border-color: #d6d3d1 !important;
+}
 
 .ledger-top {
   background: #000 !important;
@@ -396,15 +410,34 @@ html textarea:focus,
   box-shadow: 0 0 0 3px rgba(154, 52, 18, .35);
 }
 #ledger-login-submit,
-.primary-act,
-[aria-label="New loan"] {
+[aria-label="New loan"],
+[style*="max-height:86vh"] > div:last-child > div:first-child,
+[style*="max-height: 86vh"] > div:last-child > div:first-child {
   background: #f97316 !important;
   color: #1c1917 !important;
 }
 #ledger-login-submit:hover:not(:disabled),
-.primary-act:hover,
-[aria-label="New loan"]:hover {
+[aria-label="New loan"]:hover,
+[style*="max-height:86vh"] > div:last-child > div:first-child:hover,
+[style*="max-height: 86vh"] > div:last-child > div:first-child:hover {
   background: #ea580c !important;
+}
+[style*="max-height:86vh"],
+[style*="max-height: 86vh"] {
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+[style*="max-height:86vh"] > div:nth-child(2),
+[style*="max-height: 86vh"] > div:nth-child(2) {
+  overflow: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+[style*="max-height:86vh"] > div:last-child,
+[style*="max-height: 86vh"] > div:last-child {
+  flex: none;
+  background: #fff;
 }
 
 html[data-ledger-theme="dark"] [style*="background:var(--red)"][style*="color:#fff"],
@@ -434,6 +467,34 @@ body > div:has(> .ledger-side) {
   overflow: hidden !important;
   min-height: 0;
 }
+@media (max-width: 900px) {
+  html, body { overflow: hidden !important; }
+  .ledger-main > div[style*="overflow-y:auto"],
+  .ledger-main > div[style*="overflow-y: auto"] {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .route-dashboard [data-screen-label="Dashboard"],
+  .route-collections [data-screen-label="Dashboard"],
+  .route-markets [data-screen-label="Dashboard"] {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .today-work, .today-rows, .book-scroll,
+  [data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
+  [data-screen-label="Applications inbox"] > div[style*="overflow: auto"],
+  [data-screen-label="Clients"] > div[style*="overflow:auto"],
+  [data-screen-label="Clients"] > div[style*="overflow: auto"] {
+    overflow: visible !important;
+    max-height: none !important;
+    flex: none;
+  }
+  .head-actions { flex-wrap: wrap !important; width: 100%; max-width: 100%; }
+  .head-actions .pager-btn,
+  .head-actions button { white-space: normal !important; max-width: 100%; }
+  div:has(> .page-heading) { overflow: visible !important; flex-wrap: wrap !important; }
+  .page-date-full { white-space: normal !important; }
+}
 .book-scroll,
 [data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
 [data-screen-label="Clients"] > div[style*="overflow:auto"],
@@ -455,10 +516,22 @@ body > div:has(> .ledger-side) {
   max-height: 100%;
   min-height: 0;
 }
-.nav-group { flex: none; padding-top: 8px !important; padding-bottom: 0 !important; }
-.ledger-side > div:nth-child(2) { gap: 1px !important; }
+.nav-group { flex: none; }
+.ledger-side > div:nth-child(2) {
+  gap: 2px !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #d6d3d1 #000;
+}
+.ledger-side > div:nth-child(2)::-webkit-scrollbar { display: block !important; width: 8px !important; height: 8px !important; }
+.ledger-side > div:nth-child(2)::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 99px; }
 .ledger-side[style*="width:74px"] .nav-group { display: none !important; }
-.ledger-side .nav-item { min-height: 30px !important; padding-top: 3px !important; padding-bottom: 3px !important; }
+.ledger-side .nav-item {
+  min-height: 56px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  font-size: 14px !important;
+}
 
 .route-dashboard .ledger-kpis > div:first-child { display: none !important; }
 .route-markets .report-kpis { display: none !important; }
@@ -496,19 +569,40 @@ body > div:has(> .ledger-side) {
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
 }
-.app-detail {
-  display: flex !important;
-  flex-direction: column;
-  overflow: hidden !important;
-  max-height: min(86vh, calc(100dvh - 24px)) !important;
+.page-date-full { white-space: normal !important; }
+div:has(> .page-heading) { overflow: visible !important; flex-wrap: wrap !important; }
+.route-collections .cal-dow,
+.route-collections [data-card="2"] [style*="font-size:clamp"] {
+  font-size: 11px !important;
 }
-.app-detail-body { overflow: auto; min-height: 0; flex: 1 1 auto; }
-.app-actions {
-  flex: none;
-  background: var(--panel, #fff);
+html[data-ledger-theme="light"] .ledger-main [style*="opacity:.55"],
+html[data-ledger-theme="light"] .ledger-main [style*="opacity: .55"],
+html[data-ledger-theme="light"] .ledger-main [style*="opacity:0.55"],
+html[data-ledger-theme="light"] .ledger-main [style*="opacity: 0.55"] {
+  opacity: 1 !important;
+}
+html[data-ledger-theme="light"] .ledger-main [style*="color:var(--mut)"],
+html[data-ledger-theme="light"] .ledger-main [style*="color: var(--mut)"] {
+  color: #3f3f46 !important;
+}
+html[data-ledger-theme="dark"] .ledger-side span[style*="99px"][style*="224, 138, 118"],
+html[data-ledger-theme="dark"] .ledger-side span[style*="99px"][style*="var(--red)"],
+html[data-ledger-theme="dark"] .ledger-side span[style*="99px"][style*="--red"] {
+  background-color: #9f1239 !important;
+  color: #ffffff !important;
 }
 
 @media (max-width: 820px) {
   .today-rows .act-row { grid-template-columns: minmax(0,1fr) auto; }
   .route-collections .home-grid { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 900px) {
+  .today-work, .today-rows, .book-scroll,
+  [data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
+  [data-screen-label="Applications inbox"] > div[style*="overflow: auto"],
+  [data-screen-label="Clients"] > div[style*="overflow:auto"],
+  [data-screen-label="Clients"] > div[style*="overflow: auto"] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
 }

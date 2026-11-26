@@ -516,12 +516,12 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
         <sc-if value="{{ nav.isLabel }}" hint-placeholder-val="{{ false }}"><div class="nav-group" style="{{ nav.groupStyle }}">{{ nav.label }}</div></sc-if>
         <sc-if value="{{ nav.isItem }}" hint-placeholder-val="{{ true }}"><div class="nav-item" role="button" tabindex="0" data-kbd="1" aria-current="{{ nav.current }}" sc-camel-on-click="{{ nav.go }}" title="{{ nav.title }}" style="{{ nav.style }}">{{ nav.icon }}{{ nav.label }}{{ nav.badge }}</div></sc-if>
       </sc-for>
+  </div>
+    <div style="flex:none;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
       <div role="button" tabindex="0" data-kbd="1" aria-label="Ask Q1" sc-camel-on-click="{{ botToggle }}" title="Ask Q1" style="{{ botFabStyle }}" style-hover="filter:brightness(1.12);transform:translateY(-1px)">
         <span style="display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:50%;background:#FFFFFF;box-shadow:0 0 10px rgba(255,255,255,.75),0 0 22px rgba(255,255,255,.35)"><span style="position:relative;width:22px;height:19px;border-radius:8px;background:#0B0620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><span style="display:flex;gap:4px"><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s infinite"></span><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s .04s infinite"></span></span><span style="width:5px;height:2px;border-radius:1px;background:#FDD10D;opacity:.85"></span></span></span>
       <div style="{{ botFabLabelStyle }}">Ask Q1</div>
       </div>
-  </div>
-    <div style="flex:none;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
       <div class="ledger-profile" sc-camel-on-click="{{ goSettings }}" style="{{ profRowStyle }}" style-hover="opacity:.82"><div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ userInitials }}</div><div style="{{ profTextStyle }}"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div><div style="font:400 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">ADMIN · SETTINGS</div></div></div>
       <div style="{{ footRowStyle }}">
         <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="{{ themeLabel }}" data-tip="{{ themeLabel }}" sc-camel-on-click="{{ toggleTheme }}" title="{{ themeLabel }}" style="flex:1;height:44px;border:1px solid var(--line2);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font:500 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:#e7e2d6" style-hover="border-color:#f3e27a"><div style="width:9px;height:9px;border-radius:50%;background:var(--acc)"></div><span style="{{ navLabelVis }}">Theme</span></div>
@@ -1425,7 +1425,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 
     <sc-if value="{{ appDetailOn }}" hint-placeholder-val="{{ false }}">
       <div sc-camel-on-click="{{ appClose }}" style="position:fixed;inset:0;z-index:65;background:var(--scrim);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);display:flex;align-items:center;justify-content:center">
-        <div class="app-detail" sc-camel-on-click="{{ stop }}" style="width:640px;max-width:94vw;max-height:86vh;overflow-y:auto;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;box-shadow:var(--modalShadow);animation:fadeUp .16s ease">
+        <div sc-camel-on-click="{{ stop }}" style="width:640px;max-width:94vw;max-height:86vh;overflow-y:auto;background:var(--modalBg);border:1px solid var(--modalLine);border-radius:22px;box-shadow:var(--modalShadow);animation:fadeUp .16s ease">
           <div style="padding:22px 26px 16px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:14px">
             <div>
               <div style="font:500 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:7px">{{ appD.source }}</div>
@@ -1434,7 +1434,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           </div>
             <div style="display:flex;align-items:center;gap:10px"><div style="{{ appD.statusStyle }}">{{ appD.statusLabel }}</div><div sc-camel-on-click="{{ appClose }}" style="cursor:pointer;color:var(--dim);font-size:20px;line-height:1;padding:2px 6px" style-hover="color:var(--ink)">✕</div></div>
         </div>
-          <div class="app-detail-body" style="padding:20px 26px;display:grid;grid-template-columns:1fr 1fr;gap:18px 22px">
+          <div style="padding:20px 26px;display:grid;grid-template-columns:1fr 1fr;gap:18px 22px">
             <div style="grid-column:1/-1;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:15px 17px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
               <div><div style="font:500 9px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:5px">REQUESTED</div><div style="font:700 18px 'Plus Jakarta Sans',sans-serif">{{ appD.amountFmt }}</div></div>
               <div><div style="font:500 9px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.1em;margin-bottom:5px">EST. INSTALLMENT</div><div style="font:700 18px 'Plus Jakarta Sans',sans-serif">{{ appD.installFmt }}</div></div>
@@ -1455,8 +1455,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             </div>
           </div>
         </div>
-          <div class="app-actions" style="padding:16px 26px 22px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap">
-            <div class="primary-act" sc-camel-on-click="{{ appD.approve }}" style="padding:11px 22px;border-radius:12px;background:var(--acc);font:700 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer" style-hover="filter:brightness(1.08)">{{ appD.approveLabel }}</div>
+          <div style="padding:16px 26px 22px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap">
+            <div sc-camel-on-click="{{ appD.approve }}" style="padding:11px 22px;border-radius:12px;background:var(--acc);font:700 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer" style-hover="filter:brightness(1.08)">{{ appD.approveLabel }}</div>
             <div sc-camel-on-click="{{ appD.requestInfo }}" style="padding:11px 18px;border-radius:12px;border:1px solid var(--line2);font:600 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);cursor:pointer" style-hover="background:var(--hover)">Request more info</div>
             <div style="flex:1"></div>
             <div sc-camel-on-click="{{ appD.decline }}" style="padding:11px 18px;border-radius:12px;border:1px solid var(--line2);font:600 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer" style-hover="background:var(--hover)">Decline</div>
