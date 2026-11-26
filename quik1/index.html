@@ -1610,7 +1610,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
                 <sc-if value="{{ loginOtpStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:28px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:120px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <sc-if value="{{ pinNote }}">
               <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
             </sc-if>
@@ -1662,7 +1662,7 @@ input,button,textarea{font-family:inherit}
     <!-- ── Sign up ───────────────────────────────────────────── -->
     <sc-if value="{{ isSignup }}">
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div data-q-safe-header="register" style="flex:0 0 auto;padding:calc(16px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 22px 0;display:flex;flex-direction:column;gap:16px">
+        <div data-q-safe-header="register" style="flex:0 0 auto;padding:calc(8px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 22px 0;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:12px">
             <button sc-camel-on-click="{{ onSuBack }}" aria-label="Back" style="flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;-webkit-appearance:none;appearance:none;font-family:inherit;font-size:14px;font-weight:600;line-height:1;white-space:nowrap;color:#FFFFFF;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
               <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;flex:0 0 auto;fill:none;stroke:#FFFFFF;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
@@ -1679,22 +1679,22 @@ input,button,textarea{font-family:inherit}
               <span style="height:4px;border-radius:999px;background:{{ b.bg }};transition:background .4s cubic-bezier(.33,1,.68,1)"></span>
             </sc-for>
           </div>
-          <button sc-camel-on-click="{{ onStepHelp }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border-radius:16px;border:1px solid rgba(40,60,255,.35);background:rgba(40,60,255,.12);cursor:pointer;text-align:left">
+          <button sc-camel-on-click="{{ onStepHelp }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border-radius:16px;border:1px solid rgba(40,60,255,.35);background:rgba(40,60,255,.12);cursor:pointer;text-align:left">
             <span style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#0000FE;box-shadow:0 0 12px rgba(40,60,255,.7);display:grid;place-items:center;font-size:10px;font-weight:700;color:#FFFFFF">Q1</span>
             <span style="flex:1;min-width:0;font-size:13px;line-height:1.4;color:#FFFFFF">{{ suTip }}</span>
             <span style="flex:0 0 auto;font-size:12px;font-weight:600;color:#8FA0FF">Help</span>
           </button>
           <div>
-            <h2 style="margin:4px 0 0;font-size:32px;font-weight:500;letter-spacing:-.035em;line-height:1.08">{{ suTitle }}</h2>
+            <h2 style="margin:2px 0 0;font-size:28px;font-weight:500;letter-spacing:-.035em;line-height:1.08">{{ suTitle }}</h2>
             <p style="margin:8px 0 0;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.6);text-wrap:pretty">{{ suSub }}</p>
           </div>
         </div>
 
-        <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:20px 22px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 22px 0;display:flex;flex-direction:column;gap:8px">
           <sc-for list="{{ suFields }}" as="f" hint-placeholder-count="4">
             <label style="display:flex;flex-direction:column;gap:7px">
               <span style="font-size:13px;color:rgba(255,255,255,.6)">{{ f.label }}</span>
-              <span style="display:flex;align-items:center;gap:12px;height:58px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid {{ f.border }};transition:border-color .3s">
+              <span style="display:flex;align-items:center;gap:12px;height:50px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid {{ f.border }};transition:border-color .3s">
                 <sc-if value="{{ f.prefix }}"><span style="font-size:16px;color:rgba(255,255,255,.5)">{{ f.prefix }}</span><span style="width:1px;height:20px;background:rgba(255,255,255,.14)"></span></sc-if>
                 <input value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" type="{{ f.type }}" sc-camel-input-mode="{{ f.mode }}" sc-camel-max-length="{{ f.max }}" placeholder="{{ f.ph }}" sc-camel-auto-complete="off" style="flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:#FFFFFF;font-size:16px;letter-spacing:{{ f.ls }}">
               </span>
@@ -1740,7 +1740,7 @@ input,button,textarea{font-family:inherit}
           </sc-if>
         </div>
 
-        <div style="flex:0 0 auto;padding:10px 22px 150px">
+        <div style="flex:0 0 auto;padding:8px 22px calc(108px + env(safe-area-inset-bottom, 0px))">
           <button sc-camel-on-click="{{ onSuNext }}" style="width:100%;height:62px;border-radius:999px;border:0;background:#FDD10D;cursor:pointer;font-size:17px;font-weight:600;color:#0B0620;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .3s cubic-bezier(.33,1,.68,1)" style-hover="background:#E9BF06">
             {{ suCta }}
             <svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
