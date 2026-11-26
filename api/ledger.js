@@ -3,7 +3,7 @@
 //   POST /api/ledger/sync                       ordered ops {upsert|insert|update|soft_delete}
 //   GET|POST /api/ledger/rest/v1/ledger_book    PostgREST emulation for the console's "Supabase book"
 import { wrap, json, readBody, pathParts, searchParams, requireEnv, HttpError, STAFF_BODY_CAP } from './_lib/http.js';
-import { requireStaff, isSameOrigin, verifyManagerPin, demoResetAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
+import { requireStaff, isSameOrigin, verifyManagerPin, demoResetAllowed, bookReloadAllowed, mintStaffSession, staffCookieHeader, staffIdentity } from './_lib/auth.js';
 import { borrowerPinLive } from './_lib/quik1-flags.js';
 import { signInStaff } from './_lib/staff.js';
 import { select, selectOne, upsert, insert, update, eq } from './_lib/supabase.js';
@@ -165,12 +165,14 @@ function rowsOf(op) {
   return rows;
 }
 
-async function applyOp(op) {
+async function applyOp(op, req) {
   if (!op || typeof op !== 'object') throw new HttpError(400, 'op must be an object');
   const table = String(op.table || '');
   const kind = String(op.op || '');
   // Replacing the book is not a normal sync op. The PIN is required before any read or write.
+  // Production never runs it: that path is a bulk reload, not a single-row save.
   if (table === 'loans' && kind === 'replace_book') {
+    if (!bookReloadAllowed(req)) throw new HttpError(403, 'Book reload is refused on production');
     verifyManagerPin(op.manager_pin);
     return replaceLoans(op.rows);
   }
@@ -265,7 +267,7 @@ async function postSync(req, res) {
   for (const op of ops) {
     const base = { table: op && op.table != null ? String(op.table) : null, op: op && op.op != null ? String(op.op) : null };
     try {
-      const count = await applyOp(op);
+      const count = await applyOp(op, req);
       results.push({ ...base, count });
     } catch (e) {
       // Partial failures are reported per op. `retryable` tells the clients whether to keep the
@@ -409,12 +411,12 @@ async function postDestructive(req, res) {
   const body = await readBody(req, STAFF_BODY_CAP);
   const action = String(body.action || '');
   if (action === 'delete_loan') {
-    const count = await applyOp({ table: 'loans', op: 'soft_delete', id: body.id, manager_pin: body.pin });
+    const count = await applyOp({ table: 'loans', op: 'soft_delete', id: body.id, manager_pin: body.pin }, req);
     json(res, 200, { ok: true, count }, req);
     return;
   }
   if (action === 'replace_book') {
-    const count = await applyOp({ table: 'loans', op: 'replace_book', rows: body.rows, manager_pin: body.pin });
+    const count = await applyOp({ table: 'loans', op: 'replace_book', rows: body.rows, manager_pin: body.pin }, req);
     json(res, 200, { ok: true, count }, req);
     return;
   }
