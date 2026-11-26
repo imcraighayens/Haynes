@@ -105,6 +105,29 @@ export function statusChoices(dbStatus) {
   return all;
 }
 
+function normStatus(value) {
+  return String(value == null ? '' : value).trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+// True only when the status last read from the server already matches.
+// A browser copy of `status` (localStorage from a click that never reached
+// the database) is ignored, so the click still posts.
+export function statusAlreadySaved(loan, next) {
+  const want = normStatus(next);
+  if (!loan || !want) return false;
+  const same = (saved) => {
+    if (!saved) return false;
+    if (saved === want) return true;
+    if (want === 'paid' && (saved === 'settled_early' || saved === 'settled')) return true;
+    if ((want === 'duetoday' || want === 'due_today') && (saved === 'duetoday' || saved === 'due_today')) return true;
+    if ((want === 'written_off' || want === 'writtenoff') && (saved === 'written_off' || saved === 'writtenoff')) return true;
+    return false;
+  };
+  const known = [normStatus(loan.serverStatus), normStatus(loan.dbStatus)].filter(Boolean);
+  if (!known.length) return false;
+  return known.every(same);
+}
+
 export function statusRefusal(dbStatus, next) {
   const raw = String(dbStatus || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
   const want = String(next || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -139,5 +162,5 @@ export function ackHolds(stored, loan, todayIso) {
   return !!current && stored === current;
 }
 
-const api = { toIso, labelOfIso, firstMissedDue, overdueSince, overdueMarker, attentionNote, attentionAmount, attentionHeading, ackHolds, popupKeeps, missedCount, statusChoices, statusRefusal, nextInstalmentStep };
+const api = { toIso, labelOfIso, firstMissedDue, overdueSince, overdueMarker, attentionNote, attentionAmount, attentionHeading, ackHolds, popupKeeps, missedCount, statusChoices, statusRefusal, statusAlreadySaved, nextInstalmentStep };
 try { if (typeof window !== 'undefined') window.LedgerAttention = api; } catch (e) {}
