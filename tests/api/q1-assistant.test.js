@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { mintStaffSession } from '../../api/_lib/auth.js';
 import { publicLimiter } from '../../api/_lib/ratelimit.js';
-import { answerQuestion, mergeBook, parseLedgerData, answerBorrower } from '../../api/_lib/q1-brain.js';
+import { answerQuestion, mergeBook, parseLedgerData, answerBorrower, todayYmd } from '../../api/_lib/q1-brain.js';
 
 const ENV = {
   SUPABASE_URL: 'https://db.test.supabase.co',
@@ -107,6 +107,20 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     stubFetch(dbRoute());
   });
 
+  test('a stored key with no staff cookie still returns 200', async () => {
+    const res = await callStaff({ auth: true, headers: {}, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().source, 'server');
+    assert.equal(res.body.includes(KEY), false);
+  });
+
+  test('no cookie and no key is 401', async () => {
+    const res = await callStaff({ auth: false, headers: {}, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 401);
+    assert.equal(calls.length, 0);
+    assert.equal(res.body.includes(KEY), false);
+  });
+
   test('unauthenticated chat is 401 and does not touch the database or webhook', async () => {
     process.env.Q1_WEBHOOK_URL = 'https://ceo.example/hook';
     const res = await callStaff({ auth: false, body: { message: 'What is due today?', data: DATA } });
@@ -115,14 +129,22 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     const wrong = await callStaff({ auth: false, headers: { authorization: 'Bearer nope' }, body: { message: 'hi' } });
     assert.equal(wrong.statusCode, 401);
     assert.equal(calls.length, 0);
+    const pasted = await callStaff({
+      auth: false,
+      body: { message: 'What is due today?', data: DATA, key: KEY, ledgerKey: KEY, apikey: KEY }
+    });
+    assert.equal(pasted.statusCode, 401);
+    assert.equal(calls.length, 0);
+    assert.equal(pasted.body.includes(KEY), false);
   });
 
   test('authenticated chat returns a book reply and an in-app action', async () => {
     const res = await callStaff({ body: { message: "What's due today?", data: DATA, page: 'dashboard' } });
     assert.equal(res.statusCode, 200);
     const j = res.json();
-    assert.match(j.reply, /ECL-112/);
-    assert.match(j.reply, /R 3 000/);
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /Nothing is due today/);
+    assert.equal(j.reply.includes('ECL-112'), false);
     assert.equal(j.action.go, 'filter:duetoday');
     assert.equal(j.call, null);
     assert.equal(j.connected, true);
@@ -132,14 +154,20 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     assert.ok(calls.every(c => c.host === 'db.test.supabase.co' && c.method === 'GET'));
   });
 
-  test('same-origin staff cookie is enough; cross-site cookie is 401', async () => {
+  test('same-origin staff cookie reads the live book; cross-site cookie is 401', async () => {
     const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
     const cookie = 'ledger_staff=' + encodeURIComponent(token);
     const same = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie };
-    const ok = await callStaff({ auth: false, headers: same, body: { message: "What's in the bank?", data: DATA } });
+    const ok = await callStaff({ auth: false, headers: same, body: { message: "What's in the bank?", data: DATA, key: KEY, apikey: 'anon-key' } });
     assert.equal(ok.statusCode, 200);
-    assert.match(ok.json().reply, /R 48 250/);
-    assert.equal(ok.json().action.go, 'bank');
+    const j = ok.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /R 10 000/);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(j.action.go, 'bank');
+    assert.equal(ok.body.includes(KEY), false);
+    assert.equal(ok.body.includes('anon-key'), false);
+    assert.equal(ok.body.includes('craig@ecoloan.co.za'), false);
     const foreign = await callStaff({
       auth: false,
       headers: { origin: 'https://evil.example', host: 'quik1ledger.com', 'sec-fetch-site': 'cross-site', cookie },
@@ -148,13 +176,156 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     assert.equal(foreign.statusCode, 401);
   });
 
+  test('a browser DATA block with conflicting loans does not override the server book', async () => {
+    const today = todayYmd(new Date());
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') return { status: 200, body: [{ id: 'l_live', ref: 'ECL-777', client_id: 'c_live', principal: 900, instalment_amount: 1100, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      if (rec.table === 'applications') return { status: 200, body: [] };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const due = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA, page: 'loans', key: KEY } });
+    assert.equal(due.statusCode, 200);
+    const j = due.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-777/);
+    assert.match(j.reply, /R 1 100/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    assert.equal(j.reply.includes('ECL-110'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(due.body.includes('c_live'), false);
+    assert.equal(due.body.includes('l_live'), false);
+    assert.equal(due.body.includes('craig@ecoloan.co.za'), false);
+    assert.equal(due.body.includes(KEY), false);
+    const where = await callStaff({ auth: false, headers, body: { message: 'Where am I?', data: DATA, page: 'loans' } });
+    assert.equal(where.statusCode, 200);
+    assert.equal(where.json().source, 'server');
+    assert.match(where.json().reply, /loans/);
+  });
+
+  test('cookie session flags browser-fallback when the server book cannot load', async () => {
+    stubFetch(async (rec) => {
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      throw new Error('db down');
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.match(j.reply, /R 3 000/);
+    assert.equal(res.body.includes('craig@ecoloan.co.za'), false);
+  });
+
+  test('a failed loans read does not count as an empty server book', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      if (rec.table === 'loans') return { status: 500, body: { code: '57014', message: 'hidden row' } };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.equal(j.reply.includes('Nothing is due today'), false);
+    assert.equal(res.body.includes('hidden row'), false);
+    assert.equal(res.body.includes('craig@ecoloan.co.za'), false);
+  });
+
+  test('the live bank balance includes movements after the opening confirmation', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 10000, bank_opening_at: '2026-10-01T06:00:00.000Z' }] };
+      if (rec.table === 'bank_tx') {
+        return { status: 200, body: [
+          { id: 'bt_before', at: '2026-09-01T08:00:00.000Z', type: 'out', amount: 5000 },
+          { id: 'bt_after', at: '2026-10-12T08:00:00.000Z', type: 'out', amount: 1000 }
+        ] };
+      }
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's in the bank?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /R 9 000/);
+    assert.equal(j.reply.includes('10 000'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(res.body.includes('bt_before'), false);
+    assert.equal(res.body.includes('bt_after'), false);
+  });
+
+  test('a failed bank movement read does not quote the opening balance as current', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 10000, bank_opening_at: '2026-10-01T06:00:00.000Z' }] };
+      if (rec.table === 'bank_tx') return { status: 500, body: { code: '57014' } };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's in the bank?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().source, 'browser-fallback');
+    assert.match(res.json().reply, /R 48 250/);
+  });
+
+  test('the live loan book follows a second page instead of stopping early', async () => {
+    const today = todayYmd(new Date());
+    const row = (ref) => ({ id: 'l_' + ref, ref, client_id: 'c_page', principal: 100, instalment_amount: 150, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null });
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_page', ref: 'EC-70', name: 'Page Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') {
+        const offset = rec.url.searchParams.get('offset');
+        if (offset === '1000') return { status: 200, body: [row('ECL-702')], headers: { 'content-range': '1000-1000/2' } };
+        return { status: 200, body: [row('ECL-701')], headers: { 'content-range': '0-0/2' } };
+      }
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 1000 }] };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-701/);
+    assert.match(j.reply, /ECL-702/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    const loanCalls = calls.filter(c => c.table === 'loans');
+    assert.equal(loanCalls.length, 2);
+    assert.ok(loanCalls.every(c => c.url.searchParams.get('limit') === '1000'));
+    assert.equal(res.body.includes('l_ECL-701'), false);
+    assert.equal(res.body.includes('c_page'), false);
+  });
+
   test('assistant replies with no AI gateway key and never calls an AI host', async () => {
     delete process.env.AI_GATEWAY_API_KEY;
     const res = await callStaff({ body: { message: 'Who has not been updated?', data: DATA } });
     assert.equal(res.statusCode, 200);
-    assert.match(res.json().reply, /ECL-110/);
+    assert.equal(res.json().source, 'server');
+    assert.match(res.json().reply, /flagged|past due/i);
+    assert.equal(res.json().reply.includes('ECL-110'), false);
     assert.equal(res.json().action.go, 'notifications');
-    assert.equal(res.json().action.label, 'Update statuses');
+    assert.equal(res.json().action.label, 'Open notifications');
     assert.ok(!calls.some(c => /anthropic|openai|claude|gateway|ai-gateway/i.test(c.host + c.url.pathname)));
     const src = fs.readFileSync(new URL('../../api/q1-assistant.js', import.meta.url), 'utf8');
     assert.doesNotMatch(src, /AI_GATEWAY_API_KEY|api\.anthropic|api\.openai/);
@@ -165,9 +336,48 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     const res = await callStaff({ body: { message: 'Summarise the book', data: DATA } });
     assert.equal(res.statusCode, 200);
     const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
     assert.match(j.reply, /2 loan/);
     assert.match(j.reply, /R 48 250/);
     assert.equal(j.action.go, 'dashboard');
+  });
+
+  test('bearer session with a healthy book ignores stale DATA and marks source server', async () => {
+    const today = todayYmd(new Date());
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') return { status: 200, body: [{ id: 'l_live', ref: 'ECL-777', client_id: 'c_live', principal: 900, instalment_amount: 1100, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      return { status: 200, body: [] };
+    });
+    const res = await callStaff({ auth: true, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-777/);
+    assert.match(j.reply, /R 1 100/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(res.body.includes(KEY), false);
+    assert.equal(res.body.includes('l_live'), false);
+  });
+
+  test('bearer session with the book down falls back and the badge is amber', async () => {
+    stubFetch(async () => { throw new Error('db down'); });
+    const res = await callStaff({ auth: true, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.match(j.reply, /R 3 000/);
+    assert.equal(res.body.includes(KEY), false);
+    const ledger = fs.readFileSync(new URL('../../ledger/index.html', import.meta.url), 'utf8');
+    const status = ledger.slice(ledger.indexOf('botStatus:'), ledger.indexOf('botDotStyle:'));
+    assert.match(status, /browser-fallback' \? 'BROWSER DATA'/);
+    assert.match(status, /#FFB020/);
+    assert.match(ledger, /from this browser's data/);
   });
 
   test('approve proposes a Quik1 PATCH and does not write it', async () => {
@@ -272,6 +482,31 @@ describe('q1 brain', { concurrency: 1 }, () => {
     assert.match(who.reply, /R 1 000/);
   });
 
+  test('preferLive quotes the server book and keeps only the screen from the DATA block', () => {
+    const now = new Date('2026-11-26T10:00:00Z');
+    const live = {
+      bank: 25000,
+      loans: [{ ref: 'ECL-777', client: 'Live Borrower', clientRef: 'EC-77', status: 'issued', principal: 900, instalment: 1100, schedule: ['2026-11-26'], paid: 0 }],
+      clients: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower' }],
+      expenses: [{ name: 'Rent', amount: 100 }],
+      employees: [],
+      applications: []
+    };
+    const stale = mergeBook(parseLedgerData(DATA), live, now);
+    assert.equal(stale.bank, 'R 48 250');
+    assert.equal(stale.loans[0].ref, 'ECL-112');
+    const snap = mergeBook(parseLedgerData(DATA), live, now, { preferLive: true });
+    assert.equal(snap.page, 'dashboard');
+    assert.equal(snap.bank, 'R 25 000');
+    assert.equal(snap.loans.length, 1);
+    assert.equal(snap.loans[0].ref, 'ECL-777');
+    assert.equal(snap.clients[0].id, undefined);
+    const due = answerQuestion("What's due today?", snap, [], now);
+    assert.match(due.reply, /ECL-777/);
+    assert.match(due.reply, /R 1 100/);
+    assert.equal(due.reply.includes('ECL-112'), false);
+  });
+
   test('borrower answers from the brief and only navigates on an open request', () => {
     const brief = [
       'Customer: Thandi',
@@ -340,11 +575,22 @@ describe('q1 icon source', { concurrency: 1 }, () => {
     const fn = ledger.slice(ledger.indexOf('async botFromLedger'), ledger.indexOf('botRun(act)'));
     assert.match(fn, /fetch\('\/api\/q1-assistant'/);
     assert.match(fn, /credentials:'include'/);
+    assert.match(fn, /ledjaa\.supabase/);
+    assert.match(fn, /headers\.Authorization='Bearer '\+key/);
+    assert.equal(fn.includes('console.log'), false);
     assert.equal(fn.includes("I can't reach Claude"), false);
     assert.ok(fn.indexOf("fetch('/api/q1-assistant'") < fn.indexOf('window.claude'));
+    assert.match(fn, /_botSource=.*browser-fallback/);
     assert.match(ledger, /CONNECTED · LEDGER/);
+    assert.match(ledger, /BROWSER DATA/);
+    assert.match(ledger, /from this browser's data/);
+    assert.match(ledger, /#22E07A/);
+    assert.match(ledger, /#FFB020/);
     assert.equal(ledger.includes('NOT CONNECTED — ADD KEY IN SETTINGS'), false);
     const status = ledger.slice(ledger.indexOf('botStatus:'), ledger.indexOf('botDotStyle:'));
+    assert.match(status, /browser-fallback/);
+    assert.match(status, /BROWSER DATA/);
+    assert.match(status, /CONNECTED · LEDGER/);
     assert.equal(status.includes('window.claude'), false);
   });
 

@@ -138,6 +138,7 @@ test('a 401 or a failed state fetch keeps the book behind the login', async () =
   assert.match(denied.L.error, /HTTP 401/);
   assert.equal(await denied.L.state, null);
   assert.equal(denied.head.children.length, 0, 'a 401 does not paint the book');
+  assert.equal(denied.read('q1.apps'), null, 'a rejected session does not link connected apps');
 
   const staleKey = await boot({ local: { 'ledjaa.supabase': { url: ORIGIN + '/api/ledger', key: 'stale-key' } }, stateStatus: 401, state: { error: 'Unauthorized' } });
   assert.equal(staleKey.L.needsUnlock, true, 'a rejected stored key is still no staff session');
@@ -245,6 +246,22 @@ test('fills an empty key only when the Quik1 entry points at our own /api/q1', a
   assert.equal(read('q1.apps')[0].key, '');
   assert.equal(read('q1.apps')[0].url, 'https://partner.example.com/v1');
   assert.ok(!JSON.stringify(read('q1.apps')).includes('SUPER-SECRET'));
+});
+
+test('a cookie session with no local key links Quik1 without storing a key', async () => {
+  const { read, calls } = await boot({ state: STATE });
+  const apps = read('q1.apps');
+  assert.equal(apps.length, 7, 'console default list preserved');
+  const q = apps.find((a) => /quik1/i.test(a.name));
+  assert.equal(q.url, ORIGIN + '/api/q1');
+  assert.equal(q.key, '');
+  assert.equal(q.on, true);
+  assert.equal(q.actions, true);
+  assert.equal(q.path, '/applications?status=new');
+  const stateCall = calls.find((c) => /\/state$/.test(c.url));
+  assert.equal(stateCall.init.credentials, 'include');
+  assert.equal(stateCall.init.headers.Authorization, undefined);
+  assert.equal(JSON.stringify(apps).includes('secret'), false);
 });
 
 test('seeds the full default q1.apps list with a configured Quik1 entry when the key is absent', async () => {

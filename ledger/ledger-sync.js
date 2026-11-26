@@ -599,6 +599,9 @@
         hookStorage();
         return revealLogin();
       }
+      // A cookie sign-in never puts LEDGER_KEY in localStorage. The Quik1 routes
+      // still accept that cookie, so the connected-app row should show the link.
+      if (!c.key) { try { seedQ1Apps(''); } catch (e) { info('q1.apps seed failed', e); } }
       L.needsUnlock = false;
       applyBootState(st);
       return fetchStaff().then(function () {

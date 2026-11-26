@@ -1,6 +1,7 @@
-// Deterministic Q1 replies. No model, no gateway key. Figures that arrived in the
-// console's DATA block are quoted as sent. Live rows only fill gaps (applications,
-// name search) and never override a balance or due-list the console already computed.
+// Deterministic Q1 replies. No model, no gateway key. By default, figures that
+// arrived in the console's DATA block are quoted as sent and live rows only fill
+// gaps. A staff cookie session passes preferLive so the server book wins and the
+// DATA block only supplies screen context (the current page).
 import { isSafeId } from './validate.js';
 import { scrubSecrets } from './q1-webhook.js';
 
@@ -127,23 +128,50 @@ function liveDue(loans, today) {
   return { due: due.join('; '), flagged: flagged.join('; ') };
 }
 
-export function mergeBook(parsed, live, now = new Date()) {
+function displayLiveLoans(loans) {
+  return (loans || []).map(l => ({
+    ref: l.ref || '',
+    client: l.client || '—',
+    clientRef: l.clientRef || '',
+    blocked: !!l.blocked,
+    lent: l.principal != null && l.principal !== '' ? rand(l.principal) : '',
+    instalment: Number(l.instalment) ? rand(l.instalment) : '',
+    status: l.status || '',
+    dates: Array.isArray(l.schedule) ? l.schedule.join(', ') : ''
+  }));
+}
+
+// preferLive: the server book is the source of truth. Browser DATA may still
+// name the screen (page / today / user) and must not override loans or figures.
+export function mergeBook(parsed, live, now = new Date(), opts) {
   const p = parsed || parseLedgerData('');
-  const loans = p.loans && p.loans.length ? p.loans : ((live && live.loans) || []);
-  const computed = (!p.duePresent || !p.flaggedPresent) && live ? liveDue(live.loans, todayYmd(now)) : { due: '', flagged: '' };
-  const bankFromConsole = p.bank != null && p.bank !== '' && !/not set/i.test(p.bank);
+  const preferLive = !!(opts && opts.preferLive && live);
+  const computed = (preferLive || !p.duePresent || !p.flaggedPresent) && live ? liveDue(live.loans, todayYmd(now)) : { due: '', flagged: '' };
+  const bankFromConsole = !preferLive && p.bank != null && p.bank !== '' && !/not set/i.test(p.bank);
+  const liveLoans = (live && live.loans) || [];
+  const loans = preferLive ? displayLiveLoans(liveLoans) : (p.loans && p.loans.length ? p.loans : liveLoans);
   return {
     today: p.today || '',
     user: p.user || '',
     page: p.page || '',
-    bank: bankFromConsole ? p.bank : (live && live.bank != null ? rand(live.bank) : (p.bank || 'not set')),
-    due: p.duePresent ? p.due : computed.due,
-    flagged: p.flaggedPresent ? p.flagged : computed.flagged,
-    expenses: p.expenses || ((live && live.expenses) || []).map(e => `${e.name} ${rand(e.amount)}`).join('; '),
-    employees: p.employees || ((live && live.employees) || []).map(e => `${e.name} (${e.role || ''})`).join('; '),
-    clientCount: p.clientCount != null ? p.clientCount : ((live && live.clients) ? live.clients.length : null),
+    bank: preferLive
+      ? (live && live.bank != null && live.bank !== '' ? rand(live.bank) : 'not set')
+      : (bankFromConsole ? p.bank : (live && live.bank != null ? rand(live.bank) : (p.bank || 'not set'))),
+    due: preferLive ? computed.due : (p.duePresent ? p.due : computed.due),
+    flagged: preferLive ? computed.flagged : (p.flaggedPresent ? p.flagged : computed.flagged),
+    expenses: preferLive
+      ? ((live && live.expenses) || []).map(e => `${e.name} ${rand(e.amount)}`).join('; ')
+      : (p.expenses || ((live && live.expenses) || []).map(e => `${e.name} ${rand(e.amount)}`).join('; ')),
+    employees: preferLive
+      ? ((live && live.employees) || []).map(e => `${e.name} (${e.role || ''})`).join('; ')
+      : (p.employees || ((live && live.employees) || []).map(e => `${e.name} (${e.role || ''})`).join('; ')),
+    clientCount: preferLive
+      ? (live && Array.isArray(live.clients) ? live.clients.length : null)
+      : (p.clientCount != null ? p.clientCount : ((live && live.clients) ? live.clients.length : null)),
     loans,
-    clients: (live && live.clients) || [],
+    clients: preferLive
+      ? ((live && live.clients) || []).map(c => ({ ref: c.ref || '', name: c.name || '—', blocked: !!c.blocked }))
+      : ((live && live.clients) || []),
     applications: (live && live.applications) || [],
     apps: [],
     appsNote: ''
