@@ -26,7 +26,7 @@ test('protected blocks and the settings copy stay byte-identical', () => {
   assert.match(html, /Signed in · Johannesburg · 19 Jul 2026/);
   assert.match(html, /DATA &amp; MVP HANDOFF/);
   assert.match(html, /class="bento"/);
-  assert.match(html, /showLegacyDash: false/);
+  assert.match(html, /showLegacyDash: st\.route==='markets'\|\|st\.route==='collections'/);
   assert.equal(html.includes('.book-scroll{overflow:visible}'), false);
   assert.equal(html.includes('max-height:none') && html.includes('.book-scroll{overflow:visible}'), false);
 });
@@ -87,7 +87,8 @@ async function clickTitle(page, title) {
   await loc.dispatchEvent('click');
 }
 
-const NAV_TITLES = ['Dashboard', 'Loans', 'Applications', 'Messages', 'Clients', 'Logbook', 'Admin', 'Petty cash', 'Notifications', 'Nupay'];
+const NAV_TITLES = ['Dashboard', 'Loans', 'Applications', 'Collections', 'Markets', 'Messages', 'Clients', 'Logbook', 'Admin', 'Petty cash', 'Notifications', 'Nupay'];
+const APP_SCROLL = '[data-screen-label="Applications inbox"] > div[style*="overflow: auto"]';
 
 async function assertNavReachable(page) {
   const menu = page.locator('[aria-label="Open menu"]');
@@ -97,7 +98,7 @@ async function assertNavReachable(page) {
   }
   for (const title of NAV_TITLES) {
     let reached = false;
-    for (let step = 0; step < 10; step++) {
+    for (let step = 0; step < 16; step++) {
       reached = await page.evaluate((title) => {
         const item = document.querySelector('[title="' + title + '"]');
         const scroller = document.querySelector('.nav-scroll');
@@ -135,7 +136,7 @@ async function wheel(page, selector, dx, dy) {
   await page.waitForTimeout(180);
 }
 
-test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { skip: pw ? false : 'playwright not resolvable', timeout: 180000 }, async () => {
+test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { skip: pw ? false : 'playwright not resolvable', timeout: 300000 }, async () => {
   await withMockApi(async api => {
     seedBook(api);
     const browser = await pw.chromium.launch();
@@ -173,10 +174,12 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
       assert.ok(fit.bento <= 2, 'bento scrolls ' + fit.bento);
       assert.ok(fit.qTop >= 0 && fit.qBottom <= 800 && fit.qh >= 44, JSON.stringify(fit));
       await assertNavReachable(wide);
+      await wide.locator('.bento-apps').first().dispatchEvent('click');
+      await pageWaitFor(wide, () => /Approve →/.test(document.body.innerText), null, { timeoutMs: 8000 });
       await wide.close();
 
-      for (const width of [375, 768, 1024, 1280]) {
-        const height = width === 375 ? 812 : 680;
+      for (const width of [320, 375, 768, 1024, 1280, 1440]) {
+        const height = width <= 375 ? 812 : width >= 1440 ? 800 : 680;
         const page = await browser.newPage({ viewport: { width, height } });
         await page.addInitScript(({ origin, key }) => {
           localStorage.setItem('ledjaa.supabase', JSON.stringify({ url: origin + '/api/ledger', key, table: 'ledger_book', bookId: 'main', connected: false }));
@@ -200,6 +203,25 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
 
         await clickTitle(page, 'Loans');
         await pageWaitFor(page, () => !!document.querySelector('.book-scroll'), null, { timeoutMs: 8000 });
+        if (width === 320) {
+          const fit320 = await page.evaluate(() => {
+            const btn = document.querySelector('[aria-label="New loan"]');
+            const bb = btn ? btn.getBoundingClientRect() : null;
+            const scroller = document.querySelector('.book-scroll');
+            const sb = scroller ? scroller.getBoundingClientRect() : null;
+            const card = [...document.querySelectorAll('.book-line:not(.book-head)')].find(row => {
+              const b = row.getBoundingClientRect();
+              if (!sb) return false;
+              return b.top >= sb.top - 1 && b.bottom <= sb.bottom + 1 && b.left >= -1 && b.right <= window.innerWidth + 1 && b.height > 40 && b.width > 40;
+            });
+            return {
+              btn: bb && { left: bb.left, right: bb.right, top: bb.top, bottom: bb.bottom, w: window.innerWidth, h: window.innerHeight },
+              card: !!card
+            };
+          });
+          assert.ok(fit320.btn && fit320.btn.left >= -1 && fit320.btn.right <= fit320.btn.w + 1 && fit320.btn.top >= -1 && fit320.btn.bottom <= fit320.btn.h + 1, 'New loan is off screen ' + JSON.stringify(fit320.btn));
+          assert.equal(fit320.card, true, 'no whole loan card at 320');
+        }
         const loanOverflow = await page.locator('.book-scroll').evaluate(el => el.scrollHeight > el.clientHeight + 8);
         assert.equal(loanOverflow, true, width + ' loans do not overflow');
         const top0 = await page.locator('.book-scroll').evaluate(el => el.scrollTop);
@@ -229,14 +251,15 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
           const left = await page.locator('.book-scroll').evaluate(el => el.scrollLeft);
           assert.ok(left > wideBook.left, 'horizontal wheel at 768 ' + left);
         }
-
         await clickTitle(page, 'Applications');
-        await pageWaitFor(page, () => !!document.querySelector('[data-screen-label="Applications inbox"] .list-scroll'), null, { timeoutMs: 8000 });
-        const appCan = await page.locator('[data-screen-label="Applications inbox"] .list-scroll').evaluate(el => el.scrollHeight > el.clientHeight + 8);
+        await pageWaitFor(page, () => /Approve →/.test(document.body.innerText), null, { timeoutMs: 8000 });
+        await page.locator('div').filter({ hasText: /^✕$/ }).last().dispatchEvent('click');
+        await pageWaitFor(page, (sel) => !!document.querySelector(sel) && !/Approve →/.test(document.body.innerText), APP_SCROLL, { timeoutMs: 8000 });
+        const appCan = await page.locator(APP_SCROLL).evaluate(el => el.scrollHeight > el.clientHeight + 8);
         assert.equal(appCan, true, width + ' applications do not overflow');
-        const a0 = await page.locator('[data-screen-label="Applications inbox"] .list-scroll').evaluate(el => el.scrollTop);
-        await wheel(page, '[data-screen-label="Applications inbox"] .list-scroll', 0, 280);
-        const a1 = await page.locator('[data-screen-label="Applications inbox"] .list-scroll').evaluate(el => el.scrollTop);
+        const a0 = await page.locator(APP_SCROLL).evaluate(el => el.scrollTop);
+        await wheel(page, APP_SCROLL, 0, 280);
+        const a1 = await page.locator(APP_SCROLL).evaluate(el => el.scrollTop);
         assert.ok(a1 > a0, width + ' applications wheel');
 
         await clickTitle(page, 'Clients');
@@ -259,6 +282,22 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
         await wheel(page, '.book-scroll', 0, 280);
         const k1 = await page.locator('.book-scroll').evaluate(el => el.scrollTop);
         assert.ok(k1 > k0, width + ' collections wheel');
+        if (width <= 375) {
+          const tabs = await page.evaluate(() => {
+            const bar = document.querySelector('[aria-label="Loan status"]');
+            const boxes = [...bar.querySelectorAll('[role="tab"]')].map(t => t.getBoundingClientRect());
+            return { n: boxes.length, off: boxes.some(t => t.right > innerWidth + 1 || t.left < -1), swipe: bar.scrollWidth > bar.clientWidth + 8 };
+          });
+          assert.ok(tabs.n >= 4, 'status tabs ' + tabs.n);
+          assert.equal(tabs.off, false, 'a status tab is off screen');
+          assert.equal(tabs.swipe, false, 'status tabs still swipe');
+        }
+        if (width === 1280) {
+          await clickTitle(page, 'Markets');
+          await pageWaitFor(page, () => /MARKET NEWS/.test(document.body.innerText), null, { timeoutMs: 8000 });
+          await clickTitle(page, 'Collections');
+          await pageWaitFor(page, () => /EXPECTED RETURN/.test(document.body.innerText) && /ARRANGE/.test(document.body.innerText), null, { timeoutMs: 8000 });
+        }
         await page.close();
       }
     } finally {
