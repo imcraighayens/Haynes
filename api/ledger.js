@@ -15,6 +15,7 @@ import { runNupayImport } from './_lib/nupay-import.js';
 import { stampClientIdentity } from './_lib/sa-id.js';
 import { listAttention, saveAttention, cleanAttentionItems } from './_lib/attention.js';
 import { commitLoanStatus } from './_lib/loan-status.js';
+import { openDates } from '../shared/loan-schedule.js';
 import { missingRelation } from './_lib/inbox.js';
 
 const ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'LEDGER_KEY'];
@@ -479,7 +480,7 @@ async function getAvailable(req, res, clientId) {
   if (!clientId) throw new HttpError(400, 'client id required');
   const client = await selectOne('clients', { select: 'id,ref,deleted_at', id: eq(clientId) });
   if (!client || client.deleted_at) throw new HttpError(404, 'Client not found');
-  const loans = await select('loans', { select: 'id,ref,client_id,application_id,principal,status,schedule,deleted_at', client_id: eq(clientId) });
+  const loans = await select('loans', { select: 'id,ref,client_id,application_id,principal,status,schedule,paid_dates,instalments_paid,deleted_at', client_id: eq(clientId) });
   const open = (loans || []).filter(l => l && !l.deleted_at && OPEN_LOAN.has(String(l.status || '').toLowerCase()));
   const bal = availableOf(loans);
   // Counts + money only — no names, ID numbers, or account numbers.
@@ -488,7 +489,7 @@ async function getAvailable(req, res, clientId) {
     ref: client.ref || null,
     open_loans: open.length,
     ...bal,
-    next_due: open.map(l => Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null).filter(Boolean).sort()[0] || null,
+    next_due: open.map(l => openDates(l)[0] || null).filter(Boolean).sort()[0] || null,
     server_time: new Date().toISOString()
   }, req);
 }

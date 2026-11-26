@@ -14,6 +14,7 @@ import {
   quik1StatusLabel
 } from './_lib/validate.js';
 import { answerBorrower, rand } from './_lib/q1-brain.js';
+import { openDates } from '../shared/loan-schedule.js';
 import { notifyQ1Webhook } from './_lib/q1-webhook.js';
 import { redeemInvite, loginBorrower, logoutBorrower, issueVerification, consumeEmailLink, guardAuth, borrowerHome, changeBorrowerPin, pinChangePending } from './_lib/borrower.js';
 import { requestEmailSignIn, requestIdPhoneSignIn, padSignIn } from './_lib/signin.js';
@@ -199,13 +200,13 @@ async function getAvailableForApplication(req, res, applicationId) {
   if (!app || app.client_id !== client.id) throw new HttpError(404, 'Application not found');
   let outstanding = 0, open = 0, nextDue = null;
   if (app.client_id) {
-    const loans = await select('loans', { select: 'principal,status,schedule,deleted_at,client_id', client_id: eq(app.client_id) });
+    const loans = await select('loans', { select: 'principal,status,schedule,paid_dates,deleted_at,client_id', client_id: eq(app.client_id) });
     for (const l of loans || []) {
       if (!l || l.deleted_at) continue;
       if (!OPEN_LOAN.has(String(l.status || '').toLowerCase())) continue;
       open += 1;
       outstanding += Number(l.principal) || 0;
-      const d = Array.isArray(l.schedule) && l.schedule[0] ? l.schedule[0] : null;
+      const d = openDates(l)[0] || null;
       if (d && (!nextDue || d < nextDue)) nextDue = d;
     }
   }

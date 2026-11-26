@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledger</title>
 <script type="module" src="/shared/pin-length.js"></script>
+<script type="module" src="/shared/loan-schedule.js"></script>
 <script>
 /* This file lives in /ledger/. A staff host 307s "/" to /ledger/, where these
    relative URLs resolve. Local dev still rewrites "/" onto this file, and
@@ -3180,11 +3181,30 @@ class Component extends DCLogic {
     if(ds.length) return ds;
     return (l&&l.due&&l.due!=='—')?[l.due]:[];
   }
+  loanSched(l){
+    const api=globalThis.loanSchedule;
+    if(!api||!l||typeof api.readSchedule!=='function') return null;
+    return api.readSchedule(l);
+  }
+  dateCollected(l, d){
+    const api=globalThis.loanSchedule;
+    if(!api||typeof api.isCollected!=='function') return false;
+    return api.isCollected(l, d);
+  }
+  paidAhead(l){
+    const v=this.loanSched(l);
+    return v?v.paidAhead:0;
+  }
   nextUnpaidDate(l){
+    const v=this.loanSched(l);
+    const api=globalThis.loanSchedule;
+    if(v&&api){
+      if(v.due) return api.labelOfIso(v.due)||v.due;
+      return '—';
+    }
     const ds=this.instalmentDates(l);
     if(!ds.length) return (l&&l.due)?l.due:'—';
-    const paid=Math.max(0,(l&&l.paidInst)||0);
-    return ds[Math.min(paid, ds.length-1)];
+    return ds[0];
   }
   finalDueDate(l){
     const ds=this.instalmentDates(l);
@@ -3453,13 +3473,12 @@ class Component extends DCLogic {
   }
   instNorm(l){
     if(!l) return l;
-    const sched=(l.sched&&l.sched.length)?l.sched:(l.due?[l.due]:[]), n=sched.length, done=l.instDone||0;
-    let paid=Math.min(l.paidInst||0, n), status=l.status;
-    if(status==='paid' && paid<n){ paid+=1; if(paid<n) status='issued'; }
-    if(paid>=n && n>0 && status!=='written off') status='paid';
-    const idx=Math.min(paid, Math.max(n-1,0));
-    return {...l, status, paidInst:paid, due: sched[idx]||l.due, instNo: done+idx+1, instTotal: done+n,
-      instRemaining: Math.max(n-paid,0), nextDue: (paid<n && sched[idx+1]) ? sched[idx+1] : null};
+    const v=this.loanSched(l), api=globalThis.loanSchedule;
+    if(!v||!api) return l;
+    const due=v.due?(api.labelOfIso(v.due)||v.due):(l.due||'—');
+    const nextDue=v.nextDue?(api.labelOfIso(v.nextDue)||v.nextDue):null;
+    return {...l, status:v.promotePaid?'paid':l.status, paidInst:v.paidInst, due, instNo:v.instNo, instTotal:v.instTotal,
+      instRemaining:v.remaining, nextDue};
   }
   instSync(){
     const ls=this.state.loans||[]; let ch=false;
@@ -4040,26 +4059,31 @@ class Component extends DCLogic {
   }
   bulkItems(){
     const st=this.state, tn=this.today(), t0=new Date(tn.getFullYear(),tn.getMonth(),tn.getDate()).getTime(), out=[];
+    const api=globalThis.loanSchedule;
     (st.loans||[]).forEach(l=>{ if(l.status==='paid'||l.status==='written off') return;
-      const ds=(l.sched&&l.sched.length?l.sched:[l.due]), i=Math.min(l.paidInst||0, ds.length-1), p=this.slParse(ds[i]); if(!p) return;
+      const v=this.loanSched(l);
+      const ds=v&&api?v.open.map(d=>api.labelOfIso(d)||d):(l.sched&&l.sched.length?l.sched:[l.due]);
+      const p=this.slParse(ds[0]); if(!p) return;
       const pt=new Date(p.getFullYear(),p.getMonth(),p.getDate()).getTime(); if(pt>t0) return;
-      out.push({loan:l, instNo:(l.instDone||0)+i+1, total:(l.instDone||0)+ds.length, date:ds[i], pt}); });
+      out.push({loan:l, instNo:v?v.instNo:((l.instDone||0)+1), total:v?v.instTotal:((l.instDone||0)+ds.length), date:ds[0], pt}); });
     return out.sort((a,b)=>a.pt-b.pt);
   }
   notifItems(){
     const st=this.state, tn=this.today(), t0=new Date(tn.getFullYear(),tn.getMonth(),tn.getDate()).getTime();
     const out=[];
+    const api=globalThis.loanSchedule;
     st.loans.forEach(l=>{
       if(l.status==='paid'||l.status==='written off') return;
-      const dates=(l.sched&&l.sched.length?l.sched:[l.due]);
+      const v=this.loanSched(l);
+      const dates=v&&api?v.open.map(d=>api.labelOfIso(d)||d):(l.sched&&l.sched.length?l.sched:[l.due]);
       let todayIdx=-1, lastPast=null;
-      const skip=l.paidInst||0, off=l.instDone||0;
-      dates.forEach((d,i)=>{ if(i<skip) return; const p=this.slParse(d); if(!p) return; const pt=new Date(p.getFullYear(),p.getMonth(),p.getDate()).getTime();
+      const first=v?v.instNo:((l.instDone||0)+1), total=v?v.instTotal:((l.instDone||0)+dates.length);
+      dates.forEach((d,i)=>{ const p=this.slParse(d); if(!p) return; const pt=new Date(p.getFullYear(),p.getMonth(),p.getDate()).getTime();
         if(pt===t0) todayIdx=i; else if(pt<t0) lastPast={i,pt,d}; });
       const upd=(st.statusAt||{})[l.id]||0;
-      if(todayIdx>=0) out.push({loan:l, kind:'today', instNo:off+todayIdx+1, total:off+dates.length, date:dates[todayIdx], flagged:false});
+      if(todayIdx>=0) out.push({loan:l, kind:'today', instNo:first+todayIdx, total, date:dates[todayIdx], flagged:false});
       else if(lastPast && (l.status==='issued'||l.status==='duetoday') && upd < lastPast.pt+864e5)
-        out.push({loan:l, kind:'stale', instNo:off+lastPast.i+1, total:off+dates.length, date:lastPast.d, flagged:true, days:Math.round((t0-lastPast.pt)/864e5)});
+        out.push({loan:l, kind:'stale', instNo:first+lastPast.i, total, date:lastPast.d, flagged:true, days:Math.round((t0-lastPast.pt)/864e5)});
     });
     return out.sort((a,b)=>(b.flagged-a.flagged));
   }
@@ -4123,7 +4147,8 @@ class Component extends DCLogic {
       r.warn=w.length?w.join(' · ')+' — book amounts kept':'';
       if(idx<0){ r.kind='skip'; r.on=false; r.action='Instalment '+K+' not found on schedule'; return r; }
       const pd=l.paidInst||0;
-      if(outcome==='paid'){ if(idx<pd||l.status==='paid'){ r.kind='skip'; r.on=false; r.action='Inst '+K+'/'+((l.instDone||0)+ds.length)+' already paid'; } else { r.kind='paid'; r.action='Mark inst '+K+'/'+((l.instDone||0)+ds.length)+' paid'+(idx>pd?' (and '+(idx-pd)+' earlier)':''); } }
+      const already=idx>=0 && this.dateCollected(l, ds[idx]);
+      if(outcome==='paid'){ if(already||l.status==='paid'){ r.kind='skip'; r.on=false; r.action='Inst '+K+'/'+((l.instDone||0)+ds.length)+' already paid'; } else { r.kind='paid'; r.action='Mark inst '+K+'/'+((l.instDone||0)+ds.length)+' paid'+(idx>pd?' (and '+(idx-pd)+' earlier)':''); } }
       else if(outcome==='unpaid'){ r.kind='unpaid'; r.action='Mark overdue · debit '+res.toLowerCase(); }
       else { r.kind='skip'; r.on=false; r.action='Pending at bank · no change'; }
       return r; });
@@ -4147,7 +4172,8 @@ class Component extends DCLogic {
         const fd=r.first||r.cycle, p=fd.split('-').map(Number), sched=[]; for(let k=0;k<r.V;k++){ const d=new Date(p[0],p[1]-1+k,p[2]); sched.push(d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getFullYear()); }
         const paidN = r.outcome==='paid' ? Math.min(r.K, r.V) : Math.max(0, r.K-1);
         const ref='ECL-F'+String(++fMax).padStart(2,'0'), id='l'+now+r.key;
-        loans.push(this.instNorm({id, ref, clientId:cid, amount:r.orig, retAmt:r.deb, instDone:0, instTotal:r.V, instRemaining:r.V-paidN, paidInst:paidN, ret:r.pif, status:r.outcome==='unpaid'?'overdue':(paidN>=r.V?'paid':'issued'), due:sched[Math.min(paidN,r.V-1)], purpose:'Personal', mandate:r.mid, sched, issued:this.brLabel(fd)}));
+        const paidDates=sched.slice(0, paidN);
+        loans.push(this.instNorm({id, ref, clientId:cid, amount:r.orig, retAmt:r.deb, instDone:0, instTotal:r.V, instRemaining:r.V-paidN, paidInst:paidN, paidDates, ret:r.pif, status:r.outcome==='unpaid'?'overdue':(paidN>=r.V?'paid':'issued'), due:sched[Math.min(paidN,Math.max(r.V-1,0))], purpose:'Personal', mandate:r.mid, sched, issued:this.brLabel(fd)}));
         sAt[id]=now; n.new++;
         logs.push({ref, customer:r.clientName, amount:r.orig, type:'LOAN ADDED', date:this.todayStamp(), by, comment:'Mandate '+r.mid+' · '+r.V+' × '+this.fmt(r.deb)+src});
         return; }
@@ -4960,8 +4986,9 @@ class Component extends DCLogic {
     st.loans.forEach(l=>{
       if(l.status==='paid' || l.status==='written off') return;
       const dates = (l.sched && l.sched.length ? l.sched : [l.due]);
-      dates.forEach((dstr,i)=>{ if(i<(l.paidInst||0)) return; const p=parseDue(dstr);
-        if(p && p.mo===cm && p.y===cy) (dueByDay[p.d]=dueByDay[p.d]||[]).push({...l, due:dstr, instNo:(l.instDone||0)+i+1}); });
+      const ahead=this.paidAhead(l);
+      dates.forEach((dstr,i)=>{ if(this.dateCollected(l, dstr)) return; const p=parseDue(dstr);
+        if(p && p.mo===cm && p.y===cy) (dueByDay[p.d]=dueByDay[p.d]||[]).push({...l, due:dstr, instNo:(l.instDone||0)+ahead+i+1}); });
     });
     const calCells=[];
     for(let i=0;i<firstDow;i++) calCells.push({day:'', has:false, style:this.cssObj('height:30px')});
@@ -5222,9 +5249,10 @@ class Component extends DCLogic {
         const alt = i % 2 === 1;
         const mv=(()=>{ const n=this.today(), ds=(l.sched&&l.sched.length?l.sched:[l.due]);
           const k=ds.findIndex(d=>{ const t=this.slParse(d); return t && t.getMonth()===n.getMonth() && t.getFullYear()===n.getFullYear(); });
-          if(k<0) return null; const paidM=k<(l.paidInst||0)||(l.status==='paid');
-          const s=paidM?'paid':(k>(l.paidInst||0)&&l.status!=='overdue'?'issued':l.status);
-          return {due:ds[k], no:(l.instDone||0)+k+1, tot:(l.instDone||0)+ds.length, s}; })();
+          if(k<0) return null; const paidM=this.dateCollected(l, ds[k]);
+          const openAt=ds.findIndex(d=>!this.dateCollected(l, d));
+          const s=paidM?'paid':(openAt>=0&&k>openAt&&l.status!=='overdue'?'issued':l.status);
+          return {due:ds[k], no:(l.instDone||0)+this.paidAhead(l)+k+1, tot:l.instTotal||((l.instDone||0)+this.paidAhead(l)+ds.length), s}; })();
         const smv = mv ? this.statusMeta(mv.s) : sm;
         return {...l, customer:c.name,
           rowStyle:this.cssObj('cursor:pointer;background:'+(alt?'var(--panel2)':'var(--panel)')+';box-shadow:'+((l.status==='overdue'||staleIds[l.id])?'inset 3px 0 0 var(--red)':'none')), amountFmt:fmt(l.amount), retFmt:l.ret+'%',
@@ -5300,12 +5328,13 @@ class Component extends DCLogic {
         openFull:()=>this.pushModal({modal:'clienthub',modalId:hc.id,revealed:false,cliEdit:null})}; }
     const stMonth = (()=>{ if(!mLoanRaw) return {label:'', sub:'', future:[], hasFuture:false};
       const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
-      const n=this.today(), ds=(mLoanRaw.sched&&mLoanRaw.sched.length?mLoanRaw.sched:[mLoanRaw.due]), done=mLoanRaw.instDone||0, pd=mLoanRaw.paidInst||0;
+      const n=this.today(), ds=(mLoanRaw.sched&&mLoanRaw.sched.length?mLoanRaw.sched:[mLoanRaw.due]), done=mLoanRaw.instDone||0, ahead=this.paidAhead(mLoanRaw);
       const k=ds.findIndex(d=>{ const t=this.slParse(d); return t && t.getMonth()===n.getMonth() && t.getFullYear()===n.getFullYear(); });
-      const i=k>=0?k:Math.min(pd, ds.length-1), t=this.slParse(ds[i]);
-      const future=ds.map((d,j)=>({d,j})).filter(x=>x.j>i && x.j>=pd).map(x=>({due:x.d, inst:'Inst '+(done+x.j+1)+'/'+(done+ds.length), amt:fmt(this.dueAmt(mLoanRaw))}));
-      return {label:'UPDATING '+(t?(MN[t.getMonth()]+' '+t.getFullYear()).toUpperCase():String(ds[i]).toUpperCase()),
-        sub:(ds.length+done>1?'Instalment '+(done+i+1)+' of '+(done+ds.length)+' · ':'')+'due '+ds[i]+(k>=0&&k<pd?' · already paid':''),
+      const openAt=ds.findIndex(d=>!this.dateCollected(mLoanRaw, d));
+      const i=k>=0?k:(openAt>=0?openAt:ds.length-1), t=this.slParse(ds[i]);
+      const future=ds.map((d,j)=>({d,j})).filter(x=>x.j>i && !this.dateCollected(mLoanRaw, x.d)).map(x=>({due:x.d, inst:'Inst '+(done+ahead+x.j+1)+'/'+(mLoanRaw.instTotal||(done+ahead+ds.length)), amt:fmt(this.dueAmt(mLoanRaw))}));
+      return {label:'UPDATING '+(t?(MN[t.getMonth()]+' '+t.getFullYear()).toUpperCase():String(ds[i]||'').toUpperCase()),
+        sub:( (mLoanRaw.instTotal||ds.length+done)>1?'Instalment '+(done+ahead+i+1)+' of '+(mLoanRaw.instTotal||(done+ahead+ds.length))+' · ':'')+'due '+(ds[i]||'—')+(k>=0&&this.dateCollected(mLoanRaw, ds[k])?' · already paid':''),
         future, hasFuture:!!future.length}; })();
     const statusPicks = this.statusChoices(mLoanRaw).map(s=>{
       const sm = this.statusMeta(s), cur = mLoanRaw && mLoanRaw.status===s;
@@ -5313,7 +5342,7 @@ class Component extends DCLogic {
         if(!mLoanRaw||cur) return;
         if(s==='paid'){ const n=this.today(), ds=(mLoanRaw.sched&&mLoanRaw.sched.length?mLoanRaw.sched:[mLoanRaw.due]);
           const k=ds.findIndex(d=>{ const t=this.slParse(d); return t && t.getMonth()===n.getMonth() && t.getFullYear()===n.getFullYear(); });
-          if(k>=0 && k<(mLoanRaw.paidInst||0)){ this.setState({modal:null}); return this.toast(mLoanRaw.ref+' — this month is already paid. Future months are untouched.'); } }
+          if(k>=0 && this.dateCollected(mLoanRaw, ds[k])){ this.setState({modal:null}); return this.toast(mLoanRaw.ref+' — this month is already paid. Future months are untouched.'); } }
         this.setState({modal:null});
         this.commitLoanStatus(mLoanRaw.id, s, 'Updated from notifications');
       }, style:this.cssObj("padding:11px 14px;border-radius:10px;border:1px solid var(--line2);cursor:pointer;font:500 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;"+(cur?'border-color:var(--accText);color:var(--accText)':'color:var(--mut)'))};
@@ -6235,9 +6264,10 @@ class Component extends DCLogic {
           const col=settled?'var(--dim)':dl===null?'var(--blue)':dl<0?'var(--red)':dl<=7?'var(--amber)':'var(--blue)';
           const multi=(l.instTotal||1)>1;
           const MN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-          const sch=(l.sched&&l.sched.length?l.sched:[l.due]), off=l.instDone||0, tot=l.instTotal||(off+sch.length), pd=settled&&l.status==='paid'?sch.length:(l.paidInst||0);
-          const months=sch.map((d,k)=>{ const p=this.slParse(d); const isPaid=k<pd, isNext=!settled&&k===pd; const c2=isPaid?'var(--green)':isNext?col:'var(--dim)';
-            return {label:(p?MN[p.getMonth()]+' '+String(p.getFullYear()).slice(2):String(d)), n:(off+k+1)+'/'+tot, mark:isPaid?'✓':'',
+          const sch=(l.sched&&l.sched.length?l.sched:[l.due]), off=l.instDone||0, ahead=this.paidAhead(l), tot=l.instTotal||(off+ahead+sch.length);
+          const openAt=sch.findIndex(d=>!this.dateCollected(l, d));
+          const months=sch.map((d,k)=>{ const p=this.slParse(d); const isPaid=this.dateCollected(l, d), isNext=!settled&&k===openAt; const c2=isPaid?'var(--green)':isNext?col:'var(--dim)';
+            return {label:(p?MN[p.getMonth()]+' '+String(p.getFullYear()).slice(2):String(d)), n:(off+ahead+k+1)+'/'+tot, mark:isPaid?'✓':'',
               style:this.cssObj("display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:99px;font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;white-space:nowrap;color:"+c2+";border:1px solid "+(isNext?c2:'var(--line2)')+";background:"+(isPaid?'var(--greenSoft)':isNext?'var(--panel)':'transparent'))}; });
           return {ref:l.ref, amountFmt:this.lentFmt(l), returnFmt:fmt(cents(l)), months, monthsLabel: sch.length===1?'Collect in':'Collect over '+sch.length+' months',
             dueFmt:l.due.toUpperCase(), statusLabel:sm.label, statusStyle:sm.style,
@@ -6302,8 +6332,8 @@ class Component extends DCLogic {
           hubActivity, hubNoActivity: hubActivity.length===0,
           hubRevealText: st.revealed?'Hide details':'Reveal details',
           ...(()=>{ const items=[];
-            cl.filter(l=>l.status!=='written off').forEach(l=>{ const sch=(l.sched&&l.sched.length)?l.sched:[l.due]; const pd=l.status==='paid'?sch.length:Math.min(l.paidInst||0,sch.length);
-              sch.forEach((d,k)=>items.push({l, k, d, t:this.slParse(d), paid:k<pd, of:sch.length, last:k===sch.length-1})); });
+            cl.filter(l=>l.status!=='written off').forEach(l=>{ const sch=(l.sched&&l.sched.length)?l.sched:[l.due]; const ahead=this.paidAhead(l);
+              sch.forEach((d,k)=>items.push({l, k, d, t:this.slParse(d), paid:this.dateCollected(l, d), of:l.instTotal||sch.length, ahead, last:k===sch.length-1})); });
             items.sort((a,b)=>(a.t||0)-(b.t||0) || a.l.ref.localeCompare(b.l.ref));
             const nextI = items.findIndex(x=>!x.paid);
             const on = items.length>1;
@@ -6315,7 +6345,7 @@ class Component extends DCLogic {
               const nextPaid = items[i+1] && items[i+1].paid;
               const lineBg = i===items.length-1 ? 'transparent' : x.paid ? (nextPaid?NG:'linear-gradient(90deg,'+NG+','+NB+')') : 'repeating-linear-gradient(90deg,'+NI+'88 0 6px,transparent 6px 11px)';
               return { date:String(x.d).toUpperCase(), amount:fmt(cents(x.l)),
-                tag: x.l.ref+(x.of>1?' · '+(x.k+1)+'/'+x.of:'')+(x.paid?' · PAID':late?' · LATE':isNext?' · NEXT':''),
+                tag: x.l.ref+(x.of>1?' · '+((x.l.instDone||0)+(x.ahead||0)+x.k+1)+'/'+x.of:'')+(x.paid?' · PAID':late?' · LATE':isNext?' · NEXT':''),
                 mark: x.paid?'✓':'',
                 lineStyle:this.cssObj('position:absolute;top:10px;left:50%;right:-50%;height:2px;border-radius:2px;background:'+lineBg+(x.paid&&i<items.length-1?';box-shadow:'+glow(NG+'aa',4):'')),
                 dotStyle:this.cssObj("position:relative;z-index:1;width:20px;height:20px;border-radius:99px;display:flex;align-items:center;justify-content:center;font:800 10px 'Plus Jakarta Sans',sans-serif;box-sizing:border-box;"
@@ -6325,8 +6355,8 @@ class Component extends DCLogic {
                 dateStyle:this.cssObj("font:700 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;margin-top:9px;color:"+(isNext?'var(--ink)':x.paid?'var(--mut)':'var(--dim)')),
                 tagStyle:this.cssObj("font:700 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;margin-top:3px;white-space:nowrap;color:"+(x.paid?'var(--tlG)':late?'var(--tlR)':isNext?'var(--tlB)':'var(--dim)')+(isNext||late?';text-shadow:var(--tlGlow) '+col+'aa':'')) }; });
             const nx = nextI>=0 ? items[nextI] : null;
-            return { hubTlOn:on, hubTl:tl, hubTlHasNext:!!nx, hubTlNextRef: nx?nx.l.ref+(nx.of>1?' '+(nx.k+1)+'/'+nx.of:''):'',
-              hubTlSummary: (()=>{ const pre=cl.reduce((s2,l)=>s2+(l.instDone||0),0); const p=items.filter(x=>x.paid).length+pre, t=items.length+pre; return p+' OF '+t+' PAID'+(pre?' · '+pre+' BEFORE SCHEDULE':''); })(),
+            return { hubTlOn:on, hubTl:tl, hubTlHasNext:!!nx, hubTlNextRef: nx?nx.l.ref+(nx.of>1?' '+((nx.l.instDone||0)+(nx.ahead||0)+nx.k+1)+'/'+nx.of:''):'',
+              hubTlSummary: (()=>{ const pre=cl.reduce((s2,l)=>s2+(l.instDone||0)+this.paidAhead(l),0); const p=items.filter(x=>x.paid).length+pre, t=items.length+pre; return p+' OF '+t+' PAID'+(pre?' · '+pre+' BEFORE SCHEDULE':''); })(),
               hubTlRef: this._hubTlRefFn || (this._hubTlRefFn = el=>{ this._hubTlEl=el; if(el) requestAnimationFrame(()=>{ if(el.scrollWidth <= el.clientWidth + 1) { el.scrollLeft = 0; return; } const n=this._hubTlNext; const kid=el.children[n>=0?n:el.children.length-1]; if(kid) el.scrollLeft = Math.max(0, kid.offsetLeft - el.clientWidth/2 + kid.offsetWidth/2); }); }),
               hubTlPayNext: ()=>{ if(!nx) return;
                 const step=(window.LedgerAttention&&window.LedgerAttention.nextInstalmentStep)?window.LedgerAttention.nextInstalmentStep(nx.l, nx.of):{instalmentsPaid:(Number(nx.l.paidInst)||0)+1, status:(Number(nx.l.paidInst)||0)+1>=(nx.of||1)?'paid':'issued'};
@@ -6360,9 +6390,9 @@ class Component extends DCLogic {
               lateStyle: this.cssObj("display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;font:600 11px 'Plus Jakarta Sans',sans-serif;"+(lateN?'background:var(--redSoft);color:var(--red)':'background:var(--greenSoft);color:var(--green)')),
               since: 'Client since '+(c.added||'—')+(c.employee?' · added by '+c.employee:'') }; })(),
           hubRate: (()=>{ let due=0, ok=0, missed=0, wo=0;
-            cl.forEach(l=>{ const sch=(l.sched&&l.sched.length)?l.sched:[l.due]; const pre=l.instDone||0; const pd=l.status==='paid'?sch.length:(l.paidInst||0);
+            cl.forEach(l=>{ const sch=(l.sched&&l.sched.length)?l.sched:[l.due]; const pre=(l.instDone||0)+this.paidAhead(l);
               due+=pre; ok+=pre; if(l.status==='written off') wo++;
-              sch.forEach((d,k)=>{ const t=this.slParse(d); const past=t&&t<=today; if(k<pd){ due++; ok++; } else if(past){ due++; missed++; } }); });
+              sch.forEach((d)=>{ const t=this.slParse(d); const past=t&&t<=today; if(this.dateCollected(l, d)){ due++; ok++; } else if(past){ due++; missed++; } }); });
             const rate = due ? ok/due : null;
             const stars = rate===null ? null : Math.min(5, Math.max(0.5, Math.round((rate*5 - wo*2)*2)/2));
             const lab = stars===null?['New client','var(--dim)']:stars>=4.5?['Excellent payer','var(--green)']:stars>=3.5?['Good payer','var(--green)']:stars>=2.5?['Fair — watch closely','var(--amber)']:['Poor — high risk','var(--red)'];
@@ -6492,8 +6522,8 @@ class Component extends DCLogic {
         const lg=(()=>{ const pc=v=>Math.max(0,Math.min(100,v)), seg=(w,c)=>this.cssObj('width:'+pc(w).toFixed(1)+'%;background:'+c+';transition:width .6s cubic-bezier(.22,.8,.28,1)');
           const bn=this.bankNow(), bal=bn.bal||0, mv=bn.moves||[], inT=mv.filter(t=>t.type==='in').reduce((a,t)=>a+t.amount,0), outT=mv.filter(t=>t.type!=='in').reduce((a,t)=>a+t.amount,0), io=(inT+outT)||1;
           const tn=this.today(); let dueM=0, gotM=0, nM=0, pM=0;
-          st.loans.forEach(l=>{ if(l.status==='written off') return; (l.sched&&l.sched.length?l.sched:[l.due]).forEach((d,i)=>{ const t=this.slParse(d); if(!t||t.getMonth()!==tn.getMonth()||t.getFullYear()!==tn.getFullYear()) return;
-            const a=this.dueAmt(l); dueM+=a; nM++; if(l.status==='paid'||i<(l.paidInst||0)){ gotM+=a; pM++; } }); });
+          st.loans.forEach(l=>{ if(l.status==='written off') return; (l.sched&&l.sched.length?l.sched:[l.due]).forEach((d)=>{ const t=this.slParse(d); if(!t||t.getMonth()!==tn.getMonth()||t.getFullYear()!==tn.getFullYear()) return;
+            const a=this.dueAmt(l); dueM+=a; nM++; if(this.dateCollected(l, d)){ gotM+=a; pM++; } }); });
           const exUnpaid=Math.max(0, exTot-exPaid.reduce((a,e)=>a+(e.amount||0),0)), toCol=Math.max(0,dueM-gotM), monthEnd=bal+toCol-exUnpaid, meT=(Math.abs(bal)+toCol+exUnpaid)||1;
           const live=st.loans.filter(l=>l.status!=='paid'&&l.status!=='written off'), odAmt=live.filter(l=>l.status==='overdue').reduce((t,l)=>t+repay(l),0), outAmt=Math.max(ledOutstanding,0)||0;
           const stale=this.bulkItems();

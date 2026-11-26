@@ -10,6 +10,8 @@
 // at the bottom guarantees the cloud rows are in memory before that import resolves.
 // No demo data ever: cloud → localStorage cache → empty tables.
 
+import { readSchedule, labelOfIso } from '../shared/loan-schedule.js';
+
 export const SEED_CLIENTS = [];
 export const SEED_LOANS = [];
 
@@ -408,34 +410,32 @@ export function clientToConsole(row, officerName) {
   return out;
 }
 
-// Mirrors the console's instNorm() so instSync() finds nothing to change on first render.
+// Same schedule reading as the console's instNorm(), so instSync() finds nothing to change.
 export function loanToConsole(row) {
   const schedIso = Array.isArray(row.schedule) ? row.schedule.filter(Boolean) : [];
-  const sched = schedIso.map(labelOf);
-  const n = sched.length, done = intOf(row.prior_instalments);
+  const sched = schedIso.map(d => labelOfIso(d) || labelOf(d));
   const status = statusToConsole(row.status);
-  let paid = Math.min(intOf(row.instalments_paid), n);
-  // A paid/settled loan has every instalment paid; otherwise instNorm would re-open it.
-  if (status === 'paid') paid = n;
-  const idx = Math.min(paid, Math.max(n - 1, 0));
+  const view = readSchedule({ ...row, status });
+  const due = view.due ? (labelOfIso(view.due) || labelOf(view.due)) : '—';
+  const next = view.nextDue ? (labelOfIso(view.nextDue) || labelOf(view.nextDue)) : '';
   const out = {
     id: row.id, ref: row.ref, clientId: row.client_id,
     amount: num(row.principal), ret: row.return_rate_pct == null ? 35 : num(row.return_rate_pct),
     retAmt: row.instalment_amount == null ? undefined : num(row.instalment_amount),
-    paidInst: paid, instDone: done, status,
-    due: n ? sched[idx] : '—', purpose: row.purpose == null ? null : row.purpose,
+    paidInst: view.paidInst, instDone: view.prior, status: view.promotePaid ? 'paid' : status,
+    due, purpose: row.purpose == null ? null : row.purpose,
     mandate: row.mandate_id || null,
-    instNo: done + idx + 1, instTotal: done + n, instRemaining: Math.max(n - paid, 0),
-    nextDue: (paid < n && sched[idx + 1]) ? sched[idx + 1] : null,
+    instNo: view.instNo, instTotal: view.instTotal, instRemaining: view.remaining,
+    nextDue: next || null,
     sched,
     issued: row.issued_on ? labelOf(row.issued_on) : undefined,
     statusAt: row.status_at || '',
     dbStatus: dbStatusOf(row.status),
     issuedBy: row.issued_by || undefined,
     employeeId: row.officer_id || undefined,
-    paidDates: Array.isArray(row.paid_dates) ? row.paid_dates.filter(Boolean).map(labelOf) : []
+    paidDates: Array.isArray(row.paid_dates) ? row.paid_dates.filter(Boolean).map(d => labelOfIso(d) || labelOf(d)) : []
   };
-  if (done + n > 0) out.term = (done + n) + 'm';
+  if (view.instTotal > 0) out.term = view.instTotal + 'm';
   if (row.collection_fee != null) out.collectionFee = num(row.collection_fee);
   return out;
 }

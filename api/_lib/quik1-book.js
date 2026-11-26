@@ -2,6 +2,7 @@
 // column. Open loans count the full principal. Settled loans put that principal
 // back into available. The credit-limit stand-in is the largest principal on file.
 import { loanStatusToDb } from './validate.js';
+import { openDates } from '../../shared/loan-schedule.js';
 
 const SETTLED = new Set(['paid', 'settled_early']);
 
@@ -25,17 +26,11 @@ function isoDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
 }
 
-function scheduleDates(loan) {
-  const raw = loan && loan.schedule;
-  if (!Array.isArray(raw)) return [];
-  return raw.map(isoDate).filter(Boolean);
-}
-
-// The stored schedule is the remaining dates. instalments_paid is not an index
-// into that list: subtracting it again hides instalments that are still due.
-// An empty list stays empty. No date is invented for an overdue loan.
+// Dates still open. instalments_paid is not an index into that list: subtracting
+// it again hides instalments that are still due. A date listed in paid_dates is
+// already collected. An empty list stays empty. No date is invented.
 export function remainingSchedule(loan) {
-  return scheduleDates(loan).slice().sort();
+  return openDates(loan);
 }
 
 function instalmentOf(loan) {
