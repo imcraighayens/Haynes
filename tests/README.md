@@ -19,6 +19,7 @@ answers with canned rows, and the client modules are loaded into a fake `window`
 | `tests/ledjaa-db-empty.test.js` | the adapter with neither cloud nor cache: the import rejects and nothing is ever written |
 | `tests/quik1-link.test.js` | `window.Quik1Link`: optimistic records, POSTs, decision polling |
 | `tests/api/*.test.js` | the serverless handlers (`ledger`, `q1`, `quik1`, `ecoloans`) called directly with mock `req`/`res` |
+| `tests/dev-live.test.js` | `npm run dev:live` guards: read-only, no demo reset, Twilio/webhook dropped, production refused, 403 for blocked writes |
 | `tests/fake-postgrest.test.js` | the in-memory PostgREST that `tools/mock-api.js` runs the real handlers against |
 
 Run one file: `node --test tests/quik1-link.test.js`.
