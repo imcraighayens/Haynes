@@ -1,14 +1,14 @@
 // Staff chat behind the existing Ledger Q1 icon. POST /api/q1-assistant
-// Bearer LEDGER_KEY or the same-origin unlock cookie. A valid staff cookie
-// answers from loadLiveBook (the same rows GET /api/ledger/state serves). The
-// browser DATA block is only the current screen, unless that live load fails.
+// Bearer LEDGER_KEY or the same-origin unlock cookie. Both answer from
+// loadLiveBook (the same rows GET /api/ledger/state serves). The browser DATA
+// block is only the current screen, unless that live load fails.
 // No Claude call and no AI gateway key. A key pasted into the body is never a
 // credential.
 //
 // q1_requests stays the Quik1 customer inbox (POST /api/quik1/requests). This
 // route does not write there.
 import { wrap, json, readBody, requireEnv, HttpError } from './_lib/http.js';
-import { requireStaff, staffIdentity } from './_lib/auth.js';
+import { requireStaff } from './_lib/auth.js';
 import { select, selectOne, eq } from './_lib/supabase.js';
 import { cleanText, isSafeId } from './_lib/validate.js';
 import { missingRelation } from './_lib/inbox.js';
@@ -148,15 +148,13 @@ export default wrap('q1-assistant', async (req, res) => {
   if (!message) throw new HttpError(400, 'message is required');
   const parsed = parseLedgerData(clip(body.data, 100000));
   if (body.page) parsed.page = cleanText(body.page, 40);
-  // Same-origin ledger_staff cookie. Bearer-only callers keep the previous
-  // DATA-block merge. body.key / apikey are not read.
-  const cookieSession = !!staffIdentity(req);
+  // Cookie and Bearer sessions share this path. body.key / apikey are not read.
   let live = null;
   try { live = await loadLiveBook(); } catch { live = null; }
-  const snap = cookieSession && live
+  const snap = live
     ? mergeBook(parsed, live, new Date(), { preferLive: true })
-    : mergeBook(parsed, cookieSession ? null : live);
-  const source = cookieSession ? (live ? 'server' : 'browser-fallback') : undefined;
+    : mergeBook(parsed, null);
+  const source = live ? 'server' : 'browser-fallback';
   snap.apps = sanitizeApps(body.apps);
   snap.appsNote = scrubSecrets(clip(body.appsNote, 4000)).slice(0, 4000);
   const result = answerQuestion(message, snap, historyOf(body.history));
@@ -165,8 +163,8 @@ export default wrap('q1-assistant', async (req, res) => {
     reply: result.reply,
     action: result.action,
     call: result.call,
-    connected: true
+    connected: true,
+    source
   };
-  if (source) payload.source = source;
   json(res, 200, payload, req);
 });

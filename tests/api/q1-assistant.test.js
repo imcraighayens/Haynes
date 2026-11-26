@@ -110,7 +110,7 @@ describe('q1 assistant', { concurrency: 1 }, () => {
   test('a stored key with no staff cookie still returns 200', async () => {
     const res = await callStaff({ auth: true, headers: {}, body: { message: "What's due today?", data: DATA } });
     assert.equal(res.statusCode, 200);
-    assert.match(res.json().reply, /ECL-112/);
+    assert.equal(res.json().source, 'server');
     assert.equal(res.body.includes(KEY), false);
   });
 
@@ -142,8 +142,9 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     const res = await callStaff({ body: { message: "What's due today?", data: DATA, page: 'dashboard' } });
     assert.equal(res.statusCode, 200);
     const j = res.json();
-    assert.match(j.reply, /ECL-112/);
-    assert.match(j.reply, /R 3 000/);
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /Nothing is due today/);
+    assert.equal(j.reply.includes('ECL-112'), false);
     assert.equal(j.action.go, 'filter:duetoday');
     assert.equal(j.call, null);
     assert.equal(j.connected, true);
@@ -320,9 +321,11 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     delete process.env.AI_GATEWAY_API_KEY;
     const res = await callStaff({ body: { message: 'Who has not been updated?', data: DATA } });
     assert.equal(res.statusCode, 200);
-    assert.match(res.json().reply, /ECL-110/);
+    assert.equal(res.json().source, 'server');
+    assert.match(res.json().reply, /flagged|past due/i);
+    assert.equal(res.json().reply.includes('ECL-110'), false);
     assert.equal(res.json().action.go, 'notifications');
-    assert.equal(res.json().action.label, 'Update statuses');
+    assert.equal(res.json().action.label, 'Open notifications');
     assert.ok(!calls.some(c => /anthropic|openai|claude|gateway|ai-gateway/i.test(c.host + c.url.pathname)));
     const src = fs.readFileSync(new URL('../../api/q1-assistant.js', import.meta.url), 'utf8');
     assert.doesNotMatch(src, /AI_GATEWAY_API_KEY|api\.anthropic|api\.openai/);
@@ -333,9 +336,48 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     const res = await callStaff({ body: { message: 'Summarise the book', data: DATA } });
     assert.equal(res.statusCode, 200);
     const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
     assert.match(j.reply, /2 loan/);
     assert.match(j.reply, /R 48 250/);
     assert.equal(j.action.go, 'dashboard');
+  });
+
+  test('bearer session with a healthy book ignores stale DATA and marks source server', async () => {
+    const today = todayYmd(new Date());
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') return { status: 200, body: [{ id: 'l_live', ref: 'ECL-777', client_id: 'c_live', principal: 900, instalment_amount: 1100, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      return { status: 200, body: [] };
+    });
+    const res = await callStaff({ auth: true, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-777/);
+    assert.match(j.reply, /R 1 100/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(res.body.includes(KEY), false);
+    assert.equal(res.body.includes('l_live'), false);
+  });
+
+  test('bearer session with the book down falls back and the badge is amber', async () => {
+    stubFetch(async () => { throw new Error('db down'); });
+    const res = await callStaff({ auth: true, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.match(j.reply, /R 3 000/);
+    assert.equal(res.body.includes(KEY), false);
+    const ledger = fs.readFileSync(new URL('../../ledger/index.html', import.meta.url), 'utf8');
+    const status = ledger.slice(ledger.indexOf('botStatus:'), ledger.indexOf('botDotStyle:'));
+    assert.match(status, /browser-fallback' \? 'BROWSER DATA'/);
+    assert.match(status, /#FFB020/);
+    assert.match(ledger, /from this browser's data/);
   });
 
   test('approve proposes a Quik1 PATCH and does not write it', async () => {
