@@ -1,0 +1,15 @@
+# Netlify does not read vercel.json. Chrome rejects a manifest served as
+# application/octet-stream, so the Ledger install files need these types here too.
+# No redirects: the staff/borrower host split stays in vercel.json.
+
+[[headers]]
+  for = "/ledger/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/ledger/sw.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+    Cache-Control = "no-cache"

@@ -104,4 +104,9 @@ test('vercel serves the ledger manifest and worker types and does not retarget Q
   assert.equal(vercel.rewrites.some(r => String(r.destination).includes('/ledger/manifest.webmanifest')), false);
   const quikManifest = vercel.headers.find(h => h.source === '/quik1/manifest.webmanifest');
   assert.equal(quikManifest.headers.find(h => h.key === 'Content-Type').value, 'application/manifest+json');
+  const netlify = fs.readFileSync(path.join(root, 'netlify.toml'), 'utf8');
+  assert.match(netlify, /for = "\/ledger\/manifest\.webmanifest"/);
+  assert.match(netlify, /Content-Type = "application\/manifest\+json"/);
+  assert.match(netlify, /for = "\/ledger\/sw\.js"/);
+  assert.doesNotMatch(netlify, /\[\[redirects\]\]/);
 });
