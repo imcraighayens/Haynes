@@ -22,7 +22,7 @@ process.env.QUIK1_SESSION_SECRET = SECRET;
 function seed(withWebauthn) {
   const base = {
     clients: [
-      { id: CLIENT_A, ref: 'EC-901', name: 'Book Client A', bank: 'Example Bank', deleted_at: null }
+      { id: CLIENT_A, ref: 'EC-901', name: 'Book Client A', bank: 'Example Bank', id_number: '9912314800084', id_hmac: 'ab'.repeat(32), deleted_at: null }
     ],
     loans: [],
     q1_borrowers: [],

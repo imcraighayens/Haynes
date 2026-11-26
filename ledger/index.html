@@ -835,7 +835,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div style="font:400 14px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ c.added }}</div>
               <div class="cell-clip" style="font-size:14px;color:var(--mut)">{{ c.employee }}</div>
               <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if>
-              <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ c.invite }}" class="row-act">Give Quik1 access</div></sc-if>
+              <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="gate-note">{{ c.idMsg }}</p></sc-if>
+              <sc-if value="{{ c.grant }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Grant Quik1 access</button></sc-if>
           </div>
           </sc-for>
           <sc-if value="{{ clientEmpty }}" hint-placeholder-val="{{ false }}"><div class="empty">{{ clientEmptyText }}</div></sc-if>
@@ -873,7 +874,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <sc-if value="{{ cvCanRevoke }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ cvRevoke }}">Revoke invite</button></sc-if>
               <sc-if value="{{ cvCanRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ cvRevoke }}">Revoke access</button></sc-if>
               <sc-if value="{{ cvResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Reset device</button></sc-if>
-              <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ cvInvite }}" style="display:inline-flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap" style-hover="transform:translateY(-1px);border-color:var(--accText)">Give Quik1 access</div></sc-if>
+              <sc-if value="{{ cvGrantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ cvIdNote }}">Grant Quik1 access</button><p id="{{ cvIdNote }}" class="gate-note" style="flex:1 1 100%;margin:0">{{ cvIdMsg }}</p></sc-if>
+              <sc-if value="{{ cvGrant }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Grant Quik1 access</button></sc-if>
               <sc-if value="{{ cvCanReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ cvReset }}">Reset device</button></sc-if>
               <div sc-camel-on-click="{{ cvToggleReveal }}" style="display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 13px 0 5px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);font:600 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer;white-space:nowrap;transition:transform .18s cubic-bezier(.22,.8,.28,1), border-color .18s ease" style-hover="transform:translateY(-1px);border-color:var(--red)" style-active="transform:scale(.97)"><div style="width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--red);background:color-mix(in oklch, var(--red) 16%, transparent)"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.1 12.3a1 1 0 0 1 0-.6C3.6 7.4 7.5 4.5 12 4.5s8.4 2.9 9.9 7.2a1 1 0 0 1 0 .6c-1.5 4.3-5.4 7.2-9.9 7.2s-8.4-2.9-9.9-7.2"></path><circle cx="12" cy="12" r="3"></circle></svg></div>{{ cvRevealText }}</div>
               <div style="width:1px;height:24px;background:var(--line2);margin:0 2px"></div>
@@ -896,7 +898,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
               <div style="font:700 12px 'Plus Jakarta Sans',sans-serif">{{ q1PinStatus }}</div>
             </div>
             <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Set login PIN</button></sc-if>
-            <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set login PIN</button></sc-if>
+            <sc-if value="{{ cvPinId }}" hint-placeholder-val="{{ false }}"><p id="{{ cvPinNote }}" class="gate-note">{{ cvIdMsg }}</p><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ cvPinNote }}">Set login PIN</button></sc-if>
+            <sc-if value="{{ cvPinGo }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ cvSetTempPin }}">Set login PIN</button></sc-if>
           </div>
         </sc-if>
 
@@ -1335,7 +1338,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           <div class="page-heading" style="font:700 20px 'Plus Jakarta Sans',sans-serif">Quik1 access</div>
           <div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goClients }}" style="font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;min-height:40px;display:inline-flex;align-items:center">Back to clients</div>
         </div>
-        <div style="font-size:14px;color:var(--mut);margin:4px 0 12px">Give access, resend an invite, revoke it, reset a device, or set a temporary PIN. Nothing here sends a debit.</div>
+        <div style="font-size:14px;color:var(--mut);margin:4px 0 12px">Grant Quik1 access with a login PIN, revoke it, or reset a device. Nothing here sends a debit.</div>
         <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><p id="q1-gate-note" class="gate-note">Quik1 invites are switched off until launch.</p></sc-if>
         <div style="flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)">
           <div class="sheet-5" role="table" aria-label="Client access">
@@ -1347,15 +1350,16 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div role="cell" class="cell-clip">{{ c.employee }}</div>
                 <div role="cell"><div>{{ c.invStatus }}</div><div class="due-k">{{ c.invDetail }}</div><div class="due-k">PIN {{ c.invPin }}</div></div>
                 <div role="cell" style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
-                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Give Quik1 access</button></sc-if>
-                  <sc-if value="{{ c.invSend }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.sendInvite }}">Send invite</button></sc-if>
-                  <sc-if value="{{ c.invResend }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.sendInvite }}">Resend invite</button></sc-if>
+                  <sc-if value="{{ c.grantOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Grant Quik1 access</button></sc-if>
+                  <sc-if value="{{ c.grantId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ c.idNote }}">Grant Quik1 access</button><p id="{{ c.idNote }}" class="gate-note">{{ c.idMsg }}</p></sc-if>
+                  <sc-if value="{{ c.grant }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Grant Quik1 access</button></sc-if>
                   <sc-if value="{{ c.invRevoke }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ c.revokeInvite }}">Revoke invite</button></sc-if>
                   <sc-if value="{{ c.invRevokeAccess }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" data-label="REVOKE ACCESS" aria-label="Revoke access" sc-camel-on-click="{{ c.revokeInvite }}">Revoke access</button></sc-if>
                   <sc-if value="{{ c.invReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" aria-label="Reset device" sc-camel-on-click="{{ c.resetDevice }}">Reset device</button></sc-if>
                   <sc-if value="{{ c.invResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Reset device</button></sc-if>
-                  <sc-if value="{{ c.invOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Set login PIN</button></sc-if>
-                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Set login PIN</button></sc-if>
+                  <sc-if value="{{ c.pinOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note">Set login PIN</button></sc-if>
+                  <sc-if value="{{ c.pinId }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="{{ c.idNote }}">Set login PIN</button></sc-if>
+                  <sc-if value="{{ c.pinGo }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act" sc-camel-on-click="{{ c.setTempPin }}">Set login PIN</button></sc-if>
                 </div>
               </div>
             </sc-for>
@@ -2425,20 +2429,11 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">STATUS</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1Status }}</div></div>
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim)">PIN</div><div style="font:700 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em">{{ q1PinStatus }}</div></div>
                 <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><p id="q1-dialog-gate" class="gate-note">Quik1 invites are switched off until launch.</p></sc-if>
-                <sc-if value="{{ q1CopyNote }}" hint-placeholder-val="{{ false }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. Copy the link and give it to this client. It works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open this link and choose a new one.</div></sc-if>
-                <sc-if value="{{ q1PlainNote }}" hint-placeholder-val="{{ true }}"><div style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin-bottom:14px">Nothing is sent automatically. A new link works once and expires in 72 hours. If they already have a PIN, that PIN stops working until they open the link and choose a new one.</div></sc-if>
+                <sc-if value="{{ q1IdOn }}" hint-placeholder-val="{{ false }}"><p id="q1-id-dialog" class="gate-note">{{ q1IdMsg }}</p></sc-if>
                 <sc-if value="{{ q1ExpOn }}" hint-placeholder-val="{{ false }}"><div style="font:400 11px 'Plus Jakarta Sans',sans-serif;color:var(--dim);margin-bottom:12px">Expires {{ q1Exp }}</div></sc-if>
-                <sc-if value="{{ q1HasCode }}" hint-placeholder-val="{{ false }}">
-                  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
-                    <div><div style="font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);margin-bottom:6px">LINK</div><input readonly value="{{ q1Link }}" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 12px 'Plus Jakarta Sans',sans-serif;color:var(--ink)"></div>
-                    <div sc-camel-on-click="{{ q1CopyLink }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 12px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer;text-align:center">COPY LINK</div>
-                  </div>
-                </sc-if>
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Give Quik1 access</button></sc-if>
-                  <sc-if value="{{ q1CanGrant }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Give Quik1 access</div></sc-if>
-                  <sc-if value="{{ q1CanSendNew }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;background:var(--acc);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--accInk);cursor:pointer">Send new link</div></sc-if>
-                  <sc-if value="{{ q1CanResend }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ q1Give }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Resend invite</div></sc-if>
+                  <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Grant Quik1 access</button></sc-if>
+                  <sc-if value="{{ q1IdOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-id-dialog">Grant Quik1 access</button></sc-if>
                   <sc-if value="{{ q1CanReset }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;max-width:280px"><div role="button" tabindex="0" data-kbd="1" aria-label="Reset device" sc-camel-on-click="{{ q1ResetDevices }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer">Reset device</div><div style="font:500 12px 'Plus Jakarta Sans',sans-serif;color:#e4dfd4;line-height:1.4">Signs the client out of their phone; they set up again with a new link.</div></div></sc-if>
                   <sc-if value="{{ q1ResetOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Reset device</button></sc-if>
                   <sc-if value="{{ q1CanRevoke }}" hint-placeholder-val="{{ false }}"><div role="button" tabindex="0" data-kbd="1" data-label="REVOKE ACCESS" aria-label="Revoke invite" sc-camel-on-click="{{ q1RevokeAccess }}" style="padding:10px 14px;border-radius:10px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--red);cursor:pointer">Revoke invite</div></sc-if>
@@ -2447,7 +2442,8 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
                 <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
                   <div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.12em;color:var(--dim);margin-bottom:8px">SET LOGIN PIN</div>
                   <sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ true }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-dialog-gate">Set login PIN</button></sc-if>
-                  <sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}">
+                  <sc-if value="{{ q1IdOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="row-act is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-id-dialog">Set login PIN</button></sc-if>
+                  <sc-if value="{{ q1PinForm }}" hint-placeholder-val="{{ false }}">
                   <p style="font:400 12.5px 'Plus Jakarta Sans',sans-serif;color:var(--mut);line-height:1.55;margin:0 0 10px">This signs the borrower out of every phone. It removes Face ID and passkeys.</p>
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
                     <input type="password" inputmode="numeric" maxlength="{{ q1PinMax }}" pattern="[0-9]*" autocomplete="off" spellcheck="false" placeholder="{{ q1PinHint }}" value="{{ q1TempPin }}" sc-camel-on-change="{{ q1TempPinChange }}" style="flex:1;min-width:120px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
@@ -3151,10 +3147,35 @@ class Component extends DCLogic {
   q1Digits(e){
     return String((e&&e.target&&e.target.value)||'').replace(/\D/g,'').slice(0, globalThis.QUIK1_PIN_LENGTH);
   }
+  q1IdNeed(){
+    return 'This client needs a valid SA ID number before Quik1 access can be granted. Update their ID first.';
+  }
+  q1LuhnOk(digits){
+    if(!/^\d{13}$/.test(digits)) return false;
+    let sum=0, alt=false;
+    for(let i=digits.length-1;i>=0;i--){
+      let n=digits.charCodeAt(i)-48;
+      if(alt){ n*=2; if(n>9) n-=9; }
+      sum+=n; alt=!alt;
+    }
+    return sum%10===0;
+  }
+  q1IdBlock(c){
+    if(!c) return this.q1IdNeed();
+    const digits=String(c.idFull==null?'':c.idFull).replace(/\D/g,'');
+    const month=Number(digits.slice(2,4)), day=Number(digits.slice(4,6));
+    const placeholder='0'.repeat(13);
+    const shape=digits!==placeholder && this.q1LuhnOk(digits) && month>=1 && month<=12 && day>=1 && day<=31;
+    const hmacBlank=Object.prototype.hasOwnProperty.call(c,'idHmac') && !String(c.idHmac||'').trim();
+    const hmacSnake=Object.prototype.hasOwnProperty.call(c,'id_hmac') && !String(c.id_hmac||'').trim();
+    if(!shape || hmacBlank || hmacSnake) return this.q1IdNeed();
+    return '';
+  }
   openQuik1Invite(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
     const c=(this.state.clients||[]).find(x=>x.id===clientId);
     if(!c) return;
+    if(this.borrowerGateOn() && this.q1IdBlock(c)) return;
     const base=this.q1Blank(c);
     this._q1For=clientId;
     this.setState({modal:'q1invite', modalId:clientId, q1Invite:base});
@@ -3167,16 +3188,9 @@ class Component extends DCLogic {
     });
   }
   giveQuik1Access(){
-    const id=this.state.modalId, base=this.state.q1Invite||this.q1Blank();
-    if(!id||base.ready===false) return;
-    this.setState({q1Invite:Object.assign({}, base, {busy:true, error:''})});
-    this.staffApi('POST','/quik1-invites',{clientId:id}).then(j=>{
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:true, access:'invited', accessLabel:'Invited', code:(j&&j.code)||'', link:(j&&j.link)||'', expiresAt:(j&&j.expiresAt)||'', inviteId:(j&&j.inviteId)||'', error:''})});
-    },(e)=>{
-      const text=this.q1FailText(e);
-      const unavailable=/not set up/i.test(text);
-      this.setState({q1Invite:Object.assign({}, base, {busy:false, ready:!unavailable, access:unavailable?'unavailable':base.access, accessLabel:unavailable?text:base.accessLabel, error:text})});
-    });
+    const id=this.state.modalId;
+    if(!id || !this.borrowerGateOn()) return;
+    this.openQuik1Invite(id);
   }
   copyQuik1(which){
     const q=this.state.q1Invite||{};
@@ -3227,7 +3241,9 @@ class Component extends DCLogic {
       detail=exp?('Expires '+this.shortDay(exp)):'';
     } else if(newest&&newest.state==='expired'){ kind='expired'; status='Expired'; }
     const pinish=access==='pin'||access==='locked';
-    return { kind, status, detail, pin:missed?'Unknown':((j&&j.pinStatus)||'None'), off:!gate, send:gate&&(kind==='none'||kind==='expired'), resend:gate&&kind==='sent', revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish };
+    const idMsg=this.q1IdBlock(c);
+    const idNote='q1-id-'+(c&&c.id?c.id:'x');
+    return { kind, status, detail, pin:missed?'Unknown':((j&&j.pinStatus)||'None'), off:!gate, send:false, resend:false, revoke:gate&&kind==='sent', revokeAccess:gate&&pinish, reset:gate&&pinish, resetOff:!gate&&pinish, grant:gate&&!idMsg, grantOff:!gate, grantId:gate&&!!idMsg, idMsg:idMsg||'', idNote:idNote, pinGo:gate&&!idMsg, pinOff:!gate, pinId:gate&&!!idMsg };
   }
   ensureInviteMap(){
     const ids=(this.state.clients||[]).map(c=>c.id).filter(Boolean);
@@ -3246,8 +3262,6 @@ class Component extends DCLogic {
   refreshInvites(){ this._invKey=''; this._inviteMap={}; this._inviteMiss={}; this.ensureInviteMap(); }
   sendInviteFor(clientId, ev){
     if(ev&&ev.stopPropagation) ev.stopPropagation();
-    if(!this.borrowerGateOn()||!clientId) return;
-    this.staffApi('POST','/quik1-invites',{clientId}).then(()=>{ this.toast('Invite sent'); this.refreshInvites(); }, e=>this.toast(this.q1FailText(e)));
   }
   askQuik1Confirm(kind, clientId, opener){
     if(!clientId) return;
@@ -3332,6 +3346,8 @@ class Component extends DCLogic {
     if(this.state.modal!=='q1invite') return;
     if(this._tempPinBusy) return;
     const id=this.state.modalId;
+    const who=(this.state.clients||[]).find(x=>x.id===id);
+    if(who && this.q1IdBlock(who)) return;
     const base=this.state.q1Invite||this.q1Blank();
     if(base.pinBusy) return;
     this._tempPinBusy=true;
@@ -3344,7 +3360,7 @@ class Component extends DCLogic {
       this._tempPinBusy=false;
       this.setState(st=>({q1Invite:Object.assign({}, st.q1Invite||cleared, patch, {pinBusy:false, tempPin:'', tempPin2:''})}));
     };
-    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?raced:'Could not set the login PIN.'});
+    const fail=(e)=>finish({pinMsg:(e&&e.status===409)?raced:(e&&e.status===422)?this.q1IdNeed():'Could not set the login PIN.'});
     if(!id) return fail();
     this.staffApi('POST','/quik1-temp-pin',{clientId:id, pin:pin, pinConfirm:pinConfirm}).then(j=>{
       const status=(j&&j.pinStatus)||'Active';
@@ -5730,7 +5746,7 @@ class Component extends DCLogic {
         const size = 12;
         const pages = Math.max(1, Math.ceil(filtered.length / size) || 1);
         const page = Math.min(Math.max(0, st.clientPage||0), pages-1);
-        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invPin:inv.pin, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invRevokeAccess:inv.revokeAccess, invReset:inv.reset, invResetOff:inv.resetOff, sendInvite:(e)=>this.sendInviteFor(c.id, e), revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e), setTempPin:(e)=>this.openQuik1Invite(c.id, e)}; });
+        const rows = filtered.slice(page*size, page*size+size).map((c,i)=>{ const inv=this.inviteView(c); return {...c, num:String(page*size+i+1), idMasked:'••••••• '+String(c.idFull||'').slice(-4), open:()=>this.setState({modal:'clienthub',modalId:c.id,revealed:false,cliEdit:null,hubTab:'overview',hubEditTab:null}), invite:(e)=>this.openQuik1Invite(c.id, e), invStatus:inv.status, invDetail:inv.detail, invPin:inv.pin, invOff:inv.off, invSend:inv.send, invResend:inv.resend, invRevoke:inv.revoke, invRevokeAccess:inv.revokeAccess, invReset:inv.reset, invResetOff:inv.resetOff, grant:inv.grant, grantOff:inv.grantOff, grantId:inv.grantId, idMsg:inv.idMsg, idNote:inv.idNote, pinGo:inv.pinGo, pinOff:inv.pinOff, pinId:inv.pinId, revokeInvite:(e)=>this.revokeInviteFor(c.id, e), resetDevice:(e)=>this.resetDeviceFor(c.id, e), setTempPin:(e)=>this.openQuik1Invite(c.id, e)}; });
         return { clientRows: rows, clientEmpty: filtered.length===0, clientEmptyText: cq ? 'No clients match that search.' : 'No clients on the book yet.', clientPageLabel: (page+1)+' / '+pages, clientQ: st.clientQ||'', clientQChange:(e)=>this.setState({clientQ:e.target.value, clientPage:0}), clientPrev:()=>this.setState(p=>({clientPage:Math.max(0,(p.clientPage||0)-1)})), clientNext:()=>this.setState(p=>({clientPage:Math.min(pages-1,(p.clientPage||0)+1)})) };
       })(),
       employeeRows: st.employees.map(e=>({...e, bookFmt: e.book?fmt(e.book):'—', added:e.added.toUpperCase(),
@@ -6748,7 +6764,7 @@ class Component extends DCLogic {
               let m; try{ const tx=await this.q1Req(a,'GET',a.path); m='Connected. '+tx.length.toLocaleString()+' characters received: '+tx.slice(0,160).replace(/\s+/g,' '); if(!a.on) this.q1Patch(a.id,{on:true}); }catch(e){ m='Failed: '+e.message; }
               this.setState(p=>({q1Msg:{...(p.q1Msg||{}), [a.id]:m}})); } }; })}; })(),
       mHistory: st.modal==='history', mClient: st.modal==='client', mStatus: st.modal==='status', mDelete: st.modal==='delete', mInvite: st.modal==='invite', mQ1Invite: st.modal==='q1invite', mContract: st.modal==='contract',
-      ...(()=>{ const q=st.q1Invite||{}; const setup=q.ready===false||q.access==='unavailable'; const canAct=q.access==='invited'||q.access==='pin'||q.access==='locked'||!!(q.code||q.link); return {
+      ...(()=>{ const q=st.q1Invite||{}; const setup=q.ready===false||q.access==='unavailable'; const canAct=q.access==='invited'||q.access==='pin'||q.access==='locked'||!!(q.code||q.link); const qClient=(st.clients||[]).find(c=>c.id===st.modalId); const qBlocked=!!(qClient && this.borrowerGateOn() && this.q1IdBlock(qClient)); return {
         q1Name: q.name || '', q1Ref: q.ref || '', q1HasRef: !!q.ref,
         q1Busy: !!q.busy, q1Setup: !!setup && !q.busy, q1Ready: !setup && !q.busy,
         q1Status: q.accessLabel||'No access',
@@ -6765,13 +6781,16 @@ class Component extends DCLogic {
         q1PinAria: q.pinBusy?'true':'false',
         q1SetTempPin:()=>this.submitTemporaryPin(),
         q1Err: q.error||'', q1ErrOn: !!(q.error&&!setup),
-        q1HasCode: !!(q.code||q.link),
+        q1HasCode: false,
         q1GateOff: !this.borrowerGateOn(),
-        q1CopyNote: this.borrowerGateOn() && !!(q.code||q.link),
-        q1PlainNote: this.borrowerGateOn() && !(q.code||q.link),
-        q1CanGrant: this.borrowerGateOn() && !setup && !q.busy && q.access!=='pin' && q.access!=='locked' && !(q.code||q.link),
-        q1CanSendNew: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
-        q1CanResend: this.borrowerGateOn() && !setup && !q.busy && q.access!=='pin' && q.access!=='locked' && !!(q.code||q.link),
+        q1IdOn: qBlocked && !setup && !q.busy,
+        q1IdMsg: qBlocked ? this.q1IdNeed() : '',
+        q1PinForm: this.borrowerGateOn() && !qBlocked,
+        q1CopyNote: false,
+        q1PlainNote: false,
+        q1CanGrant: false,
+        q1CanSendNew: false,
+        q1CanResend: false,
         q1CanRevoke: this.borrowerGateOn() && !setup && !q.busy && canAct && q.access!=='pin' && q.access!=='locked',
         q1CanRevokeAccess: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
         q1CanReset: this.borrowerGateOn() && !setup && !q.busy && (q.access==='pin'||q.access==='locked'),
@@ -6839,6 +6858,13 @@ class Component extends DCLogic {
           cvContract:()=>this.setState({modal:'contractdoc', modalId:cvRaw.id}),
           cvInvite:()=>this.openQuik1Invite(cvRaw.id),
           cvSetTempPin:()=>this.openQuik1Invite(cvRaw.id),
+          cvGrant: this.inviteView(cvRaw).grant,
+          cvGrantId: this.inviteView(cvRaw).grantId,
+          cvPinGo: this.inviteView(cvRaw).pinGo,
+          cvPinId: this.inviteView(cvRaw).pinId,
+          cvIdMsg: this.inviteView(cvRaw).idMsg,
+          cvIdNote: 'q1-cv-'+(cvRaw.id||'x'),
+          cvPinNote: 'q1-cv-pin-'+(cvRaw.id||'x'),
           cvCanRevoke: this.inviteView(cvRaw).revoke,
           cvCanRevokeAccess: this.inviteView(cvRaw).revokeAccess,
           cvCanReset: this.inviteView(cvRaw).reset,

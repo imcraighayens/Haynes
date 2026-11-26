@@ -40,6 +40,29 @@ async function openAccess(page) {
   await pageWaitFor(page, () => /Invite/.test(document.body.innerText), null, { timeoutMs: 8000 });
 }
 
+async function markGrantable(page) {
+  const n = await page.evaluate((id) => {
+    const nodes = document.querySelectorAll('*');
+    for (const el of nodes) {
+      const key = Object.keys(el).find(k => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance'));
+      if (!key) continue;
+      let f = el[key];
+      for (let i = 0; i < 80 && f; i++) {
+        const inst = f.stateNode;
+        const logic = inst && (inst.logic || inst);
+        if (logic && logic.state && Array.isArray(logic.state.clients) && typeof logic.setState === 'function' && typeof logic.q1IdBlock === 'function') {
+          logic.setState({ clients: logic.state.clients.map(c => Object.assign({}, c, { idFull: id })) });
+          return logic.state.clients.length;
+        }
+        f = f.return;
+      }
+    }
+    return 0;
+  }, '9912314800084');
+  assert.ok(n > 0);
+  await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Set login PIN' && !b.disabled), null, { timeoutMs: 8000 });
+}
+
 test('cancel sends no revoke or reset, and confirm sends each post once', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
   await withMockApi(async api => {
     const browser = await pw.chromium.launch();
@@ -200,7 +223,7 @@ test('gate-off invite controls render disabled, including reset', { skip: pw ? f
       await openAccess(page);
       await pageWaitFor(page, () => [...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Reset device'), null, { timeoutMs: 8000 });
       const access = await page.evaluate(() => {
-        const buttons = [...document.querySelectorAll('button')].filter(b => /Give Quik1 access|Reset device|Set login PIN/.test(b.textContent.trim()));
+        const buttons = [...document.querySelectorAll('button')].filter(b => /Grant Quik1 access|Reset device|Set login PIN/.test(b.textContent.trim()));
         const note = document.getElementById('q1-gate-note');
         const pin = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === 'Set login PIN');
         return buttons.length > 0 && buttons.every(b => b.disabled && b.getAttribute('aria-disabled') === 'true' && !!b.getAttribute('aria-describedby'))
@@ -313,6 +336,7 @@ test('two clicks on Set login PIN send one request, then the button is ready aga
     try {
       await boot(page, api.origin);
       await openAccess(page);
+      await markGrantable(page);
       await page.getByRole('button', { name: 'Set login PIN', exact: true }).first().dispatchEvent('click');
       await pageWaitFor(page, () => /signs the borrower out of every phone/.test(document.body.innerText)
         && /removes Face ID and passkeys/.test(document.body.innerText)
@@ -385,6 +409,7 @@ test('a login PIN left in the dialog is gone after close, Esc, and a successful 
     try {
       await boot(page, api.origin);
       await openAccess(page);
+      await markGrantable(page);
       await openDialog();
       await typePins();
       await page.keyboard.press('Escape');

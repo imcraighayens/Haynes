@@ -572,7 +572,7 @@ export default wrap('ledger', async (req, res) => {
     if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
     const body = await readBody(req, 4096);
     const clientId = body && typeof body.clientId === 'string' ? body.clientId : '';
-    return json(res, 200, await revokeAccess(clientId), req);
+    return json(res, 200, await revokeAccess(req, clientId), req);
   }
   if (head === 'quik1-invites' && rest.length === 1 && (req.method === 'GET' || req.method === 'HEAD')) {
     return json(res, 200, await listInvites(rest[0]), req);

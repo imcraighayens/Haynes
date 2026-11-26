@@ -3,6 +3,8 @@
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
 // An ID number is never used to look anyone up. ID and cellphone
 // sign-in, when used, matches a keyed HMAC on the client row.
+// setLoginPin reads the stored number on the client it already found,
+// only to refuse a grant. It does not query by that number.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
@@ -14,6 +16,7 @@ import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
 import { clientIp, authLimiter, createLimiter } from './ratelimit.js';
 import { borrowerEmailLive, emailSender } from './email.js';
+import { normaliseSaId } from './sa-id.js';
 import {
   sessionSecret, mintBorrowerToken, newSessionId, readSession, readDeviceRef, readKnownDevice, readPendingDevice,
   sessionCookie, deviceCookie, knownDeviceCookie, clearKnownCookie, clearSessionCookie,
@@ -418,15 +421,39 @@ export async function listInvites(clientId) {
 
 // Staff revoke. Open links die, and a PIN that was already set stops working
 // until the client opens a new invite and chooses another PIN.
-export async function revokeAccess(clientId) {
+// The audit row matches borrower_temp_pin_set: staff actor, client ref,
+// customer '—', and a comment that names the borrower id or no_borrower.
+// It never stores a PIN, a hash, a raw ID number, a phone, or an email.
+export async function revokeAccess(req, clientId) {
   const client = await liveClient(clientId);
   const nowIso = new Date().toISOString();
+  let borrowerId = '';
   try {
+    const borrower = await selectOne('q1_borrowers', {
+      select: 'id',
+      client_id: eq(client.id)
+    });
+    if (borrower && borrower.id) borrowerId = String(borrower.id);
     await revokeOpenInvites(client.id, nowIso);
     await lockUntilRedeem(client.id, nowIso);
   } catch (err) {
     if (missingTable(err)) throw notSetUp();
     throw err;
+  }
+  const comment = borrowerId ? ('q1_borrower=' + borrowerId) : 'no_borrower';
+  try {
+    await insert('audit_log', [{
+      id: 'aud_q1_' + randomBytes(6).toString('hex'),
+      at: nowIso,
+      type: 'borrower_access_revoked',
+      ref: client.ref || '—',
+      customer: '—',
+      amount: 0,
+      by: staffActor(req),
+      comment
+    }], { returning: false });
+  } catch (err) {
+    if (!missingTable(err)) throw err;
   }
   return listInvites(client.id);
 }
@@ -966,6 +993,35 @@ async function writeTempPin(row, patch) {
   if (!updated.length) throw new HttpError(409, PIN_SET_RACE);
 }
 
+const ID_GRANT_BLOCK = 'This client needs a valid SA ID number before Quik1 access can be granted. Update their ID first.';
+
+function idGrantBlocked() {
+  return new HttpError(422, ID_GRANT_BLOCK);
+}
+
+// One response for every reason a grant cannot be hashed: the placeholder
+// 0000000000000, a number normaliseSaId rejects, or a row with no id_hmac.
+// The client was already resolved by id, so this does not reveal whether a
+// borrower row exists, and it writes nothing.
+async function assertGrantableId(clientId) {
+  let row;
+  try {
+    row = await selectOne('clients', {
+      select: 'id,id_number,id_hmac',
+      id: eq(clientId)
+    });
+  } catch (err) {
+    if (columnMissing(err)) throw idGrantBlocked();
+    throw err;
+  }
+  if (!row) throw new HttpError(404, 'Client not found');
+  const raw = row.id_number == null ? '' : String(row.id_number);
+  const compact = raw.replace(/\D/g, '');
+  const digits = normaliseSaId(raw);
+  const hmac = typeof row.id_hmac === 'string' ? row.id_hmac.trim() : '';
+  if (!digits || compact === '0000000000000' || !hmac) throw idGrantBlocked();
+}
+
 // Same rule as Reset Device. Email can confirm a new phone, so no window.
 // Otherwise the next correct PIN within 24 hours links one phone.
 async function phoneTrustUntil(req, clientId, now) {
@@ -988,6 +1044,7 @@ export async function setLoginPin(req, res, body) {
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   const pin = chosenPair(body || {});
   const client = await liveClient(body && typeof body.clientId === 'string' ? body.clientId : '');
+  await assertGrantableId(client.id);
   let existing = null;
   try {
     existing = await selectOne('q1_borrowers', {
