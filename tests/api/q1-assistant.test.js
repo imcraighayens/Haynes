@@ -107,6 +107,20 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     stubFetch(dbRoute());
   });
 
+  test('a stored key with no staff cookie still returns 200', async () => {
+    const res = await callStaff({ auth: true, headers: {}, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    assert.match(res.json().reply, /ECL-112/);
+    assert.equal(res.body.includes(KEY), false);
+  });
+
+  test('no cookie and no key is 401', async () => {
+    const res = await callStaff({ auth: false, headers: {}, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 401);
+    assert.equal(calls.length, 0);
+    assert.equal(res.body.includes(KEY), false);
+  });
+
   test('unauthenticated chat is 401 and does not touch the database or webhook', async () => {
     process.env.Q1_WEBHOOK_URL = 'https://ceo.example/hook';
     const res = await callStaff({ auth: false, body: { message: 'What is due today?', data: DATA } });
@@ -519,13 +533,22 @@ describe('q1 icon source', { concurrency: 1 }, () => {
     const fn = ledger.slice(ledger.indexOf('async botFromLedger'), ledger.indexOf('botRun(act)'));
     assert.match(fn, /fetch\('\/api\/q1-assistant'/);
     assert.match(fn, /credentials:'include'/);
-    assert.equal(fn.includes('ledjaa.supabase'), false);
-    assert.equal(fn.includes('Authorization'), false);
+    assert.match(fn, /ledjaa\.supabase/);
+    assert.match(fn, /headers\.Authorization='Bearer '\+key/);
+    assert.equal(fn.includes('console.log'), false);
     assert.equal(fn.includes("I can't reach Claude"), false);
     assert.ok(fn.indexOf("fetch('/api/q1-assistant'") < fn.indexOf('window.claude'));
+    assert.match(fn, /_botSource=.*browser-fallback/);
     assert.match(ledger, /CONNECTED · LEDGER/);
+    assert.match(ledger, /BROWSER DATA/);
+    assert.match(ledger, /from this browser's data/);
+    assert.match(ledger, /#22E07A/);
+    assert.match(ledger, /#FFB020/);
     assert.equal(ledger.includes('NOT CONNECTED — ADD KEY IN SETTINGS'), false);
     const status = ledger.slice(ledger.indexOf('botStatus:'), ledger.indexOf('botDotStyle:'));
+    assert.match(status, /browser-fallback/);
+    assert.match(status, /BROWSER DATA/);
+    assert.match(status, /CONNECTED · LEDGER/);
     assert.equal(status.includes('window.claude'), false);
   });
 

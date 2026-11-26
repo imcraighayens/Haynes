@@ -1836,13 +1836,13 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       <div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;width:min(620px,calc(100vw - 32px));height:min(680px,calc(100vh - 80px));display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line2);border-radius:22px;box-shadow:0 30px 70px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,254,.25);overflow:hidden;animation:fadeUp .22s cubic-bezier(.22,.8,.28,1)">
         <div style="display:flex;align-items:center;gap:11px;padding:14px 16px;background:#0B0620;border-bottom:1.5px solid rgba(255,255,255,.85);box-shadow:0 6px 18px -8px rgba(255,255,255,.35);color:#fff;flex:none">
           <span style="display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:50%;background:#FFFFFF;box-shadow:0 0 10px rgba(255,255,255,.75),0 0 22px rgba(255,255,255,.35)"><span style="position:relative;width:25px;height:21px;border-radius:8px;background:#0B0620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><span style="display:flex;gap:5px"><span style="width:4px;height:7px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s infinite"></span><span style="width:4px;height:7px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s .04s infinite"></span></span><span style="width:5px;height:2px;border-radius:1px;background:#FDD10D;opacity:.85"></span></span></span>
-          <div style="flex:1;min-width:0"><div style="font:700 14px 'Plus Jakarta Sans',sans-serif">Q1</div><div title="{{ botStatus }}" style="display:flex;align-items:center;margin-top:3px"><div style="{{ botDotStyle }}"></div></div></div>
+          <div style="flex:1;min-width:0"><div style="font:700 14px 'Plus Jakarta Sans',sans-serif">Q1</div><div title="{{ botStatus }}" style="display:flex;align-items:center;gap:6px;margin-top:3px"><div style="{{ botDotStyle }}"></div><div style="font:600 10px 'Plus Jakarta Sans',sans-serif;letter-spacing:.06em;color:{{ botStatusColor }}">{{ botStatus }}</div></div></div>
           <div sc-camel-on-click="{{ botClear }}" title="New chat" style="font:600 10.5px 'Plus Jakarta Sans',sans-serif;opacity:.8;cursor:pointer;padding:5px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.35)" style-hover="opacity:1">NEW</div>
           <div sc-camel-on-click="{{ botToggle }}" style="cursor:pointer;font-size:17px;opacity:.85;padding:0 2px" style-hover="opacity:1">✕</div>
         </div>
         <div ref="{{ botScrollRef }}" style="flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
           <sc-for list="{{ botMsgs }}" as="m" hint-placeholder-count="1">
-            <div style="{{ m.wrap }}"><div style="{{ m.bubble }}">{{ m.text }}</div>
+            <div style="{{ m.wrap }}"><div style="{{ m.bubble }}">{{ m.text }}</div><sc-if value="{{ m.hasNote }}" hint-placeholder-val="{{ false }}"><div style="align-self:flex-start;margin-top:3px;font:600 9.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.03em;color:#FFB020">from this browser's data</div></sc-if>
               <sc-if value="{{ m.hasAct }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ m.act }}" style="align-self:flex-start;margin-top:6px;padding:6px 12px;border-radius:99px;background:var(--blueSoft);color:var(--blue);font:700 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;cursor:pointer;border:1px solid var(--blue)" style-hover="filter:brightness(1.15)">{{ m.actLabel }} →</div></sc-if>
             </div>
           </sc-for>
@@ -3953,7 +3953,7 @@ class Component extends DCLogic {
     let appsNote='';
     try{ appsNote=String(await this.q1Context()||'').replace(/\b\d{13}\b/g,'[id]').slice(0,4000); }catch(e){ appsNote=''; }
     const body={message:q, page:String((this.state&&this.state.route)||''), history:hist.slice(-8).map(m=>({role:m.role==='user'?'user':'bot', text:String(m.text||'').slice(0,1500)})), data:String(this.botContext()||'').slice(0,100000), apps:apps, appsNote:appsNote};
-    const headers={'Content-Type':'application/json','Accept':'application/json'};
+    let key=''; try{ const c=JSON.parse(localStorage.getItem('ledjaa.supabase')||'null'); if(c&&c.key) key=String(c.key); }catch(e){} const headers={'Content-Type':'application/json','Accept':'application/json'}; if(key){ headers.Authorization='Bearer '+key; headers.apikey=key; }
     const r=await fetch('/api/q1-assistant',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)});
     const tx=await r.text();
     let j=null; try{ j=tx?JSON.parse(tx):null; }catch(e){ j=null; }
@@ -3963,7 +3963,7 @@ class Component extends DCLogic {
     const call=j&&j.call, action=j&&j.action;
     if(call&&call.app&&call.path) reply+='\nAPICALL: '+JSON.stringify({app:call.app, method:call.method||'POST', path:call.path, body:call.body||{}, label:call.label||('Run on '+call.app)});
     else if(action&&action.go) reply+='\nACTION: '+JSON.stringify({go:action.go, label:action.label||'Open'});
-    return reply;
+    this._botSource=(j&&j.source==='browser-fallback')?'browser-fallback':'server'; return reply;
   }
   async botAsk(text){
     const q=String(text||'').trim(); if(!q) return;
@@ -3976,7 +3976,7 @@ class Component extends DCLogic {
     }catch(e){
       const why=String((e&&e.message)||e||'');
       console.warn('Q1 assistant:', why);
-      this._botServer=false; this._botAuth=!!(e&&e.status===401);
+      this._botServer=false; this._botAuth=!!(e&&e.status===401); this._botSource=null;
       const hasBuiltIn=!!(window.claude&&window.claude.complete);
       if(e&&e.status===401){
         out='Sign in under Admin, then ask me again. I read the live book once you are signed in.';
@@ -4003,7 +4003,7 @@ class Component extends DCLogic {
     const m=act?null:out.match(/ACTION:\s*(\{[^\n]*\})\s*$/);
     if(m){ try{ act=JSON.parse(m[1]); }catch(e){} out=out.slice(0,m.index).trim(); }
     out = out.replace(/\{\{|\}\}/g,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/__(.+?)__/g,'$1').replace(/(^|\s)\*(\S[^*]*?)\*(?=\s|$)/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
-    this.botSaveHist([...this.botHist(), {role:'bot', text:out||'…', act, at:Date.now()}]);
+    this.botSaveHist([...this.botHist(), {role:'bot', text:out||'…', act, at:Date.now(), fromBrowser:this._botSource==='browser-fallback'}]);
     this.setState({botThinking:false});
   }
   botRun(act){
@@ -6596,13 +6596,14 @@ class Component extends DCLogic {
       ...(()=>{ const open=!!st.botOpen, h=this.botHist();
         const clean = t=>String(t||'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/^#+\s*/gm,'').replace(/^\s*[-*]\s+/gm,'• ');
         const msgs = (h.length?h:[{role:'bot', text:'Hi '+(((st.prof&&st.prof.name)||'').split(' ')[0]||'there')+', I\'m Q1. Ask me what\'s due, who\'s overdue, the bank balance or anything in the book.'}]).map(m=>{ const me=m.role==='user';
-          return { text:me?m.text:clean(m.text), hasAct:!!(m.act&&m.act.go), actLabel:(m.act&&m.act.label)||'Open', act:()=>this.botRun(m.act),
+          return { text:me?m.text:clean(m.text), hasNote:!me&&!!m.fromBrowser, hasAct:!!(m.act&&m.act.go), actLabel:(m.act&&m.act.label)||'Open', act:()=>this.botRun(m.act),
             wrap:this.cssObj('display:flex;flex-direction:column;align-items:'+(me?'flex-end':'flex-start')),
             bubble:this.cssObj('max-width:86%;padding:9px 13px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;'+(me?'border-radius:14px 14px 4px 14px;background:#FDD10D;color:#0B0620':(m.brief&&m.alert)?'border-radius:14px 14px 14px 4px;background:rgba(255,69,58,.16);border:1px solid var(--red);box-shadow:0 0 0 3px rgba(255,69,58,.12);color:var(--ink)':'border-radius:14px 14px 14px 4px;background:var(--panel2);border:1px solid var(--line);color:var(--ink)')) }; });
         return {
           botOpen: open, botMsgs: msgs, botThinking: !!st.botThinking, botDraft: st.botDraft||'',
-          botStatus: this._botServer===false ? (this._botAuth ? 'SIGN IN TO ASK Q1' : 'RECONNECTING') : 'CONNECTED · LEDGER',
-          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+(this._botServer===false?'#FFB020':'#22E07A')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+(this._botServer===false?'#FFB020':'#22E07A')),
+          botStatus: this._botServer===false ? (this._botAuth ? 'SIGN IN TO ASK Q1' : 'RECONNECTING') : (this._botSource==='browser-fallback' ? 'BROWSER DATA' : 'CONNECTED · LEDGER'),
+          botStatusColor: (this._botServer===false || this._botSource==='browser-fallback') ? '#FFB020' : '#22E07A',
+          botDotStyle: this.cssObj('width:8px;height:8px;border-radius:99px;background:'+((this._botServer===false||this._botSource==='browser-fallback')?'#FFB020':'#22E07A')+';box-shadow:0 0 0 3px rgba(255,255,255,.18), 0 0 10px '+((this._botServer===false||this._botSource==='browser-fallback')?'#FFB020':'#22E07A')),
           botToggle: ()=>this.setState({botOpen:!open}),
           q1On: !open && !st.modal,
           q1Float: false,
