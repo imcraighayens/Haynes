@@ -234,6 +234,9 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   color: #3f3f46;
 }
 
+@media (min-width: 801px) {
+  .lg-headline { font-size: 40px; }
+}
 @media (max-height: 760px) and (min-width: 801px) {
   .lg-dark { padding: 24px 28px; }
   .lg-form { padding: 20px 28px; }
@@ -288,6 +291,7 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   flex: none;
   margin-top: 0;
   background: #000;
+  color: #fafafa !important;
 }
 .ledger-side > div:last-child {
   box-shadow: 0 -18px 16px -6px #000;
@@ -480,11 +484,7 @@ body > div:has(> .ledger-side) {
     height: auto !important;
     overflow: visible !important;
   }
-  .today-work, .today-rows, .book-scroll,
-  [data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
-  [data-screen-label="Applications inbox"] > div[style*="overflow: auto"],
-  [data-screen-label="Clients"] > div[style*="overflow:auto"],
-  [data-screen-label="Clients"] > div[style*="overflow: auto"] {
+  .today-work, .today-rows {
     overflow: visible !important;
     max-height: none !important;
     flex: none;
@@ -522,6 +522,17 @@ body > div:has(> .ledger-side) {
   overflow-y: auto !important;
   scrollbar-width: thin !important;
   scrollbar-color: #d6d3d1 #000;
+}
+.ledger-side > div:nth-child(2)::after {
+  content: "";
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex: none;
+  height: 22px;
+  margin-top: -22px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), #000);
 }
 .ledger-side > div:nth-child(2)::-webkit-scrollbar { display: block !important; width: 8px !important; height: 8px !important; }
 .ledger-side > div:nth-child(2)::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 99px; }
@@ -597,12 +608,32 @@ html[data-ledger-theme="dark"] .ledger-side span[style*="99px"][style*="--red"] 
   .route-collections .home-grid { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 900px) {
-  .today-work, .today-rows, .book-scroll,
-  [data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
-  [data-screen-label="Applications inbox"] > div[style*="overflow: auto"],
-  [data-screen-label="Clients"] > div[style*="overflow:auto"],
-  [data-screen-label="Clients"] > div[style*="overflow: auto"] {
+  .today-work, .today-rows {
     overflow: visible !important;
     max-height: none !important;
   }
+}
+.book-scroll,
+[data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
+[data-screen-label="Applications inbox"] > div[style*="overflow: auto"],
+[data-screen-label="Clients"] > div[style*="overflow:auto"],
+[data-screen-label="Clients"] > div[style*="overflow: auto"],
+[data-screen-label="Logbook"] .book-scroll,
+[data-screen-label="Employees"] > div[style*="overflow:auto"],
+[data-screen-label="Employees"] > div[style*="overflow: auto"] {
+  overflow: auto !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  max-height: none;
+  flex: 1 1 auto;
+}
+.pager { flex: none !important; position: relative; z-index: 2; }
+html[data-ledger-theme="dark"] .route-collections [style*="7px"][style*="255, 255, 255"],
+html[data-ledger-theme="dark"] .route-collections [style*="7px"][style*="color:#fff"],
+html[data-ledger-theme="dark"] .route-collections [style*="7px"][style*="color: #fff"],
+html[data-ledger-theme="dark"] .route-collections [style*="800 7px"][style*="224, 138, 118"] {
+  background-color: #9f1239 !important;
+  color: #ffffff !important;
 }

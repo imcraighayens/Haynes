@@ -98,3 +98,89 @@ test('list views keep the last row and its action inside a panel, not the page',
     else process.env.LEDGER_STAFF_TEST_LOGINS = saved;
   }
 });
+
+test('narrow lists scroll from a real wheel at 375 and 768', { skip: pw ? false : 'playwright not resolvable', timeout: 120000 }, async () => {
+  const saved = process.env.LEDGER_STAFF_TEST_LOGINS;
+  process.env.LEDGER_STAFF_TEST_LOGINS = JSON.stringify({
+    'admin@test.invalid': { password: 'test-only-staff', name: 'Test Admin' }
+  });
+  const views = [
+    ['Loans', '.book-line:not(.book-head)'],
+    ['Applications', '[data-screen-label="Applications inbox"] .clip-row'],
+    ['Clients', '[data-screen-label="Clients"] .clip-row']
+  ];
+  try {
+    await withMockApi(async api => {
+      for (const width of [375, 768]) {
+        const { browser, page } = await launchBrowser(pw.chromium, { width, height: 800 });
+        try {
+          await page.addInitScript(({ origin, key }) => {
+            localStorage.setItem('ledjaa.supabase', JSON.stringify({ url: origin + '/api/ledger', key, table: 'ledger_book', bookId: 'main', connected: false }));
+            localStorage.setItem('ledjaa.theme.v3', 'light');
+          }, { origin: api.origin, key: LEDGER_KEY });
+          await page.goto(api.origin + '/ledger/', { waitUntil: 'load' });
+          await pageWaitFor(page, () => !document.getElementById('ledger-gate') && /Dashboard/.test(document.body.innerText), null, { timeoutMs: BOOT_TIMEOUT_MS });
+          await page.evaluate(() => {
+            document.querySelectorAll('div').forEach(n => {
+              if (n.childNodes.length === 1 && (n.textContent === 'Acknowledge all' || n.textContent === '✕')) n.click();
+            });
+          });
+          for (const [title, selector] of views) {
+            await page.locator('.nav-item[title="' + title + '"]').dispatchEvent('click');
+            await page.waitForTimeout(400);
+            const target = await page.evaluate((sel) => {
+              const rows = [...document.querySelectorAll(sel)].filter(el => el.getClientRects().length && getComputedStyle(el).position !== 'absolute');
+              const row = rows[0];
+              if (!row) return null;
+              let scroller = row.parentElement;
+              while (scroller && scroller !== document.body) {
+                const oy = getComputedStyle(scroller).overflowY;
+                if (oy === 'auto' || oy === 'scroll') break;
+                scroller = scroller.parentElement;
+              }
+              if (!scroller || scroller === document.body) return null;
+              const seed = row;
+              let guard = 0;
+              while (scroller.scrollHeight <= scroller.clientHeight + 8 && guard < 20) {
+                scroller.appendChild(seed.cloneNode(true));
+                guard += 1;
+              }
+              scroller.scrollTop = 0;
+              const r = seed.getBoundingClientRect();
+              const pager = [...document.querySelectorAll('.pager')].find(el => el.getClientRects().length);
+              const sr = scroller.getBoundingClientRect();
+              const pr = pager ? pager.getBoundingClientRect() : null;
+              return {
+                x: r.x + Math.min(24, r.width / 2),
+                y: Math.min(Math.max(r.y + 8, sr.top + 8), sr.bottom - 8),
+                canScroll: scroller.scrollHeight > scroller.clientHeight + 8,
+                pagerClear: !pr || sr.bottom <= pr.top + 2
+              };
+            }, selector);
+            assert.ok(target && target.canScroll, title + ' at ' + width + ' list is not a vertical scroller ' + JSON.stringify(target));
+            assert.equal(target.pagerClear, true, title + ' at ' + width + ' pager covers the list');
+            await page.mouse.move(target.x, target.y);
+            await page.mouse.wheel(0, 500);
+            await page.waitForTimeout(150);
+            const scrollTop = await page.evaluate((sel) => {
+              const row = [...document.querySelectorAll(sel)].find(el => el.getClientRects().length);
+              let scroller = row && row.parentElement;
+              while (scroller && scroller !== document.body) {
+                const oy = getComputedStyle(scroller).overflowY;
+                if (oy === 'auto' || oy === 'scroll') return scroller.scrollTop;
+                scroller = scroller.parentElement;
+              }
+              return 0;
+            }, selector);
+            assert.ok(scrollTop > 0, title + ' at ' + width + ' wheel left scrollTop at ' + scrollTop);
+          }
+        } finally {
+          await browser.close();
+        }
+      }
+    });
+  } finally {
+    if (saved == null) delete process.env.LEDGER_STAFF_TEST_LOGINS;
+    else process.env.LEDGER_STAFF_TEST_LOGINS = saved;
+  }
+});
