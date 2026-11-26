@@ -4,15 +4,11 @@
 // QUIK1_SMS_PROVIDER selects the adapter. Leave it unset until a provider exists.
 //   http    QUIK1_SMS_API_URL (https) and QUIK1_SMS_API_KEY. Optional QUIK1_SMS_FROM.
 //   twilio  QUIK1_SMS_ACCOUNT_SID, QUIK1_SMS_AUTH_TOKEN, and QUIK1_SMS_FROM.
-// Production with those unset fails closed. A preview without them uses a stub
-// that records only that a message was accepted.
+// With those unset, every environment fails closed. No code is generated.
 import { randomInt } from 'node:crypto';
-import { isProductionDeployment } from './quik1-flags.js';
 
 export const SMS_CODE_LENGTH = 4;
 export const SMS_UNAVAILABLE = "SMS sign-in isn't available yet";
-
-const STUB_LOG = 'quik1 sms preview stub accepted';
 
 let override = null;
 
@@ -109,17 +105,6 @@ function twilioSender() {
   };
 }
 
-function previewStub() {
-  return {
-    enabled: true,
-    stub: true,
-    async send() {
-      console.info(STUB_LOG);
-      return { sent: true, stub: true };
-    }
-  };
-}
-
 const disabledSms = {
   enabled: false,
   async send() {
@@ -127,13 +112,12 @@ const disabledSms = {
   }
 };
 
-export function smsTransport(req) {
+export function smsTransport() {
   if (override) return override;
   const which = providerReady();
   if (which === 'http') return httpSender();
   if (which === 'twilio') return twilioSender();
-  if (isProductionDeployment(req)) return disabledSms;
-  return previewStub();
+  return disabledSms;
 }
 
 export function smsConfigured(req) {

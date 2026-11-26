@@ -355,6 +355,7 @@ function assertSmsTransport(req) {
 }
 
 async function beginSms(req, res, subject, borrower, destination) {
+  assertSmsTransport(req);
   await assertSubjectBudget('id_phone', subject, res);
   await logAuthAttempt(borrower ? borrower.id : null, 'id_phone', req, subject);
   const pending = randomBytes(32).toString('hex');
@@ -366,9 +367,9 @@ async function beginSms(req, res, subject, borrower, destination) {
 // q1_auth_attempts.kind only allows pin, email, id_phone, and passkey.
 // SMS rows use id_phone. The code and the phone number are not stored on the row.
 export async function verifySmsSignIn(req, body, res) {
+  assertSmsTransport(req);
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
-  assertSmsTransport(req);
   await guardAuth(req, res);
   await assertIdPhoneIp(req, res);
   const code = body && typeof body.code === 'string' ? body.code.trim() : '';
@@ -506,13 +507,13 @@ export async function requestIdPhoneSignIn(req, body, res) {
   const pin = body && typeof body.pin === 'string' ? body.pin : '';
   const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone).trim() : '';
   if (pin && !rawPhone) return signInByIdPin(req, body, res);
+  assertSmsTransport(req);
   if (body && typeof body.code === 'string' && body.code.trim()) return verifySmsSignIn(req, body, res);
   if (!borrowerPinLive(req)) throw new HttpError(503, 'Sign-in is not available');
   if (!sessionSecret()) throw new HttpError(503, 'Server not configured');
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
   await assertIdPhoneIp(req, res);
-  assertSmsTransport(req);
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const digits = normaliseSaId(rawId);
@@ -523,6 +524,7 @@ export async function requestIdPhoneSignIn(req, body, res) {
 }
 
 export async function requestPhoneSms(req, body, res) {
+  assertSmsTransport(req);
   if (body && typeof body.code === 'string' && body.code.trim() && !(body.phone || body.cellphone)) {
     return verifySmsSignIn(req, body, res);
   }
@@ -531,7 +533,6 @@ export async function requestPhoneSms(req, body, res) {
   if (!hmacKey()) throw signInClosed();
   await guardAuth(req, res);
   await assertIdPhoneIp(req, res);
-  assertSmsTransport(req);
   await assertClientHmacColumns();
   const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
   const cell = normaliseCell(rawPhone);

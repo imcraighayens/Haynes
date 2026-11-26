@@ -125,6 +125,13 @@ async function pinAccount() {
   return redeemed.json().accountRef;
 }
 
+function liveSms() {
+  setSmsSender({
+    enabled: true,
+    async send() { return { sent: true }; }
+  });
+}
+
 let restore = () => {};
 describe('borrower sign-in methods', { concurrency: false }, () => {
   beforeEach(() => {
@@ -259,6 +266,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(sent.length, 1);
     fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
     process.env.QUIK1_ID_PHONE_HOURLY_CAP = '2';
+    liveSms();
     const idIp = { 'x-forwarded-for': '198.51.100.41' };
     const a = await call(quik1, { method: 'POST', path: ['signin', 'id'], headers: idIp, body: { idNumber: SA_ID, phone: PHONE } });
     fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
@@ -273,6 +281,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('ID and cellphone sign-in fails closed when the HMAC key is unset', async () => {
     await pinAccount();
+    liveSms();
     delete process.env.QUIK1_ID_HMAC_KEY;
     try {
       const res = await call(quik1, {
@@ -290,6 +299,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('ID and cellphone sign-in fails closed when clients.id_hmac is missing', async () => {
     await pinAccount();
+    liveSms();
     const installed = globalThis.fetch;
     globalThis.fetch = async (url, init) => {
       if (String(url).includes('select=id_hmac')) {
@@ -315,6 +325,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('ID and cellphone sign-in fails closed when clients.phone_hmac is missing', async () => {
     await pinAccount();
+    liveSms();
     const installed = globalThis.fetch;
     globalThis.fetch = async (url, init) => {
       if (String(url).includes('select=phone_hmac')) {
@@ -474,6 +485,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(legacy.statusCode, 401, legacy.body);
     assert.equal(legacy.json().error, pinNotAcceptedMessage());
     assert.equal(cookieHeader(legacy).includes('q1_session='), false);
+    liveSms();
     const withBoth = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE, pin: PIN_OK } });
     assert.equal(withBoth.json().accountRef, undefined);
     assert.equal(withBoth.json().sent, true);
@@ -563,28 +575,19 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
 
   test('phone SMS login and an uninvited sign-up do not open a session', async () => {
     await pinAccount();
-    const logs = [];
-    const orig = console.info;
-    console.info = (...args) => { logs.push(args.map(a => String(a)).join(' ')); };
+    const challenges = fake.db.q1_otp_challenges.length;
     try {
       process.env.VERCEL_ENV = 'production';
       process.env.QUIK1_ID_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
       delete process.env.QUIK1_SMS_PROVIDER;
+      setSmsSender(null);
       const closed = await call(quik1, { method: 'POST', path: ['signin', 'sms'], body: { phone: PHONE } });
       assert.equal(closed.statusCode, 503, closed.body);
       assert.equal(closed.json().error, SMS_UNAVAILABLE);
+      assert.equal(closed.json().sent, undefined);
       assert.equal(cookieHeader(closed).includes('q1_session='), false);
-      delete process.env.VERCEL_ENV;
-      const preview = await call(quik1, { method: 'POST', path: ['signin', 'sms'], body: { phone: PHONE } });
-      assert.equal(preview.statusCode, 200, preview.body);
-      assert.equal(preview.json().sent, true);
-      assert.equal(cookieHeader(preview).includes('q1_session='), false);
-      assert.equal(preview.body.includes(PHONE), false);
-      assert.equal(logs.some(line => line.includes(PHONE)), false);
-      assert.equal(logs.some(line => /\d{4}/.test(line)), false);
-      assert.equal(logs.some(line => line.includes('quik1 sms preview stub accepted')), true);
+      assert.equal(fake.db.q1_otp_challenges.length, challenges);
     } finally {
-      console.info = orig;
       delete process.env.VERCEL_ENV;
       delete process.env.QUIK1_ID_KEY;
       delete process.env.QUIK1_SMS_PROVIDER;
@@ -608,6 +611,78 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.match(joined.json().accountRef, /^qb_/);
     assert.equal(joined.body.includes(SA_ID), false);
     assert.equal(joined.body.includes(PHONE), false);
+  });
+
+  test('no SMS provider fails closed on preview and production-like environments', async () => {
+    await pinAccount();
+    const borrowerId = fake.db.q1_borrowers[0].id;
+    const planted = {
+      id: 'qo_planted',
+      borrower_id: borrowerId,
+      channel: 'email',
+      purpose: 'signin',
+      token_hash: 'a'.repeat(64),
+      device_hash: 'b'.repeat(64),
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      consumed_at: null
+    };
+    const savedVercel = process.env.VERCEL_ENV;
+    const savedNode = process.env.NODE_ENV;
+    const smsEnv = [
+      'QUIK1_SMS_PROVIDER', 'QUIK1_SMS_API_URL', 'QUIK1_SMS_API_KEY', 'QUIK1_SMS_FROM',
+      'QUIK1_SMS_ACCOUNT_SID', 'QUIK1_SMS_AUTH_TOKEN'
+    ];
+    const savedSms = Object.fromEntries(smsEnv.map(name => [name, process.env[name]]));
+    const variants = [
+      { VERCEL_ENV: 'preview' },
+      { NODE_ENV: 'production' },
+      { VERCEL_ENV: 'preview', NODE_ENV: 'production' }
+    ];
+    try {
+      setSmsSender(null);
+      for (const name of smsEnv) delete process.env[name];
+      for (const variant of variants) {
+        if (variant.VERCEL_ENV) process.env.VERCEL_ENV = variant.VERCEL_ENV;
+        else delete process.env.VERCEL_ENV;
+        if (variant.NODE_ENV) process.env.NODE_ENV = variant.NODE_ENV;
+        else if (savedNode == null) delete process.env.NODE_ENV;
+        else process.env.NODE_ENV = savedNode;
+        fake.db.q1_otp_challenges.push({ ...planted, id: 'qo_planted_' + (variant.VERCEL_ENV || 'node') + '_' + (variant.NODE_ENV || 'env') });
+        const before = fake.db.q1_otp_challenges.map(row => ({ ...row }));
+        const idSignIn = await call(quik1, {
+          method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, phone: PHONE }
+        });
+        const sendCode = await call(quik1, {
+          method: 'POST', path: ['signin', 'sms'], body: { phone: PHONE }
+        });
+        const verifySms = await call(quik1, {
+          method: 'POST', path: ['signin', 'sms'], body: { code: '1357' }
+        });
+        const verifyId = await call(quik1, {
+          method: 'POST', path: ['signin', 'id'], body: { code: '1357' }
+        });
+        for (const res of [idSignIn, sendCode, verifySms, verifyId]) {
+          assert.equal(res.statusCode, 503, res.body);
+          assert.equal(res.json().error, SMS_UNAVAILABLE);
+          assert.equal(res.json().sent, undefined);
+          assert.equal(res.json().accountRef, undefined);
+          assert.equal(cookieHeader(res).includes('q1_session='), false);
+          assert.equal(res.body.includes(PHONE), false);
+          assert.equal(res.body.includes('1357'), false);
+        }
+        assert.equal(fake.db.q1_otp_challenges.length, before.length);
+        assert.deepEqual(fake.db.q1_otp_challenges, before);
+      }
+    } finally {
+      if (savedVercel == null) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = savedVercel;
+      if (savedNode == null) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = savedNode;
+      for (const name of smsEnv) {
+        if (savedSms[name] == null) delete process.env[name];
+        else process.env[name] = savedSms[name];
+      }
+    }
   });
 
   test('the clients HMAC migration owns both columns and can be re-run', () => {

@@ -12,6 +12,7 @@ import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken, deviceCookie, DEVICE_MAX_AGE } from '../../api/_lib/quik1-session.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { setEmailSender } from '../../api/_lib/email.js';
+import { setSmsSender } from '../../api/_lib/sms.js';
 import { authIpHash, deviceMatches, tempPinLimiter } from '../../api/_lib/borrower.js';
 import { mintStaffSession, staffCookieHeader, STAFF_COOKIE } from '../../api/_lib/auth.js';
 import { decryptId, idHmac, phoneHmac, luhnOk } from '../../api/_lib/sa-id.js';
@@ -158,7 +159,7 @@ describe('borrower auth', { concurrency: false }, () => {
     restore();
     restore = install(fake, URL);
   });
-  afterEach(() => { setEmailSender(null); restore(); restore = () => {}; });
+  afterEach(() => { setEmailSender(null); setSmsSender(null); restore(); restore = () => {}; });
 
   test('PIN hash verifies and does not keep the PIN', async () => {
     const stored = await hashPin(PIN_OK);
@@ -2293,6 +2294,7 @@ describe('borrower auth', { concurrency: false }, () => {
   }
 
   test('ID and phone with a PIN does not open a session, including when locked', async () => {
+    setSmsSender({ enabled: true, async send() { return { sent: true }; } });
     const { saId, phone } = bindIdPhone();
     const set = await setLogin(CLIENT_A);
     assert.equal(set.statusCode, 200, set.body);
@@ -2329,6 +2331,7 @@ describe('borrower auth', { concurrency: false }, () => {
   });
 
   test('the ID and phone IP limit applies when the request includes a PIN', async () => {
+    setSmsSender({ enabled: true, async send() { return { sent: true }; } });
     process.env.QUIK1_ID_PHONE_HOURLY_CAP = '1';
     const { saId, phone } = bindIdPhone();
     const set = await setLogin(CLIENT_A);
