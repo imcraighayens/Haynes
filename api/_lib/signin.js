@@ -2,7 +2,7 @@
 // The HTTP body is the same whether or not an account matches. ID and phone
 // are compared as keyed HMACs. ID and phone alone never sign anyone in.
 // A session is created only after the SMS code is entered on the same phone.
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { cleanEmail } from './validate.js';
@@ -10,7 +10,7 @@ import { borrowerPinLive } from './quik1-flags.js';
 import { apiRole } from './hosts.js';
 import { clientIp } from './ratelimit.js';
 import { borrowerEmailLive, emailSender } from './email.js';
-import { sessionSecret, pendingDeviceCookie, requestIsSecure, clearPendingCookie } from './quik1-session.js';
+import { sessionSecret, pendingDeviceCookie, readPendingDevice, requestIsSecure, clearPendingCookie } from './quik1-session.js';
 import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, deviceMatches, startBorrowerSession, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
 import { isPin, isLegacyPin, enterPinMessage, legacyPinMessage } from './pin.js';
@@ -239,7 +239,13 @@ export async function requestEmailSignIn(req, body, res) {
 }
 
 function hashSmsCode(code) {
-  return createHash('sha256').update('q1-sms-code|' + String(code), 'utf8').digest('hex');
+  return createHmac('sha256', sessionSecret() || 'unset').update('q1-sms-code|' + String(code), 'utf8').digest('hex');
+}
+
+function smsVerifySubject(req) {
+  const pending = readPendingDevice(req);
+  const who = pending || ('ip|' + authIpHash(clientIp(req) || 'unknown'));
+  return subjectHash('id_phone', 'sms-verify|' + who);
 }
 
 function neutralSmsBody() {
@@ -373,7 +379,7 @@ export async function verifySmsSignIn(req, body, res) {
   await guardAuth(req, res);
   await assertIdPhoneIp(req, res);
   const code = body && typeof body.code === 'string' ? body.code.trim() : '';
-  const subject = subjectHash('id_phone', 'sms-verify');
+  const subject = smsVerifySubject(req);
   await assertSubjectBudget('id_phone', subject, res);
   const shape = new RegExp('^\\d{' + SMS_CODE_LENGTH + '}$').test(code);
   let challenge = null;

@@ -1,7 +1,7 @@
 // Email and ID-plus-cellphone sign-in. Responses do not say whether an account exists.
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -224,6 +224,153 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     });
     assert.equal(again.statusCode, 401);
     assert.equal(again.json().error, SMS_REFUSED);
+  });
+
+  test('SMS verify is throttled per phone, and the code is a keyed HMAC that expires once', async () => {
+    await pinAccount();
+    const codes = [];
+    setSmsSender({
+      enabled: true,
+      async send(to, text) {
+        codes.push({ to, text });
+        return { sent: true };
+      }
+    });
+    const a = await call(quik1, {
+      method: 'POST', path: ['signin', 'id'],
+      headers: { 'x-forwarded-for': '198.51.100.61' },
+      body: { idNumber: SA_ID, phone: PHONE }
+    });
+    const b = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { 'x-forwarded-for': '198.51.100.62' },
+      body: { phone: '829990101' }
+    });
+    assert.equal(a.statusCode, 200, a.body);
+    assert.equal(b.statusCode, 200, b.body);
+    assert.equal(codes.length, 1);
+    const code = codes[0].text.match(/\d{4}/)[0];
+    const row = fake.db.q1_otp_challenges.find(item => !item.consumed_at);
+    const keyed = createHmac('sha256', SECRET).update('q1-sms-code|' + code).digest('hex');
+    const unsalted = createHash('sha256').update('q1-sms-code|' + code).digest('hex');
+    assert.equal(row.token_hash, keyed);
+    assert.notEqual(row.token_hash, unsalted);
+    assert.equal(JSON.stringify(row).includes(code), false);
+    assert.equal(a.body.includes(code), false);
+    const badA = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(a), 'x-forwarded-for': '198.51.100.61' },
+      body: { code: '0000' }
+    });
+    const badB = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(b), 'x-forwarded-for': '198.51.100.62' },
+      body: { code: '0000' }
+    });
+    assert.equal(badA.statusCode, 401, badA.body);
+    assert.equal(badB.statusCode, 401, badB.body);
+    assert.notEqual(badB.statusCode, 429);
+    const blockedA = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(a), 'x-forwarded-for': '198.51.100.61' },
+      body: { code }
+    });
+    assert.equal(blockedA.statusCode, 429, blockedA.body);
+    assert.equal(blockedA.body.includes(code), false);
+    fake.db.q1_auth_attempts.forEach(item => { item.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
+    row.expires_at = new Date(Date.now() - 1000).toISOString();
+    const expired = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(a), 'x-forwarded-for': '198.51.100.63' },
+      body: { code }
+    });
+    assert.equal(expired.statusCode, 401, expired.body);
+    assert.equal(row.consumed_at, null);
+    row.expires_at = new Date(Date.now() + 8 * 60 * 1000).toISOString();
+    fake.db.q1_auth_attempts.forEach(item => { item.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
+    const opened = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(a), 'x-forwarded-for': '198.51.100.64' },
+      body: { code }
+    });
+    assert.equal(opened.statusCode, 200, opened.body);
+    assert.equal(opened.body.includes(code), false);
+    fake.db.q1_auth_attempts.forEach(item => { item.created_at = new Date(Date.now() - 2 * 60 * 1000).toISOString(); });
+    const reused = await call(quik1, {
+      method: 'POST', path: ['signin', 'sms'],
+      headers: { cookie: pendingCookie(a), 'x-forwarded-for': '198.51.100.65' },
+      body: { code }
+    });
+    assert.equal(reused.statusCode, 401, reused.body);
+    assert.equal(cookieHeader(reused).includes('q1_session='), false);
+  });
+
+  test('a configured Twilio transport sends To, From and Body with Basic auth and does not echo the code', async () => {
+    await pinAccount();
+    setSmsSender(null);
+    const lines = [];
+    const orig = {};
+    for (const method of ['log', 'info', 'warn', 'error', 'debug']) {
+      orig[method] = console[method];
+      console[method] = (...args) => {
+        lines.push(args.map(item => {
+          try { return typeof item === 'string' ? item : JSON.stringify(item); }
+          catch { return String(item); }
+        }).join(' '));
+      };
+    }
+    const calls = [];
+    const previous = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      if (String(url).includes('api.twilio.com')) {
+        calls.push({ url: String(url), init });
+        return new Response(JSON.stringify({ sid: 'SMfixture' }), { status: 201 });
+      }
+      return previous(url, init);
+    };
+    process.env.QUIK1_SMS_PROVIDER = 'twilio';
+    process.env.QUIK1_SMS_ACCOUNT_SID = 'ACfixture';
+    process.env.QUIK1_SMS_AUTH_TOKEN = 'fixture-sms-token';
+    process.env.QUIK1_SMS_FROM = '+15555550100';
+    try {
+      const sent = await call(quik1, {
+        method: 'POST', path: ['signin', 'sms'],
+        headers: { 'x-forwarded-for': '198.51.100.66' },
+        body: { phone: PHONE }
+      });
+      for (let i = 0; i < 5 && calls.length === 0; i++) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      assert.equal(sent.statusCode, 200, sent.body);
+      assert.equal(calls.length, 1);
+      const hit = calls[0];
+      assert.equal(hit.url, 'https://api.twilio.com/2010-04-01/Accounts/ACfixture/Messages.json');
+      const auth = String(hit.init.headers.Authorization || '');
+      assert.match(auth, /^Basic /);
+      assert.equal(Buffer.from(auth.slice(6), 'base64').toString('utf8'), 'ACfixture:fixture-sms-token');
+      const form = new URLSearchParams(String(hit.init.body));
+      assert.equal(form.get('To'), '+27825550199');
+      assert.equal(form.get('From'), '+15555550100');
+      const body = form.get('Body') || '';
+      const code = body.match(/\d{4}/)[0];
+      assert.match(body, /works once/);
+      assert.equal(sent.body.includes(code), false);
+      assert.equal(sent.body.includes('fixture-sms-token'), false);
+      assert.equal(sent.body.includes('ACfixture'), false);
+      assert.equal(lines.some(line => line.includes(code) || line.includes('fixture-sms-token')), false);
+      const stored = JSON.stringify(fake.db.q1_otp_challenges);
+      assert.equal(stored.includes(code), false);
+      const keyed = createHmac('sha256', SECRET).update('q1-sms-code|' + code).digest('hex');
+      assert.equal(stored.includes(keyed), true);
+    } finally {
+      globalThis.fetch = previous;
+      for (const method of Object.keys(orig)) console[method] = orig[method];
+      delete process.env.QUIK1_SMS_PROVIDER;
+      delete process.env.QUIK1_SMS_ACCOUNT_SID;
+      delete process.env.QUIK1_SMS_AUTH_TOKEN;
+      delete process.env.QUIK1_SMS_FROM;
+      setSmsSender(null);
+    }
   });
 
   test('a sign-in link is single-use, expires, and stays on the phone that asked', async () => {
