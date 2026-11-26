@@ -1634,6 +1634,7 @@ input,button,textarea{font-family:inherit}
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
+            <p data-q-pin-reset="1" style="margin:0;font-size:12.5px;line-height:1.35;color:rgba(255,255,255,.92);text-wrap:pretty">New 4-number PIN. Had an older PIN? Ask EcoLoans staff to reset it.</p>
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               <sc-for list="{{ keypad }}" as="key" hint-placeholder-count="12">
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>

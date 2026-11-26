@@ -23,6 +23,7 @@ test('the login column scrolls and keeps the design spacing', () => {
   assert.match(quik, /label:'Sign in'/);
   assert.match(quik, /label:'Sign up'/);
   assert.match(quik, /Invite code/);
+  assert.match(quik, /New 4-number PIN\. Had an older PIN\? Ask EcoLoans staff to reset it\./);
   assert.equal(quik.includes('>Email me a link<'), false);
 });
 
@@ -88,7 +89,7 @@ function showPhase(arg) {
 function place(label) {
   const dock = document.querySelector('.q-dock');
   const dockTop = dock ? dock.getBoundingClientRect().top : window.innerHeight;
-  const nodes = [...document.querySelectorAll('h1,h2,button,input')];
+  const nodes = [...document.querySelectorAll('h1,h2,button,input,[data-q-pin-reset]')];
   const node = nodes.find((el) => {
     const text = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').replace(/\s+/g, ' ').trim();
     return text === label || text.startsWith(label);
@@ -128,6 +129,9 @@ test('login controls scroll into view and click at 320x568 and 375x812', { skip,
         await pageWaitFor(page, () => /Enter your PIN/.test((document.querySelector('h1') || {}).textContent || ''), null, { timeoutMs: 8000 });
         const knownHead = await page.evaluate(place, 'Enter your PIN.');
         assert.equal(knownHead.fully, true, JSON.stringify(knownHead));
+        const resetLine = await page.evaluate(place, 'New 4-number PIN.');
+        assert.equal(resetLine.missing, undefined, JSON.stringify(resetLine));
+        assert.equal(resetLine.fully, true, JSON.stringify(resetLine));
         assert.equal(knownHead.overflow === 'auto' || knownHead.overflow === 'scroll' || knownHead.overflow === 'visible', true, knownHead.overflow);
 
         assert.equal(await page.evaluate(showPhase, { screen: 'login', pinPhase: 'idpin', loginMode: 'pin' }), true);

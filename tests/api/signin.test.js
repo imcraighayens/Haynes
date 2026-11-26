@@ -894,6 +894,10 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(wrong.json().error, pinNotAcceptedMessage());
     assert.equal(wrong.body.includes(SA_ID), false);
     assert.equal(unknown.body.includes(unknownId), false);
+    assert.equal(wrong.body.includes(wrongPin), false);
+    assert.equal(unknown.body.includes(PIN_OK), false);
+    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
+    assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(unknownId), false);
     const beforeLegacy = fake.db.q1_auth_attempts.length;
     const legacy = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '13579' } });
     const legacyUnknown = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: unknownId, pin: '135790' } });
@@ -904,6 +908,8 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(fake.db.q1_auth_attempts.length, beforeLegacy);
     const matched = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
     assert.notEqual(matched.statusCode, 401, matched.body);
+    assert.equal(matched.body.includes(SA_ID), false);
+    assert.equal(matched.body.includes(PIN_OK), false);
     fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString(); });
     fake.db.q1_borrowers[0].failed_attempts = 0;
     fake.db.q1_borrowers[0].locked_at = null;
@@ -916,10 +922,12 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     const blocked = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
     assert.equal(blocked.statusCode, 429, blocked.body);
     assert.equal(blocked.headers['retry-after'], '900');
+    assert.equal(blocked.body.includes('Quik1 is locked'), false);
     fake.db.q1_auth_attempts.forEach(row => { row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString(); });
     const again = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: PIN_OK } });
     assert.notEqual(again.statusCode, 401, again.body);
     assert.notEqual(again.statusCode, 429, again.body);
+    assert.notEqual(again.statusCode, 423, again.body);
   });
 
   test('a bad ID still compares and a bad PIN returns 400 before any compare', async () => {
@@ -930,6 +938,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(badId.statusCode, 401, badId.body);
     assert.equal(badId.json().error, pinNotAcceptedMessage());
     assert.equal(badId.body.includes('not-an-id'), false);
+    assert.equal(badId.body.includes(PIN_OK), false);
     assert.ok(verifyCallCount() > 0);
     resetVerifyCalls();
     const badPin = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '12ab' } });
@@ -939,6 +948,8 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(badPin.json().error, 'Enter a 4-digit PIN');
     assert.equal(shortPin.json().error, badPin.json().error);
     assert.equal(verifyCallCount(), 0);
+    assert.equal(badPin.body.includes(SA_ID), false);
+    assert.equal(badPin.body.includes('12ab'), false);
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, attempts);
     const legacyBefore = fake.db.q1_auth_attempts.length;
     const legacy = await call(quik1, { method: 'POST', path: ['signin', 'id'], body: { idNumber: SA_ID, pin: '13579' } });
@@ -964,6 +975,9 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(wrong.json().error, pinNotAcceptedMessage());
     assert.ok(wrongCalls > 0);
     assert.equal(wrongCalls, unknownCalls);
+    assert.equal(wrong.body.includes(SA_ID), false);
+    assert.equal(unknown.body.includes(unknownId), false);
+    assert.equal(wrong.body.includes(wrongPin), false);
     assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(SA_ID), false);
     assert.equal(JSON.stringify(fake.db.q1_auth_attempts).includes(unknownId), false);
   });
@@ -988,6 +1002,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.equal(budgetRows.length, 5);
     assert.equal(budgetRows.every(row => row.kind === 'id_phone'), true);
     assert.equal(budgetRows.every(row => row.ip_hash !== authIpHash(ip)), true);
+    assert.equal(JSON.stringify(budgetRows).includes(unknownId), false);
     resetVerifyCalls();
     const blocked = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
@@ -996,6 +1011,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     });
     assert.equal(blocked.statusCode, 429, blocked.body);
     assert.equal(verifyCallCount(), 0);
+    assert.equal(blocked.body.includes(unknownId), false);
     const legacyBefore = fake.db.q1_auth_attempts.length;
     const legacy = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
@@ -1108,6 +1124,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     fake.db.q1_auth_attempts.forEach(row => {
       if (row.subject_hash === idHmac(SA_ID)) row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString();
     });
+    const locked = [];
     for (let n = 1; n <= 7; n++) {
       const res = await call(quik1, {
         method: 'POST', path: ['signin', 'id'],
@@ -1116,9 +1133,14 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
       });
       const snap = { status: res.statusCode, body: res.body, headers: { ...res.headers } };
       assert.deepEqual(snap, seen[n]);
+      locked.push(snap);
       assert.equal(borrower.failed_attempts, 3);
       assert.equal(borrower.locked_at, lockedAt);
     }
+    assert.deepEqual(
+      [seen[5], seen[6], seen[7]].map(snap => ({ status: snap.status, body: snap.body, retryAfter: snap.headers['retry-after'] || null })),
+      [locked[4], locked[5], locked[6]].map(snap => ({ status: snap.status, body: snap.body, retryAfter: snap.headers['retry-after'] || null }))
+    );
     fake.db.q1_auth_attempts.forEach(row => {
       if (row.subject_hash === idHmac(SA_ID)) row.created_at = new Date(Date.now() - 16 * 60 * 1000).toISOString();
     });
@@ -1129,6 +1151,10 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     });
     assert.equal(correct.statusCode, 401, correct.body);
     assert.equal(correct.body, JSON.stringify({ error: pinNotAcceptedMessage() }));
+    assert.equal(correct.headers['retry-after'], undefined);
+    assert.equal(borrower.failed_attempts, 3);
+    assert.equal(borrower.locked_at, lockedAt);
+    assert.notEqual(correct.statusCode, 423);
     assert.equal(correct.body.includes('Quik1 is locked'), false);
     const lengthMismatch = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
@@ -1167,6 +1193,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     assert.match(subject, /^[0-9a-f]{64}$/);
     assert.equal(rows.every(row => row.kind === 'id_phone' && row.subject_hash === subject), true);
     assert.equal(JSON.stringify(rows).includes(first), false);
+    assert.equal(JSON.stringify(rows).includes('notanid'), false);
     const blocked = await call(quik1, {
       method: 'POST', path: ['signin', 'id'],
       headers: { 'x-forwarded-for': '198.51.100.32' },
@@ -1184,6 +1211,7 @@ describe('borrower sign-in methods', { concurrency: false }, () => {
     const otherRows = fake.db.q1_auth_attempts.filter(row => row.subject_hash && row.subject_hash !== subject && row.subject_hash !== idHmac(SA_ID));
     assert.equal(otherRows.length, 1);
     assert.equal(otherRows[0].kind, 'id_phone');
+    assert.match(otherRows[0].subject_hash, /^[0-9a-f]{64}$/);
     assert.notEqual(otherRows[0].subject_hash, subject);
     assert.equal(JSON.stringify(otherRows).includes(second), false);
   });
