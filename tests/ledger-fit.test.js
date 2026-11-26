@@ -87,6 +87,45 @@ async function clickTitle(page, title) {
   await loc.dispatchEvent('click');
 }
 
+const NAV_TITLES = ['Dashboard', 'Loans', 'Applications', 'Messages', 'Clients', 'Logbook', 'Admin', 'Petty cash', 'Notifications', 'Nupay'];
+
+async function assertNavReachable(page) {
+  const menu = page.locator('[aria-label="Open menu"]');
+  if (await menu.count() && await menu.first().isVisible()) {
+    await menu.first().dispatchEvent('click');
+    await page.waitForTimeout(250);
+  }
+  for (const title of NAV_TITLES) {
+    let reached = false;
+    for (let step = 0; step < 10; step++) {
+      reached = await page.evaluate((title) => {
+        const item = document.querySelector('[title="' + title + '"]');
+        const scroller = document.querySelector('.nav-scroll');
+        const ask = document.querySelector('[aria-label="Ask Q1"]');
+        if (!item || !scroller || !ask) return false;
+        const ib = item.getBoundingClientRect();
+        const sb = scroller.getBoundingClientRect();
+        const qb = ask.getBoundingClientRect();
+        const inside = ib.top >= sb.top - 1 && ib.bottom <= sb.bottom + 1 && ib.height >= 40;
+        const clear = ib.bottom <= qb.top + 1 || ib.top >= qb.bottom - 1;
+        return inside && clear && qb.height >= 44;
+      }, title);
+      if (reached) break;
+      await wheel(page, '.nav-scroll', 0, 180);
+    }
+    assert.equal(reached, true, title + ' is not reachable in the nav');
+  }
+  const overlap = await page.evaluate(() => {
+    const ask = document.querySelector('[aria-label="Ask Q1"]').getBoundingClientRect();
+    return [...document.querySelectorAll('.nav-item')].some(item => {
+      const ib = item.getBoundingClientRect();
+      if (ib.bottom < 0 || ib.top > innerHeight) return false;
+      return ib.bottom > ask.top + 1 && ib.top < ask.bottom - 1;
+    });
+  });
+  assert.equal(overlap, false, 'Ask Q1 overlaps a nav item');
+}
+
 async function wheel(page, selector, dx, dy) {
   const loc = page.locator(selector).first();
   const box = await loc.boundingBox();
@@ -133,6 +172,7 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
       assert.ok(fit.stage <= 1, 'stage scrolls ' + fit.stage);
       assert.ok(fit.bento <= 2, 'bento scrolls ' + fit.bento);
       assert.ok(fit.qTop >= 0 && fit.qBottom <= 800 && fit.qh >= 44, JSON.stringify(fit));
+      await assertNavReachable(wide);
       await wide.close();
 
       for (const width of [375, 768, 1024, 1280]) {
@@ -152,6 +192,10 @@ test('lists scroll with the wheel, the bento fits, and Ask Q1 is visible', { ski
           assert.ok(after > before, 'dashboard wheel at 375');
           const stacked = await page.evaluate(() => ['bento-hero', 'bento-apps', 'bento-over', 'bento-due', 'bento-chart'].map(cls => document.querySelector('.' + cls).getBoundingClientRect().top));
           for (let i = 1; i < stacked.length; i++) assert.ok(stacked[i] + 1 >= stacked[i - 1], '375 order ' + stacked.join(','));
+          await assertNavReachable(page);
+          const scrim = page.locator('.ledger-scrim');
+          if (await scrim.count()) await scrim.first().dispatchEvent('click');
+          await page.waitForTimeout(200);
         }
 
         await clickTitle(page, 'Loans');
