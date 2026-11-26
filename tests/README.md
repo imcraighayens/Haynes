@@ -9,8 +9,10 @@ npm test
 ```
 
 runs every `tests/**/*.test.js` with Node's built-in runner (`node --test`). Network is never
-touched: each file replaces `globalThis.fetch` with a stub that records PostgREST calls and
-answers with canned rows, and the client modules are loaded into a fake `window`/`localStorage`.
+touched. The handler tests replace `globalThis.fetch` with a stub that records PostgREST calls
+and answers with canned rows, and the client modules are loaded into a fake `window`/`localStorage`.
+`tests/chain-e2e.test.js` is the exception: it starts `tools/mock-api.js` and calls the real
+handlers over HTTP. Known loan-chain breaks are `todo` until the later PRs flip them on.
 
 | File | Covers |
 | --- | --- |

@@ -1,0 +1,21 @@
+{
+  "_note": "Synthetic Quik1 session for tests/chain-e2e.test.js only. Merged onto tests/fixtures/state.json in that test. The cookie is minted there with a fake QUIK1_SESSION_SECRET; these rows are the matching borrower and session. Not a real PIN or person.",
+  "q1_borrowers": [
+    {
+      "id": "qb_chain_fixture_1",
+      "client_id": "c_test_1",
+      "pin_hash": "test-pin-hash-not-a-secret",
+      "failed_attempts": 0,
+      "locked_at": null
+    }
+  ],
+  "q1_sessions": [
+    {
+      "id": "qs_chain_fixture_1",
+      "borrower_id": "qb_chain_fixture_1",
+      "client_id": "c_test_1",
+      "expires_at": "2099-01-01T00:00:00.000Z",
+      "revoked_at": null
+    }
+  ]
+}
