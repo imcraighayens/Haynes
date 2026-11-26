@@ -137,7 +137,9 @@ test('quik1.app root rewrite does not retarget ledger or admin', () => {
   assert.ok(rootLedger.some(r => (r.has || []).some(h => h.value === 'quik1ledger.com')));
   assert.ok(vercel.rewrites.some(r => r.source === '/' && r.destination === '/quik1/index.html' && (r.has || []).some(h => h.value === 'quik1.app')));
   assert.equal(vercel.redirects.some(r => r.source === '/' && !r.has), false);
-  assert.doesNotMatch(ledger, /manifest\.webmanifest/);
-  assert.doesNotMatch(ledger, /serviceWorker\.register/);
-  assert.doesNotMatch(ledger, /apple-mobile-web-app-capable/);
+  assert.doesNotMatch(ledger, /\/quik1\/manifest\.webmanifest/);
+  assert.doesNotMatch(ledger, /\/quik1\/sw\.js/);
+  assert.doesNotMatch(ledger, /quik1\/apple-touch-icon/);
+  assert.match(ledger, /href="\/ledger\/manifest\.webmanifest"/);
+  assert.match(ledger, /serviceWorker\.register\('\/ledger\/sw\.js', \{ scope: '\/ledger\/' \}\)/);
 });
