@@ -2,6 +2,7 @@
 // console's DATA block are quoted as sent. Live rows only fill gaps (applications,
 // name search) and never override a balance or due-list the console already computed.
 import { isSafeId } from './validate.js';
+import { openDates } from '../../shared/loan-schedule.js';
 import { scrubSecrets } from './q1-webhook.js';
 
 const NAV = [
@@ -115,9 +116,7 @@ function liveDue(loans, today) {
   const due = [];
   const flagged = [];
   for (const l of loans || []) {
-    const dates = Array.isArray(l.schedule) ? l.schedule : [];
-    const skip = Number(l.paid) || 0;
-    const next = dates[skip] || dates[0];
+    const next = openDates(l)[0];
     const day = ymd(next);
     if (!day) continue;
     const label = `${l.ref} ${l.instalment ? rand(l.instalment) : rand(l.principal)}`;

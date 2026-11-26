@@ -46,7 +46,7 @@ export async function loadLiveBook() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const [clients, loans, applications, employees, expenses, settings] = await Promise.all([
     tolerant(select('clients', { select: 'id,ref,name,blocked,deleted_at', limit: 500 })),
-    tolerant(select('loans', { select: 'id,ref,client_id,principal,instalment_amount,status,schedule,instalments_paid,deleted_at', limit: 500 })),
+    tolerant(select('loans', { select: 'id,ref,client_id,principal,instalment_amount,status,schedule,instalments_paid,paid_dates,deleted_at', limit: 500 })),
     tolerant(select('applications', { select: 'id,ref,name,amount,status,source,created_at', order: 'created_at.desc', limit: 100 })),
     tolerant(select('employees', { select: 'id,name,role,active', limit: 100 })),
     tolerant(select('expenses', { select: 'id,name,amount,deleted_at', limit: 100 })),
@@ -68,6 +68,7 @@ export async function loadLiveBook() {
         principal: Number(l.principal) || 0,
         instalment: Number(l.instalment_amount) || 0,
         schedule: Array.isArray(l.schedule) ? l.schedule : [],
+        paid_dates: Array.isArray(l.paid_dates) ? l.paid_dates : [],
         paid: Number(l.instalments_paid) || 0
       };
     }),

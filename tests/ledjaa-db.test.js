@@ -75,7 +75,7 @@ test('toConsoleState maps loans with schedule, paid instalments and status like 
   assert.deepEqual(l.sched, ['25 Sep 2026', '23 Oct 2026', '25 Nov 2026']);
   assert.equal(l.paidInst, 1);
   assert.equal(l.instDone, 2);
-  assert.equal(l.due, '23 Oct 2026');       // sched[paidInst]
+  assert.equal(l.due, '23 Oct 2026');       // first schedule date not listed in paid_dates
   assert.equal(l.nextDue, '25 Nov 2026');
   assert.equal(l.instNo, 4);                // instDone + idx + 1
   assert.equal(l.instTotal, 5);             // instDone + sched.length
@@ -113,6 +113,27 @@ test('toConsoleState maps loans with schedule, paid instalments and status like 
 
   assert.deepEqual(s.employees.map(e => [e.id, e.role, e.status]), [['e1', 'Admin', 'ACTIVE']]);
   assert.equal(s.employees[0].added, '1 Nov 2025');
+});
+
+test('a remaining-dates loan counts the paid instalment and keeps every open date', () => {
+  // Synthetic stand-in for the live shape: 1 paid date that is not in the schedule,
+  // and 4 dates still open. The paid count is not an index into those dates.
+  const row = m.loanToConsole({
+    id: 'l_synth_sched', ref: 'SYN-SCHED-01', client_id: 'c_synth', principal: 100, status: 'issued',
+    schedule: ['2026-11-25', '2026-12-24', '2027-01-25', '2027-02-25'],
+    instalments_paid: 1, prior_instalments: 0, paid_dates: ['2026-10-23']
+  });
+  assert.equal(row.status, 'issued');
+  assert.equal(row.paidInst, 1);
+  assert.equal(row.instDone, 0);
+  assert.equal(row.instTotal, 5);
+  assert.equal(row.instRemaining, 4);
+  assert.equal(row.instNo, 2);
+  assert.equal(row.due, '25 Nov 2026');
+  assert.equal(row.nextDue, '24 Dec 2026');
+  assert.equal(row.term, '5m');
+  assert.deepEqual(row.sched, ['25 Nov 2026', '24 Dec 2026', '25 Jan 2027', '25 Feb 2027']);
+  assert.deepEqual(row.paidDates, ['23 Oct 2026']);
 });
 
 test('a settled loan stays settled_early on the console object', () => {
