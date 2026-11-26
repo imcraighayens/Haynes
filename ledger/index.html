@@ -82,16 +82,16 @@
 .lg-panel .lg-mark { width: 44px; height: 44px; border-radius: 14px; margin-bottom: 14px; }
 .lg-kicker { font-weight: 700; font-size: 11px; letter-spacing: .16em; color: #FDD10D; }
 .lg-title { margin: 8px 0 0; font-weight: 800; font-size: 26px; letter-spacing: -.03em; line-height: 1.1; }
-.lg-copy { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #b3b0a4; }
+.lg-copy { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: #d0d0d6; }
 .lg-field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
-.lg-field span { font-weight: 600; font-size: 10px; letter-spacing: .12em; color: #8a8778; }
+.lg-field span { font-weight: 600; font-size: 11px; letter-spacing: .12em; color: #c8c8d0; }
 .lg-field input { width: 100%; background: #07080c; border: 1px solid #3a3933; border-radius: 12px; padding: 13px 14px; color: #f5f4ee; font: 600 16px 'Plus Jakarta Sans', system-ui, sans-serif; }
 .lg-field input:focus { outline: none; border-color: #c3f53c; }
-.lg-error { margin: 12px 0 0; font-weight: 600; font-size: 12.5px; letter-spacing: .02em; color: #e08a76; }
-#ledger-login-submit { width: 100%; margin-top: 18px; border: 0; border-radius: 12px; padding: 13px 16px; background: #c3f53c; color: #101408; font: 800 13px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; }
+.lg-error { margin: 12px 0 0; font-weight: 600; font-size: 14px; letter-spacing: .02em; color: #ffb4bc; }
+#ledger-login-submit { width: 100%; margin-top: 18px; border: 0; border-radius: 12px; padding: 13px 16px; background: #c3f53c; color: #101408; font: 800 14px 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: .08em; cursor: pointer; }
 #ledger-login-submit:disabled { opacity: .6; cursor: progress; }
 #ledger-login-submit:hover:not(:disabled) { filter: brightness(1.06); }
-.lg-foot { margin: 14px 0 0; font-size: 12px; line-height: 1.45; color: #8a8778; }
+.lg-foot { margin: 14px 0 0; font-size: 14px; line-height: 1.45; color: #c8c8d0; }
 @keyframes lg-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(280%); } }
 @keyframes lg-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
 @media (max-width: 480px) {
@@ -101,7 +101,18 @@
 @media (prefers-reduced-motion: reduce) {
   .lg-track > span, .lg-dots i { animation: none; }
 }
+@media (prefers-color-scheme: light) {
+  #ledger-gate { background: #eef0f3; color: #14161a; }
+  .lg-by, .lg-foot, .lg-field span { color: #3a4150; }
+  .lg-by b { color: #3f6212; }
+  .lg-panel { background: #ffffff; border-color: #d5d9e0; color: #14161a; }
+  .lg-copy { color: #3a4150; }
+  .lg-title, .lg-word { color: #14161a; }
+  .lg-field input { background: #ffffff; border-color: #6b7280; color: #14161a; }
+  .lg-error { color: #9f1239; }
+}
 </style>
+<link rel="stylesheet" href="/ledger/ledger-theme.css">
 <div id="ledger-gate" data-gate="splash" data-screen-label="Ledger splash" role="dialog" aria-modal="true" aria-label="Ledger">
 <script>window.__ledgerSawSplash = document.getElementById('ledger-gate').getAttribute('data-gate') === 'splash';</script>
   <div id="ledger-splash" class="lg-card">
@@ -434,7 +445,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 }
 @media (max-width:640px){
   .m-only{display:inline}
-  .book-scroll{overflow:visible}
+  .book-scroll{overflow:auto}
   .book-table{display:flex;flex-direction:column;min-width:0;width:100%}
   .book-line{display:grid !important;grid-template-columns:minmax(0,1fr) auto auto !important;grid-column:auto;column-gap:12px;row-gap:4px;margin:0 0 8px;width:100%;box-sizing:border-box;min-height:0;border:1px solid var(--line);border-radius:10px}
   .book-line.book-head{position:absolute !important;display:block !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;min-height:0}
@@ -497,18 +508,19 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 .clip-row>*{min-width:0;overflow:hidden}
 </style><template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" sc-camel-view-box="0 0 100 100"><rect width="100" height="100" fill="#0b0d10"></rect><text x="50" y="64" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="40" fill="#c6f24e">L</text></svg></template>
 </helmet>
-<div style="display:flex;height:100vh;background:var(--appbg);color:var(--ink);overflow:hidden">
+<div class="ledger-app" style="display:flex;height:100vh;background:var(--appbg);color:var(--ink);overflow:hidden">
   <div class="ledger-side" style="{{ sidebarStyle }}">
     <div style="{{ sidebarHeadStyle }}"><div style="width:32px;height:32px;flex:none;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div><div style="{{ sidebarWordStyle }}"><div style="font:800 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.03em;color:var(--ink);line-height:1.1">LEDGER</div><div style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.16em;color:var(--dim);margin-top:2px">BY ECOLOANS</div></div></div>
-    <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:14px 12px">
+    <div class="nav-scroll" style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:14px 12px">
       <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="7">
+        <sc-if value="{{ nav.groupOn }}" hint-placeholder-val="{{ false }}"><div class="nav-group">{{ nav.group }}</div></sc-if>
         <div class="nav-item" role="button" tabindex="0" data-kbd="1" aria-current="{{ nav.current }}" sc-camel-on-click="{{ nav.go }}" title="{{ nav.title }}" style="{{ nav.style }}">{{ nav.icon }}{{ nav.label }}{{ nav.badge }}</div>
       </sc-for>
+  </div>
       <div role="button" tabindex="0" data-kbd="1" aria-label="Ask Q1" sc-camel-on-click="{{ botToggle }}" title="Ask Q1" style="{{ botFabStyle }}" style-hover="filter:brightness(1.12);transform:translateY(-1px)">
         <span style="display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:50%;background:#FFFFFF;box-shadow:0 0 10px rgba(255,255,255,.75),0 0 22px rgba(255,255,255,.35)"><span style="position:relative;width:22px;height:19px;border-radius:8px;background:#0B0620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px"><span style="display:flex;gap:4px"><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s infinite"></span><span style="width:4px;height:6px;border-radius:2px;background:#FDD10D;animation:q-blink 3.2s .04s infinite"></span></span><span style="width:5px;height:2px;border-radius:1px;background:#FDD10D;opacity:.85"></span></span></span>
       <div style="{{ botFabLabelStyle }}">Ask Q1</div>
       </div>
-  </div>
     <div style="flex:none;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
       <div sc-camel-on-click="{{ goSettings }}" style="{{ profRowStyle }}" style-hover="opacity:.82"><div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ userInitials }}</div><div style="{{ profTextStyle }}"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div><div style="font:400 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">ADMIN · SETTINGS</div></div></div>
       <div style="{{ footRowStyle }}">
@@ -559,7 +571,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       </div>
     </div>
     </sc-if>
-    <div style="flex:1;min-height:0;overflow-y:auto;position:relative">
+    <div class="ledger-stage" style="flex:1;min-height:0;overflow-y:auto;position:relative">
 
     <sc-if value="{{ dbLoading }}" hint-placeholder-val="{{ true }}">
       <div style="position:absolute;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
@@ -587,9 +599,47 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             <div class="page-date-full" style="color:#e4dfd4;font-weight:600;font-size:13px;letter-spacing:.04em;white-space:nowrap;min-width:0">{{ screenSub }}</div>
             <div class="page-date-short">{{ screenSubShort }}</div>
           </div>
-          <div class="{{ headClass }}"><div role="button" tabindex="0" data-kbd="1" class="icon-btn import-btn" aria-label="Import bank report" data-tip="Import bank report" sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="height:44px;padding:0 12px;gap:6px;flex:none;border-radius:11px;border:1px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer;font:700 14px 'Plus Jakarta Sans',sans-serif" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg><span>Import</span></div><sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div class="loan-tools" sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ loanMoreOpen }}" hint-placeholder-val="{{ false }}"><div class="loan-pop" role="menu"><button type="button" class="pager-btn" sc-camel-on-click="{{ openBankRep }}">Import bank report</button><button type="button" class="pager-btn" sc-camel-on-click="{{ openBulk }}">Bulk upload</button></div></sc-if><sc-if value="{{ isLoanMenu }}" hint-placeholder-val="{{ false }}"><button type="button" class="loan-more pager-btn" aria-label="More loan actions" sc-camel-on-click="{{ toggleLoanMore }}">More</button></sc-if><sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if><sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn" title="Quik1 access" sc-camel-on-click="{{ goAccess }}">Quik1 access</button></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
+          <div class="{{ headClass }}"><div role="button" tabindex="0" data-kbd="1" class="icon-btn import-btn" aria-label="Import bank report" data-tip="Import bank report" sc-camel-on-click="{{ openBankRep }}" title="Import bank report" style="height:44px;padding:0 12px;gap:6px;flex:none;border-radius:11px;border:1px solid var(--line2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);cursor:pointer;font:700 14px 'Plus Jakarta Sans',sans-serif" style-hover="border-color:#C6F432"><svg width="15" height="15" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"></path></svg><span>Import</span></div><sc-if value="{{ showLegacyDash }}" hint-placeholder-val="{{ false }}"><div sc-camel-on-click="{{ toggleArrange }}" title="Arrange cards" aria-label="Arrange cards" style="{{ arrangeBtnStyle }}" style-hover="filter:brightness(1.08)"><svg width="12" height="12" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"></path><path d="M9 5l3-3 3 3"></path><path d="M15 19l-3 3-3-3"></path><path d="M19 9l3 3-3 3"></path><path d="M2 12h20"></path><path d="M12 2v20"></path></svg>{{ arrangeLabel }}</div></sc-if><sc-if value="{{ isBookTools }}" hint-placeholder-val="{{ false }}"><div class="loan-tools" sc-camel-on-click="{{ openBulk }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:12px;background:var(--blueSoft);border:1px solid var(--blue);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="box-shadow:var(--cardHover);filter:brightness(1.08);transform:translateY(-2px)"><svg width="13" height="13" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"></path></svg>Bulk upload</div></sc-if><sc-if value="{{ loanMoreOpen }}" hint-placeholder-val="{{ false }}"><div class="loan-pop" role="menu"><button type="button" class="pager-btn" sc-camel-on-click="{{ openBankRep }}">Import bank report</button><button type="button" class="pager-btn" sc-camel-on-click="{{ openBulk }}">Bulk upload</button></div></sc-if><sc-if value="{{ isLoanMenu }}" hint-placeholder-val="{{ false }}"><button type="button" class="loan-more pager-btn" aria-label="More loan actions" sc-camel-on-click="{{ toggleLoanMore }}">More</button></sc-if><sc-if value="{{ q1GateOff }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn is-disabled" disabled="disabled" aria-disabled="true" aria-describedby="q1-gate-note-global">Invites off until launch</button></sc-if><sc-if value="{{ q1GateOn }}" hint-placeholder-val="{{ false }}"><button type="button" class="pager-btn" title="Quik1 access" sc-camel-on-click="{{ goAccess }}">Quik1 access</button></sc-if><sc-if value="{{ isLoanAction }}" hint-placeholder-val="{{ true }}"><div sc-camel-on-click="{{ goNewLoan }}" aria-label="New loan" style="padding:8px 16px;border-radius:12px;background:var(--acc);box-shadow:var(--cardLift);font-size:11.5px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.22,.8,.28,1), box-shadow .2s ease, filter .2s ease" style-hover="filter:brightness(1.08);box-shadow:var(--cardHover);transform:translateY(-2px)">New loan</div></sc-if></div>
       </div>
         <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+          <div class="bento">
+            <div class="bento-tile bento-hero" role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goLoansAll }}" aria-label="Book outstanding">
+              <div class="bento-k">Book outstanding</div>
+              <div class="bento-hero-n">{{ kpiBook }}</div>
+              <div class="bento-sub">{{ kpiBookSub }}</div>
+              <div class="bento-collected">{{ kpiCollectedLabel }}</div>
+            </div>
+            <div class="bento-tile bento-apps" role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goApplications }}" aria-label="Applications waiting">
+              <div class="bento-k">Applications</div>
+              <div class="bento-n">{{ dashApps }}</div>
+              <div class="bento-sub">{{ dashAppsSub }}</div>
+            </div>
+            <div class="bento-tile bento-due" role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goDue }}" aria-label="Collections due">
+              <div class="bento-k">Due</div>
+              <div class="bento-n">{{ dashDueAmt }}</div>
+              <div class="bento-sub">{{ dashDueSub }}</div>
+            </div>
+            <div class="bento-tile bento-over" role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goOverdue }}" aria-label="Overdue">
+              <div class="bento-k">Overdue</div>
+              <div class="bento-n">{{ dashOverAmt }}</div>
+              <div class="bento-sub">{{ dashOverSub }}</div>
+            </div>
+            <div class="bento-tile bento-chart">
+              <div class="bento-k">Collections</div>
+              <sc-if value="{{ attnChartHas }}" hint-placeholder-val="{{ false }}">
+                <div class="bento-bars">
+                  <sc-for list="{{ attnChart }}" as="b" hint-placeholder-count="4">
+                    <div class="bento-bar-col">
+                      <div class="bento-bar-track"><div style="{{ b.barStyle }}"></div></div>
+                      <div class="bento-bar-l">{{ b.label }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ attnChartEmpty }}" hint-placeholder-val="{{ true }}"><div class="bento-sub">No data yet</div></sc-if>
+            </div>
+          </div>
+          <sc-if value="{{ showLegacyDash }}" hint-placeholder-val="{{ false }}">
           <div ref="{{ gridRef }}" class="home-grid" style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;gap:12px;align-items:stretch;width:100%;flex:1;min-height:0">
 
 <div data-card="0" class="{{ newsCardCls }}" draggable="{{ dragOn }}" sc-camel-on-drag-start="{{ dragStart }}" sc-camel-on-drag-over="{{ dragOver }}" sc-camel-on-drop="{{ dragDrop }}" sc-camel-on-drag-end="{{ dragEnd }}" style="box-shadow:var(--cardLift);background:var(--glass);backdrop-filter:blur(20px) saturate(1.35);-webkit-backdrop-filter:blur(20px) saturate(1.35);border:1px solid var(--glassLine);border-radius:20px;padding:13px 15px;grid-column:span 3;grid-row:span 2;min-width:0;min-height:0;height:100%;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:9px;animation:cardIn .5s cubic-bezier(.22,.8,.28,1) 0s both;transition:box-shadow .32s cubic-bezier(.22,.8,.28,1), transform .32s cubic-bezier(.22,.8,.28,1)" style-hover="transform:translateY(-4px);box-shadow:var(--cardHover), 0 0 0 1px var(--glassLine)">
@@ -760,6 +810,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
             </div>
 
           </div>
+          </sc-if>
         </sc-if>
         <sc-if value="{{ isLoans }}" hint-placeholder-val="{{ false }}">
         <input value="{{ q }}" sc-camel-on-change="{{ qChange }}" placeholder="Search…" aria-label="Search loans by client or reference" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink)">
@@ -825,7 +876,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           <div style="display:flex;gap:8px;align-items:center"><div role="button" tabindex="0" data-kbd="1" title="Quik1 access" sc-camel-on-click="{{ goAccess }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border-radius:8px;border:1px solid var(--line2);font:600 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;white-space:nowrap">Quik1 access</div><div role="button" tabindex="0" data-kbd="1" sc-camel-on-click="{{ goAddClient }}" style="display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 16px;border-radius:8px;background:var(--acc);font-size:14px;font-weight:700;color:var(--accInk);cursor:pointer;white-space:nowrap">Add client</div></div>
       </div>
         <input value="{{ clientQ }}" sc-camel-on-change="{{ clientQChange }}" placeholder="Search client or ref" aria-label="Search clients" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:12px;flex:none">
-        <div style="border:1px solid var(--line);border-radius:10px;background:var(--panel);flex:1;min-height:0;overflow:auto">
+        <div class="list-scroll" style="border:1px solid var(--line);border-radius:10px;background:var(--panel);flex:1;min-height:0;overflow:auto">
           <div class="clip-row" role="row" style="display:grid;grid-template-columns:minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) max-content;column-gap:12px;min-width:760px;padding:8px 12px;font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:var(--mut);background:var(--panel2);position:sticky;top:0;z-index:1"><div>Ref</div><div>Customer</div><div>ID number</div><div>Added</div><div>Officer</div><div>Action</div></div>
           <sc-for list="{{ clientRows }}" as="c" hint-placeholder-count="5">
             <div class="clip-row" role="row" sc-camel-on-click="{{ c.open }}" style="display:grid;grid-template-columns:minmax(7.5rem,12rem) minmax(0,1.3fr) minmax(0,140px) minmax(0,100px) minmax(0,110px) max-content;column-gap:12px;min-width:760px;padding:8px 12px;min-height:44px;font-size:14px;border-top:1px solid var(--line);align-items:center;cursor:pointer" style-hover="background:var(--hover)">
@@ -1376,7 +1427,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
           <sc-for list="{{ appFilters }}" as="f" hint-placeholder-count="4"><div sc-camel-on-click="{{ f.go }}" style="{{ f.style }}">{{ f.label }} <span style="opacity:.6">{{ f.count }}</span></div></sc-for>
       </div>
         <input value="{{ appQ }}" sc-camel-on-change="{{ appQChange }}" placeholder="Search…" aria-label="Search applications" style="width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;font:500 14px 'Plus Jakarta Sans',sans-serif;color:var(--ink);margin-bottom:10px;flex:none">
-        <div ref="{{ inboxScrollRef }}" style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
+        <div ref="{{ inboxScrollRef }}" class="list-scroll" style="box-shadow:var(--cardLift);border:1px solid transparent;border-radius:18px;transition:box-shadow .22s ease, transform .22s ease;flex:1;min-height:0;overflow:auto">
           <div class="clip-row" style="display:grid;grid-template-columns:16px minmax(0,1.4fr) minmax(0,110px) minmax(0,130px) minmax(0,130px) minmax(0,104px);column-gap:12px;min-width:720px;padding:10px 18px;font:500 10.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.1em;color:var(--dim);background:var(--panel);border-radius:12px 12px 0 0"><div></div><div>APPLICANT</div><div>AMOUNT</div><div>PURPOSE / TERM</div><div>SUBMITTED</div><div>STATUS</div></div>
           <sc-for list="{{ appRows }}" as="a" hint-placeholder-count="4">
             <div class="clip-row" sc-camel-on-click="{{ a.open }}" style="{{ a.rowStyle }}" style-hover="background:var(--hover)">
@@ -3691,7 +3742,6 @@ class Component extends DCLogic {
     if(exDue.length) L.push('Expenses due today: '+exDue.map(e=>e.name+' '+f(e.amount)).join(', '));
     const act = (flag.length || this.bulkItems().length) ? {go:'bulkstatus', label:'Update statuses'} : due.length ? {go:'filter:duetoday', label:'View today\'s collections'} : null;
     this.botSaveHist([...this.botHist(), {role:'bot', text:L.join('\n'), act, at:Date.now(), brief:true, alert:(due.length+flag.length+overdue.length)>0}]);
-    this.setState({botOpen:true});
   }
   clampMenu(){
     const el = this._menuEl; if(!el || !this.state.menuId) return;
@@ -3806,6 +3856,7 @@ class Component extends DCLogic {
     light['--rowHover']='#c9cfda'; light['--rowHoverLine']='#aab2c1'; darkExtra['--rowHover']='#05050a'; darkExtra['--rowHoverLine']='#2a2a36';
     const vars = this.state.theme === 'light' ? light : {...dark, ...darkExtra};
     for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
+    document.documentElement.dataset.theme = this.state.theme === 'light' ? 'light' : 'dark';
     document.body.style.background = vars['--appbg'] || vars['--bg'];
   }
   cardOrder(){
@@ -4238,12 +4289,12 @@ class Component extends DCLogic {
   }
   statusMeta(s){
     const key = String(s==null?'':s).toLowerCase();
-    const map = {issued:['Issued','var(--blue)','var(--blueSoft)'],duetoday:['Due today','var(--amber)','var(--amberSoft)'],overdue:['Overdue','#fff7f5','#8f2424'],paid:['Paid','var(--green)','var(--greenSoft)'],'written off':['Written off','var(--ink)','var(--hover)'],writtenoff:['Written off','var(--ink)','var(--hover)'],settled_early:['Settled','var(--green)','var(--greenSoft)'],settled:['Settled','var(--green)','var(--greenSoft)'],held:['Held','var(--ink)','transparent'],'release-held':['Held','var(--ink)','transparent']};
+    const map = {issued:['Issued','#e8f0ff','#1e3a8a'],duetoday:['Due today','#fff6e5','#7a4b08'],overdue:['Overdue','#fff7f5','#8f2424'],paid:['Paid','#e9fbe9','#14532d'],'written off':['Written off','#f4f4f5','#3f3f46'],writtenoff:['Written off','#f4f4f5','#3f3f46'],settled_early:['Settled','#e9fbe9','#14532d'],settled:['Settled','#e9fbe9','#14532d'],held:['Held','var(--ink)','transparent'],'release-held':['Held','var(--ink)','transparent']};
     const m = map[key] || map[s] || [String(s||'Unknown'),'var(--ink)','var(--hover)'];
     const held = key==='held' || key==='release-held';
     const css = held
       ? "display:inline-flex;align-items:center;justify-content:center;font:600 13px 'Plus Jakarta Sans',sans-serif;padding:2px 8px;border-radius:6px;white-space:nowrap;background:transparent;color:var(--ink);border:1px dashed var(--mut)"
-      : "display:inline-flex;align-items:center;justify-content:center;font:600 13px 'Plus Jakarta Sans',sans-serif;padding:2px 8px;border-radius:6px;white-space:nowrap;background:"+m[2]+";color:"+m[1];
+      : "display:inline-flex;align-items:center;justify-content:center;font:600 14px 'Plus Jakarta Sans',sans-serif;padding:2px 8px;border-radius:6px;white-space:nowrap;background:"+m[2]+";color:"+m[1];
     return {label:m[0], color:m[1], soft:m[2], held, style:{cssText:css}};
   }
   sortLoans(key){
@@ -4914,6 +4965,8 @@ class Component extends DCLogic {
     const orgName = this.props.orgName ?? (this._org && this._org.name) ?? 'Ecoloans';
     const mono = "font:500 11.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.08em;";
     const navDefs = [['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']];
+    const navGroupOf = {dashboard:'Work',loans:'Work',applications:'Work',messages:'People',clients:'People',logbook:'Records',ledger:'Office',petty:'Cash',notifications:'Signals',nupay:'Signals'};
+    let navPrevGroup = '';
     const appNewCount = st.applications.filter(a=>a.status==='new').length;
     const notif = this.notifItems();
     const notifFlagged = notif.filter(n=>n.flagged).length;
@@ -4928,9 +4981,12 @@ class Component extends DCLogic {
         this.nav(r);
       };
       const badgeCount = r==='applications' ? appNewCount : r==='notifications' ? notif.length : 0;
-      return {label: col ? '' : nice, title: nice, go, current: active?'page':'false',
+      const group = navGroupOf[r] || '';
+      const groupOn = !col && !!group && group !== navPrevGroup;
+      navPrevGroup = group;
+      return {label: col ? '' : nice, title: nice, go, current: active?'page':'false', group, groupOn,
         style:this.cssObj("display:flex;align-items:center;"+(col?'justify-content:center;gap:0;padding:8px 0;':'gap:8px;padding:8px 12px;')+"min-height:40px;border-radius:8px;cursor:pointer;white-space:nowrap;font:"+(active?'700':'500')+" 14px 'Plus Jakarta Sans',sans-serif;"+(active?'background:var(--ink);color:var(--bg)':'color:var(--ink)')),
-        badge: badgeCount>0 ? React.createElement('span',{style:{font:"700 12px 'Plus Jakarta Sans',sans-serif",background:r==='notifications'?'var(--red)':'var(--acc)',color:r==='notifications'?'#fff':'var(--accInk)',borderRadius:'99px',padding:'1px 7px',marginLeft:col?'0':'auto',lineHeight:1.5}}, badgeCount) : '',
+        badge: badgeCount>0 ? React.createElement('span',{style:{font:"700 11px 'Plus Jakarta Sans',sans-serif",background:r==='notifications'?'#8f2424':'#c3f53c',color:r==='notifications'?'#fff7f5':'#101408',borderRadius:'99px',padding:'2px 7px',marginLeft:col?'0':'auto',lineHeight:1.4}}, badgeCount) : '',
         icon: this.navIcon(r, active)};
     });
     const clientById = id => st.clients.find(c=>c.id===id) || {};
@@ -4992,7 +5048,7 @@ class Component extends DCLogic {
       const dayKey = d+' '+MONTHS[cm]+' '+cy;
       const wkend=[0,6].includes(new Date(cy,cm,d).getDay());
       calCells.push({day:String(d), has, count:String(onDay.length),
-        badgeStyle:this.cssObj("flex:none;min-width:11px;height:11px;padding:0 3px;box-sizing:border-box;border-radius:99px;display:flex;align-items:center;justify-content:center;font:800 7px 'Plus Jakarta Sans',sans-serif;line-height:1;"+(late?'background:var(--red);color:#fff':today?'background:var(--amber);color:#111':'background:var(--line2);color:var(--ink)')),
+        badgeStyle:this.cssObj("flex:none;min-width:16px;height:16px;padding:0 3px;box-sizing:border-box;border-radius:99px;display:flex;align-items:center;justify-content:center;font:700 11px 'Plus Jakarta Sans',sans-serif;line-height:1;"+(late?'background:#8f2424;color:#fff7f5':today?'background:#7a4b08;color:#fff6e5':'background:var(--line2);color:var(--ink)')),
         pick:()=>{ this.setState({calSelected:d}); if(onDay.length) this.openDueBrief(dayKey, false); },
         dots: onDay.slice(0,1).map(()=>({style:this.cssObj('width:4px;height:4px;border-radius:50%;background:'+dotCol)})),
         dueTip: onDay.length ? (onDay.length+(onDay.length===1?' payment · ':' payments · ')+fmt(onDay.reduce((t,l)=>t+this.dueAmt(l),0))) : '',
@@ -5018,7 +5074,7 @@ class Component extends DCLogic {
     const avgRet = statOpen.length ? (statOpen.reduce((t,l)=>t+(l.ret==null?35:l.ret),0)/statOpen.length) : 0;
     const monthTotals = {};
     upcoming.forEach(x=>{ const m = monthTotals[x.k] = monthTotals[x.k] || {amt:0, n:0, risk:0}; m.amt += x.amt; m.n++; if(x.risk) m.risk += x.amt; });
-    const mKeys = Object.keys(monthTotals).map(Number).sort((a,b)=>a-b);
+    const mKeys = Object.keys(monthTotals).map(Number).sort((a,b)=>a-b).slice(-6);
     const mMax = mKeys.reduce((t,k)=>Math.max(t, monthTotals[k].amt), 0) || 1;
     const attnChart = mKeys.map(k=>{ const m = monthTotals[k];
       const pct = Math.max(8, Math.round((m.amt/mMax)*100));
@@ -5498,19 +5554,19 @@ class Component extends DCLogic {
       storageUsed: (()=>{ const mb=180+st.clients.length*3*45+st.clients.length*20+st.contractVault.length*30; return (mb/1024).toFixed(1)+' GB'; })(),
       storageBarStyle: this.cssObj('height:100%;border-radius:99px;background:var(--acc);width:'+Math.min(100,Math.round((180+st.clients.length*3*45+st.clients.length*20+st.contractVault.length*30)/1024/10*100))+'%'),
       ...this.roleVals(),
-      dashWrapStyle: this.cssObj('box-sizing:border-box;padding:12px clamp(12px,2vw,20px);display:flex;flex-direction:column;gap:10px;animation:fadeUp .2s ease;'+(st.route==='dashboard'||st.route==='loans'?'height:100%;overflow:auto;min-height:0':'')),
+      dashWrapStyle: this.cssObj('box-sizing:border-box;padding:12px clamp(12px,2vw,20px);display:flex;flex-direction:column;gap:10px;animation:fadeUp .2s ease;'+(st.route==='dashboard'||st.route==='loans'?'height:100%;overflow:hidden;min-height:0':'')),
       mainCls: '',
       isDash: st.route==='dashboard'||st.route==='loans',
       isDashboard: st.route==='dashboard', isLoans: st.route==='loans',
-      isMarkets: false, showStrip: st.route==='dashboard',
+      isMarkets: false, showStrip: false, showLegacyDash: false,
       showPageHeading: true,
       isBookTools: st.route==='loans', isLoanAction: st.route==='dashboard'||st.route==='loans',
       isLoanMenu: st.route==='loans', loanMoreOpen: !!(st.loanMore && st.route==='loans'),
       toggleLoanMore: ()=>this.setState(p=>({loanMore:!p.loanMore})),
       headClass: 'head-actions'+(st.route==='loans'?' is-loans':''),
-      screenTitle: st.route==='loans'?'LOANS':'DASHBOARD',
-      screenSub: st.route==='loans'?'LOAN BOOK':this.todayHeader(),
-      screenSubShort: st.route==='loans'?'Loan book':this.todayLabel(),
+      screenTitle: st.route!=='loans'?'DASHBOARD':((st.filter==='overdue'||st.filter==='duetoday'||st.filter==='collections')?'COLLECTIONS':'LOANS'),
+      screenSub: st.route!=='loans'?this.todayHeader():((st.filter==='overdue'||st.filter==='duetoday'||st.filter==='collections')?'DUE AND OVERDUE':'LOAN BOOK'),
+      screenSubShort: st.route!=='loans'?this.todayLabel():((st.filter==='overdue'||st.filter==='duetoday'||st.filter==='collections')?'Collections':'Loan book'),
       q1GateOff: this.state.borrowerGate!==true, q1GateOn: this.state.borrowerGate===true,
       admTab: st.admTab||'cash',
       admCashCls: 'pager-btn'+((st.admTab||'cash')==='cash'?' is-on':''),
@@ -5556,9 +5612,15 @@ class Component extends DCLogic {
         const accessTabs = [['invites','Invites'],['applications','Applications'],['messages','Messages']].map(([id,label])=>({label, style:tabStyle(accessHere===id), go:()=>this.setState({route:'access', accessTab:id, menuId:null, modal:null, modalStack:[], navDrawer:false})}));
         const reportHere = st.route==='nupay' || st.reportTab==='nupay' ? 'nupay' : 'markets';
         const reportTabs = [['markets','Markets'],['audit','Audit'],['nupay','NuPay']].map(([id,label])=>({id, label, style:tabStyle(reportHere===id), go:()=>this.nav(id==='nupay'?'nupay':id==='audit'?'logbook':'dashboard')}));
-        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: false, isNuPay: st.route==='nupay', showMarketsGrid: st.route==='dashboard', isAccess: st.route==='access' };
+        const leadOd = od[0];
+        const leadOdName = leadOd ? ((clientById(leadOd.clientId)||{}).name || '—') : '';
+        return { actionTiles, actionRows, actionEmpty: actionRows.length===0, actionHas: actionRows.length>0, accessTabs, reportTabs, showReportTabs: false, isNuPay: st.route==='nupay', showMarketsGrid: st.route==='dashboard', isAccess: st.route==='access',
+          dashDueAmt: dueToday.length ? fmt(dueToday.reduce((s,l)=>s+this.dueAmt(l),0)) : '—',
+          dashDueSub: dueToday.length ? (dueToday.length===1 ? '1 due today' : dueToday.length+' due today') : 'No data yet',
+          dashOverAmt: od.length ? fmt(od.reduce((s,l)=>s+this.dueAmt(l),0)) : '—',
+          dashOverSub: od.length ? (leadOdName+' · '+(leadOd.ref||'')) : 'No data yet' };
       })(),
-      ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
+      ticker, tkLabel, tkNote, tkNext, attnRows, activityRows, attnStats, attnChart, attnChartHas, attnChartEmpty: !attnChartHas, chartMax, chartMid, splitBar, expByClient, expByClientHas, newsLead, newsLeadOn: !!nLead, newsLeadOnly: !!nLead && !st.reel,
       ...(()=>{ const rl=st.reel; if(!rl) return {reelOn:false, reelPlaying:false, reelIdle:false};
         const playing=st.reelPlay===true;
         const when = rl.at ? new Date(String(rl.at).replace(' ','T')).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}).toUpperCase() : 'TODAY';
@@ -5697,6 +5759,10 @@ class Component extends DCLogic {
       goAccess:()=>this.setState({route:'access', accessTab:'invites', menuId:null, modal:null, modalStack:[], admPane:null, ledgerView:null, navDrawer:false}),
       goLoansAll:()=>{ this.setState({filter:'all'}); this.nav('loans'); },
       goOverdue:()=>{ this.setState({filter:'overdue'}); this.nav('loans'); },
+      goDue:()=>{ this.setState({filter:'duetoday'}); this.nav('loans'); },
+      goApplications:()=>this.nav('applications'),
+      dashApps: String(appNewCount),
+      dashAppsSub: !(st.applications||[]).length ? 'No data yet' : (appNewCount ? 'Waiting for review' : 'None waiting'),
       goLedger:()=>this.nav('ledger'), goClients:()=>this.nav('clients'), goAddClient:()=>{ this._docFiles=[]; this.setState({route:'addclient',wizStep:1,ac:{},acOfficer:null,docs:[],docExtracted:false,docProcessing:false}); },
       ...(()=>{ const t=this.today(), MN=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
         const inMonth = l => { const src = l.issued || l.issuedAt || ((l.sched&&l.sched[0]) || l.due); const p=this.slParse(src) || (typeof src==='number'?new Date(src):null);
@@ -5705,6 +5771,26 @@ class Component extends DCLogic {
         return { kpiOut: fmt(mo.reduce((s,l)=>s+this.lentNum(l),0)), kpiOutLabel: 'LOANED OUT · '+MN[t.getMonth()]+' '+t.getFullYear() }; })(),
       kpiOpenCount: open.length,
       kpiExpected: fmt(open.reduce((s,l)=>s+this.dueAmt(l)*(l.instRemaining||1),0)),
+      ...(()=>{
+        const t=this.today();
+        let dueM=0, gotM=0, nM=0;
+        (st.loans||[]).forEach(l=>{
+          if(!l || l.status==='written off') return;
+          const ds=(l.sched&&l.sched.length)?l.sched:[l.due];
+          ds.forEach((d,i)=>{
+            const p=this.slParse(d);
+            if(!p || p.getMonth()!==t.getMonth() || p.getFullYear()!==t.getFullYear()) return;
+            const a=this.dueAmt(l); dueM+=a; nM++;
+            if(l.status==='paid' || i<(l.paidInst||0)) gotM+=a;
+          });
+        });
+        const bookEmpty=!open.length;
+        return {
+          kpiBook: bookEmpty ? '—' : fmt(open.reduce((s,l)=>s+this.dueAmt(l)*(l.instRemaining||1),0)),
+          kpiBookSub: bookEmpty ? 'No data yet' : (open.length+(open.length===1?' open loan':' open loans')),
+          kpiCollectedLabel: nM ? ('Collected '+fmt(gotM)+' this month') : 'No data yet'
+        };
+      })(),
       kpiAvgRet: st.loans.length ? (st.loans.reduce((s,l)=>s+l.ret,0)/st.loans.length).toFixed(1)+'%' : '—',
       kpiClients: st.clients.length,
       kpiClientsSub: (()=>{ const n=st.clients.filter(c=>/Jul 2026/i.test(c.added)).length; return n?('+'+n+' in July'):'on the book'; })(),
