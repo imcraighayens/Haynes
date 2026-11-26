@@ -6,7 +6,7 @@ import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../ledger/index.html', import.meta.url), 'utf8');
 
 test('the staff nav is the original nine items plus NuPay', () => {
-  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
+  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['collections','COLLECTIONS'],['markets','MARKETS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
   assert.ok(html.includes(nav), 'sidebar keeps the 11 Nov items and NuPay');
   assert.equal((html.match(/class="nav-item"/g) || []).length, 1, 'one nav list');
   assert.match(html, /class="ledger-side"/);
@@ -93,7 +93,7 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /'release-held':\['Held'/);
   assert.match(html, /:focus-visible/);
   assert.match(html, /class="bento"/);
-  assert.match(html, /showLegacyDash: false/);
+  assert.match(html, /showLegacyDash: st\.route==='markets'\|\|st\.route==='collections'/);
   assert.match(html, /MARKET NEWS/);
   assert.equal(html.includes('.book-scroll{overflow:visible}'), false);
 });

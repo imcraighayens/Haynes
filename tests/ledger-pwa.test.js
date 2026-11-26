@@ -54,7 +54,7 @@ test('ledger/index.html links the manifest, icons, and worker without touching t
   assert.match(ledger, /serviceWorker\.register\('\/ledger\/sw\.js', \{ scope: '\/ledger\/' \}\)/);
   assert.doesNotMatch(ledger, /\/quik1\/sw\.js/);
   assert.doesNotMatch(ledger, /\/quik1\/manifest\.webmanifest/);
-  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
+  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['collections','COLLECTIONS'],['markets','MARKETS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
   assert.ok(ledger.includes(nav), 'the restored sidebar items stay put');
 });
 
