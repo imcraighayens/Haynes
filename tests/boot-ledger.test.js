@@ -159,8 +159,9 @@ test('a 401 on /state shows Admin sign-in, then the live book', { skip: pw ? fal
         return !!(gate && gate.getAttribute('data-gate') === 'login' && /Sign in with your staff email and password/.test(document.body.innerText));
       }, null, { timeoutMs: BOOT_TIMEOUT_MS });
       const locked = await bodyText(page);
-      assert.match(locked, /Sign in to Ledger/);
-      assert.match(locked, /STAFF/);
+      assert.match(locked, /Staff sign in/);
+      assert.match(locked, /Welcome back to EcoLoans Ledger/);
+      assert.match(locked, /EcoLoans Ledger, the staff book for every loan/);
       assert.doesNotMatch(locked, /BY ECOLOANS/);
       assert.doesNotMatch(locked, /PROTOTYPE CODE/);
       assert.doesNotMatch(locked, /246810/);

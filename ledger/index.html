@@ -102,6 +102,7 @@
   .lg-track > span, .lg-dots i { animation: none; }
 }
 </style>
+<link rel="stylesheet" href="/ledger/ledger-theme.css">
 <div id="ledger-gate" data-gate="splash" data-screen-label="Ledger splash" role="dialog" aria-modal="true" aria-label="Ledger">
 <script>window.__ledgerSawSplash = document.getElementById('ledger-gate').getAttribute('data-gate') === 'splash';</script>
   <div id="ledger-splash" class="lg-card">
@@ -113,15 +114,25 @@
   </div>
   <div id="ledger-login" hidden data-screen-label="Staff login">
     <form id="ledger-login-form" class="lg-panel" novalidate>
-      <div class="lg-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div>
-      <div class="lg-kicker">STAFF</div>
-      <h1 class="lg-title">Sign in to Ledger</h1>
-      <p class="lg-copy">Sign in with your staff email and password.</p>
-      <label class="lg-field"><span>EMAIL</span><input id="ledger-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email" required></label>
-      <label class="lg-field"><span>PASSWORD</span><input id="ledger-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" required></label>
-      <p id="ledger-login-error" class="lg-error" hidden role="alert"></p>
-      <button id="ledger-login-submit" type="submit">SIGN IN</button>
-      <p class="lg-foot">Ledger by EcoLoans. Quik1 clients set their own PIN from an invite. This page is for staff.</p>
+      <div class="lg-split">
+        <div class="lg-dark">
+          <div class="lg-strips" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="lg-shade" aria-hidden="true"></div>
+          <div class="lg-glow" aria-hidden="true"></div>
+          <p class="lg-headline">EcoLoans Ledger, the staff book for every loan.</p>
+        </div>
+        <div class="lg-form">
+          <div class="lg-sun" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg></div>
+          <h1 class="lg-title">Staff sign in</h1>
+          <p class="lg-copy">Welcome back to EcoLoans Ledger</p>
+          <p class="lg-note">Sign in with your staff email and password.</p>
+          <label class="lg-field"><span>Email</span><input id="ledger-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email" required></label>
+          <label class="lg-field"><span>Password</span><input id="ledger-pass" name="password" type="password" autocomplete="current-password" placeholder="Password" required></label>
+          <p id="ledger-login-error" class="lg-error" hidden role="alert"></p>
+          <button id="ledger-login-submit" type="submit">Sign in</button>
+          <p class="lg-foot">Ledger by EcoLoans. Quik1 clients set their own PIN from an invite. This page is for staff.</p>
+        </div>
+      </div>
     </form>
   </div>
 </div>
@@ -499,7 +510,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
 </helmet>
 <div style="display:flex;height:100vh;background:var(--appbg);color:var(--ink);overflow:hidden">
   <div class="ledger-side" style="{{ sidebarStyle }}">
-    <div style="{{ sidebarHeadStyle }}"><div style="width:32px;height:32px;flex:none;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div><div style="{{ sidebarWordStyle }}"><div style="font:800 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.03em;color:var(--ink);line-height:1.1">LEDGER</div><div style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.16em;color:var(--dim);margin-top:2px">BY ECOLOANS</div></div></div>
+    <div style="{{ sidebarHeadStyle }}"><div style="width:32px;height:32px;flex:none;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="#101408" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V8"></path><path d="M10 18V4"></path><path d="M16 18v-7"></path><path d="M3 21h18"></path></svg></div><div class="ledger-brand" style="{{ sidebarWordStyle }}"><div style="font:800 18px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.03em;color:var(--ink);line-height:1.1">LEDGER</div><div style="font:600 8.5px 'Plus Jakarta Sans',sans-serif;letter-spacing:.16em;color:var(--dim);margin-top:2px">BY ECOLOANS</div></div></div>
     <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding:14px 12px">
       <sc-for list="{{ navItems }}" as="nav" hint-placeholder-count="7">
         <div class="nav-item" role="button" tabindex="0" data-kbd="1" aria-current="{{ nav.current }}" sc-camel-on-click="{{ nav.go }}" title="{{ nav.title }}" style="{{ nav.style }}">{{ nav.icon }}{{ nav.label }}{{ nav.badge }}</div>
@@ -510,7 +521,7 @@ button.act-tile:disabled .act-n,button.act-tile:disabled .act-k,button.act-tile:
       </div>
   </div>
     <div style="flex:none;padding:12px 14px 16px;display:flex;flex-direction:column;gap:10px">
-      <div sc-camel-on-click="{{ goSettings }}" style="{{ profRowStyle }}" style-hover="opacity:.82"><div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ userInitials }}</div><div style="{{ profTextStyle }}"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div><div style="font:400 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">ADMIN · SETTINGS</div></div></div>
+      <div class="ledger-profile" sc-camel-on-click="{{ goSettings }}" style="{{ profRowStyle }}" style-hover="opacity:.82"><div style="width:32px;height:32px;flex:none;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font:600 11px 'Plus Jakarta Sans',sans-serif;color:var(--mut)">{{ userInitials }}</div><div style="{{ profTextStyle }}"><div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ userName }}</div><div style="font:400 9.5px 'Plus Jakarta Sans',sans-serif;color:var(--dim);letter-spacing:.06em">ADMIN · SETTINGS</div></div></div>
       <div style="{{ footRowStyle }}">
         <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="{{ themeLabel }}" data-tip="{{ themeLabel }}" sc-camel-on-click="{{ toggleTheme }}" title="{{ themeLabel }}" style="flex:1;height:44px;border:1px solid var(--line2);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font:500 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:.04em;color:#e7e2d6" style-hover="border-color:#f3e27a"><div style="width:9px;height:9px;border-radius:50%;background:var(--acc)"></div><span style="{{ navLabelVis }}">Theme</span></div>
         <div role="button" tabindex="0" data-kbd="1" class="icon-btn" aria-label="{{ navToggleTitle }}" data-tip="{{ navToggleTitle }}" sc-camel-on-click="{{ toggleNav }}" title="{{ navToggleTitle }}" style="{{ navToggleStyle }}">{{ navToggleGlyph }}</div>
@@ -2953,7 +2964,7 @@ class Component extends DCLogic {
     const petty = [];
     this.state = {
       navCollapsed: (()=>{ try{ return localStorage.getItem('ledjaa.navCollapsed')==='1'; }catch(e){ return false; } })(),
-      theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'dark'; }catch(e){ return 'dark'; } })(), route:'dashboard', filter:'all', q:'',
+      theme: (()=>{ try{ return localStorage.getItem('ledjaa.theme.v3') || 'light'; }catch(e){ return 'light'; } })(), route:'dashboard', filter:'all', q:'',
       menuId:null, modal:null, modalId:null, modalStack:[], dueBriefDay:null, dueBriefAuto:false, delPin:'', delPinErr:false, toast:null, attentionOpen:true, attended:{}, smsOpen:false, smsText:'',
       calMonth:(()=>{ const d=new Date(); return d.getMonth(); })(), calYear:(()=>{ const d=new Date(); return d.getFullYear(); })(), calSelected:(()=>{ const d=new Date(); return d.getDate(); })(), cliEdit:null, clientViewId:null, ql:{amount:'',due:''}, datePick:null,
       ledgerUnlocked:false, staffEmail:'', staffPass:'', staffError:false, showResetDemo:false, q1PinLive:null, aiConfigured:false, applications, appViewId:null, appFilter:'all', led:null,
@@ -3807,6 +3818,7 @@ class Component extends DCLogic {
     const vars = this.state.theme === 'light' ? light : {...dark, ...darkExtra};
     for (const k in vars) document.documentElement.style.setProperty(k, vars[k]);
     document.body.style.background = vars['--appbg'] || vars['--bg'];
+    document.documentElement.setAttribute('data-ledger-theme', this.state.theme === 'light' ? 'light' : 'dark');
   }
   cardOrder(){
     if(!this._cardOrder){

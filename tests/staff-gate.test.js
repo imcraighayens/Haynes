@@ -19,10 +19,15 @@ test('an unsigned visitor gets a splash and then the staff login, outside the bo
   assert.match(ledger, /BY ECOLOANS/);
   assert.match(ledger, /QUIK1/);
   assert.match(ledger, /Sign in with your staff email and password/);
+  assert.match(ledger, /ledger-theme\.css/);
+  const gate = ledger.slice(gateAt, bookAt);
+  assert.match(gate, /Staff sign in/);
+  assert.match(gate, /Welcome back to EcoLoans Ledger/);
+  assert.match(gate, /EcoLoans Ledger, the staff book for every loan/);
+  assert.doesNotMatch(gate, /Create account|HextaStudio|Sign in with Google/i);
   assert.match(ledger, /id="ledger-login-form"/);
   assert.match(ledger, /id="ledger-login-error"/);
   assert.doesNotMatch(ledger, /Cancelling returns to the dashboard/);
-  const gate = ledger.slice(gateAt, bookAt);
   assert.equal(/ECL-\d/.test(gate), false);
   assert.equal(/LOANED OUT/.test(gate), false);
   assert.match(sync, /if \(!st\)/);

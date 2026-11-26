@@ -1,0 +1,396 @@
+/* EcoLoans Ledger visual theme. Colours and type only.
+   Orange #f97316 is the accent. Black is the chrome. Panels stay light
+   in the light theme and dark in the dark theme so both stay readable.
+   Loaded after the gate styles. Rules that must beat the console's own
+   stylesheet use a higher specificity plus !important. */
+
+html {
+  --acc: #f97316 !important;
+  --accInk: #1c1917 !important;
+  --accSoft: rgba(249, 115, 22, .16) !important;
+}
+
+html[data-ledger-theme="light"] {
+  --bg: #f4f4f5 !important;
+  --panel: #ffffff !important;
+  --panel2: #fafafa !important;
+  --panel3: #f4f4f5 !important;
+  --line: #e4e4e7 !important;
+  --line2: #d4d4d8 !important;
+  --ink: #18181b !important;
+  --mut: #3f3f46 !important;
+  --dim: #52525b !important;
+  --hover: #f4f4f5 !important;
+  --appbg: #09090b !important;
+  --glass: #ffffff !important;
+  --glassLine: rgba(24, 24, 27, .10) !important;
+  --calGlass: #ffffff !important;
+  --calGlassLine: rgba(24, 24, 27, .10) !important;
+  --accText: #c2410c !important;
+  --cardLift: 0 1px 2px rgba(24, 24, 27, .06), 0 14px 32px -20px rgba(24, 24, 27, .35) !important;
+  --cardHover: 0 18px 36px -18px rgba(24, 24, 27, .32) !important;
+  --shadow: 0 20px 40px -24px rgba(0, 0, 0, .45) !important;
+  --scrim: rgba(9, 9, 11, .46) !important;
+  --modalBg: #ffffff !important;
+  --modalLine: rgba(24, 24, 27, .10) !important;
+  --calCell: #ffffff !important;
+  --calCellWk: #f4f4f5 !important;
+  --calCellHas: #fff7ed !important;
+  --calCellLine: #e4e4e7 !important;
+  --calCellHasLine: #fdba74 !important;
+  --calCellInk: #18181b !important;
+  --calCellMut: #3f3f46 !important;
+  --calCellDim: #52525b !important;
+  --calCellShadow: 0 1px 2px rgba(24, 24, 27, .06) !important;
+}
+
+html[data-ledger-theme="dark"] {
+  --bg: #09090b !important;
+  --panel: #18181b !important;
+  --panel2: #27272a !important;
+  --panel3: #09090b !important;
+  --line: #3f3f46 !important;
+  --line2: #52525b !important;
+  --ink: #fafafa !important;
+  --mut: #d4d4d8 !important;
+  --dim: #a1a1aa !important;
+  --hover: #27272a !important;
+  --appbg: #000000 !important;
+  --glass: #18181b !important;
+  --glassLine: rgba(255, 255, 255, .10) !important;
+  --calGlass: #18181b !important;
+  --calGlassLine: rgba(255, 255, 255, .12) !important;
+  --accText: #fdba74 !important;
+  --cardLift: 0 1px 2px rgba(0, 0, 0, .45), 0 16px 32px -18px rgba(0, 0, 0, .75) !important;
+  --cardHover: 0 18px 36px -16px rgba(0, 0, 0, .8) !important;
+  --shadow: 0 24px 50px rgba(0, 0, 0, .55) !important;
+}
+
+html[data-ledger-theme="light"] body { background: #09090b !important; }
+html[data-ledger-theme="dark"] body { background: #000000 !important; }
+
+/* Sign-in. The splash keeps the existing dark gate. */
+#ledger-gate[data-gate="login"] {
+  background: #e4e4e7;
+  color: #18181b;
+}
+#ledger-gate[data-gate="login"] #ledger-login {
+  width: min(64rem, 100%);
+}
+#ledger-login .lg-panel {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 16px 16px 16px 1.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .18), 0 8px 10px -6px rgba(0, 0, 0, .18);
+  overflow: hidden;
+}
+.lg-split {
+  display: flex;
+  min-height: 560px;
+  background: #f4f4f5;
+}
+.lg-dark {
+  position: relative;
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  padding: 48px 40px;
+  background: #000;
+  color: #fff;
+  border-bottom-left-radius: 1.5rem;
+  overflow: hidden;
+}
+.lg-strips {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 10%;
+  pointer-events: none;
+}
+.lg-strips span {
+  flex: 1 1 0;
+  max-width: 46px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, .18), rgba(255, 255, 255, .03));
+  border-left: 1px solid rgba(255, 255, 255, .14);
+  border-right: 1px solid rgba(255, 255, 255, .05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.lg-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, .55), rgba(0, 0, 0, 0) 58%);
+  pointer-events: none;
+}
+.lg-glow {
+  position: absolute;
+  left: 50%;
+  bottom: -120px;
+  width: 280px;
+  height: 280px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #f97316;
+  box-shadow: 0 0 80px 28px rgba(249, 115, 22, .55);
+  pointer-events: none;
+}
+.lg-headline {
+  position: relative;
+  z-index: 1;
+  margin: 8% 0 0;
+  max-width: 12em;
+  font-weight: 500;
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -.04em;
+  color: #fff;
+}
+.lg-form {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 44px;
+  background: #f4f4f5;
+}
+.lg-sun {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+.lg-sun svg { display: block; }
+#ledger-login .lg-title {
+  margin: 14px 0 0;
+  font-weight: 500;
+  font-size: 1.875rem;
+  line-height: 1.15;
+  letter-spacing: -.03em;
+  color: #18181b;
+}
+#ledger-login .lg-copy {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -.01em;
+  color: #3f3f46;
+}
+#ledger-login .lg-note {
+  margin-top: 4px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #52525b;
+}
+#ledger-login .lg-field { margin-top: 16px; gap: 6px; }
+#ledger-login .lg-field span {
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -.01em;
+  color: #18181b;
+}
+#ledger-login .lg-field input {
+  background: #fff;
+  border: 1px solid #a1a1aa;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #18181b;
+  font-weight: 500;
+  font-size: 16px;
+}
+#ledger-login .lg-field input::placeholder { color: #52525b; }
+#ledger-login .lg-field input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, .35);
+}
+#ledger-login .lg-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+#ledger-login-submit {
+  margin-top: 18px;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  background: #f97316;
+  color: #1c1917;
+  font: 600 16px 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing: -.01em;
+}
+#ledger-login-submit:hover:not(:disabled) {
+  background: #ea580c;
+  filter: none;
+}
+#ledger-login-submit:focus-visible {
+  outline: 2px solid #9a3412;
+  outline-offset: 2px;
+}
+#ledger-login .lg-foot {
+  margin-top: 14px;
+  color: #3f3f46;
+}
+
+@media (max-width: 800px) {
+  #ledger-gate[data-gate="login"] {
+    align-items: flex-start;
+    overflow: auto;
+    padding: 16px 12px;
+  }
+  #ledger-login .lg-panel { border-radius: 16px; }
+  .lg-split { flex-direction: column; min-height: 0; }
+  .lg-dark {
+    flex: none;
+    min-height: 248px;
+    padding: 28px 22px 36px;
+    border-bottom-left-radius: 0;
+  }
+  .lg-glow { width: 240px; height: 240px; bottom: -176px; }
+  .lg-headline {
+    margin-top: 4px;
+    max-width: 14em;
+    font-size: 28px;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, .8);
+  }
+  .lg-form { flex: none; padding: 24px 18px 22px; }
+  #ledger-login .lg-title { font-size: 1.6rem; }
+}
+
+/* Dashboard chrome. Width, order and the Q1 control stay as they are. */
+.ledger-side {
+  background: #000 !important;
+  color: #fafafa !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.ledger-side .ledger-brand,
+.ledger-side .ledger-brand > div:first-child {
+  color: #fff !important;
+  letter-spacing: -.04em !important;
+}
+.ledger-side .ledger-brand > div:last-child { color: #d6d3d1 !important; }
+.ledger-side .nav-item {
+  color: #fafafa !important;
+  letter-spacing: -.02em;
+}
+.ledger-side .nav-item:hover { background: rgba(255, 255, 255, .08); }
+.ledger-side .nav-item[aria-current="page"] {
+  background: #f97316 !important;
+  color: #1c1917 !important;
+}
+.ledger-side .nav-item[aria-current="page"]:hover { background: #ea580c !important; }
+.ledger-side .ledger-profile { color: #fafafa !important; }
+.ledger-side .ledger-profile > div:last-child > div:first-child { color: #fafafa !important; }
+.ledger-side .ledger-profile > div:last-child > div:last-child { color: #d6d3d1 !important; }
+.ledger-side [aria-label="Ask Q1"] { color: #fafafa !important; }
+
+.ledger-top {
+  background: #000 !important;
+  color: #fafafa !important;
+}
+.ledger-top .ledger-nav-btn {
+  background: #18181b !important;
+  color: #fafafa !important;
+  border-color: #3f3f46 !important;
+}
+.ledger-top .ledger-top-title {
+  color: #fafafa !important;
+  font-weight: 500 !important;
+  letter-spacing: -.03em !important;
+}
+
+.ledger-main { background: #f4f4f5; }
+html[data-ledger-theme="dark"] .ledger-main { background: #09090b; }
+
+.page-heading,
+.needs-title {
+  font-weight: 500 !important;
+  letter-spacing: -.03em !important;
+}
+
+html[data-ledger-theme="light"] .page-date-full,
+html[data-ledger-theme="light"] .page-date-short,
+html[data-ledger-theme="light"] .home-lead,
+html[data-ledger-theme="light"] .act-s,
+html[data-ledger-theme="light"] .due-k,
+html[data-ledger-theme="light"] .all-clear p,
+html[data-ledger-theme="light"] .news-empty,
+html[data-ledger-theme="light"] .gate-note {
+  color: #3f3f46 !important;
+}
+html[data-ledger-theme="light"] .act-k,
+html[data-ledger-theme="light"] .all-clear-title,
+html[data-ledger-theme="light"] .act-n {
+  color: #18181b !important;
+}
+html[data-ledger-theme="light"] .act-n,
+html[data-ledger-theme="light"] .bar-val,
+html[data-ledger-theme="light"] .home-grid [style*="font:700 20px"] {
+  color: #c2410c !important;
+}
+html[data-ledger-theme="dark"] .home-grid [style*="font:700 20px"],
+html[data-ledger-theme="dark"] .bar-val {
+  color: #fdba74 !important;
+}
+html[data-ledger-theme="light"] .act-chev,
+html[data-ledger-theme="light"] .linkish {
+  color: #c2410c !important;
+}
+html[data-ledger-theme="light"] .ledger-main [style*="color:#e4dfd4"],
+html[data-ledger-theme="light"] .ledger-main [style*="color:#e7e2d6"],
+html[data-ledger-theme="light"] .ledger-main [style*="color:#ddd8cc"],
+html[data-ledger-theme="light"] .ledger-main [style*="color:#f7f4ee"] {
+  color: #3f3f46 !important;
+}
+html[data-ledger-theme="light"] .ledger-main [style*="color:#C6F432"],
+html[data-ledger-theme="light"] .ledger-main [style*="color:#c3f53c"] {
+  color: #c2410c !important;
+}
+
+html .report-kpis > div {
+  background: var(--panel) !important;
+  border: 1px solid var(--line2) !important;
+  box-shadow: var(--cardLift) !important;
+}
+html .report-kpis > div > div:first-child {
+  background: rgba(249, 115, 22, .14) !important;
+  border-color: rgba(249, 115, 22, .35) !important;
+  color: #c2410c !important;
+}
+html[data-ledger-theme="dark"] .report-kpis > div > div:first-child { color: #fdba74 !important; }
+html .report-kpis > div > div:first-child svg { stroke: currentColor !important; }
+html .report-kpis > div > div:last-child > div:first-child { color: var(--mut) !important; }
+html[data-ledger-theme="light"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #c2410c !important; }
+html[data-ledger-theme="dark"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #fdba74 !important; }
+html .report-kpis > div > div:last-child > div:nth-child(3) { color: var(--mut) !important; }
+
+html body .filter-chip.is-on,
+html body .pager-btn.is-on {
+  background: #f97316 !important;
+  color: #1c1917 !important;
+  border-color: #ea580c !important;
+  box-shadow: inset 0 -3px 0 #9a3412 !important;
+}
+.ledger-main [style*="background:var(--ink)"] {
+  background-color: #f97316 !important;
+  color: #1c1917 !important;
+}
+.ledger-main [style*="background:var(--acc)"]:hover {
+  background-color: #ea580c !important;
+}
+.import-btn:hover { border-color: #ea580c !important; }
+
+html input:focus,
+html select:focus,
+html textarea:focus {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, .28);
+}
