@@ -7,7 +7,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
 import { isSafeId, cleanEmail } from './validate.js';
-import { hashPin, verifyPin, isPin, isWrongLengthPin, isLegacyPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from './pin.js';
+import { hashPin, verifyPin, isPin, isWrongLengthPin, isLegacyPin, isVerifiablePin, isChosenPin, chosenPinMessage, enterPinMessage, pinNotAcceptedMessage, legacyPinMessage, QUIK1_PIN_LENGTH } from './pin.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
 import { borrowerBook, requireBorrower } from './borrower-book.js';
 import { staffIdentity, bearerToken } from './auth.js';
@@ -448,6 +448,10 @@ function rejectPin() {
   throw new HttpError(401, pinNotAcceptedMessage());
 }
 
+function rejectLegacyPin() {
+  throw new HttpError(401, legacyPinMessage());
+}
+
 function rejectPinShape() {
   throw new HttpError(400, enterPinMessage());
 }
@@ -455,7 +459,7 @@ function rejectPinShape() {
 // A previous length is not a second accepted PIN. It gets the same staff-reset
 // sentence as a wrong PIN, and it does not count toward lockout.
 function rejectLegacyOrShape(pin) {
-  if (isLegacyPin(pin)) rejectPin();
+  if (isLegacyPin(pin)) rejectLegacyPin();
   if (isWrongLengthPin(pin)) rejectPinShape();
 }
 
@@ -668,7 +672,11 @@ export async function redeemInvite(req, body, res) {
   if (pin !== pinConfirm) throw new HttpError(400, 'PINs do not match');
   const rawIdEarly = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const rawPhoneEarly = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
-  if (!(rawIdEarly || rawPhoneEarly) && !INVITE_CODE.test(code)) throw new HttpError(410, 'This invite is no longer valid');
+  // ID and cellphone are not a second factor. The invite code (the staff-issued
+  // token) is required. Identity alone must not claim, set a PIN, or end a session.
+  if (!INVITE_CODE.test(code)) {
+    throw new HttpError(rawIdEarly || rawPhoneEarly ? 400 : 410, rawIdEarly || rawPhoneEarly ? INVITE_MISS : 'This invite is no longer valid');
+  }
 
   try {
     await assertAttemptBudget(req, res);
@@ -681,33 +689,26 @@ export async function redeemInvite(req, body, res) {
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';
   const rawPhone = body && (body.phone || body.cellphone) ? String(body.phone || body.cellphone) : '';
   const withIdentity = !!(rawId || rawPhone);
-  let row;
+  const row = await selectOne('q1_invites', {
+    select: 'id,client_id,expires_at,revoked_at,redeemed_at',
+    code_hash: eq(hashInviteCode(code))
+  });
+  if (!row || inviteState(row) !== 'open') {
+    throw new HttpError(withIdentity ? 400 : 410, withIdentity ? INVITE_MISS : 'This invite is no longer valid');
+  }
   if (withIdentity) {
     if (!hmacKey()) throw new HttpError(503, 'Sign-in is not available');
     const client = await clientByIdentity(rawId, rawPhone);
-    const invite = client ? await openInviteForClient(client.id) : null;
-    if (INVITE_CODE.test(code)) {
-      const byCode = await selectOne('q1_invites', {
-        select: 'id,client_id,expires_at,revoked_at,redeemed_at',
-        code_hash: eq(hashInviteCode(code))
-      });
-      if (!byCode || !invite || byCode.id !== invite.id || inviteState(byCode) !== 'open') {
-        throw new HttpError(400, INVITE_MISS);
-      }
-      row = byCode;
-    } else if (!invite) {
-      throw new HttpError(400, INVITE_MISS);
-    } else {
-      row = invite;
-    }
-  } else {
-    row = await selectOne('q1_invites', {
-      select: 'id,client_id,expires_at,revoked_at,redeemed_at',
-      code_hash: eq(hashInviteCode(code))
-    });
-    if (!row || inviteState(row) !== 'open') throw new HttpError(410, 'This invite is no longer valid');
+    if (!client || client.id !== row.client_id) throw new HttpError(400, INVITE_MISS);
   }
   await liveClient(row.client_id);
+  const already = await selectOne('q1_borrowers', {
+    select: 'id,client_id,pin_hash',
+    client_id: eq(row.client_id)
+  });
+  if (already && typeof already.pin_hash === 'string' && already.pin_hash.startsWith('scrypt$')) {
+    throw new HttpError(400, 'This account already has a PIN. Contact us to reset it.');
+  }
 
   const pinHash = await hashPin(pin);
   const nowIso = new Date().toISOString();

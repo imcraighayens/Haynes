@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createFakePostgrest, install } from '../../tools/fake-postgrest.js';
-import { hashPin, verifyPin, hashPinForVerify, resetVerifyCalls, verifyCallCount, pinNotAcceptedMessage, QUIK1_PIN_LENGTH } from '../../api/_lib/pin.js';
+import { hashPin, verifyPin, hashPinForVerify, resetVerifyCalls, verifyCallCount, pinNotAcceptedMessage, legacyPinMessage, QUIK1_PIN_LENGTH } from '../../api/_lib/pin.js';
 import { accountFromLoans } from '../../api/_lib/quik1-book.js';
 import { mintBorrowerToken, deviceCookie, DEVICE_MAX_AGE } from '../../api/_lib/quik1-session.js';
 import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
@@ -809,7 +809,7 @@ describe('borrower auth', { concurrency: false }, () => {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: legacy }
     });
     assert.equal(oldShape.statusCode, 401, oldShape.body);
-    assert.equal(oldShape.json().error, pinNotAcceptedMessage());
+    assert.equal(oldShape.json().error, legacyPinMessage());
     assert.equal(fake.db.q1_borrowers[0].failed_attempts || 0, 0);
     const four = await call(quik1, {
       method: 'POST', path: ['login'], headers: { cookie: knownCookie(redeemed) }, body: { accountRef, pin: '1'.repeat(QUIK1_PIN_LENGTH - 1) }
@@ -1361,7 +1361,8 @@ describe('borrower auth', { concurrency: false }, () => {
         method: 'POST', path: ['login'], body: { accountRef: 'qb_' + 'ab'.repeat(16), pin }
       });
       assert.equal(signed.statusCode, pin.length > QUIK1_PIN_LENGTH ? 401 : 400, signed.body);
-      if (pin.length > QUIK1_PIN_LENGTH) assert.equal(signed.json().error, pinNotAcceptedMessage());
+      if (pin.length > QUIK1_PIN_LENGTH && pin.length <= QUIK1_PIN_LENGTH + 2) assert.equal(signed.json().error, legacyPinMessage());
+      if (pin.length > QUIK1_PIN_LENGTH + 2) assert.equal(signed.json().error, pinNotAcceptedMessage());
       assertNoPin(signed.body, pin);
     }
     const invited = await call(ledger, {
@@ -2021,20 +2022,24 @@ describe('borrower auth', { concurrency: false }, () => {
     tempGone(fake.db.q1_borrowers[0]);
   });
 
-  test('redeeming an invite replaces a staff-set PIN', async () => {
+  test('redeeming an invite does not overwrite a staff-set PIN', async () => {
     const created = await call(ledger, {
       method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
     });
     await setLogin(CLIENT_A);
-    assert.equal(await verifyPin(LOGIN_PIN, fake.db.q1_borrowers[0].pin_hash), true);
+    const hash = fake.db.q1_borrowers[0].pin_hash;
+    assert.equal(await verifyPin(LOGIN_PIN, hash), true);
     assert.equal(fake.db.q1_invites[0].redeemed_at == null, true);
     const redeemed = await call(quik1, {
       method: 'POST', path: ['invites', 'redeem'], body: { code: created.json().code, pin: PIN_NEXT, pinConfirm: PIN_NEXT }
     });
-    assert.equal(redeemed.statusCode, 200, redeemed.body);
-    tempGone(fake.db.q1_borrowers[0]);
-    assert.equal(await verifyPin(PIN_NEXT, fake.db.q1_borrowers[0].pin_hash), true);
-    assert.equal(await verifyPin(LOGIN_PIN, fake.db.q1_borrowers[0].pin_hash), false);
+    assert.equal(redeemed.statusCode, 400, redeemed.body);
+    assert.equal(redeemed.json().error, 'This account already has a PIN. Contact us to reset it.');
+    assert.equal(fake.db.q1_borrowers[0].pin_hash, hash);
+    assert.equal(await verifyPin(LOGIN_PIN, hash), true);
+    assert.equal(await verifyPin(PIN_NEXT, hash), false);
+    assert.equal(fake.db.q1_invites[0].redeemed_at == null, true);
+    assert.equal(cookieHeader(redeemed).includes('q1_session='), false);
   });
 
   test('a locked borrower cannot sign in with a staff-set PIN, and change PIN stays locked', async () => {

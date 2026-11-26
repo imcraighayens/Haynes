@@ -76,6 +76,12 @@ export function enterPinMessage() {
   return 'Enter a ' + QUIK1_PIN_LENGTH + '-digit PIN';
 }
 
+// A 5- or 6-digit PIN from before the switch. Same sentence for every account,
+// thrown before a lookup, so it does not say who still has the old length.
+export function legacyPinMessage() {
+  return 'Your PIN has changed to 4 numbers. Please contact us to reset it.';
+}
+
 // Same sentence for an unknown account and a wrong PIN. The previous length is
 // derived so a legacy holder is not told apart from anyone else.
 export function pinNotAcceptedMessage() {

@@ -13,7 +13,7 @@ import { borrowerEmailLive, emailSender } from './email.js';
 import { sessionSecret, pendingDeviceCookie, requestIsSecure, clearPendingCookie } from './quik1-session.js';
 import { guardAuth, authIpHash, logAuthAttempt, maxPinAttempts, lockoutMs, deviceMatches, startBorrowerSession, signInWithPin } from './borrower.js';
 import { idHmac, phoneHmac, normaliseSaId, normaliseCell, hmacKey } from './sa-id.js';
-import { isPin, isLegacyPin, enterPinMessage, pinNotAcceptedMessage } from './pin.js';
+import { isPin, isLegacyPin, enterPinMessage, legacyPinMessage } from './pin.js';
 import { smsTransport, smsTtlMs, newSmsCode, SMS_CODE_LENGTH, SMS_UNAVAILABLE } from './sms.js';
 
 const LOCKED_PLACEHOLDER = 'locked';
@@ -481,7 +481,7 @@ async function signInByIdPin(req, body, res) {
   if (!hmacKey()) throw signInClosed();
   const pin = body && typeof body.pin === 'string' ? body.pin : '';
   await guardAuth(req, res);
-  if (isLegacyPin(pin)) throw new HttpError(401, pinNotAcceptedMessage());
+  if (isLegacyPin(pin)) throw new HttpError(401, legacyPinMessage());
   if (!isPin(pin)) throw new HttpError(400, enterPinMessage());
   await assertClientHmacColumns();
   const rawId = body && (body.idNumber || body.id) ? String(body.idNumber || body.id) : '';

@@ -1422,7 +1422,7 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Estimate (no signup) ──────────────────────────────── -->
     <sc-if value="{{ isEstimate }}">
-      <div data-q-safe-header="estimate" style="flex:1;min-height:0;overflow-y:auto;background:#000000;color:#FFFFFF;padding:calc(26px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 28px calc(54px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)));display:flex;flex-direction:column;gap:22px;animation:{{ pageAnim }}">
+      <div data-q-safe-header="estimate" style="flex:1;min-height:0;overflow-y:auto;background:#000000;color:#FFFFFF;padding:calc(26px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 28px calc(128px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px)));display:flex;flex-direction:column;gap:22px;animation:{{ pageAnim }}">
         <div style="display:flex;align-items:center;gap:12px">
           <button sc-camel-on-click="{{ onLeaveEstimate }}" aria-label="Back" style="flex:0 0 auto;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
             <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#FFFFFF;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
@@ -1495,8 +1495,8 @@ input,button,textarea{font-family:inherit}
         <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
-      <div class="q-login" style="flex:1;min-height:0;overflow:hidden;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:hidden">
+      <div class="q-login" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:visible">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
@@ -1690,7 +1690,7 @@ input,button,textarea{font-family:inherit}
           </div>
         </div>
 
-        <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 22px 0;display:flex;flex-direction:column;gap:8px">
+        <div data-q-signup-scroll="1" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;padding:8px 22px 24px;display:flex;flex-direction:column;gap:8px">
           <sc-for list="{{ suFields }}" as="f" hint-placeholder-count="4">
             <label style="display:flex;flex-direction:column;gap:7px">
               <span style="font-size:13px;color:rgba(255,255,255,.6)">{{ f.label }}</span>
@@ -2913,6 +2913,7 @@ input,button,textarea{font-family:inherit}
         idnum:!/^\d{13}$/.test(u.idnum||'')?'SA ID numbers have 13 digits':'',
         phone:(u.phone||'').replace(/\D/g,'').length!==9?'Enter 9 digits after +27':'',
         email:!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email||'')?'Enter a valid email address':'',
+        code:!/^[0-9a-f]{64}$/.test(u.code||s.inviteCode||'')?'Enter the invite code from your loan officer':'',
         employer:(u.employment!=='Self-employed'&&!(u.employer||'').trim())?'Who do you work for?':'',
         income:(parseInt(u.income||'0',10)<1000)?'Monthly take-home pay, at least R1 000':'',
         pin:!new RegExp('^\\d{'+PIN_LENGTH+'}$').test(u.pin||'')?'Choose '+PIN_LENGTH+' digits':'',
@@ -2922,13 +2923,18 @@ input,button,textarea{font-family:inherit}
         err:tried?errs[k]:'',border:(tried&&errs[k])?'rgba(255,138,122,.6)':'rgba(255,255,255,.10)'},o||{});
       const fields={
         1:[F('name','Full name','As on your ID'),F('idnum','SA ID number','13 digits',{mode:'numeric',max:13,fmt:digits(13),ls:'.06em'}),
-           F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'})],
+           F('phone','Mobile number','82 000 0000',{mode:'numeric',max:9,fmt:digits(9),prefix:'+27'}),F('email','Email','you@example.com',{type:'email',mode:'email'}),
+           F('code','Invite code','From your loan officer',{max:64,fmt:v=>v.toLowerCase().replace(/[^0-9a-f]/g,'').slice(0,64),ls:'.04em'})],
         2:[F('employer',u.employment==='Self-employed'?'Business name (optional)':'Employer','Company name'),
            F('income','Monthly take-home pay','0',{mode:'numeric',max:7,fmt:digits(7),prefix:'R'})],
         3:[F('pin','Create a '+PIN_LENGTH+'-digit PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'}),
            F('pin2','Confirm PIN','•'.repeat(PIN_LENGTH),{type:'password',mode:'numeric',max:PIN_LENGTH,fmt:digits(PIN_LENGTH),ls:'.28em'})]
       }[step];
-      const stepKeys={1:['name','idnum','phone','email'],2:['employer','income'],3:['pin','pin2']}[step];
+      if (step===1) {
+        const codeField = fields.find(f=>f.label==='Invite code');
+        if (codeField && !(u.code) && s.inviteCode) codeField.value = s.inviteCode;
+      }
+      const stepKeys={1:['name','idnum','phone','email','code'],2:['employer','income'],3:['pin','pin2']}[step];
       const chip=(k,v)=>({label:v,go:()=>this.setState(st=>({su:{...st.su,[k]:v}})),bg:u[k]===v?'#FDD10D':'rgba(255,255,255,.05)',fg:u[k]===v?'#0B0620':'#FFFFFF',bd:u[k]===v?'#FDD10D':'rgba(255,255,255,.12)'});
       const tog=(k,label)=>({label,go:()=>this.setState(st=>({su:{...st.su,[k]:!st.su[k]},suError:''})),bg:u[k]?'#FDD10D':'transparent',bd:u[k]?'#FDD10D':'rgba(255,255,255,.35)',tick:u[k]?1:0});
       const st=s.suStatus||'Pending review', ok=st==='Approved', no=st==='Declined';
@@ -3299,9 +3305,9 @@ input,button,textarea{font-family:inherit}
         idNumber:String(u.idnum||''),
         phone:String(u.phone||''),
         pin:String(u.pin||''),
-        pinConfirm:String(u.pin2||'')
+        pinConfirm:String(u.pin2||''),
+        code:String(u.code||this.state.inviteCode||'').trim().toLowerCase()
       };
-      if(/^[0-9a-f]{64}$/.test(this.state.inviteCode||'')) body.code=this.state.inviteCode;
       this.setState({pinBusy:true, suError:''});
       this.apiFetch('/invites/redeem',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify(body)})
         .then(async r=>{
