@@ -1,12 +1,14 @@
 // Staff chat behind the existing Ledger Q1 icon. POST /api/q1-assistant
-// Bearer LEDGER_KEY or the same-origin unlock cookie. Replies from the console's
-// DATA block and, when Supabase is configured, the live clients / loans /
-// applications / balances. No Claude call and no AI gateway key.
+// Bearer LEDGER_KEY or the same-origin unlock cookie. A valid staff cookie
+// answers from loadLiveBook (the same rows GET /api/ledger/state serves). The
+// browser DATA block is only the current screen, unless that live load fails.
+// No Claude call and no AI gateway key. A key pasted into the body is never a
+// credential.
 //
 // q1_requests stays the Quik1 customer inbox (POST /api/quik1/requests). This
 // route does not write there.
 import { wrap, json, readBody, requireEnv, HttpError } from './_lib/http.js';
-import { requireStaff } from './_lib/auth.js';
+import { requireStaff, staffIdentity } from './_lib/auth.js';
 import { select, selectOne, eq } from './_lib/supabase.js';
 import { cleanText, isSafeId } from './_lib/validate.js';
 import { parseLedgerData, mergeBook, answerQuestion } from './_lib/q1-brain.js';
@@ -96,17 +98,25 @@ export default wrap('q1-assistant', async (req, res) => {
   if (!message) throw new HttpError(400, 'message is required');
   const parsed = parseLedgerData(clip(body.data, 100000));
   if (body.page) parsed.page = cleanText(body.page, 40);
+  // Same-origin ledger_staff cookie. Bearer-only callers keep the previous
+  // DATA-block merge. body.key / apikey are not read.
+  const cookieSession = !!staffIdentity(req);
   let live = null;
   try { live = await loadLiveBook(); } catch { live = null; }
-  const snap = mergeBook(parsed, live);
+  const snap = cookieSession && live
+    ? mergeBook(parsed, live, new Date(), { preferLive: true })
+    : mergeBook(parsed, cookieSession ? null : live);
+  const source = cookieSession ? (live ? 'server' : 'browser-fallback') : undefined;
   snap.apps = sanitizeApps(body.apps);
   snap.appsNote = scrubSecrets(clip(body.appsNote, 4000)).slice(0, 4000);
   const result = answerQuestion(message, snap, historyOf(body.history));
   await notifyQ1Webhook({ source: 'ledger-q1', page: snap.page, message });
-  json(res, 200, {
+  const payload = {
     reply: result.reply,
     action: result.action,
     call: result.call,
     connected: true
-  }, req);
+  };
+  if (source) payload.source = source;
+  json(res, 200, payload, req);
 });

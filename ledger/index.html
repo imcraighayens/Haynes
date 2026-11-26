@@ -3895,7 +3895,10 @@ class Component extends DCLogic {
     const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(), 6000), hd={'Accept':'application/json, text/csv, */*'};
     if(a.key){ hd['Authorization']='Bearer '+a.key; if(/supabase/i.test(a.url)) hd['apikey']=a.key; }
     if(body!=null) hd['Content-Type']='application/json';
-    try{ const r=await fetch(this.q1Url(a, path), {method:method||'GET', headers:hd, body:body!=null?JSON.stringify(body):undefined, signal:ctl.signal});
+    const target=this.q1Url(a, path);
+    const opts={method:method||'GET', headers:hd, body:body!=null?JSON.stringify(body):undefined, signal:ctl.signal};
+    try{ const here=(typeof location!=='undefined'&&location&&location.origin)||''; const u=new URL(target, here||undefined); if(here && u.origin===here) opts.credentials='include'; }catch(e){}
+    try{ const r=await fetch(target, opts);
       const tx=await r.text(); if(!r.ok) throw new Error('HTTP '+r.status+' '+tx.slice(0,120)); return tx; }
     catch(e){ throw new Error(e.name==='AbortError'?'Timed out after 6s':(/Failed to fetch/i.test(String(e.message))?'Blocked by the app (CORS). Add a proxy URL.':String(e.message||e))); }
     finally{ clearTimeout(t); } }
@@ -3946,14 +3949,11 @@ class Component extends DCLogic {
     const base=String(a.path||'/applications').split('?')[0];
     this.q1Req(a,'PATCH',base.replace(/\/+$/,'')+'/'+encodeURIComponent(app.extId),{status}).then(()=>this.toast('Quik1 updated: '+app.name+' '+status)).catch(e=>this.toast('Quik1 not updated: '+e.message)); }
   async botFromLedger(q, hist){
-    let key='';
-    try{ const c=JSON.parse(localStorage.getItem('ledjaa.supabase')||'null'); if(c&&c.key) key=String(c.key); }catch(e){}
     const apps=this.q1Apps().filter(a=>a&&a.on).map(a=>({name:String(a.name||'').slice(0,80), actions:!!a.actions, path:String(a.path||'').slice(0,180)}));
     let appsNote='';
     try{ appsNote=String(await this.q1Context()||'').replace(/\b\d{13}\b/g,'[id]').slice(0,4000); }catch(e){ appsNote=''; }
     const body={message:q, page:String((this.state&&this.state.route)||''), history:hist.slice(-8).map(m=>({role:m.role==='user'?'user':'bot', text:String(m.text||'').slice(0,1500)})), data:String(this.botContext()||'').slice(0,100000), apps:apps, appsNote:appsNote};
     const headers={'Content-Type':'application/json','Accept':'application/json'};
-    if(key){ headers.Authorization='Bearer '+key; headers.apikey=key; }
     const r=await fetch('/api/q1-assistant',{method:'POST',credentials:'include',headers:headers,body:JSON.stringify(body)});
     const tx=await r.text();
     let j=null; try{ j=tx?JSON.parse(tx):null; }catch(e){ j=null; }

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { mintStaffSession } from '../../api/_lib/auth.js';
 import { publicLimiter } from '../../api/_lib/ratelimit.js';
-import { answerQuestion, mergeBook, parseLedgerData, answerBorrower } from '../../api/_lib/q1-brain.js';
+import { answerQuestion, mergeBook, parseLedgerData, answerBorrower, todayYmd } from '../../api/_lib/q1-brain.js';
 
 const ENV = {
   SUPABASE_URL: 'https://db.test.supabase.co',
@@ -115,6 +115,13 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     const wrong = await callStaff({ auth: false, headers: { authorization: 'Bearer nope' }, body: { message: 'hi' } });
     assert.equal(wrong.statusCode, 401);
     assert.equal(calls.length, 0);
+    const pasted = await callStaff({
+      auth: false,
+      body: { message: 'What is due today?', data: DATA, key: KEY, ledgerKey: KEY, apikey: KEY }
+    });
+    assert.equal(pasted.statusCode, 401);
+    assert.equal(calls.length, 0);
+    assert.equal(pasted.body.includes(KEY), false);
   });
 
   test('authenticated chat returns a book reply and an in-app action', async () => {
@@ -132,20 +139,74 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     assert.ok(calls.every(c => c.host === 'db.test.supabase.co' && c.method === 'GET'));
   });
 
-  test('same-origin staff cookie is enough; cross-site cookie is 401', async () => {
+  test('same-origin staff cookie reads the live book; cross-site cookie is 401', async () => {
     const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
     const cookie = 'ledger_staff=' + encodeURIComponent(token);
     const same = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie };
-    const ok = await callStaff({ auth: false, headers: same, body: { message: "What's in the bank?", data: DATA } });
+    const ok = await callStaff({ auth: false, headers: same, body: { message: "What's in the bank?", data: DATA, key: KEY, apikey: 'anon-key' } });
     assert.equal(ok.statusCode, 200);
-    assert.match(ok.json().reply, /R 48 250/);
-    assert.equal(ok.json().action.go, 'bank');
+    const j = ok.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /R 10 000/);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(j.action.go, 'bank');
+    assert.equal(ok.body.includes(KEY), false);
+    assert.equal(ok.body.includes('anon-key'), false);
+    assert.equal(ok.body.includes('craig@ecoloan.co.za'), false);
     const foreign = await callStaff({
       auth: false,
       headers: { origin: 'https://evil.example', host: 'quik1ledger.com', 'sec-fetch-site': 'cross-site', cookie },
       body: { message: "What's in the bank?", data: DATA }
     });
     assert.equal(foreign.statusCode, 401);
+  });
+
+  test('a browser DATA block with conflicting loans does not override the server book', async () => {
+    const today = todayYmd(new Date());
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') return { status: 200, body: [{ id: 'l_live', ref: 'ECL-777', client_id: 'c_live', principal: 900, instalment_amount: 1100, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      if (rec.table === 'applications') return { status: 200, body: [] };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const due = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA, page: 'loans', key: KEY } });
+    assert.equal(due.statusCode, 200);
+    const j = due.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-777/);
+    assert.match(j.reply, /R 1 100/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    assert.equal(j.reply.includes('ECL-110'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(due.body.includes('c_live'), false);
+    assert.equal(due.body.includes('l_live'), false);
+    assert.equal(due.body.includes('craig@ecoloan.co.za'), false);
+    assert.equal(due.body.includes(KEY), false);
+    const where = await callStaff({ auth: false, headers, body: { message: 'Where am I?', data: DATA, page: 'loans' } });
+    assert.equal(where.statusCode, 200);
+    assert.equal(where.json().source, 'server');
+    assert.match(where.json().reply, /loans/);
+  });
+
+  test('cookie session flags browser-fallback when the server book cannot load', async () => {
+    stubFetch(async (rec) => {
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      throw new Error('db down');
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.match(j.reply, /R 3 000/);
+    assert.equal(res.body.includes('craig@ecoloan.co.za'), false);
   });
 
   test('assistant replies with no AI gateway key and never calls an AI host', async () => {
@@ -272,6 +333,31 @@ describe('q1 brain', { concurrency: 1 }, () => {
     assert.match(who.reply, /R 1 000/);
   });
 
+  test('preferLive quotes the server book and keeps only the screen from the DATA block', () => {
+    const now = new Date('2026-11-26T10:00:00Z');
+    const live = {
+      bank: 25000,
+      loans: [{ ref: 'ECL-777', client: 'Live Borrower', clientRef: 'EC-77', status: 'issued', principal: 900, instalment: 1100, schedule: ['2026-11-26'], paid: 0 }],
+      clients: [{ id: 'c_live', ref: 'EC-77', name: 'Live Borrower' }],
+      expenses: [{ name: 'Rent', amount: 100 }],
+      employees: [],
+      applications: []
+    };
+    const stale = mergeBook(parseLedgerData(DATA), live, now);
+    assert.equal(stale.bank, 'R 48 250');
+    assert.equal(stale.loans[0].ref, 'ECL-112');
+    const snap = mergeBook(parseLedgerData(DATA), live, now, { preferLive: true });
+    assert.equal(snap.page, 'dashboard');
+    assert.equal(snap.bank, 'R 25 000');
+    assert.equal(snap.loans.length, 1);
+    assert.equal(snap.loans[0].ref, 'ECL-777');
+    assert.equal(snap.clients[0].id, undefined);
+    const due = answerQuestion("What's due today?", snap, [], now);
+    assert.match(due.reply, /ECL-777/);
+    assert.match(due.reply, /R 1 100/);
+    assert.equal(due.reply.includes('ECL-112'), false);
+  });
+
   test('borrower answers from the brief and only navigates on an open request', () => {
     const brief = [
       'Customer: Thandi',
@@ -340,6 +426,8 @@ describe('q1 icon source', { concurrency: 1 }, () => {
     const fn = ledger.slice(ledger.indexOf('async botFromLedger'), ledger.indexOf('botRun(act)'));
     assert.match(fn, /fetch\('\/api\/q1-assistant'/);
     assert.match(fn, /credentials:'include'/);
+    assert.equal(fn.includes('ledjaa.supabase'), false);
+    assert.equal(fn.includes('Authorization'), false);
     assert.equal(fn.includes("I can't reach Claude"), false);
     assert.ok(fn.indexOf("fetch('/api/q1-assistant'") < fn.indexOf('window.claude'));
     assert.match(ledger, /CONNECTED · LEDGER/);
