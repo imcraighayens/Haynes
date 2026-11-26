@@ -4,7 +4,13 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07080c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ledger">
 <title>Ledger</title>
+<link rel="manifest" href="/ledger/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/ledger/apple-touch-icon.png">
 <script type="module" src="/shared/pin-length.js"></script>
 <script>
 /* This file lives in /ledger/. A staff host 307s "/" to /ledger/, where these
@@ -34,6 +40,20 @@
 <script src="./ledger-sync.js"></script>
 <script src="./inbox-live.js"></script>
 <script type="module" src="./attention.js"></script>
+<script>
+/* Desktop install. The worker's scope is /ledger/ and it does not control Quik1.
+   A staff host 307s "/" onto /ledger/ before this file runs. An open host can
+   still rewrite "/" onto this file in place; that URL is outside the scope, so
+   leave it unregistered. */
+(function () {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', function () {
+    var path = location.pathname || '/';
+    if (path !== '/ledger' && path.indexOf('/ledger/') !== 0) return;
+    navigator.serviceWorker.register('/ledger/sw.js', { scope: '/ledger/' }).catch(function () {});
+  });
+})();
+</script>
 </head>
 <body>
 <script>window.__ledgerSplashAt = Date.now();</script>
