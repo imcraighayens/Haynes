@@ -161,6 +161,183 @@
   html.q-kb .q-chat {
     --q-sheet-radius: 30px 30px 0 0;
   }
+  /* Shorter than the 390x844 design. Type, gaps, the logo and the keys
+     scale with the viewport height. 844px and taller keep the inline sizes.
+     Tap targets stay at least 44px. Body copy stays at least 14px. */
+  @media (max-height: 820px) {
+    .q-frame:has(.q-auth-pad) .q-auth-dock,
+    .q-frame:has(.q-signup) .q-auth-dock { display: none !important; }
+    .q-legal {
+      position: relative !important;
+      left: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      order: 4;
+      z-index: 45;
+      margin: 0;
+      padding: 6px 16px 8px !important;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+    .q-frame:has(.q-signin) .q-legal { margin-bottom: 92px; }
+    .q-login:has(.q-auth-pad),
+    .q-login:has(.q-signin) {
+      gap: clamp(6px, 1.6vh, 22px) !important;
+      gap: clamp(6px, 1.6svh, 22px) !important;
+      gap: clamp(6px, 1.6dvh, 22px) !important;
+      overflow: hidden !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      padding-left: clamp(14px, 3vh, 26px) !important;
+      padding-left: clamp(14px, 3svh, 26px) !important;
+      padding-left: clamp(14px, 3dvh, 26px) !important;
+      padding-right: clamp(14px, 3vh, 26px) !important;
+      padding-right: clamp(14px, 3svh, 26px) !important;
+      padding-right: clamp(14px, 3dvh, 26px) !important;
+    }
+    .q-login-head {
+      flex: 0 0 auto !important;
+      padding-top: clamp(8px, 2.4vh, 34px) !important;
+      padding-top: clamp(8px, 2.4svh, 34px) !important;
+      padding-top: clamp(8px, 2.4dvh, 34px) !important;
+      overflow: visible !important;
+    }
+    .q-login-head img {
+      width: clamp(64px, 11vh, 96px) !important;
+      width: clamp(64px, 11svh, 96px) !important;
+      width: clamp(64px, 11dvh, 96px) !important;
+      margin-bottom: clamp(6px, 1.2vh, 16px) !important;
+      margin-bottom: clamp(6px, 1.2svh, 16px) !important;
+      margin-bottom: clamp(6px, 1.2dvh, 16px) !important;
+    }
+    .q-login-head h1 {
+      font-size: clamp(22px, 4.4vh, 36px) !important;
+      font-size: clamp(22px, 4.4svh, 36px) !important;
+      font-size: clamp(22px, 4.4dvh, 36px) !important;
+    }
+    .q-login-head p {
+      margin-top: clamp(4px, 0.8vh, 8px) !important;
+      margin-top: clamp(4px, 0.8svh, 8px) !important;
+      margin-top: clamp(4px, 0.8dvh, 8px) !important;
+      font-size: clamp(14px, 1.9vh, 15px) !important;
+      font-size: clamp(14px, 1.9svh, 15px) !important;
+      font-size: clamp(14px, 1.9dvh, 15px) !important;
+      line-height: 1.35 !important;
+    }
+    .q-auth-pad, .q-signin {
+      gap: clamp(6px, 1.1vh, 16px) !important;
+      gap: clamp(6px, 1.1svh, 16px) !important;
+      gap: clamp(6px, 1.1dvh, 16px) !important;
+      padding-bottom: 0 !important;
+      flex: 0 0 auto;
+    }
+    .q-cells { gap: clamp(6px, 1vh, 10px) !important; gap: clamp(6px, 1svh, 10px) !important; gap: clamp(6px, 1dvh, 10px) !important; }
+    .q-cells > div {
+      height: clamp(44px, 7.2vh, 60px) !important;
+      height: clamp(44px, 7.2svh, 60px) !important;
+      height: clamp(44px, 7.2dvh, 60px) !important;
+    }
+    .q-keys { gap: clamp(4px, 0.9vh, 8px) !important; gap: clamp(4px, 0.9svh, 8px) !important; gap: clamp(4px, 0.9dvh, 8px) !important; }
+    .q-keys button {
+      height: clamp(44px, 6.5vh, 52px) !important;
+      height: clamp(44px, 6.5svh, 52px) !important;
+      height: clamp(44px, 6.5dvh, 52px) !important;
+      min-height: 44px;
+      font-size: clamp(16px, 2.4vh, 19px) !important;
+      font-size: clamp(16px, 2.4svh, 19px) !important;
+      font-size: clamp(16px, 2.4dvh, 19px) !important;
+    }
+    .q-auth-pad [data-q-pin-reset] {
+      font-size: 14px !important;
+      line-height: 1.25 !important;
+    }
+    .q-auth-pad button, .q-signin button { min-height: 44px; }
+    .q-signin label > span[style*="height:60px"] {
+      height: clamp(44px, 6.6vh, 60px) !important;
+      height: clamp(44px, 6.6svh, 60px) !important;
+      height: clamp(44px, 6.6dvh, 60px) !important;
+    }
+    .q-signin > button, .q-su-cta > button {
+      height: clamp(48px, 7vh, 62px) !important;
+      height: clamp(48px, 7svh, 62px) !important;
+      height: clamp(48px, 7dvh, 62px) !important;
+      min-height: 44px;
+    }
+    .q-signup { min-height: 0; }
+    .q-su-head {
+      gap: clamp(2px, 0.6vh, 6px) !important;
+      gap: clamp(2px, 0.6svh, 6px) !important;
+      gap: clamp(2px, 0.6dvh, 6px) !important;
+      padding-top: clamp(4px, 0.8vh, 8px) !important;
+      padding-top: clamp(4px, 0.8svh, 8px) !important;
+      padding-top: clamp(4px, 0.8dvh, 8px) !important;
+    }
+    .q-su-head img {
+      width: clamp(44px, 7vh, 66px) !important;
+      width: clamp(44px, 7svh, 66px) !important;
+      width: clamp(44px, 7dvh, 66px) !important;
+    }
+    .q-su-head h2 {
+      font-size: clamp(20px, 3.4vh, 28px) !important;
+      font-size: clamp(20px, 3.4svh, 28px) !important;
+      font-size: clamp(20px, 3.4dvh, 28px) !important;
+    }
+    .q-su-head p {
+      font-size: 14px !important;
+      line-height: 1.3 !important;
+      margin-top: 4px !important;
+    }
+    .q-su-head h2 { line-height: 1.05 !important; }
+    .q-su-head p { margin-top: 2px !important; line-height: 1.25 !important; }
+    .q-su-head > button {
+      height: 44px;
+      padding: 0 10px !important;
+      overflow: hidden;
+    }
+    .q-su-head > button > span:nth-child(2) {
+      font-size: 14px !important;
+      line-height: 1.2 !important;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .q-signup [data-q-signup-scroll] {
+      gap: clamp(4px, 0.8vh, 8px) !important;
+      gap: clamp(4px, 0.8svh, 8px) !important;
+      gap: clamp(4px, 0.8dvh, 8px) !important;
+      padding-top: 4px !important;
+      padding-bottom: 8px !important;
+      overflow-y: auto;
+    }
+    .q-signup [data-q-signup-scroll] label { gap: 0 !important; }
+    .q-signup [data-q-signup-scroll] label > span:first-child {
+      font-size: 14px !important;
+      line-height: 1 !important;
+    }
+    .q-signup [data-q-signup-scroll] label > span[style*="height:50px"] {
+      height: clamp(44px, 6vh, 50px) !important;
+      height: clamp(44px, 6svh, 50px) !important;
+      height: clamp(44px, 6dvh, 50px) !important;
+    }
+    .q-signup [data-q-signup-scroll] div[style*="flex-wrap"] { gap: 4px !important; }
+    .q-signup [data-q-signup-scroll] div[style*="flex-direction:column"] { gap: 4px !important; }
+    .q-signup [data-q-signup-scroll] button[style*="align-items: flex-start"] {
+      padding: 8px 12px !important;
+      gap: 8px !important;
+    }
+    .q-signup [data-q-signup-scroll] button[style*="align-items: flex-start"] > span:last-child {
+      font-size: 14px !important;
+      line-height: 1.25 !important;
+    }
+    .q-signup [data-q-signup-scroll] p {
+      font-size: 14px !important;
+      line-height: 1.25 !important;
+    }
+    .q-signup button {
+      min-height: 44px;
+    }
+    .q-su-cta { padding: 6px 16px 8px !important; }
+  }
 </style>
 <script>
 /* This file lives in /quik1/. quik1.app rewrites "/" onto it while the
@@ -1496,7 +1673,7 @@ input,button,textarea{font-family:inherit}
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
       <div class="q-login" style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:visible">
+        <div class="q-login-head" style="position:relative;z-index:1;flex:1 0 auto;display:flex;flex-direction:column;justify-content:{{ loginHeadJustify }};align-items:flex-start;text-align:left;padding-top:calc(34px + var(--q-safe-top, env(safe-area-inset-top, 0px)));overflow:visible">
           <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="width:96px;height:auto;display:block;margin-bottom:16px">
           <span aria-hidden="true" style="display:block;align-self:stretch;width:auto;height:2px;margin:0 4px 18px 0;border-radius:2px;background:linear-gradient(90deg,#FDD10D 0%,rgba(253,209,13,.35) 70%,rgba(253,209,13,0) 100%)"></span>
           <sc-if value="{{ loginIntroStep }}" hint-placeholder-val="{{ true }}">
@@ -1530,7 +1707,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
         <sc-if value="{{ loginIdStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div class="q-signin" style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:128px;gap:14px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <label style="display:flex;flex-direction:column;gap:7px">
               <span style="font-size:13px;color:rgba(255,255,255,.6)">Mobile number</span>
               <span style="display:flex;align-items:center;gap:12px;height:60px;padding:0 22px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid {{ liPhoneBd }}">
@@ -1610,7 +1787,7 @@ input,button,textarea{font-family:inherit}
         </sc-if>
 
                 <sc-if value="{{ loginOtpStep }}">
-          <div style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:120px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
+          <div class="q-auth-pad" style="position:relative;z-index:1;display:flex;flex-direction:column;padding-bottom:120px;gap:16px;animation:q-up .44s cubic-bezier(.33,1,.68,1)">
             <sc-if value="{{ pinNote }}">
               <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
             </sc-if>
@@ -1629,13 +1806,13 @@ input,button,textarea{font-family:inherit}
                 <input value="{{ accountRefInput }}" sc-camel-on-change="{{ onAccountRef }}" autocomplete="off" spellcheck="false" placeholder="From your invite" style="height:52px;padding:0 18px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:15px">
               </label>
             </sc-if>
-            <div style="display:flex;gap:10px">
+            <div class="q-cells" style="display:flex;gap:10px">
               <sc-for list="{{ otpCells }}" as="cell" hint-placeholder-count="{{ pinCellCount }}">
                 <div style="flex:1;height:60px;border-radius:16px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.18);display:grid;place-items:center;font-size:24px;font-weight:700;color:#FDD10D">{{ cell.char }}</div>
               </sc-for>
             </div>
             <p data-q-pin-reset="1" style="margin:0;font-size:12.5px;line-height:1.35;color:rgba(255,255,255,.92);text-wrap:pretty">New 4-number PIN. Had an older PIN? Ask EcoLoans staff to reset it.</p>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            <div class="q-keys" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
               <sc-for list="{{ keypad }}" as="key" hint-placeholder-count="12">
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
@@ -1662,8 +1839,8 @@ input,button,textarea{font-family:inherit}
 
     <!-- ── Sign up ───────────────────────────────────────────── -->
     <sc-if value="{{ isSignup }}">
-      <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
-        <div data-q-safe-header="register" style="flex:0 0 auto;padding:calc(8px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 22px 0;display:flex;flex-direction:column;gap:6px">
+      <div class="q-signup" style="flex:1;min-height:0;display:flex;flex-direction:column;background:radial-gradient(90% 45% at 15% 0%,rgba(253,209,13,.12) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,#1C2029 0%,#13161D 55%,#0C0E13 100%);color:#FFFFFF;animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
+        <div class="q-su-head" data-q-safe-header="register" style="flex:0 0 auto;padding:calc(8px + var(--q-safe-top, env(safe-area-inset-top, 0px))) 22px 0;display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:12px">
             <button sc-camel-on-click="{{ onSuBack }}" aria-label="Back" style="flex:0 0 auto;height:44px;display:flex;align-items:center;gap:6px;padding:0 16px 0 12px;border-radius:999px;cursor:pointer;-webkit-appearance:none;appearance:none;font-family:inherit;font-size:14px;font-weight:600;line-height:1;white-space:nowrap;color:#FFFFFF;border:1px solid rgba(253,209,13,.55);background:{{ backGlass }};backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 16px -8px rgba(0,0,0,.35)">
               <svg sc-camel-view-box="0 0 24 24" style="width:18px;height:18px;flex:0 0 auto;fill:none;stroke:#FFFFFF;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"></path></svg>
@@ -1741,7 +1918,7 @@ input,button,textarea{font-family:inherit}
           </sc-if>
         </div>
 
-        <div style="flex:0 0 auto;padding:8px 22px calc(108px + env(safe-area-inset-bottom, 0px))">
+        <div class="q-su-cta" style="flex:0 0 auto;padding:8px 22px calc(108px + env(safe-area-inset-bottom, 0px))">
           <button sc-camel-on-click="{{ onSuNext }}" style="width:100%;height:62px;border-radius:999px;border:0;background:#FDD10D;cursor:pointer;font-size:17px;font-weight:600;color:#0B0620;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .3s cubic-bezier(.33,1,.68,1)" style-hover="background:#E9BF06">
             {{ suCta }}
             <svg sc-camel-view-box="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#0B0620;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"></path></svg>
@@ -2591,8 +2768,8 @@ input,button,textarea{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{ showAuthDock }}">
-        <p style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
-        <div class="q-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:45;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
+        <p class="q-legal" style="position:absolute;left:24px;right:24px;bottom:0;z-index:45;margin:0;padding:0 0 calc(8px + env(safe-area-inset-bottom));text-align:center;font-size:11px;line-height:1.5;color:rgba(255,255,255,.5);text-wrap:pretty">By continuing you agree to our Terms and Privacy Policy. All loans are subject to an affordability check.</p>
+        <div class="q-dock q-auth-dock" style="position:absolute;left:50%;transform:translateX(-50%);bottom:0;z-index:45;padding-bottom:calc(36px + env(safe-area-inset-bottom))">
         <div style="height:60px;padding:5px;border-radius:30px;background:var(--q-dock);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border:1px solid rgba(var(--q-fg),.09);box-shadow:0 18px 40px rgba(0,0,0,.35);display:flex;align-items:center;gap:2px">
           <sc-for list="{{ authDockItems }}" as="d" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ d.go }}" aria-label="{{ d.label }}" style="height:48px;display:flex;align-items:center;gap:{{ d.gap }};padding:0 {{ d.pad }};border-radius:999px;border:0;background:{{ d.bg }};box-shadow:{{ d.shadow }};cursor:pointer;color:{{ d.ink }};font-size:15px;font-weight:500;white-space:nowrap;-webkit-tap-highlight-color:transparent;will-change:padding;transition:background-color .5s cubic-bezier(.32,.72,0,1),padding .5s cubic-bezier(.32,.72,0,1),gap .5s cubic-bezier(.32,.72,0,1),box-shadow .5s cubic-bezier(.32,.72,0,1),color .4s ease,transform .18s cubic-bezier(.33,1,.68,1)" style-active="transform:scale(.94)">

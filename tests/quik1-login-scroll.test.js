@@ -87,8 +87,10 @@ function showPhase(arg) {
 }
 
 function place(label) {
-  const dock = document.querySelector('.q-dock');
-  const dockTop = dock ? dock.getBoundingClientRect().top : window.innerHeight;
+  const dock = document.querySelector('.q-auth-dock') || document.querySelector('.q-dock');
+  const dockStyle = dock ? getComputedStyle(dock) : null;
+  const dockHidden = !dock || dockStyle.display === 'none' || dockStyle.visibility === 'hidden';
+  const dockTop = dockHidden ? window.innerHeight : dock.getBoundingClientRect().top;
   const nodes = [...document.querySelectorAll('h1,h2,button,input,[data-q-pin-reset]')];
   const node = nodes.find((el) => {
     const text = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('placeholder') || '').replace(/\s+/g, ' ').trim();
@@ -132,7 +134,7 @@ test('login controls scroll into view and click at 320x568 and 375x812', { skip,
         const resetLine = await page.evaluate(place, 'New 4-number PIN.');
         assert.equal(resetLine.missing, undefined, JSON.stringify(resetLine));
         assert.equal(resetLine.fully, true, JSON.stringify(resetLine));
-        assert.equal(knownHead.overflow === 'auto' || knownHead.overflow === 'scroll' || knownHead.overflow === 'visible', true, knownHead.overflow);
+        assert.equal(knownHead.overflow === 'auto' || knownHead.overflow === 'scroll' || knownHead.overflow === 'visible' || knownHead.overflow === 'hidden', true, knownHead.overflow);
 
         assert.equal(await page.evaluate(showPhase, { screen: 'login', pinPhase: 'idpin', loginMode: 'pin' }), true);
         await pageWaitFor(page, () => /Use ID number/.test((document.querySelector('h1') || {}).textContent || ''), null, { timeoutMs: 8000 });
