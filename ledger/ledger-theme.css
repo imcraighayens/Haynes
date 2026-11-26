@@ -5,9 +5,9 @@
    stylesheet use a higher specificity plus !important. */
 
 html {
-  --acc: #f97316 !important;
-  --accInk: #1c1917 !important;
-  --accSoft: rgba(249, 115, 22, .16) !important;
+  --acc: #18181b !important;
+  --accInk: #ffffff !important;
+  --accSoft: rgba(24, 24, 27, .08) !important;
 }
 
 html[data-ledger-theme="light"] {
@@ -26,7 +26,7 @@ html[data-ledger-theme="light"] {
   --glassLine: rgba(24, 24, 27, .10) !important;
   --calGlass: #ffffff !important;
   --calGlassLine: rgba(24, 24, 27, .10) !important;
-  --accText: #c2410c !important;
+  --accText: #3f3f46 !important;
   --cardLift: 0 1px 2px rgba(24, 24, 27, .06), 0 14px 32px -20px rgba(24, 24, 27, .35) !important;
   --cardHover: 0 18px 36px -18px rgba(24, 24, 27, .32) !important;
   --shadow: 0 20px 40px -24px rgba(0, 0, 0, .45) !important;
@@ -45,6 +45,8 @@ html[data-ledger-theme="light"] {
 }
 
 html[data-ledger-theme="dark"] {
+  --acc: #fafafa !important;
+  --accInk: #18181b !important;
   --bg: #09090b !important;
   --panel: #18181b !important;
   --panel2: #27272a !important;
@@ -60,7 +62,7 @@ html[data-ledger-theme="dark"] {
   --glassLine: rgba(255, 255, 255, .10) !important;
   --calGlass: #18181b !important;
   --calGlassLine: rgba(255, 255, 255, .12) !important;
-  --accText: #fdba74 !important;
+  --accText: #e7e5e4 !important;
   --cardLift: 0 1px 2px rgba(0, 0, 0, .45), 0 16px 32px -18px rgba(0, 0, 0, .75) !important;
   --cardHover: 0 18px 36px -16px rgba(0, 0, 0, .8) !important;
   --shadow: 0 24px 50px rgba(0, 0, 0, .55) !important;
@@ -70,21 +72,19 @@ html[data-ledger-theme="light"] body { background: #09090b !important; }
 html[data-ledger-theme="dark"] body { background: #000000 !important; }
 
 /* Sign-in. The splash keeps the existing dark gate.
-   The gate scrolls at every width. Auto margins centre the card when it
-   fits, and drop to zero when it is taller than the screen, so a short
-   wide viewport (a phone in landscape) can still reach Sign in. */
+   The card fits the viewport. It does not scroll. */
 #ledger-gate[data-gate="login"] {
-  background: #e4e4e7;
+  background: #e7e5e4;
   color: #18181b;
-  overflow: auto;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
 }
 #ledger-gate[data-gate="login"] #ledger-login {
   width: min(64rem, 100%);
   flex: none;
-  margin: auto;
+  max-height: calc(100dvh - 32px);
 }
 #ledger-login .lg-panel {
   width: 100%;
@@ -97,8 +97,9 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
 }
 .lg-split {
   display: flex;
-  min-height: 560px;
-  background: #f4f4f5;
+  min-height: 0;
+  max-height: calc(100dvh - 32px);
+  background: #fafafa;
 }
 .lg-dark {
   position: relative;
@@ -112,15 +113,7 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   border-bottom-left-radius: 1.5rem;
   overflow: hidden;
 }
-.lg-strips {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  gap: 18px;
-  padding: 0 10%;
-  pointer-events: none;
-}
+.lg-strips, .lg-shade, .lg-glow, .lg-sun { display: none; }
 .lg-strips span {
   flex: 1 1 0;
   max-width: 46px;
@@ -168,12 +161,7 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   padding: 48px 44px;
   background: #f4f4f5;
 }
-.lg-sun {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-}
+.lg-sun { display: none; }
 .lg-sun svg { display: block; }
 #ledger-login .lg-title {
   margin: 14px 0 0;
@@ -246,31 +234,24 @@ html[data-ledger-theme="dark"] body { background: #000000 !important; }
   color: #3f3f46;
 }
 
-@media (max-height: 720px) {
-  .lg-split { min-height: 0; }
-  .lg-form { padding-top: 28px; padding-bottom: 28px; }
+@media (max-height: 760px) {
+  .lg-dark { padding: 24px 28px; }
+  .lg-form { padding: 20px 28px; }
+  .lg-headline { margin: 0; font-size: 26px; }
 }
 @media (max-width: 800px) {
-  #ledger-gate[data-gate="login"] {
-    padding: 16px 12px max(16px, env(safe-area-inset-bottom));
-  }
+  #ledger-gate[data-gate="login"] { padding: 12px; }
   #ledger-login .lg-panel { border-radius: 16px; }
   .lg-split { flex-direction: column; min-height: 0; }
   .lg-dark {
     flex: none;
-    min-height: 248px;
-    padding: 28px 22px 36px;
+    min-height: 0;
+    padding: 22px 20px;
     border-bottom-left-radius: 0;
   }
-  .lg-glow { width: 240px; height: 240px; bottom: -176px; }
-  .lg-headline {
-    margin-top: 4px;
-    max-width: 14em;
-    font-size: 28px;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, .8);
-  }
-  .lg-form { flex: none; padding: 24px 18px 22px; }
-  #ledger-login .lg-title { font-size: 1.6rem; }
+  .lg-headline { margin: 0; max-width: 16em; font-size: 26px; }
+  .lg-form { flex: none; padding: 18px 16px 16px; }
+  #ledger-login .lg-title { font-size: 1.5rem; }
 }
 
 /* Dashboard chrome. Width, order and the Q1 control stay as they are. */
@@ -339,69 +320,195 @@ html[data-ledger-theme="light"] .gate-note {
 }
 html[data-ledger-theme="light"] .act-k,
 html[data-ledger-theme="light"] .all-clear-title,
-html[data-ledger-theme="light"] .act-n {
-  color: #18181b !important;
-}
 html[data-ledger-theme="light"] .act-n,
 html[data-ledger-theme="light"] .bar-val,
 html[data-ledger-theme="light"] .home-grid [style*="font:700 20px"] {
-  color: #c2410c !important;
+  color: #18181b !important;
 }
 html[data-ledger-theme="dark"] .home-grid [style*="font:700 20px"],
 html[data-ledger-theme="dark"] .bar-val {
-  color: #fdba74 !important;
+  color: #fafafa !important;
 }
 html[data-ledger-theme="light"] .act-chev,
 html[data-ledger-theme="light"] .linkish {
-  color: #c2410c !important;
+  color: #3f3f46 !important;
 }
 html[data-ledger-theme="light"] .ledger-main [style*="color:#e4dfd4"],
+html[data-ledger-theme="light"] .ledger-main [style*="color: #e4dfd4"],
+html[data-ledger-theme="light"] .ledger-main [style*="228, 223, 212"],
 html[data-ledger-theme="light"] .ledger-main [style*="color:#e7e2d6"],
+html[data-ledger-theme="light"] .ledger-main [style*="color: #e7e2d6"],
+html[data-ledger-theme="light"] .ledger-main [style*="231, 226, 214"],
 html[data-ledger-theme="light"] .ledger-main [style*="color:#ddd8cc"],
-html[data-ledger-theme="light"] .ledger-main [style*="color:#f7f4ee"] {
+html[data-ledger-theme="light"] .ledger-main [style*="color: #ddd8cc"],
+html[data-ledger-theme="light"] .ledger-main [style*="221, 216, 204"],
+html[data-ledger-theme="light"] .ledger-main [style*="color:#f7f4ee"],
+html[data-ledger-theme="light"] .ledger-main [style*="color: #f7f4ee"],
+html[data-ledger-theme="light"] .ledger-main [style*="247, 244, 238"],
+html[data-ledger-theme="light"] .ledger-main .scph {
   color: #3f3f46 !important;
 }
 html[data-ledger-theme="light"] .ledger-main [style*="color:#C6F432"],
 html[data-ledger-theme="light"] .ledger-main [style*="color:#c3f53c"] {
-  color: #c2410c !important;
+  color: #3f3f46 !important;
 }
 
 html .report-kpis > div {
   background: var(--panel) !important;
-  border: 1px solid var(--line2) !important;
-  box-shadow: var(--cardLift) !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 html .report-kpis > div > div:first-child {
-  background: rgba(249, 115, 22, .14) !important;
-  border-color: rgba(249, 115, 22, .35) !important;
-  color: #c2410c !important;
+  background: #f4f4f5 !important;
+  border-color: transparent !important;
+  color: #3f3f46 !important;
 }
-html[data-ledger-theme="dark"] .report-kpis > div > div:first-child { color: #fdba74 !important; }
+html[data-ledger-theme="dark"] .report-kpis > div > div:first-child {
+  background: #27272a !important;
+  color: #e7e5e4 !important;
+}
 html .report-kpis > div > div:first-child svg { stroke: currentColor !important; }
 html .report-kpis > div > div:last-child > div:first-child { color: var(--mut) !important; }
-html[data-ledger-theme="light"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #c2410c !important; }
-html[data-ledger-theme="dark"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #fdba74 !important; }
+html[data-ledger-theme="light"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #18181b !important; }
+html[data-ledger-theme="dark"] .report-kpis > div > div:last-child > div:nth-child(2) { color: #fafafa !important; }
 html .report-kpis > div > div:last-child > div:nth-child(3) { color: var(--mut) !important; }
 
 html body .filter-chip.is-on,
 html body .pager-btn.is-on {
-  background: #f97316 !important;
-  color: #1c1917 !important;
-  border-color: #ea580c !important;
-  box-shadow: inset 0 -3px 0 #9a3412 !important;
+  background: #18181b !important;
+  color: #ffffff !important;
+  border-color: #18181b !important;
+  box-shadow: none !important;
 }
-.ledger-main [style*="background:var(--ink)"] {
-  background-color: #f97316 !important;
-  color: #1c1917 !important;
-}
-.ledger-main [style*="background:var(--acc)"]:hover {
-  background-color: #ea580c !important;
-}
-.import-btn:hover { border-color: #ea580c !important; }
+.import-btn:hover { border-color: #18181b !important; }
 
+#ledger-login .lg-field input,
+html[data-ledger-theme="light"] input,
+html[data-ledger-theme="light"] select,
+html[data-ledger-theme="light"] textarea {
+  border-color: #767676;
+}
 html input:focus,
 html select:focus,
-html textarea:focus {
-  border-color: #f97316 !important;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, .28);
+html textarea:focus,
+#ledger-login .lg-field input:focus {
+  border-color: #9a3412 !important;
+  box-shadow: 0 0 0 3px rgba(154, 52, 18, .35);
+}
+#ledger-login-submit,
+.primary-act,
+[aria-label="New loan"] {
+  background: #f97316 !important;
+  color: #1c1917 !important;
+}
+#ledger-login-submit:hover:not(:disabled),
+.primary-act:hover,
+[aria-label="New loan"]:hover {
+  background: #ea580c !important;
+}
+
+html[data-ledger-theme="dark"] [style*="background:var(--red)"][style*="color:#fff"],
+html[data-ledger-theme="dark"] [style*="background:var(--red)"][style*="color: #fff"],
+html[data-ledger-theme="dark"] [style*="background:#e08a76"],
+html[data-ledger-theme="dark"] [style*="background: #e08a76"] {
+  background-color: #b91c1c !important;
+}
+
+/* The shell never scrolls. A long list scrolls inside its own panel. */
+html, body {
+  height: 100dvh;
+  overflow: hidden !important;
+}
+body > div:has(> .ledger-side) {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+.ledger-main {
+  overflow: hidden !important;
+  min-height: 0;
+  max-height: 100dvh;
+}
+.ledger-main > div[style*="overflow-y:auto"],
+.ledger-main > div[style*="overflow-y: auto"] {
+  overflow: hidden !important;
+  min-height: 0;
+}
+.book-scroll,
+[data-screen-label="Applications inbox"] > div[style*="overflow:auto"],
+[data-screen-label="Clients"] > div[style*="overflow:auto"],
+[data-screen-label="Logbook"] .book-scroll,
+[data-screen-label="Employees"] > div[style*="overflow:auto"],
+.today-rows {
+  overflow: auto !important;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.ledger-main [data-screen-label="Admin"],
+.ledger-main [data-screen-label="Petty cash"],
+.ledger-main [data-screen-label="API & webhooks"],
+.ledger-main [data-screen-label="Issue loan"],
+.ledger-main [data-screen-label="Quik1 messages"],
+.ledger-main [data-screen-label="NuPay"],
+.ledger-main [data-screen-label="Add client"] {
+  overflow: auto !important;
+  max-height: 100%;
+  min-height: 0;
+}
+.nav-group { flex: none; padding-top: 8px !important; padding-bottom: 0 !important; }
+.ledger-side > div:nth-child(2) { gap: 1px !important; }
+.ledger-side[style*="width:74px"] .nav-group { display: none !important; }
+.ledger-side .nav-item { min-height: 30px !important; padding-top: 3px !important; padding-bottom: 3px !important; }
+
+.route-dashboard .ledger-kpis > div:first-child { display: none !important; }
+.route-markets .report-kpis { display: none !important; }
+.route-collections .ledger-kpis { display: none !important; }
+.route-collections [data-card="0"],
+.route-markets [data-card="1"],
+.route-markets [data-card="2"] { display: none !important; }
+.route-markets .home-grid,
+.route-collections .home-grid {
+  grid-template-columns: 1fr 1fr !important;
+  height: 100%;
+  min-height: 0;
+}
+.route-markets .home-grid { grid-template-columns: 1fr !important; }
+.route-markets [data-card="0"],
+.route-collections [data-card="1"],
+.route-collections [data-card="2"] {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+.today-work {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.today-rows .act-row {
+  display: grid;
+  grid-template-columns: minmax(0,1.4fr) minmax(0,.8fr) minmax(0,.8fr) auto auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.app-detail {
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden !important;
+  max-height: min(86vh, calc(100dvh - 24px)) !important;
+}
+.app-detail-body { overflow: auto; min-height: 0; flex: 1 1 auto; }
+.app-actions {
+  flex: none;
+  background: var(--panel, #fff);
+}
+
+@media (max-width: 820px) {
+  .today-rows .act-row { grid-template-columns: minmax(0,1fr) auto; }
+  .route-collections .home-grid { grid-template-columns: 1fr !important; }
 }

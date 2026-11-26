@@ -5,9 +5,12 @@ import fs from 'node:fs';
 
 const html = fs.readFileSync(new URL('../ledger/index.html', import.meta.url), 'utf8');
 
-test('the staff nav is the original nine items plus NuPay', () => {
-  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
-  assert.ok(html.includes(nav), 'sidebar keeps the 11 Nov items and NuPay');
+test('the staff nav groups the work and keeps every original item', () => {
+  const nav = "[['__g','Overview'],['dashboard','DASHBOARD'],['applications','APPLICATIONS'],['__g','Book'],['loans','LOANS'],['collections','COLLECTIONS'],['markets','MARKETS'],['logbook','LOGBOOK'],['__g','Clients'],['clients','CLIENTS'],['messages','MESSAGES'],['__g','Money'],['petty','PETTY CASH'],['nupay','NUPAY'],['__g','Admin'],['notifications','NOTIFICATIONS'],['ledger','ADMIN']]";
+  assert.ok(html.includes(nav), 'sidebar groups Overview, Book, Clients, Money, Admin and puts Applications next to Dashboard');
+  const appsAt = nav.indexOf("['applications','APPLICATIONS']");
+  const loansAt = nav.indexOf("['loans','LOANS']");
+  assert.ok(appsAt > 0 && appsAt < loansAt);
   assert.equal((html.match(/class="nav-item"/g) || []).length, 1, 'one nav list');
   assert.match(html, /class="ledger-side"/);
   assert.match(html, /aria-label="Open menu"/);

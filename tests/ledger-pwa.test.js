@@ -54,8 +54,8 @@ test('ledger/index.html links the manifest, icons, and worker without touching t
   assert.match(ledger, /serviceWorker\.register\('\/ledger\/sw\.js', \{ scope: '\/ledger\/' \}\)/);
   assert.doesNotMatch(ledger, /\/quik1\/sw\.js/);
   assert.doesNotMatch(ledger, /\/quik1\/manifest\.webmanifest/);
-  const nav = "[['dashboard','DASHBOARD'],['loans','LOANS'],['applications','APPLICATIONS'],['messages','MESSAGES'],['clients','CLIENTS'],['logbook','LOGBOOK'],['ledger','ADMIN'],['petty','PETTY CASH'],['notifications','NOTIFICATIONS'],['nupay','NUPAY']]";
-  assert.ok(ledger.includes(nav), 'the restored sidebar items stay put');
+  const nav = "[['__g','Overview'],['dashboard','DASHBOARD'],['applications','APPLICATIONS'],['__g','Book'],['loans','LOANS'],['collections','COLLECTIONS'],['markets','MARKETS'],['logbook','LOGBOOK'],['__g','Clients'],['clients','CLIENTS'],['messages','MESSAGES'],['__g','Money'],['petty','PETTY CASH'],['nupay','NUPAY'],['__g','Admin'],['notifications','NOTIFICATIONS'],['ledger','ADMIN']]";
+  assert.ok(ledger.includes(nav), 'the grouped sidebar is the one this branch ships');
 });
 
 test('service worker caches only the offline page and never api, auth, or book data', () => {
