@@ -11,6 +11,7 @@ import { wrap, json, readBody, requireEnv, HttpError } from './_lib/http.js';
 import { requireStaff, staffIdentity } from './_lib/auth.js';
 import { select, selectOne, eq } from './_lib/supabase.js';
 import { cleanText, isSafeId } from './_lib/validate.js';
+import { missingRelation } from './_lib/inbox.js';
 import { parseLedgerData, mergeBook, answerQuestion } from './_lib/q1-brain.js';
 import { notifyQ1Webhook, scrubSecrets } from './_lib/q1-webhook.js';
 
@@ -40,21 +41,70 @@ function historyOf(history) {
   })).filter(h => h.text);
 }
 
-async function tolerant(p) {
-  try { return await p; } catch { return null; }
+function openingBalance(settings) {
+  if (!settings || settings.bank_opening_balance == null || settings.bank_opening_balance === '') return null;
+  const n = Number(settings.bank_opening_balance);
+  return Number.isFinite(n) ? n : null;
 }
 
+function openingAtIso(settings) {
+  const raw = settings && settings.bank_opening_at;
+  const ms = Date.parse(raw);
+  if (!raw || Number.isNaN(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+// Same sum the console's bankNow() applies: confirmed opening, plus every movement after it.
+function balanceAfter(opening, openingAt, rows) {
+  const cutoff = Date.parse(openingAt);
+  let delta = 0;
+  for (const t of rows || []) {
+    if (!t) continue;
+    const at = Date.parse(t.at);
+    if (!Number.isFinite(at) || !(at > cutoff)) continue;
+    const amt = Number(t.amount);
+    if (!Number.isFinite(amt)) continue;
+    delta += t.type === 'in' ? amt : -amt;
+  }
+  return Math.round((opening + delta) * 100) / 100;
+}
+
+// null means the live book could not be loaded in full. A cookie session then
+// falls back to the browser DATA block. An empty array is a real empty section.
 export async function loadLiveBook() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
-  const [clients, loans, applications, employees, expenses, settings] = await Promise.all([
-    tolerant(select('clients', { select: 'id,ref,name,blocked,deleted_at', limit: 500 })),
-    tolerant(select('loans', { select: 'id,ref,client_id,principal,instalment_amount,status,schedule,instalments_paid,deleted_at', limit: 500 })),
-    tolerant(select('applications', { select: 'id,ref,name,amount,status,source,created_at', order: 'created_at.desc', limit: 100 })),
-    tolerant(select('employees', { select: 'id,name,role,active', limit: 100 })),
-    tolerant(select('expenses', { select: 'id,name,amount,deleted_at', limit: 100 })),
-    tolerant(selectOne('settings', { select: 'id,bank_opening_balance', id: eq('org') }))
-  ]);
-  if (!clients && !loans && !applications && !settings) return null;
+  let clients, loans, employees, expenses, settings;
+  try {
+    // No row cap. select() pages until the count is complete, in a stable order.
+    [clients, loans, employees, expenses, settings] = await Promise.all([
+      select('clients', { select: 'id,ref,name,blocked,deleted_at', order: 'id.asc' }),
+      select('loans', { select: 'id,ref,client_id,principal,instalment_amount,status,schedule,instalments_paid,deleted_at', order: 'id.asc' }),
+      select('employees', { select: 'id,name,role,active', order: 'id.asc' }),
+      select('expenses', { select: 'id,name,amount,deleted_at', order: 'id.asc' }),
+      selectOne('settings', { select: 'id,bank_opening_balance,bank_opening_at', id: eq('org') })
+    ]);
+  } catch {
+    return null;
+  }
+  let applications;
+  try {
+    applications = await select('applications', { select: 'id,ref,name,amount,status,source,created_at', order: 'created_at.desc,id.asc' });
+  } catch (err) {
+    if (!missingRelation(err)) return null;
+    applications = [];
+  }
+  const opening = openingBalance(settings);
+  const openingAt = openingAtIso(settings);
+  let bank = opening;
+  if (opening != null && openingAt) {
+    let rows;
+    try {
+      rows = await select('bank_tx', { select: 'at,type,amount', order: 'at.asc,id.asc', at: 'gt.' + openingAt });
+    } catch {
+      return null;
+    }
+    bank = balanceAfter(opening, openingAt, rows);
+  }
   const people = (clients || []).filter(c => c && !c.deleted_at);
   const byId = new Map(people.map(c => [c.id, c]));
   return {
@@ -83,7 +133,7 @@ export async function loadLiveBook() {
     })),
     employees: (employees || []).filter(e => e && e.active !== false && !e.deleted_at).map(e => ({ name: e.name || '—', role: e.role || '' })),
     expenses: (expenses || []).filter(e => e && !e.deleted_at).map(e => ({ name: e.name || '—', amount: Number(e.amount) || 0 })),
-    bank: settings && settings.bank_opening_balance != null && settings.bank_opening_balance !== '' ? Number(settings.bank_opening_balance) : null
+    bank
   };
 }
 

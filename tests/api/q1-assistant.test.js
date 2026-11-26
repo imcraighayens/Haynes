@@ -209,6 +209,99 @@ describe('q1 assistant', { concurrency: 1 }, () => {
     assert.equal(res.body.includes('craig@ecoloan.co.za'), false);
   });
 
+  test('a failed loans read does not count as an empty server book', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 25000 }] };
+      if (rec.table === 'loans') return { status: 500, body: { code: '57014', message: 'hidden row' } };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'browser-fallback');
+    assert.match(j.reply, /ECL-112/);
+    assert.equal(j.reply.includes('Nothing is due today'), false);
+    assert.equal(res.body.includes('hidden row'), false);
+    assert.equal(res.body.includes('craig@ecoloan.co.za'), false);
+  });
+
+  test('the live bank balance includes movements after the opening confirmation', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 10000, bank_opening_at: '2026-10-01T06:00:00.000Z' }] };
+      if (rec.table === 'bank_tx') {
+        return { status: 200, body: [
+          { id: 'bt_before', at: '2026-09-01T08:00:00.000Z', type: 'out', amount: 5000 },
+          { id: 'bt_after', at: '2026-10-12T08:00:00.000Z', type: 'out', amount: 1000 }
+        ] };
+      }
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's in the bank?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /R 9 000/);
+    assert.equal(j.reply.includes('10 000'), false);
+    assert.equal(j.reply.includes('48 250'), false);
+    assert.equal(res.body.includes('bt_before'), false);
+    assert.equal(res.body.includes('bt_after'), false);
+  });
+
+  test('a failed bank movement read does not quote the opening balance as current', async () => {
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 10000, bank_opening_at: '2026-10-01T06:00:00.000Z' }] };
+      if (rec.table === 'bank_tx') return { status: 500, body: { code: '57014' } };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's in the bank?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().source, 'browser-fallback');
+    assert.match(res.json().reply, /R 48 250/);
+  });
+
+  test('the live loan book follows a second page instead of stopping early', async () => {
+    const today = todayYmd(new Date());
+    const row = (ref) => ({ id: 'l_' + ref, ref, client_id: 'c_page', principal: 100, instalment_amount: 150, status: 'issued', schedule: [today], instalments_paid: 0, deleted_at: null });
+    stubFetch(async (rec) => {
+      if (rec.host !== 'db.test.supabase.co') return { status: 200, body: { ok: true } };
+      if (rec.table === 'employees') return { status: 200, body: [{ id: 'e1', name: 'Craig', email: 'craig@ecoloan.co.za', role: 'admin', active: true }] };
+      if (rec.table === 'clients') return { status: 200, body: [{ id: 'c_page', ref: 'EC-70', name: 'Page Borrower', blocked: false, deleted_at: null }] };
+      if (rec.table === 'loans') {
+        const offset = rec.url.searchParams.get('offset');
+        if (offset === '1000') return { status: 200, body: [row('ECL-702')], headers: { 'content-range': '1000-1000/2' } };
+        return { status: 200, body: [row('ECL-701')], headers: { 'content-range': '0-0/2' } };
+      }
+      if (rec.table === 'settings') return { status: 200, body: [{ id: 'org', bank_opening_balance: 1000 }] };
+      return { status: 200, body: [] };
+    });
+    const { token } = mintStaffSession(Date.now(), { email: 'craig@ecoloan.co.za', displayName: 'Craig' });
+    const headers = { origin: 'https://quik1ledger.com', host: 'quik1ledger.com', 'sec-fetch-site': 'same-origin', cookie: 'ledger_staff=' + encodeURIComponent(token) };
+    const res = await callStaff({ auth: false, headers, body: { message: "What's due today?", data: DATA } });
+    assert.equal(res.statusCode, 200);
+    const j = res.json();
+    assert.equal(j.source, 'server');
+    assert.match(j.reply, /ECL-701/);
+    assert.match(j.reply, /ECL-702/);
+    assert.equal(j.reply.includes('ECL-112'), false);
+    const loanCalls = calls.filter(c => c.table === 'loans');
+    assert.equal(loanCalls.length, 2);
+    assert.ok(loanCalls.every(c => c.url.searchParams.get('limit') === '1000'));
+    assert.equal(res.body.includes('l_ECL-701'), false);
+    assert.equal(res.body.includes('c_page'), false);
+  });
+
   test('assistant replies with no AI gateway key and never calls an AI host', async () => {
     delete process.env.AI_GATEWAY_API_KEY;
     const res = await callStaff({ body: { message: 'Who has not been updated?', data: DATA } });
