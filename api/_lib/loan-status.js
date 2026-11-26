@@ -9,6 +9,7 @@ import { HttpError } from './http.js';
 
 const LOAN_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const CLOSED = new Set(['paid', 'settled_early']);
+const OPEN = new Set(['issued', 'overdue']);
 
 function norm(value) {
   return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -34,12 +35,43 @@ function scheduleOf(loan) {
   return Array.isArray(loan && loan.schedule) ? loan.schedule.map(isoDate).filter(Boolean) : [];
 }
 
+// Settled-early still closes the whole loan. A paid click must not: that used
+// to set the count to the full schedule while storing only one date.
 function paidFields(loan, now) {
   const today = now.slice(0, 10);
   const paid = paidDatesOf(loan);
   if (today && !paid.includes(today)) paid.push(today);
   const count = Math.max(Number(loan.instalments_paid) || 0, scheduleOf(loan).length, paid.length, 1);
   return { instalments_paid: count, paid_dates: paid };
+}
+
+// One click stores one date. The count moves with that date, so a retry on the
+// same day does not record a second instalment.
+function recordOneInstalment(loan, now) {
+  const today = now.slice(0, 10);
+  const paid = paidDatesOf(loan);
+  const had = paid.length;
+  if (today && !paid.includes(today)) paid.push(today);
+  const prev = Number(loan.instalments_paid) || 0;
+  const count = prev === had ? prev + (paid.length - had) : paid.length;
+  return { instalments_paid: count, paid_dates: paid };
+}
+
+// An empty schedule is a single instalment. Otherwise the loan closes only
+// when the recorded count reaches the schedule.
+function closesOnCount(scheduleLen, count) {
+  if (!scheduleLen) return count >= 1;
+  return count >= scheduleLen;
+}
+
+// Leaving a closed loan drops the closing date and puts the count back in
+// line with the dates that remain. A close that jumped the count ahead of
+// the dates therefore clears, instead of leaving the loan open with a stale
+// paid count.
+function revertPaidFields(loan) {
+  const paid = paidDatesOf(loan);
+  if (paid.length) paid.pop();
+  return { instalments_paid: paid.length, paid_dates: paid };
 }
 
 // Same loan, same target, same instalment count, same client request → same audit id.
@@ -78,17 +110,42 @@ export async function commitLoanStatus({ loanId, status, note, by, updatedBy, in
   const who = String(updatedBy || by || 'staff').slice(0, 80);
   const prevPaid = Number(loan.instalments_paid) || 0;
   const schedule = scheduleOf(loan);
+  const wasClosed = CLOSED.has(current);
   let requested = null;
   if (instalmentsPaid != null && instalmentsPaid !== '' && Number.isFinite(Number(instalmentsPaid))) {
     requested = Math.max(0, Math.trunc(Number(instalmentsPaid)));
   }
+  let stored = next;
   const patch = { status: next, status_at: now, updated_at: now, updated_by: who };
-  if (CLOSED.has(next)) {
+  if (next === 'settled_early') {
     if (requested != null && schedule.length && requested < schedule.length) {
       throw new HttpError(422, 'This instalment does not close the loan.');
     }
     Object.assign(patch, paidFields(loan, now));
     if (requested != null) patch.instalments_paid = Math.max(patch.instalments_paid, requested);
+  } else if (next === 'paid') {
+    // An explicit short count is a close that the schedule does not support.
+    // A paid click with no count records exactly one instalment.
+    if (requested != null && schedule.length && requested < schedule.length) {
+      throw new HttpError(422, 'This instalment does not close the loan.');
+    }
+    const step = recordOneInstalment(loan, now);
+    const count = requested != null ? Math.max(step.instalments_paid, requested) : step.instalments_paid;
+    if (!closesOnCount(schedule.length, count)) {
+      stored = current === 'overdue' ? 'overdue' : 'issued';
+      patch.status = stored;
+      patch.instalments_paid = step.instalments_paid;
+      patch.paid_dates = step.paid_dates;
+    } else {
+      patch.instalments_paid = count;
+      patch.paid_dates = step.paid_dates;
+    }
+  } else if (wasClosed && OPEN.has(next)) {
+    const reverted = revertPaidFields(loan);
+    if (requested != null && requested !== reverted.instalments_paid) {
+      throw new HttpError(422, 'Pay exactly one instalment.');
+    }
+    Object.assign(patch, reverted);
   } else if (requested != null) {
     if (requested !== prevPaid && requested !== prevPaid + 1) {
       throw new HttpError(422, 'Pay exactly one instalment.');
@@ -108,20 +165,20 @@ export async function commitLoanStatus({ loanId, status, note, by, updatedBy, in
   const fresh = await selectOne('loans', { select: '*', id: eq(id) });
   const paidDates = fresh && Array.isArray(fresh.paid_dates) ? fresh.paid_dates.filter(Boolean) : [];
   const paidCount = fresh ? Number(fresh.instalments_paid) || 0 : 0;
-  if (!fresh || fresh.status !== next || !fresh.status_at) throw new HttpError(409, 'The loan was not updated');
-  if (CLOSED.has(next) && (paidCount < 1 || !paidDates.length)) throw new HttpError(409, 'The loan was not updated');
+  if (!fresh || fresh.status !== stored || !fresh.status_at) throw new HttpError(409, 'The loan was not updated');
+  if (CLOSED.has(stored) && (paidCount < 1 || !paidDates.length)) throw new HttpError(409, 'The loan was not updated');
   const client = loan.client_id
     ? await selectOne('clients', { select: 'id,name', id: eq(loan.client_id) })
     : null;
   const audit = {
     id: loanStatusAuditId({
       loanId: id,
-      status: next,
+      status: stored,
       instalmentsPaid: patch.instalments_paid != null ? patch.instalments_paid : prevPaid,
       requestId
     }),
     at: now,
-    type: 'STATUS → ' + next.replace(/_/g, ' ').toUpperCase(),
+    type: 'STATUS → ' + stored.replace(/_/g, ' ').toUpperCase(),
     ref: String(loan.ref || '').slice(0, 40),
     customer: String((client && client.name) || '—').slice(0, 80),
     amount: Number(loan.instalment_amount) || 0,

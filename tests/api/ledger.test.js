@@ -234,6 +234,79 @@ test('loan-status advances one instalment and closes the loan only on the last o
   assert.ok(loan.instalments_paid >= 3);
 });
 
+const FIVE = ['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01', '2026-05-01'];
+
+function stubLoan(loan) {
+  stubFetch(r => {
+    if (r.table === 'loans' && r.method === 'GET') return { status: 200, body: [{ ...loan }] };
+    if (r.table === 'loans' && r.method === 'PATCH') {
+      const filter = r.url.searchParams.get('updated_at');
+      if (filter !== 'eq.' + loan.updated_at) return { status: 200, body: [] };
+      Object.assign(loan, r.body);
+      return { status: 200, body: [{ ...loan }] };
+    }
+    if (r.table === 'clients') return { status: 200, body: [{ id: 'c_synth', name: 'Synthetic Borrower' }] };
+    if (r.table === 'audit_log') return { status: 200, body: r.body };
+    return { status: 200, body: [] };
+  });
+}
+
+test('unmarking a paid loan clears or steps back instalments_paid and paid_dates together', async () => {
+  const single = { id: 'l_synth', ref: 'SYN-9051', client_id: 'c_synth', status: 'paid', instalments_paid: 1, paid_dates: ['2026-10-23'], schedule: ['2026-10-23'], instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubLoan(single);
+  const cleared = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'issued', note: 'Unmark paid', requestId: 'revert-one' } });
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(single.status, 'issued');
+  assert.equal(single.instalments_paid, 0);
+  assert.deepEqual(single.paid_dates, []);
+  const patch = calls.find(c => c.table === 'loans' && c.method === 'PATCH').body;
+  assert.equal(patch.instalments_paid, 0);
+  assert.deepEqual(patch.paid_dates, []);
+
+  const jumped = { id: 'l_synth', ref: 'SYN-9052', client_id: 'c_synth', status: 'paid', instalments_paid: 5, paid_dates: ['2026-10-23'], schedule: FIVE.slice(), instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubLoan(jumped);
+  const unjumped = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'issued', requestId: 'revert-jump' } });
+  assert.equal(unjumped.statusCode, 200);
+  assert.equal(jumped.status, 'issued');
+  assert.equal(jumped.instalments_paid, 0);
+  assert.deepEqual(jumped.paid_dates, []);
+
+  const full = { id: 'l_synth', ref: 'SYN-9053', client_id: 'c_synth', status: 'paid', instalments_paid: 5, paid_dates: FIVE.slice(), schedule: FIVE.slice(), instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubLoan(full);
+  const stepped = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'overdue', requestId: 'revert-step' } });
+  assert.equal(stepped.statusCode, 200);
+  assert.equal(full.status, 'overdue');
+  assert.equal(full.instalments_paid, 4);
+  assert.deepEqual(full.paid_dates, FIVE.slice(0, 4));
+  assert.equal(full.instalments_paid, full.paid_dates.length);
+});
+
+test('a paid click on a 5-instalment loan records one instalment and stays open until the last one', async () => {
+  const loan = { id: 'l_synth', ref: 'SYN-9054', client_id: 'c_synth', status: 'issued', instalments_paid: 0, paid_dates: [], schedule: FIVE.slice(), instalment_amount: 100, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
+  stubLoan(loan);
+  const bulk = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Bulk status update', requestId: 'bulk-one' } });
+  assert.equal(bulk.statusCode, 200);
+  assert.equal(loan.status, 'issued');
+  assert.equal(loan.instalments_paid, 1);
+  assert.equal(loan.paid_dates.length, 1);
+  assert.equal(bulk.json().loan.status, 'issued');
+  const again = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Bulk status update', requestId: 'bulk-retry' } });
+  assert.equal(again.statusCode, 200);
+  assert.equal(loan.status, 'issued');
+  assert.equal(loan.instalments_paid, 1);
+  assert.equal(loan.paid_dates.length, 1);
+
+  loan.instalments_paid = 4;
+  loan.paid_dates = FIVE.slice(0, 4);
+  loan.status = 'issued';
+  const last = await call({ method: 'POST', path: ['loan-status'], body: { loanId: 'l_synth', status: 'paid', note: 'Bulk status update', requestId: 'bulk-last' } });
+  assert.equal(last.statusCode, 200);
+  assert.equal(loan.status, 'paid');
+  assert.equal(loan.instalments_paid, 5);
+  assert.equal(loan.paid_dates.length, 5);
+  assert.equal(loan.instalments_paid, loan.paid_dates.length);
+});
+
 test('loan-status audit id is stable for the same request and a stale updated_at is a 409', async () => {
   const loan = { id: 'l_synth', ref: 'SYN-9050', client_id: 'c_synth', status: 'issued', instalments_paid: 0, paid_dates: [], schedule: [], instalment_amount: 10, deleted_at: null, updated_at: '2026-11-01T00:00:00.000Z' };
   let conflict = false;
