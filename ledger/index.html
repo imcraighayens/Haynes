@@ -6701,10 +6701,16 @@ class Component extends DCLogic {
           bsApplyLabel:'Mark '+picked.length+' as '+lbl,
           bsApplyStyle:this.cssObj('flex:1;padding:11px;border-radius:12px;text-align:center;font-size:12.5px;font-weight:700;'+(picked.length?'background:#C6F432;color:#000;cursor:pointer':'background:var(--panel2);color:var(--dim);cursor:default')),
           bsApply:()=>{ if(!picked.length) return; this._bsQuiet=true;
-            picked.forEach(n=>{ if(!this.statusChoices(n.loan).includes(to)) return; this.setLoanStatus(n.loan.id, to, 'Bulk status update · was due '+n.date); });
+            picked.forEach(n=>{ if(!this.statusChoices(n.loan).includes(to)) return;
+              if(to==='paid'){
+                const total=n.total||(n.loan.sched&&n.loan.sched.length)||1;
+                const step=(window.LedgerAttention&&window.LedgerAttention.nextInstalmentStep)?window.LedgerAttention.nextInstalmentStep(n.loan, total):{instalmentsPaid:(Number(n.loan.paidInst)||0)+1, status:((Number(n.loan.paidInst)||0)+1>=total)?'paid':(n.loan.dbStatus==='overdue'?'overdue':'issued')};
+                this.setLoanStatus(n.loan.id, step.status, 'Bulk status update · was due '+n.date, {instalmentsPaid:step.instalmentsPaid, requestId:n.loan.id+':bulk:'+step.instalmentsPaid});
+                return; }
+              this.setLoanStatus(n.loan.id, to, 'Bulk status update · was due '+n.date); });
             this._bsQuiet=false; this.setState({modal:null, modalStack:[], bsSel:{}});
             if(to==='paid' && this.instSync) setTimeout(()=>this.instSync(), 0);
-            this.toast(picked.length+' loan'+(picked.length===1?'':'s')+' → '+lbl); } }; })(),
+            this.toast(to==='paid'?('Recorded one instalment on '+picked.length+' loan'+(picked.length===1?'':'s')):(picked.length+' loan'+(picked.length===1?'':'s')+' → '+lbl)); } }; })(),
       ...(()=>{ const L=this.q1Apps(), on=L.filter(a=>a.on&&a.url).length, ed=st.q1Edit, msgs=st.q1Msg||{};
         const base={q1AppsSub: on? (on+' LINKED · ASKED EVERY QUESTION') : 'NONE LINKED YET', q1AppsOpen:()=>this.setState({modal:'q1apps', modalStack:[]}), mQ1Apps: st.modal==='q1apps',
           q1AppAdd:()=>{ const id='q'+Date.now(); this.q1Save([...L, {id, name:'New app', url:'', path:'', key:'', proxy:'', on:false, actions:false, hint:'Any app with a JSON or CSV link.', pathHint:'/endpoint'}]); this.setState({q1Edit:id}); }};
