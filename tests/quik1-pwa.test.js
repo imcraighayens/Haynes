@@ -19,7 +19,8 @@ test('splash and login videos use the Claude Design file and playVideos stays mu
   assert.equal(tags.length, 2);
   for (const tag of tags) {
     assert.match(tag, new RegExp('src="' + video.replace(/\./g, '\\.') + '"'));
-    assert.match(tag, /poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd\.png"/);
+    assert.doesNotMatch(tag, /\bposter=/);
+    assert.match(tag, /background:#(?:000000|0C0E13)/);
     assert.match(tag, /muted="\{\{ true \}\}"/);
     assert.match(tag, /loop="\{\{ true \}\}"/);
     assert.match(tag, /sc-camel-plays-inline="\{\{ true \}\}"/);
@@ -31,6 +32,10 @@ test('splash and login videos use the Claude Design file and playVideos stays mu
   assert.match(play, /v\.muted=true/);
   assert.match(play, /playsinline/);
   assert.match(play, /webkit-playsinline/);
+  assert.match(play, /removeAttribute\('poster'\)/);
+  assert.match(quik, /visibilitychange/);
+  assert.match(quik, /pageshow/);
+  assert.match(quik, /touchstart/);
 });
 
 test('manifest is standalone and linked for both quik1.app root and /quik1/', () => {

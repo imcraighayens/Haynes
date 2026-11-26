@@ -527,7 +527,7 @@ input,button,textarea{font-family:inherit}
     <!-- ── Splash ────────────────────────────────────────────── -->
     <sc-if value="{{ isSplash }}" hint-placeholder-val="{{ true }}">
       <div class="q-bleed" style="position:absolute;inset:0;z-index:40;background:#000000;color:#FFFFFF;overflow:hidden">
-        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ splashVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;background:#000000"></video>
         <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.6))"></div>
         <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:calc(24px + var(--q-safe-top, env(safe-area-inset-top, 0px))) calc(34px + env(safe-area-inset-right)) calc(24px + var(--q-safe-bottom, env(safe-area-inset-bottom, 0px))) calc(34px + env(safe-area-inset-left));box-sizing:border-box">
         <img src="9385ac18-1427-408b-b351-d86435f8c60f.png" alt="Quik1" style="position:relative;z-index:1;width:168px;height:auto;display:block">
@@ -1492,7 +1492,7 @@ input,button,textarea{font-family:inherit}
     <!-- ── Login ─────────────────────────────────────────────── -->
     <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
       <div class="q-bleed" aria-hidden="true" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#0C0E13">
-        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" poster="c1d1957e-ecd6-4f39-8d7f-961aa5f07abd.png" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
+        <video class="q-bleed" src="90741e73-54ba-4ee7-9480-fa0370bd38e4.mp4" ref="{{ loginVideoRef }}" preload="auto" playsinline="" webkit-playsinline="" sc-camel-disable-picture-in-picture="{{ true }}" sc-camel-auto-play="{{ true }}" muted="{{ true }}" loop="{{ true }}" sc-camel-plays-inline="{{ true }}" aria-hidden="true" style="position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;opacity:.9;pointer-events:none;background:#0C0E13"></video>
         <div aria-hidden="true" style="position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(90% 55% at 15% 8%,rgba(253,209,13,.16) 0%,rgba(253,209,13,0) 60%),linear-gradient(180deg,rgba(0,0,0,.3) 0%,rgba(0,0,0,.55) 50%,rgba(12,14,19,.92) 100%)"></div>
       </div>
       <div style="flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;position:relative;z-index:1;display:flex;flex-direction:column;gap:22px;background:transparent;color:#FFFFFF;padding:0 calc(26px + env(safe-area-inset-right)) calc(46px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left));animation:q-in .34s cubic-bezier(.2,.8,.2,1)">
@@ -1606,6 +1606,15 @@ input,button,textarea{font-family:inherit}
             <sc-if value="{{ pinNote }}">
               <p style="margin:0;font-size:14px;line-height:1.45;color:#FF8A7A">{{ pinNote }}</p>
             </sc-if>
+            <sc-if value="{{ showPinBack }}">
+              <button sc-camel-on-click="{{ onSignInBack }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Back</button>
+            </sc-if>
+            <sc-if value="{{ showIdEntry }}">
+              <label style="display:flex;flex-direction:column;gap:4px">
+                <span style="font-size:13px;color:rgba(255,255,255,.6)">SA ID number</span>
+                <input data-q-idpin="1" value="{{ liId }}" sc-camel-on-change="{{ onLiId }}" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="13" placeholder="13 digits" style="height:44px;padding:0 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#FFFFFF;font-size:16px;letter-spacing:.04em">
+              </label>
+            </sc-if>
             <sc-if value="{{ showAccountRef }}">
               <label style="display:flex;flex-direction:column;gap:7px">
                 <span style="font-size:13px;color:rgba(255,255,255,.6)">Account reference</span>
@@ -1622,6 +1631,9 @@ input,button,textarea{font-family:inherit}
                 <button sc-camel-on-click="{{ key.onClick }}" style="height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#FFFFFF;font-size:19px;font-weight:500;cursor:pointer" style-active="background:rgba(253,209,13,.25)">{{ key.label }}</button>
               </sc-for>
             </div>
+            <sc-if value="{{ showUseId }}">
+              <button sc-camel-on-click="{{ onUseId }}" style="align-self:flex-start;padding:2px 0;border:0;background:transparent;cursor:pointer;font-size:14px;font-weight:600;color:#FDD10D">Use ID number</button>
+            </sc-if>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
               <button sc-camel-on-click="{{ onIntroSignup }}" style="padding:6px 0;border:0;background:transparent;cursor:pointer;font-size:14px;color:rgba(255,255,255,.6)">New here? <span style="color:#FDD10D;font-weight:500">Register</span></button>
               <sc-if value="{{ showBrowse }}" hint-placeholder-val="{{ true }}">
@@ -2805,7 +2817,7 @@ input,button,textarea{font-family:inherit}
       profileSaved:false, photo:null, purposeOther:'', proof:'', proofError:'',
       profile:{name:'',idnum:'',email:'',mobile:'',bank:''},
       bookMode:false, ledgerAccount:null, inviteCode:'', pinPhase:'sign', pinFirst:'', pinNote:'', deviceRef:'', accountRefInput:'', pinBusy:false, challengeId:'',
-      guest:false, guestGate:'', platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, signEmail:'',
+      guest:false, guestGate:'', platformAuth:false, biometricLive:false, biometricEnabled:false, biometricReady:true, biometricOffer:false, emailSignIn:false, signEmail:'',
       aiOpen:false, aiDraft:'', aiTyping:false, quickOpen:false,
       aiChat:[{from:'bot',text:'I am Q1, the Quik1 assistant. Ask me about your account.'}],
       draft:'', chat:[
@@ -2850,11 +2862,18 @@ input,button,textarea{font-family:inherit}
     playVideos(){
       [this._splashVid,this._loginVid].forEach(r=>{
         const v=r.current;
-        if(!v||!v.paused) return;
-        v.muted=true; v.defaultMuted=true;
+        if(!v) return;
+        v.muted=true; v.defaultMuted=true; v.loop=true;
+        v.removeAttribute('poster');
         v.setAttribute('muted',''); v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); v.setAttribute('autoplay','');
+        if(!v._q1bound){
+          v._q1bound=true;
+          v.addEventListener('error',()=>{ v.style.visibility='hidden'; });
+          v.addEventListener('playing',()=>{ v.style.visibility='visible'; });
+        }
+        if(!v.paused) return;
         const p=v.play();
-        if(p&&p.catch) p.catch(()=>{ if(!this._vidTap){ this._vidTap=()=>{ this.playVideos(); }; ['touchstart','click'].forEach(ev=>window.addEventListener(ev,this._vidTap,{once:true,passive:true})); } });
+        if(p&&p.catch) p.catch(()=>{});
       });
     }
     componentDidUpdate(pp,ps){
@@ -2883,6 +2902,12 @@ input,button,textarea{font-family:inherit}
       this._bubLogin=()=>{ clearTimeout(this._bubT); this._loginAt=Date.now(); this.setState({bubbleOn:false,bubbleIdx:null}); bub(FIRST); };
       this._loginAt=Date.now(); bub(FIRST);
       this._t0=Date.now();
+      this._vidWake=()=>{ if(document.hidden) return; this.playVideos(); };
+      document.addEventListener('visibilitychange',this._vidWake);
+      window.addEventListener('pageshow',this._vidWake);
+      window.addEventListener('focus',this._vidWake);
+      window.addEventListener('touchstart',this._vidWake,{passive:true});
+      window.addEventListener('click',this._vidWake);
       setTimeout(()=>this.playVideos(),60);
       this._splash=setInterval(()=>{
         const e=Date.now()-this._t0;
@@ -2940,7 +2965,7 @@ input,button,textarea{font-family:inherit}
         isSignup:s.screen==='signup', isSignupPending:s.screen==='signupPending',
         suStep:step, suStep2:step===2, suStep3:step===3,
         suStepName:{1:'About you',2:'Work and pay',3:'Pick a PIN'}[step],
-        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose 6 numbers you will remember. You use them to open the app.'}[step],
+        suTip:{1:'Type your name, phone number and ID number exactly as they are on your ID.',2:'Tell us where you work and when you get paid. This helps us lend you an amount you can pay back.',3:'Choose '+PIN_LENGTH+' numbers you will remember. You use them to open the app.'}[step],
         suBars:[1,2,3].map(i=>({bg:i<=step?'#FDD10D':'rgba(255,255,255,.12)'})),
         suTitle:{1:'Tell us about you',2:'Your work and pay',3:'Pick a PIN'}[step],
         suSub:{1:'Use the details on your ID so we can check it’s really you.',2:'So we only lend what you can comfortably pay back.',3:'You’ll use these '+PIN_LENGTH+' digits to log in. Keep them to yourself.'}[step],
@@ -3010,7 +3035,7 @@ input,button,textarea{font-family:inherit}
           E('span',{key:'eyes',style:{display:'flex',alignItems:'center',gap:'5px',height:'7px'}},eye(-1),eye(1)),
           E('span',{key:'mouth',style:{display:'block',width:mouth.w+'px',height:mouth.h+'px',borderRadius:mouth.rad||'1px',background:'#FDD10D',opacity:.85,transform:'translateY('+mouth.y+'px) rotate('+mouth.r+'deg)',transition:T}})));
     }
-    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); }
+    componentWillUnmount(){ clearTimeout(this._botT); clearTimeout(this._bubT); if(this._unSu) this._unSu(); window.removeEventListener('resize',this._onResize); clearInterval(this._splash); clearInterval(this._menuIconT); clearInterval(this._hovT); clearTimeout(this._tipT); clearInterval(this._bookPoll); clearInterval(this._appPoll); if(this._unRep) this._unRep(); if(this._unlink) this._unlink(); if(this._vidWake){ document.removeEventListener('visibilitychange',this._vidWake); window.removeEventListener('pageshow',this._vidWake); window.removeEventListener('focus',this._vidWake); window.removeEventListener('touchstart',this._vidWake); window.removeEventListener('click',this._vidWake); } }
   
     _cards=React.createRef();
     _aiScroll=React.createRef();
@@ -3129,14 +3154,14 @@ input,button,textarea{font-family:inherit}
         if(P&&typeof P.isUserVerifyingPlatformAuthenticatorAvailable==='function') platform=P.isUserVerifyingPlatformAuthenticatorAvailable();
       }catch(e){}
       const flag=this.apiFetch('/webauthn',{headers:{accept:'application/json'}})
-        .then(r=>r.ok?r.json():{enabled:false,ready:false})
-        .then(j=>j||{enabled:false,ready:false})
-        .catch(()=>({enabled:false,ready:false}));
+        .then(r=>r.ok?r.json():{enabled:false,ready:false,emailSignIn:false})
+        .then(j=>j||{enabled:false,ready:false,emailSignIn:false})
+        .catch(()=>({enabled:false,ready:false,emailSignIn:false}));
       Promise.all([Promise.resolve(platform).catch(()=>false), flag]).then(([ok,status])=>{
         if(this.state.guest) return;
         const enabled=!!(status&&status.enabled);
         const ready=!!(status&&status.ready);
-        this.setState({platformAuth:!!ok, biometricEnabled:enabled, biometricReady:ready, biometricLive:enabled&&ready});
+        this.setState({platformAuth:!!ok, biometricEnabled:enabled, biometricReady:ready, biometricLive:enabled&&ready, emailSignIn:!!(status&&status.emailSignIn)});
       });
     }
     passkeyFrameOk(){
@@ -3699,6 +3724,15 @@ input,button,textarea{font-family:inherit}
         this.setState({pinCurrent:pin, pinPhase:'change', otp:'', pinNote:'', pinFirst:''});
         return;
       }
+      if(st.pinPhase==='idpin'){
+        const id=String(st.liId||'').replace(/\D/g,'');
+        if(id.length!==13){
+          this.setState({otp:'', pinNote:'Enter the 13 digits of your ID, then your PIN.'});
+          return;
+        }
+        this.finishBorrower('/signin/id', {idNumber:id, pin:pin});
+        return;
+      }
       if(st.pinPhase==='change'||st.pinPhase==='change2'){
         if(st.pinPhase!=='change2'){
           this.setState({pinFirst:pin, pinPhase:'change2', otp:'', pinNote:''});
@@ -3736,7 +3770,8 @@ input,button,textarea{font-family:inherit}
         .then(async r=>{
           let j=null; try{ j=await r.json(); }catch(e){ j=null; }
           if(r.status===423){
-            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:'sign', pinNote:'Quik1 is locked. Ask your loan officer to set a new PIN.'});
+            const stay=this.state.pinPhase==='idpin'?'idpin':'sign';
+            this.setState({pinBusy:false, otp:'', pinFirst:'', challengeId:'', pinPhase:stay, pinNote:'Quik1 is locked. Ask your loan officer to set a new PIN.'});
             return;
           }
           if(j&&j.deviceNotLinked===true){
@@ -3761,6 +3796,7 @@ input,button,textarea{font-family:inherit}
             const phase=this.state.pinPhase;
             let back=this.state.inviteCode?'choose':'sign';
             let pinCurrent=this.state.pinCurrent||'';
+            if(phase==='idpin') back='idpin';
             if(phase==='current'||phase==='change'||phase==='change2'){
               if(r.status===400 && pinCurrent) back='change';
               else { back=r.status===423?'sign':'current'; pinCurrent=''; }
@@ -5815,7 +5851,7 @@ input,button,textarea{font-family:inherit}
         loginEmailStep:s.screen==='login'&&s.pinPhase==='emailin',
         loginIdSignStep:s.screen==='login'&&s.pinPhase==='idphone',
         loginStepHeadOn:s.screen==='login',
-        loginHead:s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
+        loginHead:s.pinPhase==='current'?'Enter your current PIN':s.pinPhase==='unlinked'?"This phone isn't linked yet":s.pinPhase==='change'?'Choose a new PIN':s.pinPhase==='change2'?'Confirm your new PIN':s.pinPhase==='choose'?'Choose a PIN':s.pinPhase==='confirm'?'Confirm your PIN':s.pinPhase==='email'?'Check your email':s.pinPhase==='emailin'?'Email a link':s.pinPhase==='idpin'?'Use ID number':s.pinPhase==='idphone'?'ID and cellphone':s.pinPhase==='staff'?'Contact your loan officer':'Enter your PIN',
         loginSub:s.pinPhase==='current'
           ?'Enter the '+PIN_LENGTH+'-digit PIN you use now. Then choose a new one.'
           :s.pinPhase==='unlinked'
@@ -5832,20 +5868,26 @@ input,button,textarea{font-family:inherit}
           ?'Open the link on this phone. It works once, then this device is remembered.'
           :s.pinPhase==='emailin'
           ?'If this email is on your account, we send one link to this phone. It expires and works once.'
+          :s.pinPhase==='idpin'
+          ?'Your SA ID, then your PIN.'
           :s.pinPhase==='idphone'
           ?'We match these to your loan file, then email a link. The ID and cellphone alone do not sign you in.'
           :s.pinPhase==='staff'
           ?'Staff can reset this device in Ledger. Your PIN stays the same.'
           :'Enter the '+PIN_LENGTH+'-digit PIN you chose. It is not your ID number.',
         pinNote:s.pinNote||'',
+        showPinBack:s.screen==='login'&&s.pinPhase==='idpin',
+        showUseId:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showIdEntry:s.screen==='login'&&s.pinPhase==='idpin',
+        onUseId:()=>this.setState({screen:'login',pinPhase:'idpin',otp:'',pinNote:'',liId:'',loginIntro:false}),
         signEmail:s.signEmail||'',
         onSignEmail:e=>this.setState({signEmail:String(e.target.value||'').slice(0,160), pinNote:''}),
-        showMethods:s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
+        showMethods:!!s.emailSignIn&&s.screen==='login'&&s.pinPhase==='sign'&&!s.inviteCode,
         onEmailSignIn:()=>this.setState({pinPhase:'emailin', pinNote:'', signEmail:s.signEmail||''}),
         onIdPhoneSignIn:()=>this.setState({pinPhase:'idphone', pinNote:'', liError:''}),
         onSendEmailLink:()=>this.sendNeutralSignIn('/signin/email', {email:s.signEmail||''}),
         onSendIdPhone:()=>this.sendNeutralSignIn('/signin/id', {phone:s.liPhone||'', idNumber:s.liId||''}),
-        onSignInBack:()=>this.setState({pinPhase:'sign', pinNote:''}),
+        onSignInBack:()=>this.setState({pinPhase:'sign', pinNote:'', otp:'', liId:''}),
         showFaceId:!!s.platformAuth&&!!s.biometricLive&&s.pinPhase==='sign'&&!s.inviteCode,
         biometricCta:/iPhone|iPad/.test((typeof navigator!=='undefined'&&navigator.userAgent)||'')?'Sign in with Face ID':'Sign in with fingerprint',
         onFaceId:()=>this.unlockBiometric(),
@@ -5859,7 +5901,7 @@ input,button,textarea{font-family:inherit}
         showFaceOffer:!!s.biometricOffer&&!s.guest&&!!s.platformAuth&&!!s.biometricLive,
         onEnrolFace:()=>this.enrolBiometric(),
         onDismissFace:()=>this.setState({biometricOffer:false}),
-        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2',
+        showAccountRef:!s.inviteCode&&!s.deviceRef&&s.pinPhase!=='current'&&s.pinPhase!=='change'&&s.pinPhase!=='change2'&&s.pinPhase!=='idpin',
         accountRefInput:s.accountRefInput||'',
         onAccountRef:e=>this.setState({accountRefInput:String(e.target.value||'').replace(/[^A-Za-z0-9_]/g,'').slice(0,40), pinNote:''}),
         loginHeadJustify:'flex-end',

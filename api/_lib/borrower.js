@@ -1,8 +1,8 @@
 // Staff invites and borrower PIN sign-in.
 // A new device is confirmed by an email link when borrower email is live.
 // When it is not, that sign-in fails closed: no sender call, no link, no challenge.
-// An ID number is never used to look anyone up. ID and cellphone
-// sign-in, when used, matches a keyed HMAC on the client row.
+// ID sign-in matches a keyed HMAC already stored on the Ledger client row.
+// The raw ID number is not logged, stored again, or returned.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { HttpError, header } from './http.js';
 import { select, selectOne, insert, update, patchWhere, count, eq } from './supabase.js';
@@ -92,12 +92,12 @@ export async function guardAuth(req, res) {
 
 const ATTEMPT_KEEP_MS = 90 * 24 * 3600 * 1000;
 
-async function noteAttempt(borrowerId, kind, req, subjectHash) {
+async function noteAttempt(borrowerId, kind, req, subjectHash, ipHash) {
   const row = {
     id: 'qa_' + randomBytes(8).toString('hex'),
     borrower_id: borrowerId || null,
     kind,
-    ip_hash: authIpHash(clientIp(req) || 'unknown'),
+    ip_hash: ipHash || authIpHash(clientIp(req) || 'unknown'),
     expires_at: new Date(Date.now() + ATTEMPT_KEEP_MS).toISOString()
   };
   if (subjectHash) row.subject_hash = subjectHash;
@@ -108,8 +108,8 @@ async function noteAttempt(borrowerId, kind, req, subjectHash) {
   }
 }
 
-export async function logAuthAttempt(borrowerId, kind, req, subjectHash) {
-  return noteAttempt(borrowerId, kind, req, subjectHash);
+export async function logAuthAttempt(borrowerId, kind, req, subjectHash, ipHash) {
+  return noteAttempt(borrowerId, kind, req, subjectHash, ipHash);
 }
 
 export function hashInviteCode(code) {
@@ -1116,17 +1116,29 @@ export function pinChangePending() {
 // Lock (423), then the real PIN, then device_not_linked.
 // A null borrower is the unknown-account 401. device_not_linked is only after
 // the PIN matches.
-export async function signInWithPin(req, borrower, pin) {
+// accountLock false is the ID-number path: a failure does not increment
+// failed_attempts or set locked_at, and an existing lock is the same 401.
+export async function signInWithPin(req, borrower, pin, opts) {
+  const accountLock = !opts || opts.accountLock !== false;
   if (isWrongLengthPin(pin)) rejectPinShape();
   if (!borrower) {
     await comparePins(pin, null);
-    await noteAttempt(null, 'pin', req);
+    if (accountLock) await noteAttempt(null, 'pin', req);
     rejectPin();
   }
-  await clearExpiredLock(borrower);
-  if (isLocked(borrower)) lockedError();
+  if (accountLock) await clearExpiredLock(borrower);
+  if (isLocked(borrower)) {
+    if (!accountLock) {
+      await comparePins(pin, null);
+      rejectPin();
+    }
+    lockedError();
+  }
   const checks = await comparePins(pin, borrower.pin_hash);
-  if (!checks.realOk) await noteFailure(borrower, 'pin', req);
+  if (!checks.realOk) {
+    if (!accountLock) rejectPin();
+    await noteFailure(borrower, 'pin', req);
+  }
   try { await liveClient(borrower.client_id); }
   catch (e) {
     if (e instanceof HttpError && e.status === 404) rejectPin();

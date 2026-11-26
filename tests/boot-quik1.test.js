@@ -100,6 +100,10 @@ function startRootHost() {
       res.writeHead(200, { 'content-type': types[ext] || 'application/octet-stream', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, name)).pipe(res);
     }
+    if (urlPath === '/shared/pin-length.js') {
+      res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-store' });
+      return fs.createReadStream(path.resolve(dir, '../shared/pin-length.js')).pipe(res);
+    }
     if (urlPath === '/' || urlPath === '/index.html') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       return fs.createReadStream(path.join(dir, 'index.html')).pipe(res);
