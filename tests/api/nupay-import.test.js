@@ -135,9 +135,10 @@ test('commit dedupes on the NuPay reference, keeps every schedule date, and stay
   assertPrivate(again.body);
 
   const invite = await call({ path: ['quik1-invites'], body: { clientId: client.id } });
-  assert.equal(invite.statusCode, 201, invite.body);
-  assert.equal(invite.json().clientRef, 'NP-100');
-  assert.match(invite.json().link, /#invite=[0-9a-f]{64}$/);
+  assert.equal(invite.statusCode, 410, invite.body);
+  assert.equal(invite.json().error, 'Invites retired: use Grant Quik1 access');
+  assert.equal(invite.json().code, undefined);
+  assert.equal(fake.db.q1_invites.length, 0);
   assertPrivate(invite.body);
 });
 

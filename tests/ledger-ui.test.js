@@ -79,7 +79,8 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /placeholder="Search…"/);
   assert.match(html, /No loans in this view/);
   assert.match(html, /No results for that search/);
-  assert.match(html, /Give Quik1 access/);
+  assert.match(html, /Grant Quik1 access/);
+  assert.doesNotMatch(html, /Give Quik1 access/);
   assert.match(html, /data-label="REVOKE ACCESS"/);
   assert.match(html, /Reset device/);
   assert.match(html, /\/quik1-devices\/reset/);
@@ -87,7 +88,17 @@ test('loan and client collections are tables with a search, status text, and pag
   assert.match(html, /Final due/);
   assert.match(html, /Quik1 invites are switched off until launch/);
   assert.match(html, /borrowerPinLive/);
-  assert.match(html, /Resend invite/);
+  assert.doesNotMatch(html, />Send invite</);
+  assert.doesNotMatch(html, />Resend invite</);
+  assert.doesNotMatch(html, /Send new link/);
+  assert.match(html, /RESEND INVITE/);
+  assert.match(html, /This client needs a valid SA ID number before Quik1 access can be granted\. Update their ID first\./);
+  const accessStart = html.indexOf('data-screen-label="Quik1 access"');
+  const access = html.slice(accessStart, html.indexOf('data-screen-label="Applications inbox"', accessStart));
+  assert.doesNotMatch(access, /Send invite|Resend invite|Give Quik1 access/);
+  assert.match(access, /Grant Quik1 access/);
+  assert.match(access, /Revoke access/);
+  assert.match(access, /Reset device/);
   assert.match(html, /Record payment/);
   assert.match(html, /held:\['Held'/);
   assert.match(html, /'release-held':\['Held'/);

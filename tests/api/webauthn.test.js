@@ -7,6 +7,7 @@ import { publicLimiter, authLimiter } from '../../api/_lib/ratelimit.js';
 import { verifyPin } from '../../api/_lib/pin.js';
 import { b64urlEncode, cborEncode, sha256 } from '../../api/_lib/webauthn.js';
 import { rpIdForHost } from '../../api/_lib/borrower-webauthn.js';
+import { createInvite } from '../../api/_lib/borrower.js';
 
 const SECRET = 'borrower-session-secret-for-tests-only';
 const STAFF = 'ledger-test-key';
@@ -22,7 +23,7 @@ process.env.QUIK1_SESSION_SECRET = SECRET;
 function seed(withWebauthn) {
   const base = {
     clients: [
-      { id: CLIENT_A, ref: 'EC-901', name: 'Book Client A', bank: 'Example Bank', deleted_at: null }
+      { id: CLIENT_A, ref: 'EC-901', name: 'Book Client A', bank: 'Example Bank', id_number: '9912314800084', id_hmac: 'ab'.repeat(32), deleted_at: null }
     ],
     loans: [],
     q1_borrowers: [],
@@ -85,11 +86,10 @@ function cookieHeader(res) {
 }
 
 async function pinSession() {
-  const created = await call(ledger, {
-    method: 'POST', path: ['quik1-invites'], headers: staffHeaders(), body: { clientId: CLIENT_A }
-  });
-  assert.equal(created.statusCode, 201, created.body);
-  const code = created.json().code;
+  const created = await createInvite({
+    headers: { host: 'localhost', 'x-forwarded-proto': 'https', ...staffHeaders() }
+  }, CLIENT_A);
+  const code = created.code;
   const redeemed = await call(quik1, {
     method: 'POST', path: ['invites', 'redeem'], body: { code, pin: PIN_OK, pinConfirm: PIN_OK }
   });

@@ -29,7 +29,8 @@ test('an unsigned visitor gets a splash and then the staff login, outside the bo
   assert.match(sync, /revealLogin/);
   assert.match(sync, /return injectRuntime\(\)/);
   assert.match(ledger, /sync\.lock\(\)/);
-  assert.match(ledger, /Give Quik1 access/);
+  assert.match(ledger, /Grant Quik1 access/);
+  assert.doesNotMatch(ledger, /Give Quik1 access/);
   assert.match(ledger, /NuPay ref: \{\{ q1Ref \}\}/);
   assert.doesNotMatch(ledger, /\[q\.name, q\.ref\]\.filter\(Boolean\)\.join\(' · '\)/);
   const q1Label = (name, ref) => [name, ref ? 'NuPay ref: ' + ref : ''].filter(Boolean).join('\n');
